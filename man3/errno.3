@@ -22,24 +22,30 @@
 .\"
 .\" 5 Oct 2002, Modified by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" 	Updated for POSIX 1003.1 2001
+.\" 2004-12-17 Martin Schulze <joey@infodrom.org>, mtk
+.\"	Removed errno declaration prototype, added notes
 .\"
-.TH ERRNO 3 2002-10-05 "" "Library functions"
+.TH ERRNO 3 2004-12-17 "" "Library functions"
 .SH NAME
 errno \- number of last error
 .SH SYNOPSIS
 .B #include <errno.h>
-.sp
-.BI "extern int " errno ;
+.\".sp
+.\".BI "extern int " errno ;
 .SH DESCRIPTION
-The integer
-.B errno
-is set by system calls (and some library functions) to indicate
-what went wrong.  Its value is significant only when the call
-returned an error (usually \-1), and a library function that does succeed
+The 
+.I <errno.h>
+header file defines the integer variable
+.B errno ,
+which is set by system calls and some library functions in the event
+of an error to indicate what went wrong.
+Its value is significant only when the call
+returned an error (usually \-1), and a function that does succeed
 is allowed to change
 .BR errno .
 
-Sometimes, when \-1 is also a legal return value one has to zero
+Sometimes, when \-1 is also a valid successful return value
+one has to zero
 .B errno
 before the call in order to detect possible errors.
 
@@ -50,7 +56,11 @@ does not affect its value in any other thread.
 
 Valid error numbers are all non-zero; \fBerrno\fR is never set to zero
 by any library function.  All the error names specified by POSIX.1
-must have distinct values.
+must have distinct values, with the exception of
+.B EAGAIN
+and 
+.BR EWOULDBLOCK ,
+which may be the same.
 
 .\" FIXME EILSEQ is in C99.
 POSIX.1 (2001 edition) lists the following symbolic error names.  Of
@@ -300,7 +310,7 @@ Operation would block (may be same value as
 .TP
 .B EXDEV
 Improper link
-.SH NOTE
+.SH NOTES
 A common mistake is to do
 .RS
 .nf
@@ -315,7 +325,9 @@ if (somecall() == -1) {
 where
 .I errno
 no longer needs to have the value it had upon return from
-.IR somecall() .
+.IR somecall() 
+(i.e., it may have been changed by the
+.IR printf() ).
 If the value of
 .I errno
 should be preserved across a library call, it must be saved:
@@ -329,6 +341,19 @@ if (somecall() == -1) {
 }
 .fi
 .RE
+.PP
+It was common in traditional C to declare
+.I errno
+manually
+(i.e., 
+.IR "extern int errno" )
+instead of including
+.IR <errno.h> .
+.BR "Do not do this" .
+It will not work with modern versions of the C library.
+However, on (very) old Unix systems, there may be no
+.I <errno.h>
+and the declaration is needed.
 .SH "SEE ALSO"
 .BR perror (3),
 .BR strerror (3)

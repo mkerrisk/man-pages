@@ -29,6 +29,9 @@
 .\"	Removed EIDRM from errors - that can't happen...
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on capability requirements
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Added notes on /proc files
 .\"
 .TH SHMGET 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
 .SH NAME
@@ -42,7 +45,7 @@ shmget \- allocates a shared memory segment
 .BI "int shmget(key_t " key ", int " size ", int " shmflg );
 .ad b
 .SH DESCRIPTION
-.B shmget()
+.BR shmget ()
 returns the identifier of the shared memory segment
 associated with the value of the argument
 .IR key .
@@ -62,11 +65,27 @@ no shared memory segment corresponding to
 .IR key
 exists, and
 .B IPC_CREAT
-is asserted in
+is specified in
+.IR shmflg .
+.PP
+If
 .I shmflg
-(i.e.
-.IB shmflg &IPC_CREAT
-isn't zero).
+specifies both
+.B IPC_CREAT
+and
+.B IPC_EXCL
+and a shared memory segment already exists for
+.IR key ,
+then
+.BR shmget ()
+fails with 
+.I errno
+set to
+.BR EEXIST .
+(This is analogous to the effect of the combination 
+.B O_CREAT | O_EXCL
+for
+.BR open (2).)
 .PP
 The value
 .I shmflg
@@ -74,108 +93,77 @@ is composed of:
 .TP 12
 .B IPC_CREAT
 to create a new segment. If this flag is not used, then 
-.B shmget()
+.BR shmget ()
 will find the segment associated with \fIkey\fP and check to see if 
 the user has permission to access the segment.
 .TP
 .B IPC_EXCL
 used with \fBIPC_CREAT\fP to ensure failure if the segment already exists. 
 .TP
-.B mode_flags (lowest 9 bits)
+.I mode_flags 
+(least significant 9 bits)
 specifying the permissions granted to the owner, group, and world.
+These bits have the same format, and the same
+meaning, as the
+.I mode
+argument of
+.BR open (2).
 Presently, the execute permissions are not used by the system.
 .\" FIXME -- document SHM_HUGETLB
 .PP
-If a new segment is created, the access permissions from
-.I shmflg
-are copied into the 
-.I shm_perm
-member of the 
+If a new shared memory segment is created,
+then its associated data structure
 .I shmid_ds
-structure that defines the segment.
-The \fIshmid_ds\fP structure has the following form:
-.PP
-.in +0.5i
-.nf
-struct shmid_ds {
-    struct ipc_perm shm_perm;    /* operation perms */
-    int             shm_segsz;   /* size of segment (bytes) */
-    time_t          shm_atime;   /* last attach time */
-    time_t          shm_dtime;   /* last detach time */
-    time_t          shm_ctime;   /* last change time */
-    unsigned short  shm_cpid;    /* pid of creator */
-    unsigned short  shm_lpid;    /* pid of last operator */
-    short           shm_nattch;  /* no. of current attaches */
-};
-.fi
-.in -0.5i
-.PP
-.in +0.5i
-.nf
-struct ipc_perm {
-    key_t  key;
-    ushort uid;   /* owner euid and egid */
-    ushort gid;
-    ushort cuid;  /* creator euid and egid */
-    ushort cgid;
-    ushort mode;  /* lower 9 bits of \fIshmflg\fP */
-    ushort seq;   /* sequence number */
-};
-.fi
-.PP
-When creating a new shared memory segment,
-the system call initializes the \fIshmid_ds\fP data structure
-.B shmid_ds
-as follows:
+(see
+.BR shmctl (2))
+is initialised as follows:
 .IP
-.B shm_perm.cuid
+.I shm_perm.cuid
 and
-.B shm_perm.uid
+.I shm_perm.uid
 are set to the effective user\-ID of the calling process.
 .IP
-.B shm_perm.cgid
+.I shm_perm.cgid
 and
-.B shm_perm.gid
+.I shm_perm.gid
 are set to the effective group\-ID of the calling process.
 .IP
-The lowest order 9 bits of
-.B shm_perm.mode
-are set to the lowest order 9 bit of
+The least significant 9 bits of
+.I shm_perm.mode
+are set to the least significant 9 bit of
 .IR shmflg .
 .IP
-.B shm_segsz
+.I shm_segsz
 is set to the value of
 .IR size .
 .IP
-.BR shm_lpid ,
-.BR shm_nattch ,
-.B shm_atime
+.IR shm_lpid ,
+.IR shm_nattch ,
+.I shm_atime
 and
-.B shm_dtime
-are set to
-.BR 0 .
+.I shm_dtime
+are set to 0.
 .IP
-.B shm_ctime
+.I shm_ctime
 is set to the current time.
 .PP
-If the shared memory segment already exists, the access permissions are
+If the shared memory segment already exists, the permissions are
 verified, and a check is made to see if it is marked for destruction.
-.PP
 .SH "SYSTEM CALLS"
 .TP
-.B fork()
+.BR fork ()
 After a
-.B fork()
+.BR fork ()
 the child inherits the attached shared memory segments.
 .TP
-.B exec()
+.BR exec ()
 After an
-.B exec()
+.BR exec ()
 all attached shared memory segments are detached (not destroyed).
 .TP
-.B exit()
+.BR exit ()
 Upon
-.B exit()
+.BR exit ()
 all attached shared memory segments are detached (not destroyed).
 .PP
 .SH "RETURN VALUE"
@@ -184,7 +172,7 @@ A valid segment identifier,
 is returned on success, \-1 on error.
 .SH ERRORS
 On failure,
-.B errno
+.I errno
 is set to one of the following:
 .TP 12
 .B EACCES
@@ -227,24 +215,27 @@ would cause the system to exceed the system-wide limit on shared memory
 .SH NOTES
 .B IPC_PRIVATE
 isn't a flag field but a
-.B key_t
+.I key_t
 type.
 If this special value is used for
 .IR key ,
-the system call ignores everything but the lowest order 9 bits of
+the system call ignores everything but the least significant 9 bits of
 .I shmflg
 and creates a new shared memory segment (on success).
 .PP
 The followings are limits on shared memory segment resources affecting a
-.B shmget
+.BR shmget ()
 call:
 .TP 11
 .B SHMALL
-System wide maximum of shared memory pages: policy dependent.
+System wide maximum of shared memory pages
+(on Linux, this limit can be read and modified via
+.IR /proc/sys/kernel/shmall ).
 .TP
 .B SHMMAX
-Maximum size in bytes for a shared memory segment: implementation
-dependent (currently 4M).
+Maximum size in bytes for a shared memory segment: policy dependent
+(on Linux, this limit can be read and modified via
+.IR /proc/sys/kernel/shmmax ).
 .TP
 .B SHMMIN
 Minimum size in bytes for a shared memory segment: implementation
@@ -254,7 +245,10 @@ is the effective minimum size).
 .TP
 .B SHMMNI
 System wide maximum number of shared memory segments: implementation
-dependent (currently 4096, was 128 before Linux 2.3.99).
+dependent (currently 4096, was 128 before Linux 2.3.99;
+on Linux, this limit can be read and modified via
+.IR /proc/sys/kernel/shmmni ).
+.\" This /proc file is not available in Linux 2.2 and earlier -- MTK
 .PP
 The implementation has no specific limits for the per process maximum
 number of shared memory segments
@@ -265,7 +259,7 @@ would more clearly show its function.
 .SH "CONFORMING TO"
 SVr4, SVID.  SVr4 documents an additional error condition EEXIST.
 Until version 2.3.30 Linux would return EIDRM for a
-.B shmget
+.BR shmget ()
 on a shared memory segment scheduled for deletion.
 .SH "SEE ALSO"
 .BR shmat (2),

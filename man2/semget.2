@@ -25,6 +25,11 @@
 .\" Modified 4 Jan 2002, Michael Kerrisk <mtk-manpages@gmx.net>
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on capability requirements
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Added notes on /proc files
+.\"	Rewrote BUGS note about semget()'s failure to initilaise
+.\"		semaphore values
 .\"
 .TH SEMGET 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
 .SH NAME
@@ -43,7 +48,9 @@ semget \- get a semaphore set identifier
 .BI "int " nsems ,
 .BI "int " semflg );
 .SH DESCRIPTION
-This function returns the semaphore set identifier
+The
+.BR semget ()
+system call  returns the semaphore set identifier
 associated with the argument
 .IR key .
 A new set of
@@ -56,102 +63,91 @@ or if no existing semaphore set is associated to
 .I key
 and
 .B IPC_CREAT
-is asserted in
-.I semflg
-(i.e.
-.IR semflg " &"
-.B IPC_CREAT
-isn't zero).
+is specified in
+.IR semflg .
 .PP
-The presence in
+If
 .I semflg
-of the fields
-.B IPC_CREAT
-and
-.B IPC_EXCL
-plays the same role, with respect to the existence
-of the semaphore set, as the presence
-of
-.B O_CREAT
-and
-.B O_EXCL
-in the mode argument of the
-.BR open (2)
-system call: i.e. the
-.B semget
-function fails if
-.I semflg
-asserts both
+specifies both
 .B IPC_CREAT
 and
 .B IPC_EXCL
 and a semaphore set already exists for
-.IR key .
+.IR key ,
+then
+.BR semget ()
+fails with 
+.I errno
+set to
+.BR EEXIST .
+(This is analogous to the effect of the combination 
+.B O_CREAT | O_EXCL
+for
+.BR open (2).)
 .PP
-Upon creation, the low-order 9 bits of the argument
+Upon creation, the least significant 9 bits of the argument
 .I semflg
-define the access permissions (for owner, group and others)
+define the permissions (for owner, group and others)
 for the semaphore set.
 These bits have the same format, and the same
-meaning, as the mode argument in the
+meaning, as the
+.I mode
+argument of
 .BR open (2)
-or
-.BR creat (2)
-system calls (though the execute permissions are
+(though the execute permissions are
 not meaningful for semaphores, and write permissions mean permission
 to alter semaphore values).
 .PP
 When creating a new semaphore set,
-.B semget
-initializes the semaphore set's associated data structure
-.B semid_ds
+.BR semget ()
+initialises the set's associated data structure
+.I semid_ds
+(see 
+.BR semctl (2))
 as follows:
 .IP
-.B sem_perm.cuid
+.I sem_perm.cuid
 and
-.B sem_perm.uid
+.I sem_perm.uid
 are set to the effective user\-ID of the calling process.
 .IP
-.B sem_perm.cgid
+.I sem_perm.cgid
 and
-.B sem_perm.gid
+.I sem_perm.gid
 are set to the effective group\-ID of the calling process.
 .IP
-The low-order 9 bits of
-.B sem_perm.mode
-are set to the low-order 9 bits of
+The least significant 9 bits of
+.I sem_perm.mode
+are set to the least significant 9 bits of
 .IR semflg .
 .IP
-.B sem_nsems
+.I sem_nsems
 is set to the value of
 .IR nsems .
 .IP
-.B sem_otime
+.I sem_otime
 is set to 0.
 .IP
-.B sem_ctime
+.I sem_ctime
 is set to the current time.
 .PP
 The argument
 .I nsems
-can be
-.B 0
+can be 0
 (a don't care)
 when a semaphore set is not being created.
 Otherwise
 .I nsems
-must be greater than
-.B 0
+must be greater than 0
 and less than or equal to the maximum number of semaphores per semaphore set
 .RB ( SEMMSL ).
 .PP
-If the semaphore set already exists, the access permissions are
+If the semaphore set already exists, the permissions are
 verified.
 .\" and a check is made to see if it is marked for destruction.
 .SH "RETURN VALUE"
 If successful, the return value will be the semaphore set identifier
-(a nonnegative integer), otherwise
-.B \-1
+(a nonnegative integer), otherwise \-1
 is returned, with
 .I errno
 indicating the error.
@@ -173,7 +169,7 @@ A semaphore set exists for
 .B key
 and
 .I semflg
-was asserting both
+specified both
 .B IPC_CREAT
 and
 .BR IPC_EXCL .
@@ -197,12 +193,12 @@ No semaphore set exists for
 .I key
 and
 .I semflg
-wasn't asserting
+did not specify
 .BR IPC_CREAT .
 .TP
 .B ENOMEM
-A semaphore set has to be created but the system has not enough memory for
-the new data structure.
+A semaphore set has to be created but the system does not have
+enough memory for the new data structure.
 .TP
 .B ENOSPC
 A semaphore set has to be created but the system limit for the maximum
@@ -214,27 +210,33 @@ would be exceeded.
 .SH NOTES
 .B IPC_PRIVATE
 isn't a flag field but a
-.B key_t
+.I key_t
 type.
 If this special value is used for
 .IR key ,
-the system call ignores everything but the low-order 9 bits of
+the system call ignores everything but the least significant 9 bits of
 .I semflg
 and creates a new semaphore set (on success).
 .PP
 The followings are limits on semaphore set resources affecting a
-.B semget
+.BR semget ()
 call:
 .TP 11
 .B SEMMNI
-System wide maximum number of semaphore sets: policy dependent.
+System wide maximum number of semaphore sets: policy dependent
+(on Linux, this limit can be read and modified via the fourth field of
+.IR /proc/sys/kernel/sem ).
+.\" This /proc file is not available in Linux 2.2 and earlier -- MTK
 .TP
 .B SEMMSL
 Maximum number of semaphores per semid: implementation dependent
-(500 currently).
+(on Linux, this limit can be read and modified via the first field of
+.IR /proc/sys/kernel/sem ).
 .TP
 .B SEMMNS
-System wide maximum number of semaphores: policy dependent.
+System wide maximum number of semaphores: policy dependent
+(on Linux, this limit can be read and modified via the second field of
+.IR /proc/sys/kernel/sem ).
 Values greater than
 .B SEMMSL * SEMMNI
 makes it irrelevant.
@@ -242,16 +244,24 @@ makes it irrelevant.
 The name choice IPC_PRIVATE was perhaps unfortunate, IPC_NEW
 would more clearly show its function.
 .LP
-The data structure associated with each semaphore in the set
-isn't initialized by the system call.
-In order to initialize those data structures, one has to execute a
-subsequent call to
+The semaphores in a set are not initialised by
+.BR semget ().
+.\" In fact they are initalised to zero on Linux, but POSIX.1-2001 
+.\" does not specifiy this, and we can't portably rely on it.
+In order to initialise the semaphores,
 .BR semctl (2)
-to perform a
+must be used to perform a
 .B SETVAL
 or a
 .B SETALL
-command on the semaphore set.
+operation on the semaphore set.
+(Where multiple peers do not know who will be the first to
+initialise the set, checking for a non-zero
+.I sem_otime
+in the associated data structure retrieved by a
+.BR semctl ()
+.B IPC_STAT
+operation can be used to avoid races.)
 .SH "CONFORMING TO"
 SVr4, SVID.
 SVr4 documents additional error conditions EFBIG, E2BIG, EAGAIN,

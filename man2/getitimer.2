@@ -2,6 +2,8 @@
 .\" Based on a similar page Copyright 1992 by Rick Faith
 .\" May be freely distributed
 .\" Modified Tue Oct 22 00:22:35 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" 2005-04-06 mtk, Matthias Lang <matthias@corelatus.se>
+.\" 	Noted MAX_SEC_IN_JIFFIES ceiling
 .TH GETITIMER 2 1993-08-05 "Linux 0.99.11" "Linux Programmer's Manual"
 .SH NAME
 getitimer, setitimer \- get or set value of an interval timer
@@ -75,10 +77,10 @@ with the current setting for the timer indicated by
 or
 .BR ITIMER_PROF ).
 The element
-.B it_value
+.I it_value
 is set to the amount of time remaining on the timer, or zero if the timer
 is disabled.  Similarly,
-.B it_interval
+.I it_interval
 is set to the reset value.
 The function
 .B setitimer
@@ -133,7 +135,7 @@ is not one of
 or
 .BR ITIMER_PROF .
 .SH "CONFORMING TO"
-SVr4, 4.4BSD (This call first appeared in 4.2BSD).
+POSIX.1-2001, SVr4, 4.4BSD (this call first appeared in 4.2BSD).
 .SH "SEE ALSO"
 .BR gettimeofday (2),
 .BR sigaction (2),
@@ -145,3 +147,21 @@ conceivable that under pathologically heavy loading,
 .B ITIMER_REAL
 will expire before the signal from a previous expiration has been delivered.
 The second signal in such an event will be lost.
+
+On Linux, timer values are represented in jiffies.
+If a request is made set a timer with a value whose jiffies 
+representation exceeds MAX_SEC_IN_JIFFIES
+(defined in
+.IR include/linux/jiffies.h ),
+then the timer is silently truncated to this ceiling value.
+On Linux 2.6 on x86 (where a jiffy is 0.001 seconds),
+this means that the ceiling value for a timer is
+approximately 24.86 days.
+
+POSIX.1 says that
+.B setitimer
+should fail if a
+.I tv_usec
+value is specified that is outside of the range 0 to 999999.
+However, Linux does not give an error, but instead silently
+adjusts the corresponding seconds value for the timer.

@@ -25,10 +25,15 @@
 .\" Modified, aeb, 960424
 .\" Modified Fri Jan 31 17:31:20 1997 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified Thu Nov 26 02:12:45 1998 by aeb - add SIGCHLD stuff.
-.\" Modified Sat May  8 17:40:19 1999 by Matthew Wilcox - add POSIX.1b signals
-.\" Modified Sat Dec 29 01:44:52 2001 by Evan Jones <ejones@uwaterloo.ca> - SA_ONSTACK
+.\" Modified Sat May  8 17:40:19 1999 by Matthew Wilcox
+.\"	add POSIX.1b signals
+.\" Modified Sat Dec 29 01:44:52 2001 by Evan Jones <ejones@uwaterloo.ca>
+.\"	SA_ONSTACK
+.\" Modified 2004-11-11 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Added mention of SIGCONT under SA_NOCLDSTOP
+.\"	Added SA_NOCLDWAIT
 .\"
-.TH SIGACTION 2 2001-12-29 "Linux 2.4" "Linux Programmer's Manual"
+.TH SIGACTION 2 2004-11-11 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 sigaction, sigprocmask, sigpending, sigsuspend \- POSIX signal handling functions
 .SH SYNOPSIS
@@ -132,16 +137,33 @@ process. It is formed by the bitwise OR of zero or more of the following:
 If
 .I signum
 is
-.BR SIGCHLD ", "
-do not receive notification when child processes stop (i.e., when child
-processes receive one of
+.BR SIGCHLD ,
+do not receive notification when child processes stop (i.e., when they
+receive one of
 .BR SIGSTOP ", " SIGTSTP ", " SIGTTIN
 or
-.BR SIGTTOU ")."
+.BR SIGTTOU )
+or resume (i.e., they receive
+.BR SIGCONT )
+(see
+.BR wait (2)).
 .TP
-.BR SA_ONESHOT " or " SA_RESETHAND
+.B SA_NOCLDWAIT
+(Linux 2.6 and later)
+.\" To be precise: Linux 2.5.60 -- MTK
+If
+.I signum
+is
+.BR SIGCHLD ,
+do not transform children into zombies when they terminate.
+See also
+.BR wait (2).
+.TP
+.B SA_RESETHAND
 Restore the signal action to the default state once the signal handler
 has been called.
+.B SA_ONESHOT
+is an obsolete, non-standard synonym for this flag.
 .TP
 .BR SA_ONSTACK
 Call the signal handler on an alternate signal stack provided by 
@@ -152,9 +174,11 @@ If an alternate stack is not available, the default stack will be used.
 Provide behaviour compatible with BSD signal semantics by making certain
 system calls restartable across signals.
 .TP
-.BR SA_NOMASK " or " SA_NODEFER
+.B SA_NODEFER
 Do not prevent the signal from being received from within its own signal
 handler.
+.B SA_NOMASK
+is an obsolete, non-standard synonym for this flag.
 .TP
 .B SA_SIGINFO
 The signal handler takes 3 arguments, not one.  In this case,
@@ -455,11 +479,12 @@ This use is obsolete now.
 .SH "SEE ALSO"
 .BR kill (1),
 .BR kill (2),
-.BR killpg (2),
 .BR pause (2),
 .BR sigaltstack (2),
 .BR signal (2),
+.BR sigqueue (2),
 .BR sigvec (2),
+.BR killpg (3),
 .BR raise (3),
 .BR siginterrupt (3),
 .BR sigsetops (3),

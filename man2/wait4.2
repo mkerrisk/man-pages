@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" (c) 2004 bu Michael Kerrisk (mtk-manpages@gmx.net)
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -26,17 +27,20 @@
 .\" Modified Sat Jul 24 13:32:44 1993 by Rik Faith (faith@cs.unc.edu)
 .\" Modified Mon Jun 23 14:09:52 1997 by aeb - add EINTR.
 .\" Modified Tue Jul  7 12:26:42 1998 by aeb - changed return value wait3
+.\" Modified 2004-11-11, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Rewrote much of this page, and removed much duplicated text, 
+.\"		replacing with pointers to wait.2
 .\"
-.TH WAIT4 2  1997-06-23 "Linux" "Linux Programmer's Manual"
+.TH WAIT4 2  2004-11-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
-wait3, wait4 \- wait for process termination, BSD style
+wait3, wait4 \- wait for process to change state, BSD style
 .SH SYNOPSIS
 .nf
 .B #include <sys/types.h>
 .B #include <sys/time.h>
 .B #include <sys/resource.h>
 .B #include <sys/wait.h>
-.sp 2
+.sp
 .BI "pid_t wait3(int *" "status" ", int " options ,
 .BI "      struct rusage *" rusage );
 .sp
@@ -45,144 +49,75 @@ wait3, wait4 \- wait for process termination, BSD style
 .fi
 .SH DESCRIPTION
 The
-.B wait3
-function suspends execution of the current process until a child has
-exited, or until a signal is delivered whose action is to terminate
-the current process or to call a signal handling function.  If a child
-has already exited by the time of the call (a so\-called "zombie"
-process), the function returns immediately.  Any system resources used
-by the child are freed.
+.BR wait3 ()
+and
+.BR wait4 ()
+system calls are similar to
+.BR waitpid (2),
+but additionally return resource usage information about the
+child in the structure pointed to by
+.IR rusage .
+.PP
+Other than the use of the
+.I rusage
+argument, the following
+.BR wait3 ()
+call:
+.nf
 
-The
-.B wait4
-function suspends execution of the current process until a
-child as specified by the
-.I pid
-argument has exited, or until a signal is delivered whose action is to
-terminate the current process or to call a signal handling function.
-If a child as requested by
-.I pid
-has already exited by the time of the call (a so\-called "zombie"
-process), the function returns immediately.  Any system resources used
-by the child are freed.
+    wait3(status, options, rusage);
 
-The value of
-.I pid
-can be one of:
-.IP "< \-1"
-which means to wait for any child process whose process group ID is
-equal to the absolute value of
-.IR pid .
-.IP \-1
-which means to wait for any child process; this is equivalent to
-calling
-.BR wait3 .
-.IP 0
-which means to wait for any child process whose process group ID is
-equal to that of the calling process.
-.IP "> 0"
-which means to wait for the child whose process ID is equal to the
-value of
-.IR pid .
-.PP
-The value of
-.I options
-is a bitwise OR of zero or more of the following constants:
-.TP
-.B WNOHANG
-which means to return immediately if no child is there to be waited
-for.
-.TP
-.B WUNTRACED
-which means to also return for children which are stopped, and whose
-status has not been reported.
-.PP
-If
-.I status
-is not
-.BR NULL ,
-.B wait3
-or
-.B wait4
-store status information in the location pointed to by
-.IR status .
-.PP
-This status can be evaluated with the following macros (these macros take
-the stat buffer (an \fBint\fR) as an argument \(em not a pointer to the
-buffer!):
-.TP
-.BI WIFEXITED( status )
-is non\-zero if the child exited normally.
-.TP
-.BI WEXITSTATUS( status )
-evaluates to the least significant eight bits of the return code of
-the child which terminated, which may have been set as the argument to
-a call to
-.B exit()
-or as the argument for a
-.B return
-statement in the main program.  This macro can only be evaluated if
-.B WIFEXITED
-returned non\-zero.
-.TP
-.BI WIFSIGNALED( status )
-returns true if the child process exited because of a signal which was
-not caught.
-.TP
-.BI WTERMSIG( status )
-returns the number of the signal that caused the child process to
-terminate. This macro can only be evaluated if
-.B WIFSIGNALED
-returned non\-zero.
-.TP
-.BI WIFSTOPPED( status )
-returns true if the child process which caused the return is currently
-stopped; this is only possible if the call was done using
-.BR WUNTRACED .
-.TP
-.BI WSTOPSIG( status )
-returns the number of the signal which caused the child to stop.  This
-macro can only be evaluated if
-.B WIFSTOPPED
-returned non\-zero.
+.fi
+is equivalent to:
+.nf
+
+    waitpid(-1, status, options);
+
+.fi
+Similarly, the following
+.BR wait4 ()
+call:
+.nf
+
+    wait4(pid, status, options, rusage);
+
+.fi
+is equivalent to:
+.nf
+
+    waitpid(pid, status, options);
+
+.fi
+In other words,
+.BR wait3 ()
+waits of any child, while
+.BR wait4 ()
+can be used to select a specific child, or children, on which to wait.
+See
+.BR wait (2)
+for further details.
 .PP
 If
 .I rusage
 is not
 .BR NULL ,
 the
-.B struct rusage
-as defined in
-.I <sys/resource.h>
-it points to will be filled with accounting information.  See
+.I struct rusage
+to which it points will be filled with accounting information
+about the child.
+See
 .BR getrusage (2)
 for details.
 .SH "RETURN VALUE"
-The process ID of the child which exited, \-1 on error
-(in particular, when no unwaited-for child processes
-of the specified kind exist)
-or zero if
-.B WNOHANG
-was used and no child was available yet.
-In the latter two cases
-.I errno
-will be set appropriately.
+As for
+.BR waitpid (2);
+see
+.BR wait (2).
 .SH ERRORS
-.TP
-.B ECHILD
-No unwaited-for child process as specified does exist.
-.TP
-.B EINTR
-if
-.B WNOHANG
-was not set and an unblocked signal or a
-.B SIGCHLD
-was caught.
-.TP
-.B EINVAL
-Invalid value for
-.I options
-given for wait4.
+As for
+.BR waitpid (2);
+see
+.BR wait (2).
 .SH NOTES
 Including
 .I <sys/time.h>
@@ -203,7 +138,9 @@ _POSIX_SOURCE or compiling with the -ansi flag).
 .SH "CONFORMING TO"
 SVr4, POSIX.1
 .SH "SEE ALSO"
+.BR fork (2),
 .BR getrusage (2),
+.BR sigaction (2),
 .BR signal (2),
 .BR wait (2),
 .BR signal (7)

@@ -1,1 +1,127 @@
-.so man2/getrlimit.2
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1992 Drew Eckhardt, March 28, 1992
+.\" Copyright (c) 2002 Michael Kerrisk
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" 2004-11-16 -- mtk: the gerlimit.2 page, which formally included 
+.\" coverage of getrusage(2), has been split, so that the latter
+.\" is now covered in its own getrusage.2.  For older details of change 
+.\" history, etc, see getrlimit.2
+.\"
+.\" Modified 2004-11-16, mtk, Noted that the non-conformance
+.\"	when SIGCHLD is being ignored is fixed in 2.6.9.
+.\"
+.TH GETRUSAGE 2 2004-11-16 "Linux 2.6.9 "Linux Programmer's Manual"
+.SH NAME
+getrusage \- get resource usage
+.SH SYNOPSIS
+.B #include <sys/time.h>
+.br
+.B #include <sys/resource.h>
+.sp
+.BI "int getrusage(int " who ", struct rusage *" usage );
+.SH DESCRIPTION
+.PP
+.BR getrusage ()
+returns current resource usages, for a \fIwho\fP
+of either 
+.B RUSAGE_SELF
+or 
+.BR RUSAGE_CHILDREN .
+The former asks for resources used by the current process,
+the latter for resources used by those of its children
+that have terminated and have been waited for.
+.PP 
+.in +0.5i
+.nf
+struct rusage {
+    struct timeval ru_utime; /* user time used */
+    struct timeval ru_stime; /* system time used */
+    long   ru_maxrss;        /* maximum resident set size */
+    long   ru_ixrss;         /* integral shared memory size */
+    long   ru_idrss;         /* integral unshared data size */
+    long   ru_isrss;         /* integral unshared stack size */
+    long   ru_minflt;        /* page reclaims */
+    long   ru_majflt;        /* page faults */
+    long   ru_nswap;         /* swaps */
+    long   ru_inblock;       /* block input operations */
+    long   ru_oublock;       /* block output operations */
+    long   ru_msgsnd;        /* messages sent */
+    long   ru_msgrcv;        /* messages received */
+    long   ru_nsignals;      /* signals received */
+    long   ru_nvcsw;         /* voluntary context switches */
+    long   ru_nivcsw;        /* involuntary context switches */
+};
+.fi
+.in -0.5i
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EFAULT
+.I usage
+points outside the accessible address space.
+.TP
+.B EINVAL
+.I who
+is invalid.
+.SH "CONFORMING TO"
+SVr4, BSD 4.3
+.SH NOTES
+Including
+.I <sys/time.h>
+is not required these days, but increases portability.
+(Indeed,
+.I struct timeval
+is defined in
+.IR <sys/time.h> .)
+.PP
+In Linux kernel versions before 2.6.9, if the disposition of
+.B SIGCHLD
+is set to
+.B SIG_IGN
+then the resource usages of child processes
+are automatically included in the value returned by
+.BR RUSAGE_CHILDREN ,
+although POSIX 1003.1-2001 explicitly prohibits this.
+This non-conformance is rectified in Linux 2.6.9 and later.
+.\" See the description of getrusage() in XSH.
+.\" A similar statement was also in SUSv2.
+.LP
+The above struct was taken from BSD 4.3 Reno.
+Not all fields are meaningful under Linux.
+Right now (Linux 2.4, 2.6) only the fields
+.BR ru_utime ,
+.BR ru_stime ,
+.BR ru_minflt ,
+.BR ru_majflt ,
+and
+.BR ru_nswap
+are maintained.
+.SH "SEE ALSO"
+.BR getrlimit (2),
+.BR times (2),
+.BR wait (2),
+.BR wait4 (2)

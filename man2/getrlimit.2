@@ -48,6 +48,13 @@
 .\" is now covered in its own getrusage.2.
 .\"
 .\" Modified 2004-11-16, mtk: A few other minor changes
+.\" Modified 2004-11-23, mtk
+.\"	Added notes on RLIMIT_MEMLOCK, RLIMIT_NPROC, and RLIMIT_RSS
+.\"		to "CONFORMING TO"
+.\" Modified 2004-11-25, mtk
+.\"	Rewrote discussion on RLIMIT_MEMLOCK to incorporate kernel
+.\"		2.6.9 changes.
+.\"	Added note on RLIMIT_CPU error in older kernels
 .\"
 .TH GETRLIMIT 2 2004-06-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -143,7 +150,7 @@ Implementations vary in how they treat processes which continue to
 consume CPU time after reaching the soft limit.
 Portable applications that need to catch this signal should
 perform an orderly termination upon first receipt of
-.BR SIGXCPU .)
+.BR SIGXCPU ).
 .TP
 .B RLIMIT_DATA
 The maximum size of the process's data segment (initialized data,
@@ -175,9 +182,41 @@ leases that this process may establish.
 .\" to be precise: Linux 2.4.0-test9; no longer in 2.4.25 / 2.5.65
 .TP
 .B RLIMIT_MEMLOCK
-The maximum number of bytes of virtual memory that may be locked
-into RAM using
-.BR mlock "() and " mlockall ().
+The maximum number of bytes of memory that may be locked
+into RAM.
+In effect this limit is rounded down to the nearest multiple
+of the system page size.
+This limit affects 
+.BR mlock "(2) and " mlockall (2)
+and the
+.BR mmap (2)
+.B MAP_LOCKED
+operation.
+Since Linux 2.6.9 it also affects the
+.BR shmctl (2)
+.B SHM_LOCK
+operation, where it sets a maximum on the total bytes in  
+shared memory segments (see
+.BR shmget (2))
+that may be locked by the real user ID of the calling process.
+(The 
+.BR shmctl (2)
+.B SHM_LOCK
+locks are accounted for separately from the per-process memory
+locks established by 
+.BR mlock "(2), " mlockall (2),
+and
+.BR mmap (2)
+.BR MAP_LOCKED ;
+a process can lock bytes up to this limit in each of these
+two categories.)
+In Linux kernels before 2.6.9, this limit controlled the amount of
+memory that could be locked by a privileged process.
+Since Linux 2.6.9, no limits are placed on the amount of memory
+that a privileged process may lock, and this limit instead governs
+the amount of memory that an unprivileged process may lock.
+.\" FIXME Linux 2.6.8 adds RLIMIT_MSGQUEUE
+.\" FIXME Linux 2.6.8 adds RLIMIT_SIGPENDING
 .TP
 .B RLIMIT_NOFILE
 Specifies a value one greater than the maximum file descriptor number
@@ -239,19 +278,36 @@ capability is required to do this.
 Or, the process tried to use \fBsetrlimit()\fP to increase
 the soft or hard RLIMIT_NOFILE limit above the current kernel
 maximum (NR_OPEN).
+.SH BUGS
+In older Linux kernels, the
+.B SIGXCPU
+and
+.B SIGKILL
+signals delivered when a process encountered the soft and hard
+.B RLIMIT_MEMLOCK
+limits were delivered one (CPU) second later than they should have been.
+This was fixed in kernel 2.6.8.
 .SH "CONFORMING TO"
-SVr4, BSD 4.3
+SVr4, BSD 4.3.
+.BR RLIMIT_MEMLOCK
+and 
+.BR RLIMIT_NPROC
+derive from BSD and are not specified in POSIX.1-2001;
+they are present on the BSDs and Linux, but on few other implementations.
+.BR RLIMIT_RSS
+derives from BSD and is not specified in POSIX.1-2001;
+it is nevertheless present on most implementations.
 .SH "SEE ALSO"
 .BR dup (2),
 .BR fcntl (2),
 .BR fork (2),
 .BR getrusage (2),
 .BR mlock (2),
-.BR mlockall (2),
 .BR mmap (2),
 .BR open (2),
 .BR quotactl (2),
 .BR sbrk (2),
+.BR shmctl (2),
 .BR malloc (3),
 .BR ulimit (3),
 .BR capabilities (7),

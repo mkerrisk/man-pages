@@ -5,7 +5,12 @@
 .\" of the modification is added to the header.
 .\" $Id: sendfile.2,v 1.5 1999/05/18 11:54:11 freitag Exp $
 .\" 2000-11-19 bert hubert <ahu@ds9a.nl>: in_fd cannot be socket
-.TH SENDFILE 2 1998-12-01 "Linux Man Page" "Linux Programmer's Manual" 
+.\"
+.\" 2004-12-17, mtk
+.\"	updated description of in_fd and out_fd for 2.6
+.\"	Various wording and formatting changes
+.\"
+.TH SENDFILE 2 2004-12-17 "Linux Man Page" "Linux Programmer's Manual" 
 .SH NAME
 sendfile \- transfer data between file descriptors
 .SH SYNOPSIS
@@ -32,53 +37,65 @@ sendfile \- transfer data between file descriptors
 .\" .B #endif
 .\"
 .SH DESCRIPTION
-This call copies data between one file descriptor and another.
-Either or both of these file descriptors may refer to a socket (but see below).
+.BR sendfile ()
+copies data between one file descriptor and another.
+Because this copying is done within the kernel,
+.BR sendfile ()
+is more efficient than the combination of
+.BR read (2)
+and
+.BR write (2),
+which would require transferring data to and from user space.
+
 .I in_fd
 should be a file descriptor opened for reading and
 .I out_fd
 should be a descriptor opened for writing.
+
 .I offset
-is a pointer to a variable holding the input file pointer position from
+is a pointer to a variable holding the file offset from
 which
 .BR sendfile ()
-will start reading data.  When 
+will start reading data from
+.IR in_fd .
+When 
 .BR sendfile ()
 returns, this variable
 will be set to the offset of the byte following the last byte that was read.
-.I count
-is the number of bytes to copy between file descriptors.
-
-Because this copying is done within the kernel,
 .BR sendfile ()
-does not need to spend time transferring data
-to and from user space.
+does not modify the current file offset of 
+.IR in_fd .
 
-.SH NOTES
-Sendfile does not modify the current file pointer of 
+.I count
+is the number of bytes to copy between the file descriptors.
+
+Presently (Linux 2.6.9):
 .IR in_fd ,
-but does for
-.IR out_fd .
-
+must correspond to a file which supports mmap()-like operations
+(i.e., it cannot be a socket);
+and
+.I out_fd
+must refer to a socket.
+.SH NOTES
 If you plan to use sendfile for sending files to a TCP socket, but need
-to send some header data in front of the file contents, please see
-the 
+to send some header data in front of the file contents, you will find
+it useful to employ the
 .B TCP_CORK 
-option in
-.BR tcp (7)
+option, described in
+.BR tcp (7),
 to minimize the number of packets and to tune performance.
 
-Presently the descriptor from which data is read cannot
-correspond to a socket, it must correspond to a file
-which supports mmap()-like operations.
-
+In Linux 2.4 and earlier,
+.I out_fd
+could refer to a regular file, and
+.BR sendfile ()
+changed the current offset of that file.
 .SH "RETURN VALUE"
 If the transfer was successful, the number of bytes written to
 .I out_fd
 is returned.  On error, \-1 is returned, and
 .I errno
 is set appropriately.
-
 .SH ERRORS
 .TP
 .B EAGAIN
@@ -104,12 +121,12 @@ Unspecified error while reading from
 Insufficient memory to read from
 .IR in_fd .
 .SH VERSIONS
-.B sendfile
+.BR sendfile ()
 is a new feature in Linux 2.2.
 The include file <sys/sendfile.h> is present since glibc2.1.
 
-Other Unixes often implement 
-.B sendfile 
+Other Unixes implement 
+.BR sendfile ()
 with different semantics and prototypes. It should
 not be used in portable programs.
 .SH "SEE ALSO"

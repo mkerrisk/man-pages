@@ -385,7 +385,9 @@ would report the socket as having an "exceptional condition".)
 
 If a non-zero value is given to
 .B F_SETSIG
-in a multi-threaded process, then a positive value value given to 
+in a multi-threaded process running with a threading library
+that supports thread groups (e.g., NPTL),
+then a positive value value given to 
 .B F_SETOWN
 has a different meaning:
 .\" The relevant place in the (2.6) kernel source is the 
@@ -417,6 +419,16 @@ depending on the value given to
 .\" kill_fasync()/send_sigio()/send_sigio_to_task()
 .\" to directly call send_group_sig_info() 
 .\"	-- MTK, Apr 2005 (kernel 2.6.11)
+Note also that Linux imposes a limit on the
+number of real-time signals that may be queued to a
+process (see
+.BR getrlimit (2)
+and
+.BR signal (7))
+and if this limit is reached, then the kernel reverts to 
+delivering SIGIO, and this signal is delivered to the entire
+process rather than to a specifc thread.
+.\" See fs/fcntl.c::send_sigio_to_task() (2.4/2.6) sources -- MTK, Apr 05
 .TP
 .B F_GETSIG
 Get the signal sent when input or output becomes possible.  A value of
@@ -802,14 +814,13 @@ will be \-1, and
 will contain the (positive) process group ID.
 .\" FIXME Dec 04: some limited testing on alpha and ia64 seems to
 .\" indicate that ANY negative PGID value will cause F_GETOWN
-.\" to misintepret the return as an error.Some other architectures
+.\" to misintepret the return as an error. Some other architectures
 .\" seem to have the same range check as x86.  -- MTK
 .SH "CONFORMING TO"
 SVr4, SVID, POSIX, X/OPEN, BSD 4.3.  Only the operations F_DUPFD,
-F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_GETLK, F_SETLK and F_SETLKW are
-specified in POSIX.1.  F_GETOWN and F_SETOWN are BSDisms not supported
-in SVr4; F_GETSIG and F_SETSIG are specific to Linux.
-.BR F_NOTIFY ", " F_GETLEASE ", and " F_SETLEASE
+F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_GETLK, F_SETLK, F_SETLKW, 
+F_GETOWN, and F_SETOWN are specified in POSIX.1.
+F_GETSIG, F_SETSIG, F_NOTIFY, F_GETLEASE, and F_SETLEASE
 are Linux specific.
 (Define the _GNU_SOURCE macro before including <fcntl.h> to
 obtain these definitions.)

@@ -33,8 +33,10 @@
 .\" Modified 1999-06-03 by Michael Haardt
 .\" Modified 2002-05-07 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 2004-12-08, mtk, reordered flags list alphabetically
+.\" 2004-12-08, Martin Pool <mbp@sourcefrog.net> (& mtk), added O_NOATIME
 .\"
-.TH OPEN 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.TH OPEN 2 2004-12-08 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -52,7 +54,7 @@ The
 .B open()
 system call is used to convert a pathname into a file descriptor
 (a small, non-negative integer for use in subsequent I/O as with
-.BR read ", " write ", etc.)."
+.BR read "(2), " write "(2), etc.)."
 When the call is successful, the file descriptor returned will be
 the lowest file descriptor not currently open for the process.
 This call creates a new open file, not shared with any other process.
@@ -73,6 +75,29 @@ respectively,
 .RI bitwise- or 'd
 with zero or more of the following:
 .TP
+.B O_APPEND
+The file is opened in append mode. Before each
+.BR write (),
+the file pointer is positioned at the end of the file,
+as if with
+.BR lseek ().
+.B O_APPEND
+may lead to corrupted files on NFS file systems if more than one process
+appends data to a file at once.  This is because NFS does not support
+appending to a file, so the client kernel has to simulate it, which
+can't be done without a race condition.
+.TP
+.B O_ASYNC
+.\" FIXME -- as far as I can tell O_ASYNC doesn't work for open(2),
+.\" only when set via fcntl(2) -- MTK, Dec 04
+Generate a signal (SIGIO by default, but this can be changed via
+.BR fcntl (2))
+when input or output becomes possible on this file descriptor.
+This feature is only available for terminals, pseudo-terminals, and
+sockets. See
+.BR fcntl (2)
+for further details.
+.TP
 .B O_CREAT
 If the file does not exist it will be created.
 The owner (user ID) of the file is set to the effective user ID
@@ -85,82 +110,6 @@ and
 .I sysvgroups
 of the ext2 filesystem, as described in
 .BR mount (8)).
-.TP
-.B O_EXCL
-When used with
-.BR O_CREAT ,
-if the file already exists it is an error and the
-.B open
-will fail. In this context, a symbolic link exists, regardless
-of where its points to.
-.B O_EXCL
-is broken on NFS file systems, programs which rely on it for performing
-locking tasks will contain a race condition.  The solution for performing
-atomic file locking using a lockfile is to create a unique file on the same
-fs (e.g., incorporating hostname and pid), use
-.BR link (2)
-to make a link to the lockfile. If \fBlink()\fP returns 0, the lock is
-successful.  Otherwise, use
-.BR stat (2)
-on the unique file to check if its link count has increased to 2,
-in which case the lock is also successful.
-.TP
-.B O_NOCTTY
-If
-.I pathname
-refers to a terminal device \(em see
-.BR tty (4)
-\(em it will not become the process's controlling terminal even if the
-process does not have one.
-.TP
-.B O_TRUNC
-If the file already exists and is a regular file and the open mode allows
-writing (i.e., is O_RDWR or O_WRONLY) it will be truncated to length 0.
-If the file is a FIFO or terminal device file, the O_TRUNC
-flag is ignored. Otherwise the effect of O_TRUNC is unspecified.
-.TP
-.B O_APPEND
-The file is opened in append mode. Before each
-.BR write ,
-the file pointer is positioned at the end of the file,
-as if with
-.BR lseek .
-.B O_APPEND
-may lead to corrupted files on NFS file systems if more than one process
-appends data to a file at once.  This is because NFS does not support
-appending to a file, so the client kernel has to simulate it, which
-can't be done without a race condition.
-.TP
-.BR O_NONBLOCK " or " O_NDELAY
-When possible, the file is opened in non-blocking mode. Neither the
-.B open
-nor any subsequent operations on the file descriptor which is
-returned will cause the calling process to wait.
-For the handling of FIFOs (named pipes), see also
-.BR fifo (4).
-This mode need not have any effect on files other than FIFOs.
-.TP
-.B O_SYNC
-The file is opened for synchronous I/O. Any
-.BR write s
-on the resulting file descriptor will block the calling process until
-the data has been physically written to the underlying hardware.
-.I See RESTRICTIONS below, though.
-.TP
-.B O_NOFOLLOW
-If \fIpathname\fR is a symbolic link, then the open fails.  This is a
-FreeBSD extension, which was added to Linux in version 2.1.126.
-Symbolic links in earlier components of the pathname will still be
-followed.  The headers from glibc 2.0.100 and later include a
-definition of this flag; \fIkernels before 2.1.126 will ignore it if
-used\fR.
-.TP
-.B O_DIRECTORY
-If \fIpathname\fR is not a directory, cause the open to fail.  This
-flag is Linux-specific, and was added in kernel version 2.1.126, to
-avoid denial-of-service problems if \fBopendir\fR(3) is called on a
-FIFO or tape device, but should not be used outside of the
-implementation of \fBopendir\fR.
 .TP
 .B O_DIRECT
 Try to minimize cache effects of the I/O to and from this file.
@@ -182,14 +131,31 @@ suffices.
 A semantically similar interface for block devices is described in
 .BR raw (8).
 .TP
-.B O_ASYNC
-Generate a signal (SIGIO by default, but this can be changed via
-.BR fcntl (2))
-when input or output becomes possible on this file descriptor.
-This feature is only available for terminals, pseudo-terminals, and
-sockets. See
-.BR fcntl (2)
-for further details.
+.B O_DIRECTORY
+If \fIpathname\fR is not a directory, cause the open to fail.  This
+flag is Linux-specific, and was added in kernel version 2.1.126, to
+avoid denial-of-service problems if \fBopendir\fR(3) is called on a
+FIFO or tape device, but should not be used outside of the
+implementation of \fBopendir\fR.
+.TP
+.B O_EXCL
+When used with
+.BR O_CREAT ,
+if the file already exists it is an error and the
+.BR open ()
+will fail. In this context, a symbolic link exists, regardless
+of where its points to.
+.B O_EXCL
+is broken on NFS file systems, programs which rely on it for performing
+locking tasks will contain a race condition.  The solution for performing
+atomic file locking using a lockfile is to create a unique file on
+the same file system (e.g., incorporating hostname and pid), use
+.BR link (2)
+to make a link to the lockfile. If \fBlink()\fP returns 0, the lock is
+successful.  Otherwise, use
+.BR stat (2)
+on the unique file to check if its link count has increased to 2,
+in which case the lock is also successful.
 .TP
 .B O_LARGEFILE
 (LFS)
@@ -198,9 +164,58 @@ Allow files whose sizes cannot be represented in an
 (but can be represented in an
 .BR off64_t )
 to be opened.
+.TP
+.B O_NOATIME
+(Since Linux 2.6.8)
+Do not update the file last access time when the file is
+.BR read (2).
+This flag is intended for use by indexing or backup programs,
+where its use can significantly reduce the amount of disk activity.
+This flag may not be effective on all filesystems.
+One example is NFS, where the server maintains the access time.
+.\" FIXME? This flag also affects the treatment of st_atime by mmap()
+.\" and readdir(2), MTK, Dec 04.
+.TP
+.B O_NOCTTY
+If
+.I pathname
+refers to a terminal device \(em see
+.BR tty (4)
+\(em it will not become the process's controlling terminal even if the
+process does not have one.
+.TP
+.B O_NOFOLLOW
+If \fIpathname\fR is a symbolic link, then the open fails.  This is a
+FreeBSD extension, which was added to Linux in version 2.1.126.
+Symbolic links in earlier components of the pathname will still be
+followed.  The headers from glibc 2.0.100 and later include a
+definition of this flag; \fIkernels before 2.1.126 will ignore it if
+used\fR.
+.TP
+.BR O_NONBLOCK " or " O_NDELAY
+When possible, the file is opened in non-blocking mode. Neither the
+.BR open ()
+nor any subsequent operations on the file descriptor which is
+returned will cause the calling process to wait.
+For the handling of FIFOs (named pipes), see also
+.BR fifo (4).
+This mode need not have any effect on files other than FIFOs.
+.TP
+.B O_SYNC
+The file is opened for synchronous I/O. Any
+.BR write ()s
+on the resulting file descriptor will block the calling process until
+the data has been physically written to the underlying hardware.
+.I See RESTRICTIONS below, though.
+.TP
+.B O_TRUNC
+If the file already exists and is a regular file and the open mode allows
+writing (i.e., is O_RDWR or O_WRONLY) it will be truncated to length 0.
+If the file is a FIFO or terminal device file, the O_TRUNC
+flag is ignored. Otherwise the effect of O_TRUNC is unspecified.
 .PP
 Some of these optional flags can be altered using
-.B fcntl
+.BR fcntl ()
 after the file has been opened.
 
 The argument
@@ -212,7 +227,7 @@ in the usual way: the permissions of the created file are
 .BR "(mode & ~umask)" .
 Note that this mode only applies to future accesses of the
 newly created file; the
-.B open
+.BR open ()
 call that creates a read-only file may well return a read/write
 file descriptor.
 .PP
@@ -262,30 +277,33 @@ is in the
 .IR flags ,
 and is ignored otherwise.
 
-.B creat
+.BR creat ()
 is equivalent to
-.B open
+.BR open ()
 with
 .I flags
 equal to
 .BR O_CREAT|O_WRONLY|O_TRUNC .
 .SH "RETURN VALUE"
-.BR open " and " creat
-return the new file descriptor, or \-1 if an error occurred (in which case,
+.BR open "() and " creat ()
+return the new file descriptor, or \-1 if an error occurred
+(in which case,
 .I errno
 is set appropriately).
 Note that
-.B open
+.BR open ()
 can open device special files, but
-.B creat
+.BR creat ()
 cannot create them - use
 .BR mknod (2)
 instead.
 .LP
-On NFS file systems with UID mapping enabled, \fBopen\fP may return a file
-descriptor but e.g. \fBread\fP(2) requests are denied with \fBEACCES\fP.
-This is because the client performs \fBopen\fP by checking the permissions,
-but UID mapping is performed by the server upon read and write requests.
+On NFS file systems with UID mapping enabled, \fBopen\fP may 
+return a file descriptor but e.g. \fBread\fP(2) requests are denied
+with \fBEACCES\fP.
+This is because the client performs \fBopen\fP by checking the
+permissions, but UID mapping is performed by the server upon
+read and write requests.
 
 If the file is newly created, its atime, ctime, mtime fields are set
 to the current time, and so are the ctime and mtime fields of the
@@ -374,6 +392,14 @@ Or, the file is a device special file and no corresponding device exists.
 .I pathname
 refers to a regular file, too large to be opened - see O_LARGEFILE above.
 .TP
+.B EPERM
+The
+.B O_NOATIME
+flag was specified, but the effective user ID of the caller
+.\" Strictly speaking, it's the file system UID... (MTK)
+did not match the owner of the file and the caller was not privileged
+.RB ( CAP_FOWNER ).
+.TP
 .B EROFS
 .I pathname
 refers to a file on a read-only filesystem and write access was
@@ -392,7 +418,8 @@ for use with
 .SH "CONFORMING TO"
 SVr4, SVID, POSIX, X/OPEN, BSD 4.3.
 The
-.B O_NOFOLLOW
+.BR O_NOATIME ,
+.BR O_NOFOLLOW ,
 and
 .B O_DIRECTORY
 flags are Linux-specific.

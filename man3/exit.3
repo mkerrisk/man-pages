@@ -1,0 +1,96 @@
+.\" Copyright (C) 2001 Andries Brouwer <aeb@cwi.nl>.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH EXIT 3  2001-11-17 "" "Linux Programmer's Manual"
+.SH NAME
+exit \- cause normal program termination
+.SH SYNOPSIS
+.nf
+.B #include <stdlib.h>
+.sp
+.BI "void exit(int " status );
+.fi
+.SH DESCRIPTION
+The \fBexit()\fP function causes normal program termination and the
+the value of \fIstatus & 0377\fP is returned to the parent
+(see
+.BR wait (2)).
+All functions registered with \fBatexit()\fP and \fBon_exit()\fP
+are called in the reverse order of their registration,
+and all open streams are flushed and closed.
+Files created by \fItmpfile()\fP are removed.
+.LP
+The C standard specifies two defines \fIEXIT_SUCCESS\fP and \fIEXIT_FAILURE\fP
+that may be passed to \fBexit()\fP to indicate successful or unsuccessful
+termination, respectively.
+.SH "RETURN VALUE"
+The \fBexit()\fP function does not return.
+.SH "CONFORMING TO"
+SVID 3, POSIX, BSD 4.3, ISO 9899 (``ANSI C'')
+.SH NOTES
+During the exit processing, it is possible to register additional
+functions with \fBatexit()\fP and \fBon_exit()\fP.
+Always the last-registered function is removed from the chain
+of registered functions, and invoked.
+It is undefined what happens if during this processing
+either \fBexit()\fP or \fBlongjmp()\fP is called.
+.LP
+The use of EXIT_SUCCESS and EXIT_FAILURE is slightly more portable
+(to non-Unix environments) than that of 0 and some nonzero value
+like 1 or \-1. In particular, VMS uses a different convention.
+.LP
+BSD has attempted to standardize exit codes - see the file
+.IR <sysexits.h> .
+.LP
+After \fBexit()\fP, the exit status must be transmitted to the
+parent process. There are three cases. If the parent has set
+SA_NOCLDWAIT, or has set the SIGCHLD handler to SIG_IGN, the
+status is discarded. If the parent was waiting on the child
+it is notified of the exit status. In both cases the exiting
+process dies immediately. If the parent has not indicated that
+it is not interested in the exit status, but is not waiting,
+the exiting process turns into a "zombie" process
+(which is nothing but a container for the single byte representing
+the exit status) so that the parent can learn the exit status when
+it later calls one of the \fIwait()\fP functions.
+.LP
+If the implementation supports the SIGCHLD signal, this signal
+is sent to the parent. If the parent has set SA_NOCLDWAIT,
+it is undefined whether a SIGCHLD signal is sent.
+.LP
+If the process is a session leader and its controlling terminal
+the controlling terminal of the session, then each process in
+the foreground process group of this controlling terminal
+is sent a SIGHUP signal, and the terminal is disassociated
+from this session, allowing it to be acquired by a new controlling
+process.
+.LP
+If the exit of the process causes a process group to become orphaned,
+and if any member of the newly-orphaned process group is stopped,
+then a SIGHUP signal followed by a SIGCONT signal will be
+sent to each process in this process group.
+.SH "SEE ALSO"
+.BR _exit (2),
+.BR wait (2),
+.BR atexit (3),
+.BR on_exit (3),
+.BR tmpfile (3)

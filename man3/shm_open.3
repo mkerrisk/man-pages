@@ -1,0 +1,252 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2002 Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH SHM_OPEN 3 2002-02-22 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+shm_open, shm_unlink \- Create/open or unlink POSIX shared memory objects
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <sys/mman.h>
+.sp
+.BI "int shm_open(const char *" name ", int " oflag ", mode_t " mode );
+.sp
+.BI "int shm_unlink(const char *" name );
+.SH DESCRIPTION
+.B shm_open
+creates and opens a new, or opens an existing, POSIX shared memory object.
+A POSIX shared memory object is in effect a handle which can
+be used by unrelated processes to 
+.BR mmap (2)
+the same region of shared memory.  
+The 
+.B shm_unlink
+function performs the converse operation, 
+removing an object previously created by
+.BR shm_open .
+.LP
+The operation of
+.B shm_open
+is analogous to that of
+.BR open (2).
+.I name
+specifies the shared memory object to be created or opened.  
+For portable use, 
+.I name
+should have an initial slash (/) and contain no embedded slashes.
+.\" The names used may or may not live in a file system, and may or may not
+.\" survive a reboot. Names starting with a slash are also visible to other
+.\" processes. Other names have implementation-defined effect.
+.LP
+.I oflag
+is a bit mask created by ORing together exactly one of
+.B O_RDONLY 
+or
+.B O_RWDR
+and any of the other flags listed here:
+.TP 1.1i
+.B O_RDONLY
+Open the object for read access.
+A shared memory object opened in this way can only be 
+.BR mmap (2)ed 
+for read (\fBPROT_READ\fP) access.
+.TP
+.B O_RDWR
+Open the object for read-write access.
+.TP
+.B O_CREAT
+Create the shared memory object if it does not exist.  
+The user and group ownership of the object are set as for
+.BR open (2),
+and the object's
+permission bits are set according to the low-order 9 bits of 
+.IR mode ,
+except that those bits set in the process file mode
+creation mask (see
+.BR umask (2))
+are cleared for the new object.
+(A set of macro constants which can be used to define
+.I mode
+is listed in 
+.BR open (2).)
+.sp
+A new shared memory object initially has zero length \- the size of the
+object can be set using
+.BR ftruncate (2).
+(The newly-allocated bytes of a shared memory
+object are automatically initialised to 0.)
+.TP 
+.B O_EXCL
+If 
+.B O_CREAT
+was also specified, and a share memory object with the given
+.I name 
+already exists, return an error.
+The check for the existence of the object, and its creation if it 
+does not exist, are performed atomically.
+.TP
+.B O_TRUNC
+If the shared memory object already exists, truncate it to zero bytes.
+.LP
+On successful completion
+.B shm_open
+returns a new file descriptor referring to the shared memory object.
+This file descriptor is guaranteed to be the lowest-numbered file descriptor
+not previously opened within the process.  
+The
+.B FD_CLOEXEC
+flag (see 
+.BR fcntl (2))
+is set for the file descriptor.
+
+The file descriptor is normally used in subsequent calls 
+to 
+.BR ftruncate (2)
+(for a newly-created object) and
+.BR mmap (2).
+After a call to
+.BR mmap (2)
+the file descriptor may be closed without affecting the memory mapping.
+
+The operation
+of 
+.B shm_unlink
+is analogous to
+.BR unlink (2):
+it removes a shared memory object name, and, once all processes
+have unmapped the object, de-allocates and 
+destroys the contents of the associated memory region.
+After a successful 
+.BR shm_unlink ,
+attempts to 
+.B shm_open 
+an object with the same 
+.I name
+will fail (unless
+.B O_CREAT
+was specified, in which case a new, distinct object is created).
+.SH "RETURN VALUE"
+On success,
+.B shm_open
+returns a non-negative file descriptor.  On failure,
+.B shm_open
+returns \-1.
+.B shm_unlink
+returns 0 on success, or \-1 on error.
+.SH ERRORS
+On failure,
+.I errno
+is set to indicate the cause of the error.  Values which may appear in
+.I errno
+include the following:
+.TP 
+.B EACCES
+Permission to
+.B shm_unlink
+the shared memory object was denied.
+.TP
+.B EACCES
+Permission was denied to 
+.B shm_open
+.I name
+in the specified
+.IR mode,
+or 
+.B O_TRUNC
+was specified and the caller does not have write permission on the object.
+.TP 
+.B EEXIST
+Both
+.B O_CREAT
+and
+.B O_EXCL 
+were specified to
+.B shm_open
+and the shared memory object specified by
+.I name
+already exists.
+.TP
+.B EINVAL
+The
+.I name
+argument to 
+.B shm_open
+was invalid.
+.TP
+.B EMFILE
+The process already has the maximum number of files open.
+.TP
+.B ENAMETOOLONG
+The length of 
+.I name
+exceeds 
+.BR PATH_MAX .
+.TP
+.B ENFILE
+The limit on the total number of files open on the system has been
+reached.
+.TP
+.B ENOENT
+An attempt was made to
+.B shm_open
+a 
+.I name 
+that did not exist, and
+.B O_CREAT
+was not specified.
+.TP
+.B ENOENT
+An attempt was to made to
+.B shm_unlink
+a 
+.I name 
+that does not exist.
+.SH "NOTES"
+These functions are provided in glibc 2.2 and later.  Programs using these 
+functions must specify the 
+.B \-lrt
+flag to
+.B cc
+in order to link against the required ("realtime") library.
+.LP
+POSIX leaves the behavior of the combination of 
+.B O_RDONLY
+and
+.B O_TRUNC
+unspecified.  On Linux, this will successfully truncate an existing 
+shared memory object \- this may not be so on other Unices.
+.LP
+The POSIX shared memory object implementation on Linux 2.4 makes use
+of a dedicated file system, which is normally
+mounted under 
+.BR /dev/shm .
+.SH "CONFORMING TO"
+POSIX 1003.1 (2001).
+.SH "SEE ALSO"
+.BR close (2),
+.BR fchmod (2),
+.BR fchown (2),
+.BR fcntl (2),
+.BR fstat (2),
+.BR ftruncate (2),
+.BR mmap (2),
+.BR open (2),
+.BR umask (2)

@@ -1,0 +1,262 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SHM_OPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" shm_open 
+.SH NAME
+shm_open \- open a shared memory object (\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <sys/mman.h>
+.br
+.sp
+int shm_open(const char *\fP\fIname\fP\fB, int\fP \fIoflag\fP\fB,
+mode_t\fP \fImode\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIshm_open\fP() function shall establish a connection between
+a shared memory object and a file descriptor. It shall
+create an open file description that refers to the shared memory object
+and a file descriptor that refers to that open file
+description. The file descriptor is used by other functions to refer
+to that shared memory object. The \fIname\fP argument points
+to a string naming a shared memory object. It is unspecified whether
+the name appears in the file system and is visible to other
+functions that take pathnames as arguments. The \fIname\fP argument
+conforms to the construction rules for a pathname. If
+\fIname\fP begins with the slash character, then processes calling
+\fIshm_open\fP() with the same value of \fIname\fP refer to
+the same shared memory object, as long as that name has not been removed.
+If \fIname\fP does not begin with the slash character,
+the effect is implementation-defined. The interpretation of slash
+characters other than the leading slash character in \fIname\fP
+is implementation-defined.
+.LP
+If successful, \fIshm_open\fP() shall return a file descriptor for
+the shared memory object that is the lowest numbered file
+descriptor not currently open for that process. The open file description
+is new, and therefore the file descriptor does not share
+it with any other processes. It is unspecified whether the file offset
+is set. The FD_CLOEXEC file descriptor flag associated with
+the new file descriptor is set.
+.LP
+The file status flags and file access modes of the open file description
+are according to the value of \fIoflag\fP. The
+\fIoflag\fP argument is the bitwise-inclusive OR of the following
+flags defined in the \fI<fcntl.h>\fP header. Applications specify
+exactly one of the first two values (access
+modes) below in the value of \fIoflag\fP:
+.TP 7
+O_RDONLY
+Open for read access only.
+.TP 7
+O_RDWR
+Open for read or write access.
+.sp
+.LP
+Any combination of the remaining flags may be specified in the value
+of \fIoflag\fP:
+.TP 7
+O_CREAT
+If the shared memory object exists, this flag has no effect, except
+as noted under O_EXCL below. Otherwise, the shared memory
+object is created; the user ID of the shared memory object shall be
+set to the effective user ID of the process; the group ID of
+the shared memory object is set to a system default group ID or to
+the effective group ID of the process. The permission bits of
+the shared memory object shall be set to the value of the \fImode\fP
+argument except those set in the file mode creation mask of
+the process. When bits in \fImode\fP other than the file permission
+bits are set, the effect is unspecified. The \fImode\fP
+argument does not affect whether the shared memory object is opened
+for reading, for writing, or for both. The shared memory object
+has a size of zero.
+.TP 7
+O_EXCL
+If O_EXCL and O_CREAT are set, \fIshm_open\fP() fails if the shared
+memory object exists. The check for the existence of the
+shared memory object and the creation of the object if it does not
+exist is atomic with respect to other processes executing
+\fIshm_open\fP() naming the same shared memory object with O_EXCL
+and O_CREAT set. If O_EXCL is set and O_CREAT is not set, the
+result is undefined.
+.TP 7
+O_TRUNC
+If the shared memory object exists, and it is successfully opened
+O_RDWR, the object shall be truncated to zero length and the
+mode and owner shall be unchanged by this function call. The result
+of using O_TRUNC with O_RDONLY is undefined.
+.sp
+.LP
+When a shared memory object is created, the state of the shared memory
+object, including all data associated with the shared
+memory object, persists until the shared memory object is unlinked
+and all other references are gone. It is unspecified whether the
+name and shared memory object state remain valid after a system reboot.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIshm_open\fP() function shall return
+a non-negative integer representing the lowest numbered
+unused file descriptor. Otherwise, it shall return -1 and set \fIerrno\fP
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIshm_open\fP() function shall fail if:
+.TP 7
+.B EACCES
+The shared memory object exists and the permissions specified by \fIoflag\fP
+are denied, or the shared memory object does not
+exist and permission to create the shared memory object is denied,
+or O_TRUNC is specified and write permission is denied.
+.TP 7
+.B EEXIST
+O_CREAT and O_EXCL are set and the named shared memory object already
+exists.
+.TP 7
+.B EINTR
+The \fIshm_open\fP() operation was interrupted by a signal.
+.TP 7
+.B EINVAL
+The \fIshm_open\fP() operation is not supported for the given name.
+.TP 7
+.B EMFILE
+Too many file descriptors are currently in use by this process.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIname\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENFILE
+Too many shared memory objects are currently open in the system.
+.TP 7
+.B ENOENT
+O_CREAT is not set and the named shared memory object does not exist.
+.TP 7
+.B ENOSPC
+There is insufficient space for the creation of the new shared memory
+object.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+When the Memory Mapped Files option is supported, the normal \fIopen\fP()
+call is used to
+obtain a descriptor to a file to be mapped according to existing practice
+with \fImmap\fP().
+When the Shared Memory Objects option is supported, the \fIshm_open\fP()
+function shall obtain a descriptor to the shared memory
+object to be mapped.
+.LP
+There is ample precedent for having a file descriptor represent several
+types of objects. In the POSIX.1-1990 standard, a file
+descriptor can represent a file, a pipe, a FIFO, a tty, or a directory.
+Many implementations simply have an operations vector,
+which is indexed by the file descriptor type and does very different
+operations. Note that in some cases the file descriptor passed
+to generic operations on file descriptors is returned by \fIopen\fP()
+or \fIcreat\fP() and in some cases returned by alternate functions,
+such as \fIpipe\fP(). The latter technique is used by \fIshm_open\fP().
+.LP
+Note that such shared memory objects can actually be implemented as
+mapped files. In both cases, the size can be set after the
+open using \fIftruncate\fP(). The \fIshm_open\fP() function itself
+does not create a
+shared object of a specified size because this would duplicate an
+extant function that set the size of an object referenced by a
+file descriptor.
+.LP
+On implementations where memory objects are implemented using the
+existing file system, the \fIshm_open\fP() function may be
+implemented using a macro that invokes \fIopen\fP(), and the \fIshm_unlink\fP()
+function may be implemented using a macro that invokes \fIunlink\fP().
+.LP
+For implementations without a permanent file system, the definition
+of the name of the memory objects is allowed not to survive
+a system reboot. Note that this allows systems with a permanent file
+system to implement memory objects as data structures internal
+to the implementation as well.
+.LP
+On implementations that choose to implement memory objects using memory
+directly, a \fIshm_open\fP() followed by an \fIftruncate\fP() and
+\fIclose\fP() can be used to
+preallocate a shared memory area and to set the size of that preallocation.
+This may be necessary for systems without virtual
+memory hardware support in order to ensure that the memory is contiguous.
+.LP
+The set of valid open flags to \fIshm_open\fP() was restricted to
+O_RDONLY, O_RDWR, O_CREAT, and O_TRUNC because these could be
+easily implemented on most memory mapping systems. This volume of
+IEEE\ Std\ 1003.1-2001 is silent on the results if the
+implementation cannot supply the requested file access because of
+implementation-defined reasons, including hardware ones.
+.LP
+The error conditions [EACCES] and [ENOTSUP] are provided to inform
+the application that the implementation cannot complete a
+request.
+.LP
+[EACCES] indicates for implementation-defined reasons, probably hardware-related,
+that the implementation cannot comply with a
+requested mode because it conflicts with another requested mode. An
+example might be that an application desires to open a memory
+object two times, mapping different areas with different access modes.
+If the implementation cannot map a single area into a
+process space in two places, which would be required if different
+access modes were required for the two areas, then the
+implementation may inform the application at the time of the second
+open.
+.LP
+[ENOTSUP] indicates for implementation-defined reasons, probably hardware-related,
+that the implementation cannot comply with a
+requested mode at all. An example would be that the hardware of the
+implementation cannot support write-only shared memory
+areas.
+.LP
+On all implementations, it may be desirable to restrict the location
+of the memory objects to specific file systems for
+performance (such as a RAM disk) or implementation-defined reasons
+(shared memory supported directly only on certain file systems).
+The \fIshm_open\fP() function may be used to enforce these restrictions.
+There are a number of methods available to the
+application to determine an appropriate name of the file or the location
+of an appropriate directory. One way is from the
+environment via \fIgetenv\fP(). Another would be from a configuration
+file.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 specifies that memory objects
+have initial contents of zero when created. This is
+consistent with current behavior for both files and newly allocated
+memory. For those implementations that use physical memory, it
+would be possible that such implementations could simply use available
+memory and give it to the process uninitialized. This,
+however, is not consistent with standard behavior for the uninitialized
+data area, the stack, and of course, files. Finally, it is
+highly desirable to set the allocated memory to zero for security
+reasons. Thus, initializing memory objects to zero is
+required.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclose\fP() , \fIdup\fP() , \fIexec\fP() , \fIfcntl\fP() , \fImmap\fP()
+, \fIshmat\fP() , \fIshmctl\fP() , \fIshmdt\fP() , \fIshm_unlink\fP()
+, \fIumask\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<fcntl.h>\fP, \fI<sys/mman.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

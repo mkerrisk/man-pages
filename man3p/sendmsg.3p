@@ -1,0 +1,231 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SENDMSG" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sendmsg 
+.SH NAME
+sendmsg \- send a message on a socket using a message structure
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+.sp
+ssize_t sendmsg(int\fP \fIsocket\fP\fB, const struct msghdr *\fP\fImessage\fP\fB,
+int\fP \fIflags\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsendmsg\fP() function shall send a message through a connection-mode
+or connectionless-mode socket. If the socket is
+connectionless-mode, the message shall be sent to the address specified
+by \fBmsghdr\fP. If the socket is connection-mode, the
+destination address in \fBmsghdr\fP shall be ignored.
+.LP
+The \fIsendmsg\fP() function takes the following arguments:
+.TP 7
+\fIsocket\fP
+Specifies the socket file descriptor.
+.TP 7
+\fImessage\fP
+Points to a \fBmsghdr\fP structure, containing both the destination
+address and the buffers for the outgoing message. The
+length and format of the address depend on the address family of the
+socket. The \fImsg_flags\fP member is ignored.
+.TP 7
+\fIflags\fP
+Specifies the type of message transmission. The application may specify
+0 or the following flag: 
+.TP 7
+MSG_EOR
+.RS
+Terminates a record (if supported by the protocol).
+.RE
+.TP 7
+MSG_OOB
+.RS
+Sends out-of-band data on sockets that support out-of-bound data.
+The significance and semantics of out-of-band data are
+protocol-specific.
+.RE
+.sp
+.sp
+.LP
+The \fImsg_iov\fP and \fImsg_iovlen\fP fields of \fImessage\fP specify
+zero or more buffers containing the data to be sent.
+\fImsg_iov\fP points to an array of \fBiovec\fP structures; \fImsg_iovlen\fP
+shall be set to the dimension of this array. In
+each \fBiovec\fP structure, the \fIiov_base\fP field specifies a storage
+area and the \fIiov_len\fP field gives its size in
+bytes. Some of these sizes can be zero. The data from each storage
+area indicated by \fImsg_iov\fP is sent in turn.
+.LP
+Successful completion of a call to \fIsendmsg\fP() does not guarantee
+delivery of the message. A return value of -1 indicates
+only locally-detected errors.
+.LP
+If space is not available at the sending socket to hold the message
+to be transmitted and the socket file descriptor does not
+have O_NONBLOCK set, the \fIsendmsg\fP() function shall block until
+space is available. If space is not available at the sending
+socket to hold the message to be transmitted and the socket file descriptor
+does have O_NONBLOCK set, the \fIsendmsg\fP() function
+shall fail.
+.LP
+If the socket protocol supports broadcast and the specified address
+is a broadcast address for the socket protocol,
+\fIsendmsg\fP() shall fail if the SO_BROADCAST option is not set for
+the socket.
+.LP
+The socket in use may require the process to have appropriate privileges
+to use the \fIsendmsg\fP() function.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIsendmsg\fP() shall return the number
+of bytes sent. Otherwise, -1 shall be returned and
+\fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIsendmsg\fP() function shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP EWOULDBLOCK
+The socket's file descriptor is marked O_NONBLOCK and the requested
+operation would block.
+.TP 7
+.B EAFNOSUPPORT
+Addresses in the specified address family cannot be used with this
+socket.
+.TP 7
+.B EBADF
+The \fIsocket\fP argument is not a valid file descriptor.
+.TP 7
+.B ECONNRESET
+A connection was forcibly closed by a peer.
+.TP 7
+.B EINTR
+A signal interrupted \fIsendmsg\fP() before any data was transmitted.
+.TP 7
+.B EINVAL
+The sum of the \fIiov_len\fP values overflows an \fBssize_t\fP.
+.TP 7
+.B EMSGSIZE
+The message is too large to be sent all at once (as the socket requires),
+or the \fImsg_iovlen\fP member of the \fBmsghdr\fP
+structure pointed to by \fImessage\fP is less than or equal to 0 or
+is greater than {IOV_MAX}.
+.TP 7
+.B ENOTCONN
+The socket is connection-mode but is not connected.
+.TP 7
+.B ENOTSOCK
+The \fIsocket\fP argument does not refer to a socket.
+.TP 7
+.B EOPNOTSUPP
+The \fIsocket\fP argument is associated with a socket that does not
+support one or more of the values set in
+\fIflags\fP.
+.TP 7
+.B EPIPE
+The socket is shut down for writing, or the socket is connection-mode
+and is no longer connected. In the latter case, and if
+the socket is of type SOCK_STREAM, the SIGPIPE signal is generated
+to the calling thread.
+.sp
+.LP
+If the address family of the socket is AF_UNIX, then \fIsendmsg\fP()
+shall fail if:
+.TP 7
+.B EIO
+An I/O error occurred while reading from or writing to the file system.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+pathname in the socket address.
+.TP 7
+.B ENAMETOOLONG
+A component of a pathname exceeded {NAME_MAX} characters, or an entire
+pathname exceeded {PATH_MAX} characters.
+.TP 7
+.B ENOENT
+A component of the pathname does not name an existing file or the
+path name is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix of the pathname in the socket address
+is not a directory.
+.sp
+.LP
+The \fIsendmsg\fP() function may fail if:
+.TP 7
+.B EACCES
+Search permission is denied for a component of the path prefix; or
+write access to the named socket is denied.
+.TP 7
+.B EDESTADDRREQ
+The socket is not connection-mode and does not have its peer address
+set, and no destination address was specified.
+.TP 7
+.B EHOSTUNREACH
+The destination host cannot be reached (probably because the host
+is down or a remote router cannot reach it).
+.TP 7
+.B EIO
+An I/O error occurred while reading from or writing to the file system.
+.TP 7
+.B EISCONN
+A destination address was specified and the socket is already connected.
+.TP 7
+.B ENETDOWN
+The local network interface used to reach the destination is down.
+.TP 7
+.B ENETUNREACH
+No route to the network is present.
+.TP 7
+.B ENOBUFS
+Insufficient resources were available in the system to perform the
+operation.
+.TP 7
+.B ENOMEM
+Insufficient memory was available to fulfill the request.
+.sp
+.LP
+If the address family of the socket is AF_UNIX, then \fIsendmsg\fP()
+may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the pathname in the socket address.
+.TP 7
+.B ENAMETOOLONG
+Pathname resolution of a symbolic link produced an intermediate result
+whose length exceeds {PATH_MAX}.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+Done.
+.SH APPLICATION USAGE
+.LP
+The \fIselect\fP() and \fIpoll\fP() functions can
+be used to determine when it is possible to send more data.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetsockopt\fP() , \fIpoll\fP() , \fIrecv\fP() , \fIrecvfrom\fP()
+, \fIrecvmsg\fP() , \fIselect\fP() , \fIsend\fP() , \fIsendto\fP()
+, \fIsetsockopt\fP() , \fIshutdown\fP() , \fIsocket\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,230 @@
+.\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References consulted:
+.\"     Linux libc source code
+.\"     Lewine's _POSIX Programmer's Guide_ (O'Reilly & Associates, 1991)
+.\"     386BSD man pages
+.\" Modified Sat Jul 24 19:49:27 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified Fri Apr 26 12:38:55 MET DST 1996 by Martin Schulze (joey@linux.de)
+.\" Modified 2001-11-13, aeb
+.\" Modified 2001-12-13, joey, aeb
+.\"
+.TH CTIME 3  2001-12-13 "" "Linux Programmer's Manual"
+.SH NAME
+asctime, ctime, gmtime, localtime, mktime, asctime_r, ctime_r, gmtime_r,
+localtime_r \- transform date and time to broken-down time or ASCII
+.SH SYNOPSIS
+.nf
+.B #include <time.h>
+.sp
+.BI "char *asctime(const struct tm *" tm );
+.br
+.BI "char *asctime_r(const struct tm *" tm ", char *" buf );
+.sp
+.BI "char *ctime(const time_t *" timep );
+.br
+.BI "char *ctime_r(const time_t *" timep ", char *" buf );
+.sp
+.BI "struct tm *gmtime(const time_t *" timep );
+.br
+.BI "struct tm *gmtime_r(const time_t *" timep ", struct tm *" result );
+.sp
+.BI "struct tm *localtime(const time_t *" timep );
+.br
+.BI "struct tm *localtime_r(const time_t *" timep ", struct tm *" result );
+.sp
+.BI "time_t mktime(struct tm *" tm );
+.fi
+.SH DESCRIPTION
+The \fBctime()\fP, \fBgmtime()\fP and \fBlocaltime()\fP functions all take
+an argument of data type \fItime_t\fP which represents calendar time.
+When interpreted as an absolute time value, it represents the number of
+seconds elapsed since 00:00:00 on January 1, 1970, Coordinated Universal
+Time (UTC).
+.PP
+The \fBasctime()\fP and \fBmktime()\fP functions both take an argument
+representing broken-down time which is a representation
+separated into year, month, day, etc.
+.PP
+Broken-down time is stored
+in the structure \fItm\fP which is defined in \fI<time.h>\fP as follows:
+.sp
+.RS
+.nf
+.ne 11
+.ta 8n 16n 32n
+struct tm {
+	int	tm_sec;			/* seconds */
+	int	tm_min;			/* minutes */
+	int	tm_hour;		/* hours */
+	int	tm_mday;		/* day of the month */
+	int	tm_mon;			/* month */
+	int	tm_year;		/* year */
+	int	tm_wday;		/* day of the week */
+	int	tm_yday;		/* day in the year */
+	int	tm_isdst;		/* daylight saving time */
+};
+.ta
+.fi
+.RE
+.PP
+The members of the \fItm\fP structure are:
+.TP
+.I tm_sec
+The number of seconds after the minute, normally in the range 0 to 59, 
+but can be up to 61 to allow for leap seconds.
+.TP
+.I tm_min
+The number of minutes after the hour, in the range 0 to 59. 
+.TP
+.I tm_hour
+The number of hours past midnight, in the range 0 to 23.
+.TP
+.I tm_mday
+The day of the month, in the range 1 to 31.
+.TP
+.I tm_mon
+The number of months since January, in the range 0 to 11.
+.TP
+.I tm_year
+The number of years since 1900.
+.TP
+.I tm_wday
+The number of days since Sunday, in the range 0 to 6.
+.TP
+.I tm_yday
+The number of days since January 1, in the range 0 to 365.
+.TP
+.I tm_isdst
+A flag that indicates whether daylight saving time is in effect at the
+time described.  The value is positive if daylight saving time is in
+effect, zero if it is not, and negative if the information is not
+available.
+.PP
+The call
+.BI ctime( t )
+is equivalent to
+.BI asctime(localtime( t )) \fR.
+It converts the calendar time \fIt\fP into a string of the form
+.sp
+.RS
+"Wed Jun 30 21:49:08 1993\\n"
+.RE
+.sp
+The abbreviations for the days of the week are `Sun', `Mon', `Tue', `Wed',
+`Thu', `Fri', and `Sat'.  The abbreviations for the months are `Jan',
+`Feb', `Mar', `Apr', `May', `Jun', `Jul', `Aug', `Sep', `Oct', `Nov', and
+`Dec'.  The return value points to a statically allocated string which
+might be overwritten by subsequent calls to any of the date and time
+functions.  The function also sets the external variable \fItzname\fP (see
+.BR tzset (3))
+with information about the current time zone.
+The re-entrant version \fBctime_r()\fP does the same, but stores the
+string in a user-supplied buffer of length at least 26. It need not
+set \fItzname\fP.
+.PP
+The \fBgmtime()\fP function converts the calendar time \fItimep\fP to
+broken-down time representation, expressed in Coordinated Universal Time
+(UTC). It may return NULL when the year does not fit into an integer.
+The return value points to a statically allocated struct which might be
+overwritten by subsequent calls to any of the date and time functions.
+The \fBgmtime_r()\fP function does the same, but stores the data in a
+user-supplied struct.
+.PP
+The \fBlocaltime()\fP function converts the calendar time \fItimep\fP to
+broken-time representation, expressed relative to the user's specified
+time zone.    The function acts as if it called
+.BR tzset (3)
+and sets the external variables \fItzname\fP with 
+information about the current time zone, \fItimezone\fP with the difference
+between Coordinated Universal Time (UTC) and local standard time in
+seconds, and \fIdaylight\fP to a non-zero value if daylight savings
+time rules apply during some part of the year.
+The return value points to a statically allocated struct which might be
+overwritten by subsequent calls to any of the date and time functions.
+The \fBlocaltime_r()\fP function does the same, but stores the data in a
+user-supplied struct. It need not set \fItzname\fP.
+.PP
+The \fBasctime()\fP function converts the broken-down time value
+\fItm\fP into a string with the same format as \fBctime()\fP.
+The return value points to a statically allocated string which might be 
+overwritten by subsequent calls to any of the date and time functions.
+The \fBasctime_r()\fP function does the same, but stores the string in
+a user-supplied buffer of length at least 26.
+.PP
+The \fBmktime()\fP function converts a broken-down time structure, expressed
+as local time, to calendar time representation.  The function ignores
+the specified contents of the structure members \fItm_wday\fP and \fItm_yday\fP
+and recomputes them from the other information in the broken-down time
+structure.
+If structure members are outside their legal interval, they will be
+normalized (so that, e.g., 40 October is changed into 9 November).
+Calling \fBmktime()\fP also sets the external variable \fItzname\fP with
+information about the current time zone.  If the specified broken-down
+time cannot be represented as calendar time (seconds since the epoch),
+\fBmktime()\fP returns a value of (time_t)(\-1) and does not alter the
+\fItm_wday\fP and \fItm_yday\fP members of the broken-down time structure.
+.SH "RETURN VALUE"
+Each of these functions returns the value described, or NULL
+(\-1 in case of \fBmktime()\fP) in case an error was detected.
+.SH NOTES
+The four functions
+.BR asctime() ,
+.BR ctime() ,
+.B gmtime()
+and
+.B localtime()
+return a pointer to static data and hence are not thread-safe.
+Thread-safe versions
+.BR asctime_r() ,
+.BR ctime_r() ,
+.B gmtime_r()
+and
+.BR localtime_r()
+are specified by SUSv2, and available since libc 5.2.5.
+.LP
+The glibc version of struct tm has additional fields
+.sp
+.RS
+.nf
+long tm_gmtoff;           /* Seconds east of UTC */
+const char *tm_zone;      /* Timezone abbreviation */
+.fi
+.RE
+.sp
+defined when _BSD_SOURCE was set before including
+.IR <time.h> .
+This is a BSD extension, present in 4.3BSD-Reno.
+.SH "CONFORMING TO"
+SVID 3, POSIX, BSD 4.3, ISO 9899
+.SH "SEE ALSO"
+.BR date (1),
+.BR gettimeofday (2),
+.BR time (2),
+.BR utime (2),
+.BR clock (3),
+.BR difftime (3),
+.BR newctime (3),
+.BR strftime (3),
+.BR strptime (3),
+.BR tzset (3)

@@ -1,0 +1,140 @@
+.\" Copyright 2000 Nicolás Lichtmaier <nick@debian.org>
+.\" Created 2000-07-22 00:52-0300
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" Modified 2002-07-23 19:21:35 CEST 2002 Walter Harms
+.\" <walter.harms@informatik.uni-oldenburg.de>
+.\"
+.\" Modified 2003-04-04, aeb
+.\"
+.TH ENCRYPT 3 2003-04-04 "glibc2" "Cryptographic Functions"
+.SH NAME
+encrypt, setkey, encrypt_r, setkey_r \- encrypt 64-bit messages
+.SH SYNOPSIS
+.B #define _XOPEN_SOURCE
+.br
+.B #include <unistd.h>
+.sp
+.BI "void encrypt(char " block "[64], int " edflag );
+.sp
+.B #define _XOPEN_SOURCE
+.br
+.B #include <stdlib.h>
+.sp
+.BI "void setkey(const char *" key );
+.sp
+.B #define _GNU_SOURCE
+.br
+.BI "#include <crypt.h>"
+.sp
+.BI "void setkey_r (const char *" key ", struct crypt_data *" data );
+.br
+.BI "void encrypt_r (char *" block ", int " edflag ", struct crypt_data *" data );
+.sp
+Each of these requires linking with
+.BR -lcrypt .
+.SH DESCRIPTION
+These functions encrypt and decrypt 64-bit messages. The
+.B setkey()
+function sets the key used by
+.BR encrypt() .
+The
+.I key
+parameter used here is an array of 64 bytes, each of which has
+numerical value 1 or 0. The bytes key[n] where n=8*i-1 are ignored,
+so that the effective key length is 56 bits.
+.PP
+The encrypt() function modifies the passed buffer, encoding if
+.I edflag
+is 0, and decoding if 1 is being passed. Like the key parameter also
+.I block
+is a bit vector representation of the actual value that is encoded.
+The result is returned in that same vector.
+.PP
+These two functions are not reentrant, that is, the key data is
+kept in static storage. The functions 
+.B setkey_r() 
+and
+.B encrypt_r() 
+are the reentrant versions. They use the following 
+structure to hold the key data:
+.RS
+.nf
+struct crypt_data {
+      char keysched[16 * 8];
+      char sb0[32768];
+      char sb1[32768];
+      char sb2[32768];
+      char sb3[32768];
+      char crypt_3_buf[14];
+      char current_salt[2];
+      long int current_saltbits;
+      int  direction, initialized;
+};
+.fi
+.RE
+Before calling
+.B setkey_r()
+set
+.I data->initialized
+to zero.
+.SH "RETURN VALUE"
+These functions do not return any value.
+.SH ERRORS
+Set
+.I errno
+to zero before calling the above functions.
+On success, it is unchanged.
+.TP
+.BR ENOSYS
+The function is not provided.
+(For example because of former USA export restrictions.)
+.SH EXAMPLE
+You need to link with libcrypt to compile this example with glibc2.2.
+To do useful work the key[] and txt[] array must be filled with a
+useful bit pattern. Note that the <crypt.h> header unconditionally
+gives the prototypes for setkey() and encrypt().
+.sp
+.nf
+#include <crypt.h>
+
+main() {
+  char key[64];      /* bit pattern for key */
+  char txt[64];      /* bit pattern for messages */
+  setkey(key);
+  encrypt(txt, 0);   /* encode */
+  encrypt(txt, 1);   /* decode */
+}
+.fi
+.SH "NOTE"
+In glibc2.2 these functions use the DES algorithm.
+.SH "CONFORMING TO"
+The functions
+.B encrypt()
+and
+.B setkey()
+conform to SVID, SUSv2, and POSIX 1003.1-2001.
+The functions
+.B encrypt_r()
+and
+.B setkey_r()
+are GNU extensions.
+.SH "SEE ALSO"
+.BR cbc_crypt (3),
+.BR crypt (3),
+.BR ecb_crypt (3),
+.BR fcrypt (3)

@@ -1,0 +1,477 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "READ" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" read 
+.SH NAME
+pread, read \- read from a file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+\fP
+.LP
+\fBssize_t pread(int\fP \fIfildes\fP\fB, void *\fP\fIbuf\fP\fB, size_t\fP
+\fInbyte\fP\fB,
+off_t\fP \fIoffset\fP\fB); \fP
+\fB
+.br
+ssize_t read(int\fP \fIfildes\fP\fB, void *\fP\fIbuf\fP\fB, size_t\fP
+\fInbyte\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIread\fP() function shall attempt to read \fInbyte\fP bytes
+from the file associated with the open file descriptor,
+\fIfildes\fP, into the buffer pointed to by \fIbuf\fP. The behavior
+of multiple concurrent reads on the same pipe, FIFO, or
+terminal device is unspecified.
+.LP
+Before any action described below is taken, and if \fInbyte\fP is
+zero, the \fIread\fP() function may detect and return errors
+as described below. In the absence of errors, or if error detection
+is not performed, the \fIread\fP() function shall return zero
+and have no other results.
+.LP
+On files that support seeking (for example, a regular file), the \fIread\fP()
+shall start at a position in the file given by
+the file offset associated with \fIfildes\fP. The file offset shall
+be incremented by the number of bytes actually read.
+.LP
+Files that do not support seeking-for example, terminals-always read
+from the current position. The value of a file offset
+associated with such a file is undefined.
+.LP
+No data transfer shall occur past the current end-of-file. If the
+starting position is at or after the end-of-file, 0 shall be
+returned. If the file refers to a device special file, the result
+of subsequent \fIread\fP() requests is
+implementation-defined.
+.LP
+If the value of \fInbyte\fP is greater than {SSIZE_MAX}, the result
+is implementation-defined.
+.LP
+When attempting to read from an empty pipe or FIFO:
+.IP " *" 3
+If no process has the pipe open for writing, \fIread\fP() shall return
+0 to indicate end-of-file.
+.LP
+.IP " *" 3
+If some process has the pipe open for writing and O_NONBLOCK is set,
+\fIread\fP() shall return -1 and set \fIerrno\fP to
+[EAGAIN].
+.LP
+.IP " *" 3
+If some process has the pipe open for writing and O_NONBLOCK is clear,
+\fIread\fP() shall block the calling thread until some
+data is written or the pipe is closed by all processes that had the
+pipe open for writing.
+.LP
+.LP
+When attempting to read a file (other than a pipe or FIFO) that supports
+non-blocking reads and has no data currently
+available:
+.IP " *" 3
+If O_NONBLOCK is set, \fIread\fP() shall return -1 and set \fIerrno\fP
+to [EAGAIN].
+.LP
+.IP " *" 3
+If O_NONBLOCK is clear, \fIread\fP() shall block the calling thread
+until some data becomes available.
+.LP
+.IP " *" 3
+The use of the O_NONBLOCK flag has no effect if there is some data
+available.
+.LP
+.LP
+The \fIread\fP() function reads data previously written to a file.
+If any portion of a regular file prior to the end-of-file
+has not been written, \fIread\fP() shall return bytes with value 0.
+For example, \fIlseek\fP() allows the file offset to be set beyond
+the end of existing data in the file. If data
+is later written at this point, subsequent reads in the gap between
+the previous end of data and the newly written data shall
+return bytes with value 0 until data is written into the gap.
+.LP
+Upon successful completion, where \fInbyte\fP is greater than 0, \fIread\fP()
+shall mark for update the \fIst_atime\fP field
+of the file, and shall return the number of bytes read. This number
+shall never be greater than \fInbyte\fP. The value returned
+may be less than \fInbyte\fP if the number of bytes left in the file
+is less than \fInbyte\fP, if the \fIread\fP() request was
+interrupted by a signal, or if the file is a pipe or FIFO or special
+file and has fewer than \fInbyte\fP bytes immediately
+available for reading. For example, a \fIread\fP() from a file associated
+with a terminal may return one typed line of data.
+.LP
+If a \fIread\fP() is interrupted by a signal before it reads any data,
+it shall return -1 with \fIerrno\fP set to [EINTR].
+.LP
+If a \fIread\fP() is interrupted by a signal after it has successfully
+read some data, it shall return the number of bytes
+read.
+.LP
+For regular files, no data transfer shall occur past the offset maximum
+established in the open file description associated with
+\fIfildes\fP.
+.LP
+If \fIfildes\fP refers to a socket, \fIread\fP() shall be equivalent
+to \fIrecv\fP()
+with no flags set.
+.LP
+If the O_DSYNC and O_RSYNC bits have been set, read I/O operations
+on the file descriptor shall complete as defined by synchronized
+I/O data integrity completion. If the O_SYNC and O_RSYNC bits have
+been set, read I/O operations on the file descriptor shall
+complete as defined by synchronized I/O file integrity completion.
+.LP
+If \fIfildes\fP refers to a shared memory object, the result of the
+\fIread\fP() function is unspecified. 
+.LP
+If \fIfildes\fP refers to a typed memory object, the result of the
+\fIread\fP() function is unspecified. 
+.LP
+A
+\fIread\fP() from a STREAMS file can read data in three different
+modes: \fIbyte-stream\fP mode, \fImessage-nondiscard\fP mode,
+and \fImessage-discard\fP mode. The default shall be byte-stream mode.
+This can be changed using the I_SRDOPT \fIioctl\fP() request, and
+can be tested with I_GRDOPT \fIioctl\fP(). In byte-stream mode, \fIread\fP()
+shall retrieve data from the STREAM until as many
+bytes as were requested are transferred, or until there is no more
+data to be retrieved. Byte-stream mode ignores message
+boundaries.
+.LP
+In STREAMS message-nondiscard mode, \fIread\fP() shall retrieve data
+until as many bytes as were requested are transferred, or
+until a message boundary is reached. If \fIread\fP() does not retrieve
+all the data in a message, the remaining data shall be left
+on the STREAM, and can be retrieved by the next \fIread\fP() call.
+Message-discard mode also retrieves data until as many bytes as
+were requested are transferred, or a message boundary is reached.
+However, unread data remaining in a message after the
+\fIread\fP() returns shall be discarded, and shall not be available
+for a subsequent \fIread\fP(), \fIgetmsg\fP(), or \fIgetpmsg\fP()
+call.
+.LP
+How \fIread\fP() handles zero-byte STREAMS messages is determined
+by the current read mode setting. In byte-stream mode,
+\fIread\fP() shall accept data until it has read \fInbyte\fP bytes,
+or until there is no more data to read, or until a zero-byte
+message block is encountered. The \fIread\fP() function shall then
+return the number of bytes read, and place the zero-byte
+message back on the STREAM to be retrieved by the next \fIread\fP(),
+\fIgetmsg\fP(), or \fIgetpmsg\fP(). In message-nondiscard mode or
+message-discard mode, a zero-byte message
+shall return 0 and the message shall be removed from the STREAM. When
+a zero-byte message is read as the first message on a STREAM,
+the message shall be removed from the STREAM and 0 shall be returned,
+regardless of the read mode.
+.LP
+A \fIread\fP() from a STREAMS file shall return the data in the message
+at the front of the STREAM head read queue, regardless
+of the priority band of the message.
+.LP
+By default, STREAMs are in control-normal mode, in which a \fIread\fP()
+from a STREAMS file can only process messages that
+contain a data part but do not contain a control part. The \fIread\fP()
+shall fail if a message containing a control part is
+encountered at the STREAM head. This default action can be changed
+by placing the STREAM in either control-data mode or
+control-discard mode with the I_SRDOPT \fIioctl\fP() command. In control-data
+mode,
+\fIread\fP() shall convert any control part to data and pass it to
+the application before passing any data part originally present
+in the same message. In control-discard mode, \fIread\fP() shall discard
+message control parts but return to the process any data
+part in the message.
+.LP
+In addition, \fIread\fP() shall fail if the STREAM head had processed
+an asynchronous error before the call. In this case, the
+value of \fIerrno\fP shall not reflect the result of \fIread\fP(),
+but reflect the prior error. If a hangup occurs on the STREAM
+being read, \fIread\fP() shall continue to operate normally until
+the STREAM head read queue is empty. Thereafter, it shall return
+0. 
+.LP
+The \fIpread\fP() function shall be equivalent to \fIread\fP(), except
+that it shall read from a given position in the file
+without changing the file pointer. The first three arguments to \fIpread\fP()
+are the same as \fIread\fP() with the addition of a
+fourth argument \fIoffset\fP for the desired position inside the file.
+An attempt to perform a \fIpread\fP() on a file that is
+incapable of seeking shall result in an error. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIread\fP()   \ and \fIpread\fP()  shall
+return a non-negative integer indicating the number of bytes actually
+read. Otherwise, the
+functions shall return -1 and set \fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIread\fP() and   \fIpread\fP()  functions shall fail
+if:
+.TP 7
+.B EAGAIN
+The O_NONBLOCK flag is set for the file descriptor and the process
+would be delayed.
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid file descriptor open for
+reading.
+.TP 7
+.B EBADMSG
+The file is a STREAM file that is set to control-normal mode and the
+message waiting to be read includes a control part. 
+.TP 7
+.B EINTR
+The read operation was terminated due to the receipt of a signal,
+and no data was transferred.
+.TP 7
+.B EINVAL
+The STREAM or multiplexer referenced by \fIfildes\fP is linked (directly
+or indirectly) downstream from a multiplexer. 
+.TP 7
+.B EIO
+The process is a member of a background process attempting to read
+from its controlling terminal, the process is ignoring or
+blocking the SIGTTIN signal, or the process group is orphaned. This
+error may also be generated for implementation-defined
+reasons.
+.TP 7
+.B EISDIR
+The \fIfildes\fP argument refers to a directory and the implementation
+does not allow the directory to be read using \fIread\fP()
+or \fIpread\fP(). The \fIreaddir\fP() function should be used instead.
+.TP 7
+.B EOVERFLOW
+The file is a regular file, \fInbyte\fP is greater than 0, the starting
+position is before the end-of-file, and the starting
+position is greater than or equal to the offset maximum established
+in the open file description associated with
+\fIfildes\fP.
+.sp
+.LP
+The \fIread\fP() function shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP EWOULDBLOCK
+.sp
+The file descriptor is for a socket, is marked O_NONBLOCK, and no
+data is waiting to be received.
+.TP 7
+.B ECONNRESET
+A read was attempted on a socket and the connection was forcibly closed
+by its peer.
+.TP 7
+.B ENOTCONN
+A read was attempted on a socket that is not connected.
+.TP 7
+.B ETIMEDOUT
+A read was attempted on a socket and a transmission timeout occurred.
+.sp
+.LP
+The \fIread\fP() and   \fIpread\fP()  functions may fail
+if:
+.TP 7
+.B EIO
+A physical I/O error has occurred.
+.TP 7
+.B ENOBUFS
+Insufficient resources were available in the system to perform the
+operation.
+.TP 7
+.B ENOMEM
+Insufficient memory was available to fulfill the request.
+.TP 7
+.B ENXIO
+A request was made of a nonexistent device, or the request was outside
+the capabilities of the device.
+.sp
+.LP
+The \fIpread\fP() function shall fail, and the file pointer shall
+remain unchanged, if:
+.TP 7
+.B EINVAL
+The \fIoffset\fP argument is invalid. The value is negative. 
+.TP 7
+.B EOVERFLOW
+The file is a regular file and an attempt was made to read at or beyond
+the offset maximum associated with the file. 
+.TP 7
+.B ENXIO
+A request was outside the capabilities of the device. 
+.TP 7
+.B ESPIPE
+\fIfildes\fP is associated with a pipe or FIFO. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Reading Data into a Buffer
+.LP
+The following example reads data from the file associated with the
+file descriptor \fIfd\fP into the buffer pointed to by
+\fIbuf\fP.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <unistd.h>
+\&...
+char buf[20];
+size_t nbytes;
+ssize_t bytes_read;
+int fd;
+\&...
+nbytes = sizeof(buf);
+bytes_read = read(fd, buf, nbytes);
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 does not specify the value of
+the file offset after an error is returned; there
+are too many cases. For programming errors, such as [EBADF], the concept
+is meaningless since no file is involved. For errors that
+are detected immediately, such as [EAGAIN], clearly the pointer should
+not change. After an interrupt or hardware error, however,
+an updated value would be very useful and is the behavior of many
+implementations.
+.LP
+Note that a \fIread\fP() of zero bytes does not modify \fIst_atime\fP.
+A \fIread\fP() that requests more than zero bytes, but
+returns zero, shall modify \fIst_atime\fP.
+.LP
+Implementations are allowed, but not required, to perform error checking
+for \fIread\fP() requests of zero bytes.
+.SS Input and Output
+.LP
+The use of I/O with large byte counts has always presented problems.
+Ideas such as \fIlread\fP() and \fIlwrite\fP() (using and
+returning \fBlong\fPs) were considered at one time. The current solution
+is to use abstract types on the ISO\ C standard
+function to \fIread\fP() and \fIwrite\fP(). The abstract types can
+be declared so that
+existing functions work, but can also be declared so that larger types
+can be represented in future implementations. It is presumed
+that whatever constraints limit the maximum range of \fBsize_t\fP
+also limit portable I/O requests to the same range. This volume
+of IEEE\ Std\ 1003.1-2001 also limits the range further by requiring
+that the byte count be limited so that a signed return
+value remains meaningful. Since the return type is also a (signed)
+abstract type, the byte count can be defined by the
+implementation to be larger than an \fBint\fP can hold.
+.LP
+The standard developers considered adding atomicity requirements to
+a pipe or FIFO, but recognized that due to the nature of
+pipes and FIFOs there could be no guarantee of atomicity of reads
+of {PIPE_BUF} or any other size that would be an aid to
+applications portability.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 requires that no action be taken
+for \fIread\fP() or \fIwrite\fP() when \fInbyte\fP is zero. This is
+not intended to take precedence over detection of
+errors (such as invalid buffer pointers or file descriptors). This
+is consistent with the rest of this volume of
+IEEE\ Std\ 1003.1-2001, but the phrasing here could be misread to
+require detection of the zero case before any other
+errors. A value of zero is to be considered a correct value, for which
+the semantics are a no-op.
+.LP
+I/O is intended to be atomic to ordinary files and pipes and FIFOs.
+Atomic means that all the bytes from a single operation that
+started out together end up together, without interleaving from other
+I/O operations. It is a known attribute of terminals that
+this is not honored, and terminals are explicitly (and implicitly
+permanently) excepted, making the behavior unspecified. The
+behavior for other device types is also left unspecified, but the
+wording is intended to imply that future standards might choose
+to specify atomicity (or not).
+.LP
+There were recommendations to add format parameters to \fIread\fP()
+and \fIwrite\fP() in
+order to handle networked transfers among heterogeneous file system
+and base hardware types. Such a facility may be required for
+support by the OSI presentation of layer services. However, it was
+determined that this should correspond with similar C-language
+facilities, and that is beyond the scope of this volume of IEEE\ Std\ 1003.1-2001.
+The concept was suggested to the
+developers of the ISO\ C standard for their consideration as a possible
+area for future work.
+.LP
+In 4.3 BSD, a \fIread\fP() or \fIwrite\fP() that is interrupted by
+a signal before
+transferring any data does not by default return an [EINTR] error,
+but is restarted. In 4.2 BSD, 4.3 BSD, and the Eighth Edition,
+there is an additional function, \fIselect\fP(), whose purpose is
+to pause until specified
+activity (data to read, space to write, and so on) is detected on
+specified file descriptors. It is common in applications written
+for those systems for \fIselect\fP() to be used before \fIread\fP()
+in situations (such as
+keyboard input) where interruption of I/O due to a signal is desired.
+.LP
+The issue of which files or file types are interruptible is considered
+an implementation design issue. This is often affected
+primarily by hardware and reliability issues.
+.LP
+There are no references to actions taken following an "unrecoverable
+error". It is considered beyond the scope of this volume
+of IEEE\ Std\ 1003.1-2001 to describe what happens in the case of
+hardware errors.
+.LP
+Previous versions of IEEE\ Std\ 1003.1-2001 allowed two very different
+behaviors with regard to the handling of
+interrupts. In order to minimize the resulting confusion, it was decided
+that IEEE\ Std\ 1003.1-2001 should support only
+one of these behaviors. Historical practice on AT&T-derived systems
+was to have \fIread\fP() and \fIwrite\fP() return -1 and set \fIerrno\fP
+to [EINTR] when interrupted after some, but not all, of
+the data requested had been transferred. However, the U.S. Department
+of Commerce FIPS 151-1 and FIPS 151-2 require the historical
+BSD behavior, in which \fIread\fP() and \fIwrite\fP() return the number
+of bytes actually
+transferred before the interrupt. If -1 is returned when any data
+is transferred, it is difficult to recover from the error on a
+seekable device and impossible on a non-seekable device. Most new
+implementations support this behavior. The behavior required by
+IEEE\ Std\ 1003.1-2001 is to return the number of bytes transferred.
+.LP
+IEEE\ Std\ 1003.1-2001 does not specify when an implementation that
+buffers \fIread\fP()ss actually moves the data into
+the user-supplied buffer, so an implementation may chose to do this
+at the latest possible moment. Therefore, an interrupt arriving
+earlier may not cause \fIread\fP() to return a partial byte count,
+but rather to return -1 and set \fIerrno\fP to [EINTR].
+.LP
+Consideration was also given to combining the two previous options,
+and setting \fIerrno\fP to [EINTR] while returning a short
+count. However, not only is there no existing practice that implements
+this, it is also contradictory to the idea that when
+\fIerrno\fP is set, the function responsible shall return -1.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfcntl\fP() , \fIioctl\fP() , \fIlseek\fP() , \fIopen\fP() , \fIpipe\fP()
+, \fIreadv\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 11, General
+Terminal
+Interface, \fI<stropts.h>\fP, \fI<sys/uio.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

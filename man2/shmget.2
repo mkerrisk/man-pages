@@ -1,0 +1,276 @@
+.\" Copyright (c) 1993 Luigi P. Bai (lpb@softint.com) July 28, 1993
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Wed Jul 28 10:57:35 1993, Rik Faith <faith@cs.unc.edu>
+.\" Modified Sun Nov 28 16:43:30 1993, Rik Faith <faith@cs.unc.edu>
+.\"          with material from Giorgio Ciucci <giorgio@crcc.it>
+.\" Portions Copyright 1993 Giorgio Ciucci <giorgio@crcc.it>
+.\" Modified Tue Oct 22 22:03:17 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified, 8 Jan 2003, Michael Kerrisk, <mtk16@ext.canterbury.ac.nz>
+.\"	Removed EIDRM from errors - that can't happen...
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH SHMGET 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+shmget \- allocates a shared memory segment
+.SH SYNOPSIS
+.ad l
+.B #include <sys/ipc.h>
+.sp
+.B #include <sys/shm.h>
+.sp
+.BI "int shmget(key_t " key ", int " size ", int " shmflg );
+.ad b
+.SH DESCRIPTION
+.B shmget()
+returns the identifier of the shared memory segment
+associated with the value of the argument
+.IR key .
+A new shared memory segment, with size equal to the value of
+.I size
+rounded up to a multiple of
+.BR PAGE_SIZE ,
+is created if
+.I key
+has the value
+.B IPC_PRIVATE
+or
+.I key
+isn't
+.BR IPC_PRIVATE ,
+no shared memory segment corresponding to
+.IR key
+exists, and
+.B IPC_CREAT
+is asserted in
+.I shmflg
+(i.e.
+.IB shmflg &IPC_CREAT
+isn't zero).
+.PP
+The value
+.I shmflg
+is composed of:
+.TP 12
+.B IPC_CREAT
+to create a new segment. If this flag is not used, then 
+.B shmget()
+will find the segment associated with \fIkey\fP and check to see if 
+the user has permission to access the segment.
+.TP
+.B IPC_EXCL
+used with \fBIPC_CREAT\fP to ensure failure if the segment already exists. 
+.TP
+.B mode_flags (lowest 9 bits)
+specifying the permissions granted to the owner, group, and world.
+Presently, the execute permissions are not used by the system.
+.\" FIXME -- document SHM_HUGETLB
+.PP
+If a new segment is created, the access permissions from
+.I shmflg
+are copied into the 
+.I shm_perm
+member of the 
+.I shmid_ds
+structure that defines the segment.
+The \fIshmid_ds\fP structure has the following form:
+.PP
+.in +0.5i
+.nf
+struct shmid_ds {
+    struct ipc_perm shm_perm;    /* operation perms */
+    int             shm_segsz;   /* size of segment (bytes) */
+    time_t          shm_atime;   /* last attach time */
+    time_t          shm_dtime;   /* last detach time */
+    time_t          shm_ctime;   /* last change time */
+    unsigned short  shm_cpid;    /* pid of creator */
+    unsigned short  shm_lpid;    /* pid of last operator */
+    short           shm_nattch;  /* no. of current attaches */
+};
+.fi
+.in -0.5i
+.PP
+.in +0.5i
+.nf
+struct ipc_perm {
+    key_t  key;
+    ushort uid;   /* owner euid and egid */
+    ushort gid;
+    ushort cuid;  /* creator euid and egid */
+    ushort cgid;
+    ushort mode;  /* lower 9 bits of \fIshmflg\fP */
+    ushort seq;   /* sequence number */
+};
+.fi
+.PP
+When creating a new shared memory segment,
+the system call initializes the \fIshmid_ds\fP data structure
+.B shmid_ds
+as follows:
+.IP
+.B shm_perm.cuid
+and
+.B shm_perm.uid
+are set to the effective user\-ID of the calling process.
+.IP
+.B shm_perm.cgid
+and
+.B shm_perm.gid
+are set to the effective group\-ID of the calling process.
+.IP
+The lowest order 9 bits of
+.B shm_perm.mode
+are set to the lowest order 9 bit of
+.IR shmflg .
+.IP
+.B shm_segsz
+is set to the value of
+.IR size .
+.IP
+.BR shm_lpid ,
+.BR shm_nattch ,
+.B shm_atime
+and
+.B shm_dtime
+are set to
+.BR 0 .
+.IP
+.B shm_ctime
+is set to the current time.
+.PP
+If the shared memory segment already exists, the access permissions are
+verified, and a check is made to see if it is marked for destruction.
+.PP
+.SH "SYSTEM CALLS"
+.TP
+.B fork()
+After a
+.B fork()
+the child inherits the attached shared memory segments.
+.TP
+.B exec()
+After an
+.B exec()
+all attached shared memory segments are detached (not destroyed).
+.TP
+.B exit()
+Upon
+.B exit()
+all attached shared memory segments are detached (not destroyed).
+.PP
+.SH "RETURN VALUE"
+A valid segment identifier,
+.IR shmid ,
+is returned on success, \-1 on error.
+.SH ERRORS
+On failure,
+.B errno
+is set to one of the following:
+.TP 12
+.B EACCES
+The user does not have permission to access the 
+shared memory segment, and does not have the
+.B CAP_IPC_OWNER
+capability.
+.TP
+.B EEXIST
+.B IPC_CREAT | IPC_EXCL
+was specified and the segment exists.
+.TP
+.\" FIXME -- SHM_HUGETLB requires CAP_IPC_LOCK, or the error EPERM
+.\" results
+.B EINVAL
+A new segment was to be created and \fIsize\fP < \fBSHMMIN\fP
+or \fIsize\fP > \fBSHMMAX\fP, or no new segment was to be created,
+a segment with given key existed, but \fIsize\fP is greater than the size
+of that segment.
+.TP
+.B ENFILE
+.\" [2.6.7] shmem_zero_setup()-->shmem_file_setup()-->get_empty_filp()
+The system limit on the total number of open files has been reached.
+.TP
+.B ENOENT
+No segment exists for the given \fIkey\fP, and
+.B IPC_CREAT
+was not specified.
+.TP
+.B ENOMEM
+No memory could be allocated for segment overhead.
+.TP
+.B ENOSPC
+All possible shared memory id's have been taken
+.RB ( SHMMNI ),
+or allocating a segment of the requested
+.I size
+would cause the system to exceed the system-wide limit on shared memory
+.RB ( SHMALL ).
+.SH NOTES
+.B IPC_PRIVATE
+isn't a flag field but a
+.B key_t
+type.
+If this special value is used for
+.IR key ,
+the system call ignores everything but the lowest order 9 bits of
+.I shmflg
+and creates a new shared memory segment (on success).
+.PP
+The followings are limits on shared memory segment resources affecting a
+.B shmget
+call:
+.TP 11
+.B SHMALL
+System wide maximum of shared memory pages: policy dependent.
+.TP
+.B SHMMAX
+Maximum size in bytes for a shared memory segment: implementation
+dependent (currently 4M).
+.TP
+.B SHMMIN
+Minimum size in bytes for a shared memory segment: implementation
+dependent (currently 1 byte, though
+.B PAGE_SIZE
+is the effective minimum size).
+.TP
+.B SHMMNI
+System wide maximum number of shared memory segments: implementation
+dependent (currently 4096, was 128 before Linux 2.3.99).
+.PP
+The implementation has no specific limits for the per process maximum
+number of shared memory segments
+.RB ( SHMSEG ).
+.SH BUGS
+The name choice IPC_PRIVATE was perhaps unfortunate, IPC_NEW
+would more clearly show its function.
+.SH "CONFORMING TO"
+SVr4, SVID.  SVr4 documents an additional error condition EEXIST.
+Until version 2.3.30 Linux would return EIDRM for a
+.B shmget
+on a shared memory segment scheduled for deletion.
+.SH "SEE ALSO"
+.BR shmat (2),
+.BR shmctl (2),
+.BR shmdt (2),
+.BR ftok (3),
+.BR ipc (5),
+.BR capabilities (7)

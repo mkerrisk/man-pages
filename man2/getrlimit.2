@@ -1,0 +1,319 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1992 Drew Eckhardt, March 28, 1992
+.\" Copyright (c) 2002 Michael Kerrisk
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified by Michael Haardt <michael@moria.de>
+.\" Modified 1993-07-23 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1996-01-13 by Arnt Gulbrandsen <agulbra@troll.no>
+.\" Modified 1996-01-22 by aeb, following a remark by
+.\"          Tigran Aivazian <tigran@sco.com>
+.\" Modified 1996-04-14 by aeb, following a remark by
+.\"          Robert Bihlmeyer <robbe@orcus.ping.at>
+.\" Modified 1996-10-22 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 2001-05-04 by aeb, following a remark by
+.\"          Håvard Lygre <hklygre@online.no>
+.\" Modified 2001-04-17 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 2002-06-13 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added note on non-standard behaviour when SIGCHLD is ignored.
+.\" Modified 2002-07-09 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	Enhanced descriptions of 'resource' values for [gs]etrlimit()
+.\" Modified 2003-11-28 by aeb, added RLIMIT_CORE
+.\" Modified 2004-03-26 by aeb, added RLIMIT_AS
+.\" Modified 2004-06-16 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on CAP_SYS_RESOURCE
+.\"
+.TH GETRLIMIT 2 2004-06-16 "Linux" "Linux Programmer's Manual"
+.SH NAME
+getrlimit, getrusage, setrlimit \- get/set resource limits and usage
+.SH SYNOPSIS
+.B #include <sys/time.h>
+.br
+.B #include <sys/resource.h>
+.br
+.B #include <unistd.h>
+.sp
+.BI "int getrlimit(int " resource ", struct rlimit *" rlim );
+.br
+.BI "int getrusage(int " who ", struct rusage *" usage );
+.br
+.BI "int setrlimit(int " resource ", const struct rlimit *" rlim );
+.SH DESCRIPTION
+.B getrlimit
+and
+.B setrlimit
+get and set resource limits respectively.
+Each resource has an associated soft and hard limit, as defined by the 
+.B rlimit
+structure (the
+.I rlim
+argument to both
+.BR getrlimit "() and " setrlimit ()):
+.PP
+.in +0.5i
+.nf
+struct rlimit {
+    rlim_t rlim_cur;   /* Soft limit */
+    rlim_t rlim_max;   /* Hard limit (ceiling 
+                          for rlim_cur) */
+};
+
+.fi
+.in -0.5i
+The soft limit is the value that the kernel enforces for the
+corresponding resource.
+The hard limit acts as a ceiling for the soft limit:
+an unprivileged process may only set its soft limit to a value in the 
+range from 0 up to the hard limit, and (irreversibly) lower its hard limit.
+A privileged process (under Linux: one with the
+.B CAP_SYS_RESOURCE
+capability) may make arbitrary changes to either limit value.
+.PP
+The value
+.B RLIM_INFINITY
+denotes no limit on a resource (both in the structure returned by
+.BR getrlimit ()
+and in the structure passed to
+.BR setrlimit ()).
+.PP
+.I resource
+must be one of:
+.TP
+.B RLIMIT_AS
+The maximum size of the process's virtual memory (address space) in bytes.
+.\" since 2.0.27 / 2.1.12
+This limit affects calls to
+.BR brk (2),
+.BR mmap (2)
+and
+.BR mremap (2),
+which fail with the error
+.B ENOMEM
+upon exceeding this limit. Also automatic stack expansion will fail
+(and generate a SIGSEGV that kills the process when no alternate stack
+has been made available).
+Since the value is a long, on machines with a 32-bit long
+either this limit is at most 2 GiB, or this resource is unlimited.
+.TP
+.B RLIMIT_CORE
+Maximum size of
+.I core
+file. When 0 no core dump files are created.
+When nonzero, larger dumps are truncated to this size.
+.TP
+.B RLIMIT_CPU
+CPU time limit in seconds.
+When the process reaches the soft limit, it is sent a
+.B SIGXCPU
+signal.
+The default action for this signal is to terminate the process.
+However, the signal can be caught, and the handler can return control to
+the main program.
+If the process continues to consume CPU time, it will be sent
+.B SIGXCPU
+once per second until the hard limit is reached, at which time
+it is sent
+.BR SIGKILL .
+(This latter point describes Linux 2.2 and 2.4 behaviour.
+Implementations vary in how they treat processes which continue to
+consume CPU time after reaching the soft limit.
+Portable applications that need to catch this signal should
+perform an orderly termination upon first receipt of
+.BR SIGXCPU .)
+.TP
+.B RLIMIT_DATA
+The maximum size of the process's data segment (initialized data,
+uninitialized data, and heap).
+This limit affects calls to
+.BR brk "() and " sbrk (),
+which fail with the error
+.B ENOMEM
+upon encountering the soft limit of this resource.
+.TP
+.B RLIMIT_FSIZE
+The maximum size of files that the process may create.
+Attempts to extend a file beyond this limit result in delivery of a
+.B SIGXFSZ
+signal.
+By default, this signal terminates a process, but a process can 
+catch this signal instead, in which case the relevant system call (e.g., 
+.BR write "(), " truncate ())
+fails with the error
+.BR EFBIG .
+.TP
+.B RLIMIT_LOCKS
+A limit on the combined number of
+.BR flock ()
+locks and 
+.BR fcntl()
+leases that this process may establish.
+(Early Linux 2.4 only.)
+.\" to be precise: Linux 2.4.0-test9; no longer in 2.4.25 / 2.5.65
+.TP
+.B RLIMIT_MEMLOCK
+The maximum number of bytes of virtual memory that may be locked
+into RAM using
+.BR mlock "() and " mlockall ().
+.TP
+.B RLIMIT_NOFILE
+Specifies a value one greater than the maximum file descriptor number
+that can be opened by this process.
+Attempts
+.RB ( open "(), " pipe "(), " dup "(), etc.)"
+to exceed this limit yield the error
+.BR EMFILE .
+.TP
+.B RLIMIT_NPROC
+The maximum number of processes that can be created for the real user
+ID of the calling process.
+Upon encountering this limit, 
+.BR fork ()
+fails with the error
+.BR EAGAIN .
+.TP
+.B RLIMIT_RSS
+Specifies the limit (in pages) of the process's resident set
+(the number of virtual pages resident in RAM).
+This limit only has effect in Linux 2.4 onwatrds, and there only
+affects calls to
+.BR madvise ()
+specifying
+.BR MADVISE_WILLNEED .
+.TP
+.B RLIMIT_STACK
+The maximum size of the process stack, in bytes.
+Upon reaching this limit, a
+.B SIGSEGV
+signal is generated.
+To handle this signal, a process must employ an alternate signal stack
+.RB ( sigaltstack (2)).
+.PP
+.B RLIMIT_OFILE
+is the BSD name for 
+.BR RLIMIT_NOFILE .
+.PP
+.B getrusage
+returns the current resource usages, for a \fIwho\fP
+of either 
+.B RUSAGE_SELF
+or 
+.BR RUSAGE_CHILDREN .
+The former asks for resources used by the current process,
+the latter for resources used by those of its children
+that have terminated and have been waited for.
+.PP 
+.in +0.5i
+.nf
+struct rusage {
+    struct timeval ru_utime; /* user time used */
+    struct timeval ru_stime; /* system time used */
+    long   ru_maxrss;        /* maximum resident set size */
+    long   ru_ixrss;         /* integral shared memory size */
+    long   ru_idrss;         /* integral unshared data size */
+    long   ru_isrss;         /* integral unshared stack size */
+    long   ru_minflt;        /* page reclaims */
+    long   ru_majflt;        /* page faults */
+    long   ru_nswap;         /* swaps */
+    long   ru_inblock;       /* block input operations */
+    long   ru_oublock;       /* block output operations */
+    long   ru_msgsnd;        /* messages sent */
+    long   ru_msgrcv;        /* messages received */
+    long   ru_nsignals;      /* signals received */
+    long   ru_nvcsw;         /* voluntary context switches */
+    long   ru_nivcsw;        /* involuntary context switches */
+};
+.fi
+.in -0.5i
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EFAULT
+.I rlim
+or
+.I usage
+points outside the accessible address space.
+.TP
+.B EINVAL
+.BR getrlimit " or " setrlimit
+is called with a bad \fIresource\fP, or \fBgetrusage\fP is called with a
+bad \fIwho\fP.
+.TP
+.B EPERM
+An unprivileged process tried to use \fBsetrlimit()\fP to
+increase a soft or hard limit above the current hard limit; the
+.B CAP_SYS_RESOURCE
+capability is required to do this.
+Or, the process tried to use \fBsetrlimit()\fP to increase
+the soft or hard RLIMIT_NOFILE limit above the current kernel
+maximum (NR_OPEN).
+.SH "CONFORMING TO"
+SVr4, BSD 4.3
+.SH NOTE
+Including
+.I <sys/time.h>
+is not required these days, but increases portability.
+(Indeed,
+.I struct timeval
+is defined in
+.IR <sys/time.h> .)
+.PP
+On Linux, if the disposition of
+.B SIGCHLD
+is set to
+.B SIG_IGN
+then the resource usages of child processes
+are automatically included in the value returned by
+.BR RUSAGE_CHILDREN ,
+although POSIX 1003.1-2001 explicitly prohibits this.
+.\" See the description of getrusage() in XSH.
+.\" A similar statement was also in SUSv2.
+.LP
+The above struct was taken from BSD 4.3 Reno.
+Not all fields are meaningful under Linux.
+Right now (Linux 2.4, 2.6) only the fields
+.BR ru_utime ,
+.BR ru_stime ,
+.BR ru_minflt ,
+.BR ru_majflt ,
+and
+.BR ru_nswap
+are maintained.
+.SH "SEE ALSO"
+.BR dup (2),
+.BR fcntl (2),
+.BR fork (2),
+.BR mlock (2),
+.BR mlockall (2),
+.BR mmap (2),
+.BR open (2),
+.BR quotactl (2),
+.BR sbrk (2),
+.BR wait3 (2),
+.BR wait4 (2),
+.BR malloc (3),
+.BR ulimit (3),
+.BR capabilities (7),
+.BR signal (7)

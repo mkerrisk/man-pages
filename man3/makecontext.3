@@ -1,0 +1,82 @@
+.\" Copyright (C) 2001 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH MAKECONTEXT 3 2001-11-15 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+makecontext, swapcontext \- manipulate user context
+.SH SYNOPSIS
+.B #include <ucontext.h>
+.sp
+.BI "void makecontext(ucontext_t *" ucp ", void *" func "(),
+.BI "int " argc ", ...);"
+.br
+.BI "int swapcontext (ucontext_t *" oucp ", ucontext_t *" ucp );
+.SH DESCRIPTION
+In a SysV-like environment, one has the type \fBucontext_t\fP defined in
+.I <ucontext.h>
+and the four functions
+\fBgetcontext()\fP, \fBsetcontext()\fP, \fBmakecontext()\fP
+and \fBswapcontext()\fP that allow user-level context switching
+between multiple threads of control within a process.
+.LP
+For the type and the first two functions, see
+.BR getcontext (2).
+.LP
+The \fBmakecontext()\fP function modifies the context pointed to
+by \fIucp\fP (which was obtained from a call to \fBgetcontext()\fP).
+Before calling \fBmakecontext()\fP, one should allocate a new stack
+for this context, assigning to \fIucp->uc_stack\fP, and define a
+successor context, assigning to \fIucp->uc_link\fP.
+When this context is later activated (using \fBsetcontext()\fP or
+\fBswapcontext()\fP) then first the function \fIfunc\fP is called,
+with the arguments specified following \fIargc\fP (where \fIargc\fP
+must contain the number of these arguments), and when this function
+returns, the successor context is activated. When the successor context
+pointer is NULL, the thread exits.
+.LP
+The \fBswapcontext()\fP function saves the current context in
+the structure pointed to by \fIoucp\fP, and then activates the
+context pointed to by \fIucp\fP.
+.SH "RETURN VALUE"
+When successful, \fBmakecontext()\fP returns 0 and \fBswapcontext()\fP
+does not return. (But we may return later, in case \fIoucp\fP is
+activated, in which case it looks like \fBswapcontext()\fP returns 0.)
+On error, both return \-1 and set \fIerrno\fP appropriately.
+.SH ERRORS
+.TP
+.B ENOMEM
+Insufficient stack space left.
+.SH NOTES
+The interpretation of \fIucp->uc_stack\fP is just as in
+.BR sigaltstack (2),
+namely, this struct contains start and length of a memory area
+to be used as stack, regardless of the direction of growth of
+the stack. So, it is not necessary for the user program to
+worry about this direction.
+.SH "CONFORMING TO"
+SUSv2, POSIX 1003.1-2001.
+.SH "SEE ALSO"
+.BR getcontext (2),
+.BR sigaction (2),
+.BR sigaltstack (2),
+.BR sigprocmask (2),
+.BR sigsetjmp (3)

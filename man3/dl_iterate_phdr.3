@@ -1,0 +1,194 @@
+.\" Copyright (c) 2003 by Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\"
+.TH DL_ITERATE_PHDR 3 "Linux 2.4.21" "Linux Programmer's Manual"
+.SH NAME
+dl_iterate_phdr \- walk through list of shared objects
+.SH SYNOPSIS
+.nf
+#define _GNU_SOURCE
+.B #include <link.h>
+
+\fBint dl_iterate_phdr(\fP
+          \fBint (*\fPcallback\fB) \
+(struct dl_phdr_info *\fPinfo\fB,\fP
+                           \fBsize_t\fP size\fB, void *\fPdata\fB),\fP
+          \fBvoid *\fPdata\fB);\fP
+.fi
+.SH DESCRIPTION
+The
+.B dl_iterate_phdr
+function allows an application to inquire at run-time to find
+out which shared objects it has loaded.
+
+The
+.B dl_iterate_phdr
+function walks through the list of an
+application's shared objects and calls the function
+.I callback
+once for each object,
+until either all shared objects have been processed or
+.I callback
+returns a non-zero value.
+
+Each call to
+.I callback
+receives three arguments:
+.IR info ,
+which is a pointer to a structure containing information
+about the shared object;
+.IR size ,
+which is the size of the structure pointed to by
+.IR info ;
+and
+.IR data ,
+which is a copy of whatever value was passed by the calling
+program as the second argument (also named
+.IR data )
+in the call to
+.BR dl_iterate_phdr.
+
+The
+.I info
+argument is a structure of the following type:
+
+.nf
+  struct dl_phdr_info {
+    ElfW(Addr)        dlpi_addr;  /* Base address of object */
+    const char       *dlpi_name;  /* (Null-terminated) name of
+                                     object
+    const ElfW(Phdr) *dlpi_phdr;  /* Pointer to array of
+                                     ELF program headers
+                                     for this object */
+    ElfW(Half)        dlpi_phnum; /* # of items in 'dlpi_phdr' */
+  };
+.fi
+
+(The
+.I ElfW()
+macro definition turns its argument into the name of an ELF data
+type suitable for the hardware architecture.
+For example, on a 32-bit platform,
+ElfW(Addr) yields the data type name Elf32_Addr.
+Further information on these types can be found in the
+.IR <elf.h> " and " <link.h>
+header files.)
+
+The
+.I dlpi_addr
+field indicates the base address of the shared object
+(i.e., the difference between the virtual memory address of
+the shared object and the offset of that object in the file
+from which it was loaded).
+The
+.I dlpi_name
+field is a null-terminated string giving the pathname
+from which the shared object was loaded.
+
+To understand the meaning of the
+.I dlpi_phdr
+and
+.I dlpi_phnum
+fields, we need to be aware that an ELF shared object consists
+of a number of segments, each of which has a corresponding
+program header describing the segment.
+The
+.I dlpi_phdr
+field is a pointer to an array of the program headers for this
+shared object.
+The
+.I dlpi_phnum
+field indicates the size of this array.
+
+These program headers are structures of the following form:
+.nf
+
+  typedef struct
+  {
+    Elf32_Word  p_type;    /* Segment type */
+    Elf32_Off   p_offset;  /* Segment file offset */
+    Elf32_Addr  p_vaddr;   /* Segment virtual address */
+    Elf32_Addr  p_paddr;   /* Segment physical address */
+    Elf32_Word  p_filesz;  /* Segment size in file */
+    Elf32_Word  p_memsz;   /* Segment size in memory */
+    Elf32_Word  p_flags;   /* Segment flags */
+    Elf32_Word  p_align;   /* Segment alignment */
+  } Elf32_Phdr;
+.fi
+
+Note that we can calculate the location of a particular program header,
+.IR x ,
+in virtual memory memory using the formula:
+
+.nf
+  addr == info->dlpi_addr + info->dlpi_phdr[x].p_vaddr;
+.fi
+.SH EXAMPLE PROGRAM
+The following program displays a list of pathnames of the 
+shared objects it has loaded.
+For each shared object, the program lists the virtual addresses 
+at which the object's ELF segments are loaded.
+
+.nf
+#define _GNU_SOURCE
+#include <link.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+static int
+callback(struct dl_phdr_info *info, size_t size, void *data)
+{
+    int j;
+
+    printf("name=%s (%d segments)\\n", info->dlpi_name,
+        info->dlpi_phnum);
+
+    for (j = 0; j < info->dlpi_phnum; j++)
+         printf("\\t\\t header %2d: address=%10p\\n", j,
+             (void *) (info->dlpi_addr + info->dlpi_phdr[j].p_vaddr));
+    return 0;
+}
+
+int
+main(int argc, char *argv[])
+{
+    dl_iterate_phdr(callback, NULL);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
+.SH RETURN VALUE
+The
+.B dl_iterate_phdr
+function returns whatever value was returned by the last call to
+.IR callback .
+.SH "CONFORMING TO"
+The
+.B dl_iterate_phdr
+function is Linux specific and should be avoided in portable applications.
+.SH "SEE ALSO"
+.BR ldd (1),
+.BR objdump (1),
+.BR readelf (1),
+.BR dlopen (3),
+.BR ld.so (8),
+and the
+.I "Executable and Linking Format Specification"
+available at various locations online.

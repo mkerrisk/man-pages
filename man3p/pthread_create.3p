@@ -1,0 +1,191 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_CREATE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_create 
+.SH NAME
+pthread_create \- thread creation
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_create(pthread_t *restrict\fP \fIthread\fP\fB,
+.br
+\ \ \ \ \ \  const pthread_attr_t *restrict\fP \fIattr\fP\fB,
+.br
+\ \ \ \ \ \  void *(*\fP\fIstart_routine\fP\fB)(void*), void *restrict\fP
+\fIarg\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_create\fP() function shall create a new thread, with
+attributes specified by \fIattr\fP, within a process. If
+\fIattr\fP is NULL, the default attributes shall be used. If the attributes
+specified by \fIattr\fP are modified later, the
+thread's attributes shall not be affected. Upon successful completion,
+\fIpthread_create\fP() shall store the ID of the created
+thread in the location referenced by \fIthread\fP.
+.LP
+The thread is created executing \fIstart_routine\fP with \fIarg\fP
+as its sole argument. If the \fIstart_routine\fP returns,
+the effect shall be as if there was an implicit call to \fIpthread_exit\fP()
+using
+the return value of \fIstart_routine\fP as the exit status. Note that
+the thread in which \fImain\fP() was originally invoked
+differs from this. When it returns from \fImain\fP(), the effect shall
+be as if there was an implicit call to \fIexit\fP() using the return
+value of \fImain\fP() as the exit status.
+.LP
+The signal state of the new thread shall be initialized as follows:
+.IP " *" 3
+The signal mask shall be inherited from the creating thread.
+.LP
+.IP " *" 3
+The set of signals pending for the new thread shall be empty.
+.LP
+.LP
+The alternate stack shall not be inherited. 
+.LP
+The floating-point environment shall be inherited from the creating
+thread.
+.LP
+If \fIpthread_create\fP() fails, no new thread is created and the
+contents of the location referenced by \fIthread\fP are
+undefined.
+.LP
+If _POSIX_THREAD_CPUTIME is defined, the new thread shall have a CPU-time
+clock accessible, and the initial value of this clock
+shall be set to zero. 
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_create\fP() function shall return zero;
+otherwise, an error number shall be returned to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIpthread_create\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+The system lacked the necessary resources to create another thread,
+or the system-imposed limit on the total number of threads
+in a process {PTHREAD_THREADS_MAX} would be exceeded.
+.TP 7
+.B EINVAL
+The value specified by \fIattr\fP is invalid.
+.TP 7
+.B EPERM
+The caller does not have appropriate permission to set the required
+scheduling parameters or scheduling policy.
+.sp
+.LP
+The \fIpthread_create\fP() function shall not return an error code
+of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+A suggested alternative to \fIpthread_create\fP() would be to define
+two separate operations: create and start. Some
+applications would find such behavior more natural. Ada, in particular,
+separates the "creation" of a task from its
+"activation".
+.LP
+Splitting the operation was rejected by the standard developers for
+many reasons:
+.IP " *" 3
+The number of calls required to start a thread would increase from
+one to two and thus place an additional burden on
+applications that do not require the additional synchronization. The
+second call, however, could be avoided by the additional
+complication of a start-up state attribute.
+.LP
+.IP " *" 3
+An extra state would be introduced: "created but not started". This
+would require the standard to specify the behavior of the
+thread operations when the target has not yet started executing.
+.LP
+.IP " *" 3
+For those applications that require such behavior, it is possible
+to simulate the two separate steps with the facilities that
+are currently provided. The \fIstart_routine\fP() can synchronize
+by waiting on a condition variable that is signaled by the start
+operation.
+.LP
+.LP
+An Ada implementor can choose to create the thread at either of two
+points in the Ada program: when the task object is created,
+or when the task is activated (generally at a "begin"). If the first
+approach is adopted, the \fIstart_routine\fP() needs to
+wait on a condition variable to receive the order to begin "activation".
+The second approach requires no such condition variable
+or extra synchronization. In either approach, a separate Ada task
+control block would need to be created when the task object is
+created to hold rendezvous queues, and so on.
+.LP
+An extension of the preceding model would be to allow the state of
+the thread to be modified between the create and start. This
+would allow the thread attributes object to be eliminated. This has
+been rejected because:
+.IP " *" 3
+All state in the thread attributes object has to be able to be set
+for the thread. This would require the definition of
+functions to modify thread attributes. There would be no reduction
+in the number of function calls required to set up the thread.
+In fact, for an application that creates all threads using identical
+attributes, the number of function calls required to set up
+the threads would be dramatically increased. Use of a thread attributes
+object permits the application to make one set of attribute
+setting function calls. Otherwise, the set of attribute setting function
+calls needs to be made for each thread creation.
+.LP
+.IP " *" 3
+Depending on the implementation architecture, functions to set thread
+state would require kernel calls, or for other
+implementation reasons would not be able to be implemented as macros,
+thereby increasing the cost of thread creation.
+.LP
+.IP " *" 3
+The ability for applications to segregate threads by class would be
+lost.
+.LP
+.LP
+Another suggested alternative uses a model similar to that for process
+creation, such as "thread fork". The fork semantics
+would provide more flexibility and the "create" function can be implemented
+simply by doing a thread fork followed immediately by
+a call to the desired "start routine" for the thread. This alternative
+has these problems:
+.IP " *" 3
+For many implementations, the entire stack of the calling thread would
+need to be duplicated, since in many architectures there
+is no way to determine the size of the calling frame.
+.LP
+.IP " *" 3
+Efficiency is reduced since at least some part of the stack has to
+be copied, even though in most cases the thread never needs
+the copied context, since it merely calls the desired start routine.
+.LP
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfork\fP() , \fIpthread_exit\fP() , \fIpthread_join\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

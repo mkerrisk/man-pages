@@ -1,0 +1,314 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "WAIT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" wait 
+.SH NAME
+wait \- await process completion
+.SH SYNOPSIS
+.LP
+\fBwait\fP \fB[\fP\fIpid\fP\fB...\fP\fB]\fP
+.SH DESCRIPTION
+.LP
+When an asynchronous list (see \fIAsynchronous Lists\fP ) is started
+by the
+shell, the process ID of the last command in each element of the asynchronous
+list shall become known in the current shell
+execution environment; see \fIShell Execution Environment\fP .
+.LP
+If the \fIwait\fP utility is invoked with no operands, it shall wait
+until all process IDs known to the invoking shell have
+terminated and exit with a zero exit status.
+.LP
+If one or more \fIpid\fP operands are specified that represent known
+process IDs, the \fIwait\fP utility shall wait until all
+of them have terminated. If one or more \fIpid\fP operands are specified
+that represent unknown process IDs, \fIwait\fP shall
+treat them as if they were known process IDs that exited with exit
+status 127. The exit status returned by the \fIwait\fP utility
+shall be the exit status of the process requested by the last \fIpid\fP
+operand.
+.LP
+The known process IDs are applicable only for invocations of \fIwait\fP
+in the current shell execution environment.
+.SH OPTIONS
+.LP
+None.
+.SH OPERANDS
+.LP
+The following operand shall be supported:
+.TP 7
+\fIpid\fP
+One of the following: 
+.RS
+.IP " 1." 4
+The unsigned decimal integer process ID of a command, for which the
+utility is to wait for the termination.
+.LP
+.IP " 2." 4
+A job control job ID (see the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+Section 3.203, Job Control Job ID) that identifies a background process
+group to be
+waited for. The job control job ID notation is applicable only for
+invocations of \fIwait\fP in the current shell execution
+environment; see \fIShell Execution Environment\fP . The exit status
+of \fIwait\fP shall
+be determined by the last command in the pipeline. 
+.TP 7
+\fBNote:\fP
+.RS
+The job control job ID type of \fIpid\fP is only available on systems
+supporting the User Portability Utilities option.
+.RE
+.sp
+.LP
+.RE
+.sp
+.SH STDIN
+.LP
+Not used.
+.SH INPUT FILES
+.LP
+None.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIwait\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments).
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale that should be used to affect the format and
+contents of diagnostic messages written to standard
+error.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+Not used.
+.SH STDERR
+.LP
+The standard error shall be used only for diagnostic messages.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+If one or more operands were specified, all of them have terminated
+or were not known by the invoking shell, and the status of
+the last operand specified is known, then the exit status of \fIwait\fP
+shall be the exit status information of the command
+indicated by the last operand specified. If the process terminated
+abnormally due to the receipt of a signal, the exit status shall
+be greater than 128 and shall be distinct from the exit status generated
+by other signals, but the exact value is unspecified. (See
+the \fIkill\fP \fB-l\fP option.) Otherwise, the \fIwait\fP utility
+shall exit with one of
+the following values:
+.TP 7
+\ \ \ \ 0
+The \fIwait\fP utility was invoked with no operands and all process
+IDs known by the invoking shell have terminated.
+.TP 7
+1-126
+The \fIwait\fP utility detected an error.
+.TP 7
+\ \ 127
+The command identified by the last \fIpid\fP operand specified is
+unknown.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+Default.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+On most implementations, \fIwait\fP is a shell built-in. If it is
+called in a subshell or separate utility execution
+environment, such as one of the following:
+.sp
+.RS
+.nf
+
+\fB(wait)
+nohup wait ...
+find . -exec wait ... \\;
+\fP
+.fi
+.RE
+.LP
+it returns immediately because there are no known process IDs to wait
+for in those environments.
+.LP
+Historical implementations of interactive shells have discarded the
+exit status of terminated background processes before each
+shell prompt. Therefore, the status of background processes was usually
+lost unless it terminated while \fIwait\fP was waiting for
+it. This could be a serious problem when a job that was expected to
+run for a long time actually terminated quickly with a syntax
+or initialization error because the exit status returned was usually
+zero if the requested process ID was not found. This volume of
+IEEE\ Std\ 1003.1-2001 requires the implementation to keep the status
+of terminated jobs available until the status is
+requested, so that scripts like:
+.sp
+.RS
+.nf
+
+\fBj1&
+p1=$!
+j2&
+wait $p1
+echo Job 1 exited with status $?
+wait $!
+echo Job 2 exited with status $?
+\fP
+.fi
+.RE
+.LP
+work without losing status on any of the jobs. The shell is allowed
+to discard the status of any process if it determines that
+the application cannot get the process ID for that process from the
+shell. It is also required to remember only {CHILD_MAX} number
+of processes in this way. Since the only way to get the process ID
+from the shell is by using the \fB'!'\fP shell parameter, the
+shell is allowed to discard the status of an asynchronous list if
+\fB"$!"\fP was not referenced before another asynchronous list
+was started. (This means that the shell only has to keep the status
+of the last asynchronous list started if the application did
+not reference \fB"$!"\fP . If the implementation of the shell is smart
+enough to determine that a reference to \fB"$!"\fP was
+not saved anywhere that the application can retrieve it later, it
+can use this information to trim the list of saved information.
+Note also that a successful call to \fIwait\fP with no operands discards
+the exit status of all asynchronous lists.)
+.LP
+If the exit status of \fIwait\fP is greater than 128, there is no
+way for the application to know if the waited-for process
+exited with that value or was killed by a signal. Since most utilities
+exit with small values, there is seldom any ambiguity. Even
+in the ambiguous cases, most applications just need to know that the
+asynchronous job failed; it does not matter whether it
+detected an error and failed or was killed and did not complete its
+job normally.
+.SH EXAMPLES
+.LP
+Although the exact value used when a process is terminated by a signal
+is unspecified, if it is known that a signal terminated a
+process, a script can still reliably determine which signal by using
+\fIkill\fP as shown by
+the following script:
+.sp
+.RS
+.nf
+
+\fBsleep 1000&
+pid=$!
+kill -kill $pid
+wait $pid
+echo $pid was terminated by a SIG$(kill -l $?) signal.
+\fP
+.fi
+.RE
+.LP
+If the following sequence of commands is run in less than 31 seconds:
+.sp
+.RS
+.nf
+
+\fBsleep 257 | sleep 31 &
+jobs -l %%
+\fP
+.fi
+.RE
+.LP
+either of the following commands returns the exit status of the second
+\fIsleep\fP in the
+pipeline:
+.sp
+.RS
+.nf
+
+\fBwait\fP \fI<pid of sleep 31>\fP\fBwait %%
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+The description of \fIwait\fP does not refer to the \fIwaitpid\fP()
+function from the
+System Interfaces volume of IEEE\ Std\ 1003.1-2001 because that would
+needlessly overspecify this interface. However, the
+wording means that \fIwait\fP is required to wait for an explicit
+process when it is given an argument so that the status
+information of other processes is not consumed. Historical implementations
+use the \fIwait\fP() function defined in the System Interfaces volume
+of IEEE\ Std\ 1003.1-2001 until
+\fIwait\fP() returns the requested process ID or finds that the requested
+process does not
+exist. Because this means that a shell script could not reliably get
+the status of all background children if a second background
+job was ever started before the first job finished, it is recommended
+that the \fIwait\fP utility use a method such as the
+functionality provided by the \fIwaitpid\fP() function.
+.LP
+The ability to wait for multiple \fIpid\fP operands was adopted from
+the KornShell.
+.LP
+This new functionality was added because it is needed to determine
+the exit status of any asynchronous list accurately. The only
+compatibility problem that this change creates is for a script like
+.sp
+.RS
+.nf
+
+\fBwhile sleep 60 do
+    job& echo Job started $(date) as $!  done
+\fP
+.fi
+.RE
+.LP
+which causes the shell to monitor all of the jobs started until the
+script terminates or runs out of memory. This would not be a
+problem if the loop did not reference \fB"$!"\fP or if the script
+would occasionally \fIwait\fP for jobs it started.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIShell Command Language\fP , \fIkill\fP() , \fIsh\fP , the System
+Interfaces volume of IEEE\ Std\ 1003.1-2001, \fIwait\fP(), \fIwaitpid\fP()
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

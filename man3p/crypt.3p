@@ -1,0 +1,132 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "CRYPT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" crypt 
+.SH NAME
+crypt \- string encoding function (\fBCRYPT\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+char *crypt(const char *\fP\fIkey\fP\fB, const char *\fP\fIsalt\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIcrypt\fP() function is a string encoding function. The algorithm
+is implementation-defined.
+.LP
+The \fIkey\fP argument points to a string to be encoded. The \fIsalt\fP
+argument is a string chosen from the set:
+.sp
+.RS
+.nf
+
+\fBa b c d e f g h i j k l m n o p q r s t u v w x y z
+A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+0 1 2 3 4 5 6 7 8 9 . /
+\fP
+.fi
+.RE
+.LP
+The first two characters of this string may be used to perturb the
+encoding algorithm.
+.LP
+The return value of \fIcrypt\fP() points to static data that is overwritten
+by each call.
+.LP
+The \fIcrypt\fP() function need not be reentrant. A function that
+is not required to be reentrant is not required to be
+thread-safe.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIcrypt\fP() shall return a pointer to
+the encoded string. The first two characters of the
+returned value shall be those of the \fIsalt\fP argument. Otherwise,
+it shall return a null pointer and set \fIerrno\fP to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIcrypt\fP() function shall fail if:
+.TP 7
+.B ENOSYS
+The functionality is not supported on this implementation.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Encoding Passwords
+.LP
+The following example finds a user database entry matching a particular
+user name and changes the current password to a new
+password. The \fIcrypt\fP() function generates an encoded version
+of each password. The first call to \fIcrypt\fP() produces an
+encoded version of the old password; that encoded password is then
+compared to the password stored in the user database. The second
+call to \fIcrypt\fP() encodes the new password before it is stored.
+.LP
+The \fIputpwent\fP() function, used in the following example, is not
+part of IEEE\ Std\ 1003.1-2001.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+#include <pwd.h>
+#include <string.h>
+#include <stdio.h>
+\&...
+int valid_change;
+int pfd;  /* Integer for file descriptor returned by open(). */
+FILE *fpfd;  /* File pointer for use in putpwent(). */
+struct passwd *p;
+char user[100];
+char oldpasswd[100];
+char newpasswd[100];
+char savepasswd[100];
+\&...
+valid_change = 0;
+while ((p = getpwent()) != NULL) {
+    /* Change entry if found. */
+    if (strcmp(p->pw_name, user) == 0) {
+        if (strcmp(p->pw_passwd, crypt(oldpasswd, p->pw_passwd)) == 0) {
+            strcpy(savepasswd, crypt(newpasswd, user));
+            p->pw_passwd = savepasswd;
+            valid_change = 1;
+        }
+        else {
+            fprintf(stderr, "Old password is not valid\\n");
+        }
+    }
+    /* Put passwd entry into ptmp. */
+    putpwent(p, fpfd);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The values returned by this function need not be portable among XSI-conformant
+systems.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIencrypt\fP() , \fIsetkey\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,354 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GLOB" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" glob 
+.SH NAME
+glob, globfree \- generate pathnames matching a pattern
+.SH SYNOPSIS
+.LP
+\fB#include <glob.h>
+.br
+.sp
+int glob(const char *restrict\fP \fIpattern\fP\fB, int\fP \fIflags\fP\fB,
+.br
+\ \ \ \ \ \  int(*\fP\fIerrfunc\fP\fB)(const char *\fP\fIepath\fP\fB,
+int\fP
+\fIeerrno\fP\fB),
+.br
+\ \ \ \ \ \  glob_t *restrict\fP \fIpglob\fP\fB);
+.br
+void globfree(glob_t *\fP\fIpglob\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIglob\fP() function is a pathname generator that shall implement
+the rules defined in the Shell and Utilities volume of
+IEEE\ Std\ 1003.1-2001, Section 2.13, Pattern Matching Notation, with
+optional support for rule 3 in the Shell and Utilities volume of IEEE\ Std\ 1003.1-2001,
+Section 2.13.3, Patterns Used for Filename Expansion.
+.LP
+The structure type \fBglob_t\fP is defined in \fI<glob.h>\fP and includes
+at least
+the following members:
+.TS C
+center; l1 l1 l.
+\fBMember Type\fP	\fBMember Name\fP	\fBDescription\fP
+\fBsize_t\fP	\fIgl_pathc\fP	Count of paths matched by \fIpattern\fP.
+\fBchar **\fP	\fIgl_pathv\fP	Pointer to a list of matched pathnames.
+\fBsize_t\fP	\fIgl_offs\fP	Slots to reserve at the beginning of \fIgl_pathv\fP.
+.TE
+.LP
+The argument \fIpattern\fP is a pointer to a pathname pattern to be
+expanded. The \fIglob\fP() function shall match all
+accessible pathnames against this pattern and develop a list of all
+pathnames that match. In order to have access to a pathname,
+\fIglob\fP() requires search permission on every component of a path
+except the last, and read permission on each directory of any
+filename component of \fIpattern\fP that contains any of the following
+special characters: \fB'*'\fP , \fB'?'\fP , and
+\fB'['\fP .
+.LP
+The \fIglob\fP() function shall store the number of matched pathnames
+into \fIpglob\fP->\fIgl_pathc\fP and a pointer to a
+list of pointers to pathnames into \fIpglob\fP->\fIgl_pathv\fP. The
+pathnames shall be in sort order as defined by the current
+setting of the \fILC_COLLATE\fP category; see the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Section 7.3.2, LC_COLLATE. The first
+pointer after the last pathname shall be a null
+pointer. If the pattern does not match any pathnames, the returned
+number of matched paths is set to 0, and the contents of
+\fIpglob\fP->\fIgl_pathv\fP are implementation-defined.
+.LP
+It is the caller's responsibility to create the structure pointed
+to by \fIpglob\fP. The \fIglob\fP() function shall allocate
+other space as needed, including the memory pointed to by \fIgl_pathv\fP.
+The \fIglobfree\fP() function shall free any space
+associated with \fIpglob\fP from a previous call to \fIglob\fP().
+.LP
+The \fIflags\fP argument is used to control the behavior of \fIglob\fP().
+The value of \fIflags\fP is a bitwise-inclusive OR
+of zero or more of the following constants, which are defined in \fI<glob.h>\fP:
+.TP 7
+GLOB_APPEND
+Append pathnames generated to the ones from a previous call to \fIglob\fP().
+.TP 7
+GLOB_DOOFFS
+Make use of \fIpglob\fP->\fIgl_offs\fP. If this flag is set, \fIpglob\fP->\fIgl_offs\fP
+is used to specify how many
+null pointers to add to the beginning of \fIpglob\fP->\fIgl_pathv\fP.
+In other words, \fIpglob\fP->\fIgl_pathv\fP shall
+point to \fIpglob\fP->\fIgl_offs\fP null pointers, followed by \fIpglob\fP->\fIgl_pathc\fP
+pathname pointers, followed by
+a null pointer.
+.TP 7
+GLOB_ERR
+Cause \fIglob\fP() to return when it encounters a directory that it
+cannot open or read. Ordinarily, \fIglob\fP() continues
+to find matches.
+.TP 7
+GLOB_MARK
+Each pathname that is a directory that matches \fIpattern\fP shall
+have a slash appended.
+.TP 7
+GLOB_NOCHECK
+Supports rule 3 in the Shell and Utilities volume of IEEE\ Std\ 1003.1-2001,
+Section 2.13.3, Patterns Used for Filename Expansion. If \fIpattern\fP
+does not
+match any pathname, then \fIglob\fP() shall return a list consisting
+of only \fIpattern\fP, and the number of matched pathnames
+is 1.
+.TP 7
+GLOB_NOESCAPE
+Disable backslash escaping.
+.TP 7
+GLOB_NOSORT
+Ordinarily, \fIglob\fP() sorts the matching pathnames according to
+the current setting of the \fILC_COLLATE\fP category; see
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, Section 7.3.2,
+LC_COLLATE. When this flag is used, the order of pathnames returned
+is unspecified.
+.sp
+.LP
+The GLOB_APPEND flag can be used to append a new set of pathnames
+to those found in a previous call to \fIglob\fP(). The
+following rules apply to applications when two or more calls to \fIglob\fP()
+are made with the same value of \fIpglob\fP and
+without intervening calls to \fIglobfree\fP():
+.IP " 1." 4
+The first such call shall not set GLOB_APPEND. All subsequent calls
+shall set it.
+.LP
+.IP " 2." 4
+All the calls shall set GLOB_DOOFFS, or all shall not set it.
+.LP
+.IP " 3." 4
+After the second call, \fIpglob\fP->\fIgl_pathv\fP points to a list
+containing the following:
+.RS
+.IP " a." 4
+Zero or more null pointers, as specified by GLOB_DOOFFS and \fIpglob\fP->\fIgl_offs\fP.
+.LP
+.IP " b." 4
+Pointers to the pathnames that were in the \fIpglob\fP->\fIgl_pathv\fP
+list before the call, in the same order as
+before.
+.LP
+.IP " c." 4
+Pointers to the new pathnames generated by the second call, in the
+specified order.
+.LP
+.RE
+.LP
+.IP " 4." 4
+The count returned in \fIpglob\fP->\fIgl_pathc\fP shall be the total
+number of pathnames from the two calls.
+.LP
+.IP " 5." 4
+The application can change any of the fields after a call to \fIglob\fP().
+If it does, the application shall reset them to the
+original value before a subsequent call, using the same \fIpglob\fP
+value, to \fIglobfree\fP() or \fIglob\fP() with the
+GLOB_APPEND flag.
+.LP
+.LP
+If, during the search, a directory is encountered that cannot be opened
+or read and \fIerrfunc\fP is not a null pointer,
+\fIglob\fP() calls (\fI*errfunc\fP()) with two arguments:
+.IP " 1." 4
+The \fIepath\fP argument is a pointer to the path that failed.
+.LP
+.IP " 2." 4
+The \fIeerrno\fP argument is the value of \fIerrno\fP from the failure,
+as set by \fIopendir\fP(), \fIreaddir\fP(), or \fIstat\fP(). (Other
+values may be used to report other errors not explicitly documented
+for those
+functions.)
+.LP
+.LP
+If (\fI*errfunc\fP()) is called and returns non-zero, or if the GLOB_ERR
+flag is set in \fIflags\fP, \fIglob\fP() shall stop
+the scan and return GLOB_ABORTED after setting \fIgl_pathc\fP and
+\fIgl_pathv\fP in \fIpglob\fP to reflect the paths already
+scanned. If GLOB_ERR is not set and either \fIerrfunc\fP is a null
+pointer or (\fI*errfunc\fP()) returns 0, the error shall be
+ignored.
+.LP
+The \fIglob\fP() function shall not fail because of large files.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIglob\fP() shall return 0. The argument
+\fIpglob\fP->\fIgl_pathc\fP shall return the number
+of matched pathnames and the argument \fIpglob\fP->\fIgl_pathv\fP
+shall contain a pointer to a null-terminated list of matched
+and sorted pathnames. However, if \fIpglob\fP->\fIgl_pathc\fP is 0,
+the content of \fIpglob\fP->\fIgl_pathv\fP is
+undefined.
+.LP
+The \fIglobfree\fP() function shall not return a value.
+.LP
+If \fIglob\fP() terminates due to an error, it shall return one of
+the non-zero constants defined in \fI<glob.h>\fP. The arguments \fIpglob\fP->\fIgl_pathc\fP
+and
+\fIpglob\fP->\fIgl_pathv\fP are still set as defined above.
+.SH ERRORS
+.LP
+The \fIglob\fP() function shall fail and return the corresponding
+value if:
+.TP 7
+GLOB_ABORTED
+The scan was stopped because GLOB_ERR was set or (\fI*errfunc\fP())
+returned non-zero.
+.TP 7
+GLOB_NOMATCH
+The pattern does not match any existing pathname, and GLOB_NOCHECK
+was not set in flags.
+.TP 7
+GLOB_NOSPACE
+An attempt to allocate memory failed.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+One use of the GLOB_DOOFFS flag is by applications that build an argument
+list for use with \fIexecv\fP(), \fIexecve\fP(), or \fIexecvp\fP().
+Suppose, for example, that an application wants to do the equivalent
+of:
+.sp
+.RS
+.nf
+
+\fBls -l *.c
+\fP
+.fi
+.RE
+.LP
+but for some reason:
+.sp
+.RS
+.nf
+
+\fBsystem("ls -l *.c")
+\fP
+.fi
+.RE
+.LP
+is not acceptable. The application could obtain approximately the
+same result using the sequence:
+.sp
+.RS
+.nf
+
+\fBglobbuf.gl_offs = 2;
+glob("*.c", GLOB_DOOFFS, NULL, &globbuf);
+globbuf.gl_pathv[0] = "ls";
+globbuf.gl_pathv[1] = "-l";
+execvp("ls", &globbuf.gl_pathv[0]);
+\fP
+.fi
+.RE
+.LP
+Using the same example:
+.sp
+.RS
+.nf
+
+\fBls -l *.c *.h
+\fP
+.fi
+.RE
+.LP
+could be approximately simulated using GLOB_APPEND as follows:
+.sp
+.RS
+.nf
+
+\fBglobbuf.gl_offs = 2;
+glob("*.c", GLOB_DOOFFS, NULL, &globbuf);
+glob("*.h", GLOB_DOOFFS|GLOB_APPEND, NULL, &globbuf);
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+This function is not provided for the purpose of enabling utilities
+to perform pathname expansion on their arguments, as this
+operation is performed by the shell, and utilities are explicitly
+not expected to redo this. Instead, it is provided for
+applications that need to do pathname expansion on strings obtained
+from other sources, such as a pattern typed by a user or read
+from a file.
+.LP
+If a utility needs to see if a pathname matches a given pattern, it
+can use \fIfnmatch\fP().
+.LP
+Note that \fIgl_pathc\fP and \fIgl_pathv\fP have meaning even if \fIglob\fP()
+fails. This allows \fIglob\fP() to report
+partial results in the event of an error. However, if \fIgl_pathc\fP
+is 0, \fIgl_pathv\fP is unspecified even if \fIglob\fP()
+did not return an error.
+.LP
+The GLOB_NOCHECK option could be used when an application wants to
+expand a pathname if wildcards are specified, but wants to
+treat the pattern as just a string otherwise. The \fIsh\fP utility
+might use this for
+option-arguments, for example.
+.LP
+The new pathnames generated by a subsequent call with GLOB_APPEND
+are not sorted together with the previous pathnames. This
+mirrors the way that the shell handles pathname expansion when multiple
+expansions are done on a command line.
+.LP
+Applications that need tilde and parameter expansion should use \fIwordexp\fP().
+.SH RATIONALE
+.LP
+It was claimed that the GLOB_DOOFFS flag is unnecessary because it
+could be simulated using:
+.sp
+.RS
+.nf
+
+\fBnew = (char **)malloc((n + pglob->gl_pathc + 1)
+       * sizeof(char *));
+(void) memcpy(new+n, pglob->gl_pathv,
+       pglob->gl_pathc * sizeof(char *));
+(void) memset(new, 0, n * sizeof(char *));
+free(pglob->gl_pathv);
+pglob->gl_pathv = new;
+\fP
+.fi
+.RE
+.LP
+However, this assumes that the memory pointed to by \fIgl_pathv\fP
+is a block that was separately created using \fImalloc\fP(). This
+is not necessarily the case. An application should make no assumptions
+about
+how the memory referenced by fields in \fIpglob\fP was allocated.
+It might have been obtained from \fImalloc\fP() in a large chunk and
+then carved up within \fIglob\fP(), or it might have been
+created using a different memory allocator. It is not the intent of
+the standard developers to specify or imply how the memory used
+by \fIglob\fP() is managed.
+.LP
+The GLOB_APPEND flag would be used when an application wants to expand
+several different patterns into a single list.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , \fIfnmatch\fP() , \fIopendir\fP() , \fIreaddir\fP()
+, \fIstat\fP() , \fIwordexp\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<glob.h>\fP, the Shell and Utilities volume
+of IEEE\ Std\ 1003.1-2001
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

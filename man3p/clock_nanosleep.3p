@@ -1,0 +1,189 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "CLOCK_NANOSLEEP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" clock_nanosleep 
+.SH NAME
+clock_nanosleep \- high resolution sleep with specifiable clock (\fBADVANCED
+REALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <time.h>
+.br
+.sp
+int clock_nanosleep(clockid_t\fP \fIclock_id\fP\fB, int\fP \fIflags\fP\fB,
+.br
+\ \ \ \ \ \  const struct timespec *\fP\fIrqtp\fP\fB, struct timespec
+*\fP\fIrmtp\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+If the flag TIMER_ABSTIME is not set in the \fIflags\fP argument,
+the \fIclock_nanosleep\fP() function shall cause the current
+thread to be suspended from execution until either the time interval
+specified by the \fIrqtp\fP argument has elapsed, or a signal
+is delivered to the calling thread and its action is to invoke a signal-catching
+function, or the process is terminated. The clock
+used to measure the time shall be the clock specified by \fIclock_id\fP.
+.LP
+If the flag TIMER_ABSTIME is set in the \fIflags\fP argument, the
+\fIclock_nanosleep\fP() function shall cause the current
+thread to be suspended from execution until either the time value
+of the clock specified by \fIclock_id\fP reaches the absolute
+time specified by the \fIrqtp\fP argument, or a signal is delivered
+to the calling thread and its action is to invoke a
+signal-catching function, or the process is terminated. If, at the
+time of the call, the time value specified by \fIrqtp\fP is
+less than or equal to the time value of the specified clock, then
+\fIclock_nanosleep\fP() shall return immediately and the calling
+process shall not be suspended.
+.LP
+The suspension time caused by this function may be longer than requested
+because the argument value is rounded up to an integer
+multiple of the sleep resolution, or because of the scheduling of
+other activity by the system. But, except for the case of being
+interrupted by a signal, the suspension time for the relative \fIclock_nanosleep\fP()
+function (that is, with the TIMER_ABSTIME
+flag not set) shall not be less than the time interval specified by
+\fIrqtp\fP, as measured by the corresponding clock. The
+suspension for the absolute \fIclock_nanosleep\fP() function (that
+is, with the TIMER_ABSTIME flag set) shall be in effect at
+least until the value of the corresponding clock reaches the absolute
+time specified by \fIrqtp\fP, except for the case of being
+interrupted by a signal.
+.LP
+The use of the \fIclock_nanosleep\fP() function shall have no effect
+on the action or blockage of any signal.
+.LP
+The \fIclock_nanosleep\fP() function shall fail if the \fIclock_id\fP
+argument refers to the CPU-time clock of the calling
+thread. It is unspecified whether \fIclock_id\fP values of other CPU-time
+clocks are allowed.
+.SH RETURN VALUE
+.LP
+If the \fIclock_nanosleep\fP() function returns because the requested
+time has elapsed, its return value shall be zero.
+.LP
+If the \fIclock_nanosleep\fP() function returns because it has been
+interrupted by a signal, it shall return the corresponding
+error value. For the relative \fIclock_nanosleep\fP() function, if
+the \fIrmtp\fP argument is non-NULL, the \fBtimespec\fP
+structure referenced by it shall be updated to contain the amount
+of time remaining in the interval (the requested time minus the
+time actually slept). If the \fIrmtp\fP argument is NULL, the remaining
+time is not returned. The absolute
+\fIclock_nanosleep\fP() function has no effect on the structure referenced
+by \fIrmtp\fP.
+.LP
+If \fIclock_nanosleep\fP() fails, it shall return the corresponding
+error value.
+.SH ERRORS
+.LP
+The \fIclock_nanosleep\fP() function shall fail if:
+.TP 7
+.B EINTR
+The \fIclock_nanosleep\fP() function was interrupted by a signal.
+.TP 7
+.B EINVAL
+The \fIrqtp\fP argument specified a nanosecond value less than zero
+or greater than or equal to 1000 million; or the
+TIMER_ABSTIME flag was specified in flags and the \fIrqtp\fP argument
+is outside the range for the clock specified by
+\fIclock_id\fP; or the \fIclock_id\fP argument does not specify a
+known clock, or specifies the CPU-time clock of the calling
+thread.
+.TP 7
+.B ENOTSUP
+The \fIclock_id\fP argument specifies a clock for which \fIclock_nanosleep\fP()
+is not supported, such as a CPU-time
+clock.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Calling \fIclock_nanosleep\fP() with the value TIMER_ABSTIME not set
+in the \fIflags\fP argument and with a \fIclock_id\fP of
+CLOCK_REALTIME is equivalent to calling \fInanosleep\fP() with the
+same \fIrqtp\fP and
+\fIrmtp\fP arguments.
+.SH RATIONALE
+.LP
+The \fInanosleep\fP() function specifies that the system-wide clock
+CLOCK_REALTIME is
+used to measure the elapsed time for this time service. However, with
+the introduction of the monotonic clock CLOCK_MONOTONIC a new
+relative sleep function is needed to allow an application to take
+advantage of the special characteristics of this clock.
+.LP
+There are many applications in which a process needs to be suspended
+and then activated multiple times in a periodic way; for
+example, to poll the status of a non-interrupting device or to refresh
+a display device. For these cases, it is known that precise
+periodic activation cannot be achieved with a relative \fIsleep\fP()
+or \fInanosleep\fP() function call. Suppose, for example, a periodic
+process that is activated at
+time \fIT\fP0, executes for a while, and then wants to suspend itself
+until time \fIT\fP0+ \fIT\fP, the period being \fIT\fP.
+If this process wants to use the \fInanosleep\fP() function, it must
+first call \fIclock_gettime\fP() to get the current time, then calculate
+the difference between the
+current time and \fIT\fP0+ \fIT\fP and, finally, call \fInanosleep\fP()
+using the
+computed interval. However, the process could be preempted by a different
+process between the two function calls, and in this case
+the interval computed would be wrong; the process would wake up later
+than desired. This problem would not occur with the absolute
+\fIclock_nanosleep\fP() function, since only one function call would
+be necessary to suspend the process until the desired time.
+In other cases, however, a relative sleep is needed, and that is why
+both functionalities are required.
+.LP
+Although it is possible to implement periodic processes using the
+timers interface, this implementation would require the use of
+signals, and the reservation of some signal numbers. In this regard,
+the reasons for including an absolute version of the
+\fIclock_nanosleep\fP() function in IEEE\ Std\ 1003.1-2001 are the
+same as for the inclusion of the relative \fInanosleep\fP().
+.LP
+It is also possible to implement precise periodic processes using
+\fIpthread_cond_timedwait\fP(), in which an absolute timeout is specified
+that
+takes effect if the condition variable involved is never signaled.
+However, the use of this interface is unnatural, and involves
+performing other operations on mutexes and condition variables that
+imply an unnecessary overhead. Furthermore, \fIpthread_cond_timedwait\fP()
+is not available in implementations that do not
+support threads.
+.LP
+Although the interface of the relative and absolute versions of the
+new high resolution sleep service is the same
+\fIclock_nanosleep\fP() function, the \fIrmtp\fP argument is only
+used in the relative sleep. This argument is needed in the
+relative \fIclock_nanosleep\fP() function to reissue the function
+call if it is interrupted by a signal, but it is not needed in
+the absolute \fIclock_nanosleep\fP() function call; if the call is
+interrupted by a signal, the absolute \fIclock_nanosleep\fP()
+function can be invoked again with the same \fIrqtp\fP argument used
+in the interrupted call.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclock_getres\fP() , \fInanosleep\fP() , \fIpthread_cond_timedwait\fP()
+, \fIsleep\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<time.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,711 @@
+.\" This man page is Copyright (C) 1999 Andi Kleen <ak@muc.de>.
+.\" Permission is granted to distribute possibly modified copies
+.\" of this page provided the header is included verbatim,
+.\" and in case of nontrivial modification author and date
+.\" of the modification is added to the header.
+.\"
+.\" 2.4 Updates by Nivedita Singhvi 4/20/02 <nivedita@us.ibm.com>.
+.\"
+.TH TCP  7 2003-08-21 "Linux Man Page" "Linux Programmer's Manual" 
+.SH NAME
+tcp \- TCP protocol
+.SH SYNOPSIS
+.B #include <sys/socket.h>
+.br
+.B #include <netinet/in.h>
+.br
+.B #include <netinet/tcp.h>
+.br
+.B tcp_socket = socket(PF_INET, SOCK_STREAM, 0); 
+.SH DESCRIPTION
+This is an implementation of the TCP protocol defined in
+RFC793, RFC1122 and RFC2001 with the NewReno and SACK
+extensions.  It provides a reliable, stream oriented, full
+duplex connection between two sockets on top of
+.BR ip (7),
+for both v4 and v6 versions.
+TCP guarantees that the data arrives in order and
+retransmits lost packets.  It generates and checks a per
+packet checksum to catch transmission errors.  TCP does not
+preserve record boundaries.
+
+A fresh TCP socket has no remote or local address and is not
+fully specified.  To create an outgoing TCP connection use
+.BR connect (2)
+to establish a connection to another TCP socket.
+To receive new incoming connections
+.BR bind (2) 
+the socket first to a local address and port and then call 
+.BR listen (2)
+to put the socket into listening state.  After that a new
+socket for each incoming connection can be accepted 
+using
+.BR accept (2).
+A socket which has had
+.B accept
+or 
+.B connect
+successfully called on it is fully specified and may
+transmit data.  Data cannot be transmitted on listening or
+not yet connected sockets.
+
+Linux supports RFC1323 TCP high performance
+extensions.  These include Protection Against Wrapped
+Sequence Numbers (PAWS), Window Scaling  and 
+Timestamps.  Window scaling allows the use
+of large (> 64K) TCP windows in order to support links with high 
+latency or bandwidth.  To make use of them, the send and 
+receive buffer sizes must be increased.  
+They can be set globally with the
+.B net.ipv4.tcp_wmem
+and
+.B net.ipv4.tcp_rmem
+sysctl variables, or on individual sockets by using the 
+.B SO_SNDBUF 
+and 
+.B SO_RCVBUF 
+socket options with the 
+.BR setsockopt (2)
+call.
+
+The maximum sizes for socket buffers declared via the
+.B SO_SNDBUF
+and 
+.B SO_RCVBUF 
+mechanisms are limited by the global
+.B net.core.rmem_max
+and
+.B net.core.wmem_max
+sysctls.  Note that TCP actually allocates twice the size of
+the buffer requested in the
+.BR setsockopt (2)
+call, and so a succeeding 
+.BR getsockopt (2) 
+call will not return the same size of buffer as requested
+in the 
+.BR setsockopt (2) 
+call.  TCP uses this for administrative purposes and internal
+kernel structures, and the sysctl variables reflect the
+larger sizes compared to the actual TCP windows. 
+On individual connections, the socket buffer size must be
+set prior to the
+.B listen()
+or 
+.B connect()
+calls in order to have it take effect. See
+.BR socket (7)
+for more information. 
+.PP 
+TCP supports urgent data.  Urgent data is used to signal the
+receiver that some important message is part of the data
+stream and that it should be processed as soon as possible.
+To send urgent data specify the
+.B MSG_OOB
+option to 
+.BR send (2).
+When urgent data is received, the kernel sends a
+.B SIGURG
+signal to the reading process or the process or process
+group that has been set for the socket using the
+.B SIOCSPGRP
+or 
+.B FIOSETOWN 
+ioctls. When the 
+.B SO_OOBINLINE
+socket option is enabled, urgent data is put into the normal
+data stream (and can be tested for by the
+.B SIOCATMARK
+ioctl), 
+otherwise it can be only received when the
+.B MSG_OOB
+flag is set for 
+.BR sendmsg (2). 
+
+Linux 2.4 introduced a number of changes for improved
+throughput and scaling, as well as enhanced functionality.
+Some of these features include support for zerocopy
+.BR sendfile (2), 
+Explicit Congestion Notification, new
+management of TIME_WAIT sockets, keep-alive socket options
+and support for Duplicate SACK extensions.
+.SH "ADDRESS FORMATS"
+TCP is built on top of IP (see 
+.BR ip (7)).
+The address formats defined by
+.BR ip (7)
+apply to TCP.  TCP only supports point-to-point
+communication; broadcasting and multicasting are not
+supported.
+.SH SYSCTLS
+These variables can be accessed by the 
+.B /proc/sys/net/ipv4/* 
+files or with the 
+.BR sysctl (2)
+interface.  In addition, most IP sysctls also apply to TCP; see
+.BR ip (7). 
+.TP
+.B tcp_abort_on_overflow
+Enable resetting connections if the listening service is too
+slow and unable to keep up and accept them.  It is not
+enabled by default.  It means that if overflow occurred due
+to a burst, the connection will recover.  Enable this option
+_only_ if you are really sure that the listening daemon
+cannot be tuned to accept connections faster.  Enabling this
+option can harm the clients of your server. 
+.TP
+.B tcp_adv_win_scale
+Count buffering overhead as bytes/2^tcp_adv_win_scale
+(if tcp_adv_win_scale > 0) or bytes-bytes/2^(-tcp_adv_win_scale),
+if it is <= 0. The default is 2.  
+
+The socket receive buffer space is shared between the
+application and kernel.  TCP maintains part of the buffer as
+the TCP window, this is the size of the receive window
+advertised to the other end.  The rest of the space is used
+as the "application" buffer, used to isolate the network
+from scheduling and application latencies.  The 
+.B tcp_adv_win_scale 
+default value of 2 implies that the space
+used for the application buffer is one fourth that of the
+total.  
+.TP 
+.B tcp_app_win 
+This variable defines how many
+bytes of the TCP window are reserved for buffering
+overhead.
+
+A maximum of (window/2^tcp_app_win, mss) bytes in the window
+are reserved for the application buffer.  A value of 0
+implies that no amount is reserved.  The default value is 31.
+.TP
+.B tcp_dsack
+Enable RFC2883 TCP Duplicate SACK support. 
+It is enabled by default.
+.TP
+.B tcp_ecn
+Enable RFC2884 Explicit Congestion Notification.  It is not
+enabled by default.  When enabled, connectivity to some
+destinations could be affected due to older, misbehaving
+routers along the path causing connections to be dropped.
+.TP
+.B tcp_fack
+Enable TCP Forward Acknowledgement support.  It is enabled by
+default.
+.TP
+.B tcp_fin_timeout
+How many seconds to wait for a final FIN packet before the
+socket is forcibly closed.  This is strictly a violation of
+the TCP specification, but required to prevent
+denial-of-service (DoS) attacks.  The default value in 2.4
+kernels is 60, down from 180 in 2.2.
+.TP
+.B tcp_keepalive_intvl
+The number of seconds between TCP keep-alive probes.
+The default value is 75 seconds.
+.TP
+.B tcp_keepalive_probes
+The maximum number of TCP keep-alive probes to send  
+before giving up and killing the connection if
+no response is obtained from the other end.
+The default value is 9. 
+.TP
+.B tcp_keepalive_time
+The number of seconds a connection needs to be idle
+before TCP begins sending out keep-alive probes. 
+Keep-alives are only sent when the 
+.B SO_KEEPALIVE 
+socket option is enabled.  The default value is 7200 seconds
+(2 hours).  An idle connection is terminated after
+approximately an additional 11 minutes (9 probes an interval
+of 75 seconds apart) when keep-alive is enabled.
+
+Note that underlying connection tracking mechanisms and 
+application timeouts may be much shorter.
+.TP
+.B tcp_max_orphans
+The maximum number of orphaned (not attached to any user file
+handle) TCP sockets allowed in the system.  When this number
+is exceeded, the orphaned connection is reset and a warning
+is printed.  This limit exists only to prevent simple DoS
+attacks.  Lowering this limit is not recommended. Network
+conditions might require you to increase the number of
+orphans allowed, but note that each orphan can eat up to ~64K
+of unswappable memory.  The default initial value is set
+equal to the kernel parameter NR_FILE.  This initial default
+is adjusted depending on the memory in the system.
+.TP
+.B tcp_max_syn_backlog
+The maximum number of queued connection requests which have
+still not received an acknowledgement from the connecting
+client.  If this number is exceeded, the kernel will begin
+dropping requests.  The default value of 256 is increased to
+1024 when the memory present in the system is adequate or
+greater (>= 128Mb), and reduced to 128 for those systems with
+very low memory (<= 32Mb).  It is recommended that if this
+needs to be increased above 1024, TCP_SYNQ_HSIZE in
+include/net/tcp.h be modified to keep
+TCP_SYNQ_HSIZE*16<=tcp_max_syn_backlog, and the kernel be
+recompiled.
+.TP
+.B tcp_max_tw_buckets
+The maximum number of sockets in TIME_WAIT state allowed in
+the system.  This limit exists only to prevent simple DoS
+attacks.  The default value of NR_FILE*2 is adjusted
+depending on the memory in the system.  If this number is
+exceeded, the socket is closed and a warning is printed.
+.TP 
+.B tcp_mem
+This is a vector of 3 integers: [low, pressure, high].  These
+bounds are used by TCP to track its memory usage.  The
+defaults are calculated at boot time from the amount of
+available memory.
+
+.I low 
+- TCP doesn't regulate its memory allocation when the number
+of pages it has allocated globally is below this number.
+
+.I pressure
+- when the amount of memory allocated by TCP
+exceeds this number of pages, TCP moderates its memory
+consumption.  This memory pressure state is exited
+once the number of pages allocated falls below
+the 
+.B low 
+mark.
+
+.I high
+- the maximum number of pages, globally, that TCP
+will allocate.  This value overrides any other limits
+imposed by the kernel. 
+.TP
+.B tcp_orphan_retries
+The maximum number of attempts made to probe the other
+end of a connection which has been closed by our end.
+The default value is 8.
+.TP
+.B tcp_reordering
+The maximum a packet can be reordered in a TCP packet stream
+without TCP assuming packet loss and going into slow start.
+The default is 3.  It is not advisable to change this number.
+This is a packet reordering detection metric designed to
+minimize unnecessary back off and retransmits provoked by
+reordering of packets on a connection.
+.TP
+.B tcp_retrans_collapse
+Try to send full-sized packets during retransmit. 
+This is enabled by default. 
+.TP
+.B tcp_retries1
+The number of times TCP will attempt to retransmit a
+packet on an established connection normally,
+without the extra effort of getting the network
+layers involved.  Once we exceed this number of
+retransmits, we first have the network layer
+update the route if possible before each new retransmit.
+The default is the RFC specified minimum of 3.
+.TP
+.B tcp_retries2
+The maximum number of times a TCP packet is retransmitted
+in established state before giving up.  The default
+value is 15, which corresponds to a duration of
+approximately between 13 to 30 minutes, depending
+on the retransmission timeout.  The RFC1122 specified
+minimum limit of 100 seconds is typically deemed too
+short.
+.TP
+.B tcp_rfc1337
+Enable TCP behaviour conformant with RFC 1337.
+This is not enabled by default.  When not enabled,
+if a RST is received in TIME_WAIT state, we close 
+the socket immediately without waiting for the end
+of the TIME_WAIT period. 
+.TP
+.B tcp_rmem 
+This is a vector of 3 integers: [min, default,
+max].  These parameters are used by TCP to regulate receive
+buffer sizes.  TCP dynamically adjusts the size of the
+receive buffer from the defaults listed below, in the range
+of these sysctl variables, depending on memory available
+in the system.
+
+.I min
+- minimum size of the receive buffer used by each TCP
+socket.  The default value is 4K, and is lowered to
+PAGE_SIZE bytes in low memory systems.  This value
+is used to ensure that in memory pressure mode,
+allocations below this size will still succeed.  This is not
+used to bound the size of the receive buffer declared
+using
+.B SO_RCVBUF
+on a socket.  
+
+.I default
+- the default size of the receive buffer for a TCP socket.
+This value overwrites the initial default buffer size from
+the generic global 
+.B net.core.rmem_default
+defined for all protocols.  The default value is 87380
+bytes, and is lowered to 43689 in low memory systems.  If
+larger receive buffer sizes are desired, this value should
+be increased (to affect all sockets).  To employ large TCP
+windows, the
+.B net.ipv4.tcp_window_scaling 
+must be enabled (default).
+
+.I max
+- the maximum size of the receive buffer used by
+each TCP socket.  This value does not override the global 
+.BR net.core.rmem_max .
+This is not used to limit the size of the receive buffer
+declared using
+.B SO_RCVBUF
+on a socket.
+The default value of 87380*2 bytes is lowered to 87380
+in low memory systems.
+.TP
+.B tcp_sack
+Enable RFC2018 TCP Selective Acknowledgements. 
+It is enabled by default.
+.TP
+.B tcp_stdurg
+Enable the strict RFC793 interpretation of the TCP
+urgent-pointer field.  The default is to use the
+BSD-compatible interpretation of the urgent-pointer, pointing
+to the first byte after the urgent data.  The RFC793
+interpretation is to have it point to the last byte of urgent
+data.  Enabling this option may lead to interoperatibility
+problems.
+.TP
+.B tcp_synack_retries
+The maximum number of times a SYN/ACK segment
+for a passive TCP connection will be retransmitted.
+This number should not be higher than 255. The default
+value is 5.
+.TP
+.B tcp_syncookies
+Enable TCP syncookies.  The kernel must be compiled with 
+.BR CONFIG_SYN_COOKIES .
+Send out syncookies when the syn backlog queue of a socket
+overflows.  The syncookies feature attempts to protect a
+socket from a SYN flood attack.  This should be used as a
+last resort, if at all.  This is a violation of the TCP
+protocol, and conflicts with other areas of TCP such as TCP
+extensions.  It can cause problems for clients and relays.
+It is not recommended as a tuning mechanism for heavily
+loaded servers to help with overloaded or misconfigured
+conditions.  For recommended alternatives see
+.BR tcp_max_syn_backlog ,
+.BR tcp_synack_retries ,
+.BR tcp_abort_on_overflow .
+.TP
+.B tcp_syn_retries
+The maximum number of times initial SYNs for an active TCP
+connection attempt will be retransmitted.  This value should
+not be higher than 255.  The default value is 5, which
+corresponds to approximately 180 seconds.
+.TP
+.B tcp_timestamps
+Enable RFC1323 TCP timestamps.  This is enabled
+by default.
+.TP
+.B tcp_tw_recycle
+Enable fast recycling of TIME-WAIT sockets.  It is 
+not enabled by default.  Enabling this option is not
+recommended since this causes problems when working
+with NAT (Network Address Translation). 
+.TP
+.B tcp_window_scaling
+Enable RFC1323 TCP window scaling.  It is enabled by
+default.  This feature allows the use of a large window
+(> 64K) on a TCP connection, should the other end support it.
+Normally, the 16 bit window length field in the TCP header
+limits the window size to less than 64K bytes.  If larger
+windows are desired, applications can increase the size of
+their socket buffers and the window scaling option will be
+employed.  If
+.B tcp_window_scaling 
+is disabled, TCP will not negotiate the use of window
+scaling with the other end during connection setup.
+.TP
+.B tcp_wmem
+This is a vector of 3 integers: [min, default, max].  These
+parameters are used by TCP to regulate send buffer sizes.
+TCP dynamically adjusts the size of the send buffer from the
+default values listed below, in the range of these sysctl
+variables, depending on memory available.
+
+.I min
+- minimum size of the send buffer used by each TCP socket.
+The default value is 4K bytes.
+This value is used to ensure that in memory pressure mode,
+allocations below this size will still succeed.  This is not
+used to bound the size of the send buffer declared
+using
+.B SO_SNDBUF
+on a socket.
+
+.I default
+- the default size of the send buffer for a TCP socket.
+This value overwrites the initial default buffer size from
+the generic global
+.B net.core.wmem_default
+defined for all protocols.  The default value is 16K bytes.
+If larger send buffer sizes are desired, this value
+should be increased (to affect all sockets).  To employ
+large TCP windows, the sysctl variable
+.B net.ipv4.tcp_window_scaling
+must be enabled (default).
+
+.I max
+- the maximum size of the send buffer used by
+each TCP socket.  This value does not override the global 
+.BR net.core.wmem_max .
+This is not used to limit the size of the send buffer
+declared using
+.B SO_SNDBUF
+on a socket.
+The default value is 128K bytes.  It is lowered to 64K
+depending on the memory available in the system.
+.SH "SOCKET OPTIONS"
+To set or get a TCP socket option, call
+.BR getsockopt (2)
+to read or
+.BR setsockopt (2)
+to write the option with the option level argument set to 
+.BR SOL_TCP.
+In addition,
+most 
+.B SOL_IP 
+socket options are valid on TCP sockets. For more
+information see
+.BR ip (7).
+.TP
+.B TCP_CORK
+If set, don't send out partial frames.  All queued
+partial frames are sent when the option is cleared again.
+This is useful for prepending headers before calling
+.BR sendfile (2),
+or for throughput optimization.  This option cannot be
+combined with
+.BR TCP_NODELAY.
+This option should not be used in code intended to be
+portable.
+.TP
+.B TCP_DEFER_ACCEPT
+Allows a listener to be awakened only when data arrives on
+the socket.  Takes an integer value (seconds), this can
+bound the maximum number of attempts TCP will make to
+complete the connection.  This option should not be used in
+code intended to be portable.
+.TP
+.B TCP_INFO
+Used to collect information about this socket.  The kernel
+returns a struct tcp_info as defined in the file
+/usr/include/linux/tcp.h.  This option should not be used in
+code intended to be portable.
+.TP
+.B TCP_KEEPCNT
+The maximum number of keepalive probes TCP should send
+before dropping the connection.  This option should not be
+used in code intended to be portable.
+.TP
+.B TCP_KEEPIDLE
+The time (in seconds) the connection needs to remain idle
+before TCP starts sending keepalive probes, if the socket
+option SO_KEEPALIVE has been set on this socket.  This
+option should not be used in code intended to be portable.
+.TP
+.B TCP_KEEPINTVL
+The time (in seconds) between individual keepalive probes.
+This option should not be used in code intended to be
+portable.
+.TP
+.B TCP_LINGER2
+The lifetime of orphaned FIN_WAIT2 state sockets.  This
+option can be used to override the system wide sysctl
+.B tcp_fin_timeout
+on this socket.  This is not to be confused with the 
+.BR socket (7)
+level option 
+.BR SO_LINGER .
+This option should not be used in code intended to be
+portable.
+.TP
+.B TCP_MAXSEG
+The maximum segment size for outgoing TCP packets.  If this
+option is set before connection establishment, it also
+changes the MSS value announced to the other end in the
+initial packet.  Values greater than the (eventual)
+interface MTU have no effect.  TCP will also impose 
+its minimum and maximum bounds over the value provided.
+.TP
+.B TCP_NODELAY
+If set, disable the Nagle algorithm.  This means that segments
+are always sent as soon as possible, even if there is only a
+small amount of data.  When not set, data is buffered until there
+is a sufficient amount to send out, thereby avoiding the
+frequent sending of small packets, which results in poor
+utilization of the network.  This option cannot be used
+at the same time as the option
+.BR TCP_CORK . 
+.TP
+.B TCP_QUICKACK
+Enable quickack mode if set or disable quickack
+mode if cleared.  In quickack mode, acks are sent
+immediately, rather than delayed if needed in accordance
+to normal TCP operation.  This flag is not permanent,
+it only enables a switch to or from quickack mode.
+Subsequent operation of the TCP protocol will
+once again enter/leave quickack mode depending on
+internal protocol processing and factors such as
+delayed ack timeouts occurring and data transfer.
+This option should not be used in code intended to be
+portable.
+.TP
+.B TCP_SYNCNT
+Set the number of SYN retransmits that TCP should send before
+aborting the attempt to connect.  It cannot exceed 255.
+This option should not be used in code intended to be
+portable.
+.TP
+.B TCP_WINDOW_CLAMP
+Bound the size of the advertised window to this value.  The
+kernel imposes a minimum size of SOCK_MIN_RCVBUF/2.
+This option should not be used in code intended to be
+portable.
+.SH IOCTLS
+These ioctls can be accessed using 
+.BR ioctl (2).
+The correct syntax is:
+.PP
+.RS
+.nf
+.BI int " value";
+.IB error " = ioctl(" tcp_socket ", " ioctl_type ", &" value ");"
+.fi
+.RE
+.TP
+.BR SIOCINQ
+Returns the amount of queued unread data in the receive
+buffer.  Argument is a pointer to an integer.  The socket
+must not be in LISTEN state, otherwise an error (EINVAL)
+is returned.
+.TP
+.B SIOCATMARK
+Returns true when the all urgent data has been already
+received by the user program.  This is used together with
+.BR SO_OOBINLINE .
+Argument is an pointer to an integer for the test result.
+.TP
+.B SIOCOUTQ
+Returns the amount of unsent data in the socket send queue
+in the passed integer value pointer.  The socket must not 
+be in LISTEN state, otherwise an error (EINVAL)
+is returned.
+.SH "ERROR HANDLING"
+When a network error occurs, TCP tries to resend the
+packet.  If it doesn't succeed after some time, either
+.B ETIMEDOUT 
+or the last received error on this connection is reported.
+.PP
+Some applications require a quicker error notification.
+This can be enabled with the
+.B SOL_IP 
+level 
+.B IP_RECVERR 
+socket option.  When this option is enabled, all incoming
+errors are immediately passed to the user program.  Use this
+option with care \- it makes TCP less tolerant to routing
+changes and other normal network conditions.
+.SH NOTES
+When an error occurs doing a connection setup occurring in a
+socket write
+.B SIGPIPE
+is only raised when the
+.B SO_KEEPALIVE
+socket option is set.
+.PP
+TCP has no real out-of-band data; it has urgent data. In
+Linux this means if the other end sends newer out-of-band
+data the older urgent data is inserted as normal data into
+the stream (even when
+.B SO_OOBINLINE
+is not set). This differs from BSD based stacks. 
+.PP
+Linux uses the BSD compatible interpretation of the urgent
+pointer field by default.  This violates RFC1122, but is
+required for interoperability with other stacks.  It can be
+changed by the
+.B tcp_stdurg
+sysctl.
+.SH ERRORS
+.TP
+.B EPIPE
+The other end closed the socket unexpectedly or a read is
+executed on a shut down socket.
+.TP
+.B ETIMEDOUT
+The other end didn't acknowledge retransmitted data after
+some time.
+.TP
+.B EAFNOTSUPPORT
+Passed socket address type in
+.I sin_family 
+was not 
+.BR AF_INET .
+.PP
+Any errors defined for
+.BR ip (7)
+or the generic socket layer may also be returned for TCP.
+.SH BUGS
+Not all errors are documented. 
+.br
+IPv6 is not described.
+.\" Only a single Linux kernel version is described
+.\" Info for 2.2 was lost. Should be added again,
+.\" or put into a separate page.
+.SH VERSIONS
+Support for Explicit Congestion Notification, zerocopy 
+sendfile, reordering support and some SACK extensions
+(DSACK) were introduced in 2.4.
+Support for forward acknowledgement (FACK), TIME_WAIT recycling, 
+per connection keepalive socket options and sysctls
+were introduced in 2.3.
+
+The default values and descriptions for the sysctl variables 
+given above are applicable for the 2.4 kernel.
+.SH AUTHORS
+This man page was originally written by Andi Kleen. 
+It was updated for 2.4 by Nivedita Singhvi with input from 
+Alexey Kuznetsov's Documentation/networking/ip-sysctls.txt
+document.
+.SH "SEE ALSO"
+.BR accept (2),
+.BR bind (2),
+.BR connect (2),
+.BR getsockopt (2),
+.BR listen (2),
+.BR recvmsg (2),
+.BR sendfile (2),
+.BR sendmsg (2),
+.BR socket (2),
+.BR sysctl (2),
+.BR ip (7),
+.BR socket (7)
+.sp
+RFC793 for the TCP specification.
+.br
+RFC1122 for the TCP requirements and a description 
+of the Nagle algorithm.
+.br
+RFC1323 for TCP timestamp and window scaling options.
+.br
+RFC1644 for a description of TIME_WAIT assassination
+hazards.
+.br
+RFC2481 for a description of Explicit Congestion
+Notification.
+.br
+RFC2581 for TCP congestion control algorithms.
+.br
+RFC2018 and RFC2883 for SACK and extensions to SACK.

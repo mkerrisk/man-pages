@@ -1,0 +1,392 @@
+.\" Copyright Andries Brouwer, Ragnar Hojland Espinosa and A. Wik, 1998.
+.\"
+.\" Distributed under GPL.
+.\" 
+.TH CP 1 2003-11 "GNU fileutils 4.1"
+.SH NAME
+cp \- copy files and directories
+.SH SYNOPSIS
+.BI "cp [" "options" "] " "file path"
+.br
+.BI "cp [" "options" "] " "file... directory"
+.sp
+POSIX options:
+.B "[\-fiprR] [\-\-]"
+.sp
+Additional POSIX 1003.1-2003 options:
+.B "[\-HLP]
+.sp
+GNU file-utils 4.0 options (shortest form):
+.br
+.B [\-abdfilprsuvxPR]
+.BI "[\-S " SUFFIX ]
+.B "[\-V {numbered,existing,simple}]"
+.BI [\-\-backup= CONTROL ]
+.BI [\-\-sparse= WHEN ]
+.B "[\-\-help] [\-\-version] [\-\-]"
+.sp
+Additional GNU file-utils 4.1 options (shortest form):
+.br
+.B [\-HLP]
+.B [\-\-copy\-contents]
+.B [\-\-no\-preserve]
+.BI [\-\-reply= HOW ]
+.B [\-\-remove\-destination]
+.B [\-\-strip\-trailing\-slashes]
+.BI [\-\-target\-directory= DIR ]
+.SH DESCRIPTION
+.B cp
+copies files (or, optionally, directories).
+You can either copy one file to a given destination,
+or copy arbitrarily many files to a destination directory.
+.PP
+If the last argument names an existing directory,
+.B cp
+copies each source
+.I file
+into that directory (retaining the same name).  Otherwise,
+if only two files are given, it copies the first onto the second.  It
+is an error if the last argument is not a directory and more than two
+non-option arguments are given.
+.PP
+(Thus, if /a is a directory, then `cp \-r /a /b' will copy /a to /b/a
+and /a/x to /b/a/x in case a directory /b existed already, but it will
+copy /a to /b and /a/x to /b/x if there was no /b beforehand,
+while it will fail in case there was an ordinary file /b.)
+.PP
+The modes of the files and directories created will be the same
+as those of the original files, ANDed by 0777, and modified by
+the user's umask (unless the \-p option was specified).
+(But during the recursive copy of directories, newly created
+directories will temporarily get their final mode ORed with
+S_IRWXU (0700), so as to allow the process to read, write
+and search the newly created directory.)
+.PP
+Nothing is done when copying a file to itself (except possibly
+producing an error message).
+When copying to a different existing file, it is opened
+using `open(path, O_WRONLY | O_TRUNC)'.
+When copying to a new file it is created
+using `open(path, O_WRONLY | O_CREAT, mode)'.
+If this fails, the file existed, and the \-f option was given,
+.B cp
+tries to delete (unlink) the existing file, and if this succeeds
+proceeds as for a new file.
+
+.SH "POSIX OPTIONS"
+POSIX recognizes four options and a half:
+.TP
+.B \-f
+Remove existing destination files if required. (See above.)
+.TP
+.B \-i
+Prompt whether to overwrite existing regular destination files.
+(Write a question on stderr, and read the answer from stdin.
+Only copy upon an affirmative answer.)
+.TP
+.B \-p
+Preserve the original files' owner, group, permissions
+(including the setuid and setgid bits), time of last modification
+and time of last access.
+In case duplication of owner or group fails, the setuid and setgid
+bits are cleared.
+(Note that afterwards source and copy may well have different
+times of last access, since the copy operation is an access
+to the source file.)
+.TP
+.B \-R
+Copy directories recursively, and do the right thing when
+objects other than ordinary files or directories are encountered.
+(Thus, the copy of a FIFO or special file is a FIFO or special file.)
+.TP
+.B \-r
+Copy directories recursively, and do something unspecified
+with objects other than ordinary files or directories.
+(Thus, it is allowed, in fact encouraged, to have the \-r option
+a synonym for \-R. However, silly behaviour, like that of the
+GNU 4.0 version of
+.BR cp
+is not forbidden.)
+.TP
+.B "\-\-"
+Terminate option list.
+.SH "ADDITIONAL POSIX 2003 OPTIONS"
+POSIX 1003.1-2003 adds three options that specify how to handle
+symbolic links. When doing a non-recursive copy, symbolic links
+are followed. When doing a recursive copy using the \-r option,
+the results are implementation-defined. When doing a recursive
+copy using the \-R option:
+.TP
+.B \-H
+Follow the symbolic links given in the parameter list.
+Do not follow symbolic links encountered during the recursive copy,
+but just copy them as symbolic link.
+.TP
+.B \-L
+Follow all symbolic links, both those that occur in the parameter list
+and those encountered during the recursive copy.
+.TP
+.B \-P
+Do not follow any symbolic links, neither those that occur
+in the parameter list nor those encountered during the recursive copy.
+Just copy them as symbolic link.
+.LP
+There is no default - one should specify the desired behaviour.
+.SH "GNU DETAILS"
+.PP
+Generally, files are written just as they are read.  For exceptions,
+see the
+.B "\-\-sparse"
+option below.
+.PP
+By default, `cp' does not copy directories (see 
+.B "\-r"
+below).
+.PP
+.B cp
+generally refuses to copy a file onto itself, with the following
+exception: if
+.B "\-\-force \-\-backup"
+is specified with
+.I source
+and 
+.I dest
+identical, and referring to a regular file,
+.B cp
+will make a backup file, either regular or numbered, as specified in 
+the usual ways.  This is useful when you simply want to make a backup 
+of an existing file before changing it.
+.PP
+By default, symbolic links are not followed.
+.SH "GNU OPTIONS"
+.TP
+.B "\-a, \-\-archive"
+Preserve as much as possible of the structure and attributes of the
+original files in the copy (but do not preserve directory structure).
+Equivalent to 
+.BR "\-dpPR" .
+.TP
+.B "\-b"
+See the discussion of backups below.
+.TP
+.BR "\-\-copy\-contents" " (since file-utils 4.1)"
+Do the silly things file-utils 4.0 did,
+trying to copy the contents of device files and FIFOs during
+a recursive copy. Never use this option. With it, `cp' may well hang
+indefinitely reading a FIFO or /dev/tty, or fill the destination disk
+copying /dev/zero.
+.TP
+.B "\-d"
+Copy symbolic links as symbolic links rather than copying the
+files that they point to, and preserve hard links between source
+files in the copies.
+
+With file-utils 4.0 the long option \-\-no\-dereference was a
+synonym for \-d, with file-utils 4.1 it is a synonym for \-P,
+while \-d is equivalent to \-\-no\-dereference \-\-preserve=links.
+.TP
+.B "\-f, \-\-force"
+Remove existing destination files in case an open for writing fails,
+and never prompt before doing so.
+(Thus since file-utils 4.1. With file-utils 4.0 this option was
+equivalent to the new \-\-remove\-destination.)
+.TP
+.BR "\-H" " (since file-utils 4.1)"
+See POSIX description above.
+.TP
+.B "\-i, \-\-interactive"
+Prompt whether to overwrite existing regular destination files.
+.TP
+.B "\-l, \-\-link"
+Make hard links instead of copies of non-directories.
+.TP
+.BR "\-L, \-\-dereference" " (since file-utils 4.1)"
+See POSIX description above.
+.TP
+.BR "\-\-no\-preserve=\fIATTRIBUTES\fP" " (since file-utils 4.1)"
+Do not preserve the specified attributes.
+See the \-\-preserve option below.
+.TP
+.B "\-p, \-\-preserve"
+Preserve the original files' owner, group, permissions, and timestamps.
+.TP
+.BR "\-\-preserve=\fIATTRIBUTES\fP" " (since file-utils 4.1)"
+Here ATTRIBUTES can be one of "mode" (permissions), "ownership" (owner
+and group), "timestamps", "links", "all" (all of the foregoing).
+.TP
+.BR "\-P, \-\-no\-dereference" " (since file-utils 4.1)"
+See POSIX description above.
+This replaces the file-utils 4.0 meaning of the \-P option, that
+was a synonym for \-\-parents. See also \-d above.
+.TP
+.BR "\-\-parents" " (in file-utils 4.0 also \-P)"
+Form the name of each destination file by appending to the target
+directory a slash and the specified name of the source file.  The
+last argument given to
+.B cp
+must be the name of an existing directory.  For example, the command:
+.br
+.nf
+    cp \-\-parents a/b/c existing_dir
+.br
+.fi
+copies the file `a/b/c' to `existing_dir/a/b/c', creating any
+missing intermediate directories.
+.TP
+.B "\-r"
+In file-utils 4.1: synonym of \-R.
+In file-utils 4.0:
+Copy directories recursively, copying any non-directories and
+non-symbolic links (that is, FIFOs and special files) as if they
+were regular files. This silly behaviour is obtained in file-utils 4.1
+if the \-\-copy\-contents option is given.
+.TP
+.B "\-R, \-\-recursive"
+Copy directories recursively, preserving non-directories.
+.TP
+.BR "\-\-reply=\fIHOW\fP" " (since file-utils 4.1)"
+Here HOW can be one of "yes", "no", "query", specifying that
+to all questions the answer is yes, or is no, or must be obtained
+by querying the user, respectively.
+.TP
+.BR "\-\-remove\-destination" " (since file-utils 4.1)"
+Remove each existing destination file before copying.
+With file-utils 4.0 this option was implied by \-f.
+.TP
+.BI "\-\-sparse=" "WHEN"
+A `sparse file' contains `holes' - sequences of zero bytes that
+do not occupy any physical disk blocks; the `read' system call
+reads these as zeroes.  This can both save considerable disk space
+and increase speed, since many binary files contain lots of
+consecutive zero bytes.  By default,
+.B cp
+detects holes in input source files via a crude heuristic
+and makes the corresponding output file sparse as well.
+.RS
+.PP
+The
+.I WHEN
+value can be one of the following:
+.TP
+.B auto
+The default behavior: the output file is sparse if the input
+file is sparse.
+.TP
+.B always
+Always make the output file sparse.  This is useful when the
+input file resides on a filesystem that does not support
+sparse files, but the output file is on a filesystem that does.
+.TP
+.B never
+Never make the output file sparse.  If you find an application for
+this option, let us know.
+.RE
+.TP
+.BR "\-\-strip\-trailing\-slashes" " (since file-utils 4.1)"
+Remove any trailing slashes from each source argument.
+(This can change the interpretation in case of a symbolic link
+to a directory.)
+.TP
+.B "\-s, \-\-symbolic\-link"
+Make symbolic links instead of copies of non-directories.  All
+source file names must be absolute (starting with `/') unless the
+destination files are in the current directory.  This option merely
+results in an error message on systems that do not support
+symbolic links.
+.TP
+.B "\-S"
+Backup suffix, see below.
+.TP
+.BR "\-\-target\-directory=\fIDIR\fP" " (since file-utils 4.1)"
+Specify the destination directory. Meant for use with
+.BR xargs (1),
+as in "ls | xargs cp --target-directory=../d".
+.TP
+.B "\-u, \-\-update"
+Do not copy a nondirectory that has an existing destination with
+the same or newer modification time.
+.TP
+.B "\-v, \-\-verbose"
+Print the name of each file before copying it.
+.TP
+.B "\-x, \-\-one\-file\-system"
+Skip subdirectories that are on different filesystems from the one
+that the copy started on.
+.SH "GNU BACKUP OPTIONS"
+The GNU versions of programs like
+.BR cp ,
+.BR mv ,
+.BR ln ,
+.B install
+and
+.B patch 
+will make a backup of files about to be overwritten, changed or destroyed
+if that is desired. That backup files are desired is indicated by
+the \-b option. How they should be named is specified by the \-V option.
+In case the name of the backup file is given by the name of the file
+extended by a suffix, this suffix is specified by the \-S option.
+.TP
+.B "\-b, \-\-backup"
+Make backups of files that are about to be overwritten or removed.
+.TP
+.BI \-\-backup= CONTROL
+(Since fileutils-4.1.)
+.TP
+.BI "\-S " SUFFIX ", \-\-suffix=" SUFFIX
+Append
+.I SUFFIX
+to each backup file made.
+If this option is not specified, the value of the
+.B SIMPLE_BACKUP_SUFFIX
+environment variable is used.  And if
+.B SIMPLE_BACKUP_SUFFIX
+is not set, the default is `~'.
+.TP
+.BI "\-V " METHOD ", \-\-version\-control=" METHOD
+.RS
+Specify how backup files are named. The
+.I METHOD
+argument can be `numbered' (or `t'), `existing' (or `nil'), or `never' (or
+`simple').
+If this option is not specified, the value of the
+.B VERSION_CONTROL
+environment variable is used.  And if
+.B VERSION_CONTROL
+is not set, the default backup type is `existing'.
+.PP
+This option corresponds to the Emacs variable `version-control'.
+The valid
+.IR METHOD s
+are (unique abbreviations are accepted):
+.TP
+.BR t ", " numbered
+Always make numbered backups.
+.TP
+.BR nil ", " existing
+Make numbered backups of files that already have them, simple
+backups of the others.
+.TP
+.BR never ", " simple
+Always make simple backups.
+.RE
+.SH "GNU STANDARD OPTIONS"
+.TP
+.B "\-\-help"
+Print a usage message on standard output and exit successfully.
+.TP
+.B "\-\-version"
+Print version information on standard output, then exit successfully.
+.TP
+.B "\-\-"
+Terminate option list.
+.SH ENVIRONMENT
+The variables LANG, LC_ALL, LC_COLLATE, LC_CTYPE and LC_MESSAGES have the
+usual meaning. For the GNU version, the variables SIMPLE_BACKUP_SUFFIX
+and VERSION_CONTROL control backup file naming, as described above.
+.SH "CONFORMING TO"
+POSIX 1003.2
+.SH NOTES
+This page describes
+.B cp
+as found in the fileutils-4.1 package;
+other versions may differ slightly.

@@ -1,0 +1,187 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "RMDIR" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" rmdir 
+.SH NAME
+rmdir \- remove a directory
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int rmdir(const char *\fP\fIpath\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIrmdir\fP() function shall remove a directory whose name is
+given by \fIpath\fP. The directory shall be removed only if
+it is an empty directory.
+.LP
+If the directory is the root directory or the current working directory
+of any process, it is unspecified whether the function
+succeeds, or whether it shall fail and set \fIerrno\fP to [EBUSY].
+.LP
+If \fIpath\fP names a symbolic link, then \fIrmdir\fP() shall fail
+and set \fIerrno\fP to [ENOTDIR].
+.LP
+If the \fIpath\fP argument refers to a path whose final component
+is either dot or dot-dot, \fIrmdir\fP() shall fail.
+.LP
+If the directory's link count becomes 0 and no process has the directory
+open, the space occupied by the directory shall be
+freed and the directory shall no longer be accessible. If one or more
+processes have the directory open when the last link is
+removed, the dot and dot-dot entries, if present, shall be removed
+before \fIrmdir\fP() returns and no new entries may be created
+in the directory, but the directory shall not be removed until all
+references to the directory are closed.
+.LP
+If the directory is not an empty directory, \fIrmdir\fP() shall fail
+and set \fIerrno\fP to [EEXIST] or [ENOTEMPTY].
+.LP
+Upon successful completion, the \fIrmdir\fP() function shall mark
+for update the \fIst_ctime\fP and \fIst_mtime\fP fields of
+the parent directory.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the function \fIrmdir\fP() shall return
+0. Otherwise, -1 shall be returned, and \fIerrno\fP set to
+indicate the error. If -1 is returned, the named directory shall not
+be changed.
+.SH ERRORS
+.LP
+The \fIrmdir\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied on a component of the path prefix, or
+write permission is denied on the parent directory of the
+directory to be removed.
+.TP 7
+.B EBUSY
+The directory to be removed is currently in use by the system or some
+process and the implementation considers this to be an
+error.
+.TP 7
+.B EEXIST \fRor\fP ENOTEMPTY
+The \fIpath\fP argument names a directory that is not an empty directory,
+or there are hard links to the directory other than dot
+or a single entry in dot-dot.
+.TP 7
+.B EINVAL
+The \fIpath\fP argument contains a last component that is dot.
+.TP 7
+.B EIO
+A physical I/O error has occurred.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file, or the \fIpath\fP
+argument names a nonexistent directory or points
+to an empty string.
+.TP 7
+.B ENOTDIR
+A component of \fIpath\fP is not a directory.
+.TP 7
+.B EPERM \fRor\fP EACCES
+.sp
+The S_ISVTX flag is set on the parent directory of the directory to
+be removed and the caller is not the owner of the directory to
+be removed, nor is the caller the owner of the parent directory, nor
+does the caller have the appropriate privileges. 
+.TP 7
+.B EROFS
+The directory entry to be removed resides on a read-only file system.
+.sp
+.LP
+The \fIrmdir\fP() function may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Removing a Directory
+.LP
+The following example shows how to remove a directory named \fB/home/cnd/mod1\fP.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int status;
+\&...
+status = rmdir("/home/cnd/mod1");
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The \fIrmdir\fP() and \fIrename\fP() functions originated in 4.2 BSD,
+and they used
+[ENOTEMPTY] for the condition when the directory to be removed does
+not exist or \fInew\fP already exists. When the 1984
+/usr/group standard was published, it contained [EEXIST] instead.
+When these functions were adopted into System V, the 1984
+/usr/group standard was used as a reference. Therefore, several existing
+applications and implementations support/use both forms,
+and no agreement could be reached on either value. All implementations
+are required to supply both [EEXIST] and [ENOTEMPTY] in \fI<errno.h>\fP
+with distinct values, so that applications can use both values in
+C-language \fBcase\fP statements.
+.LP
+The meaning of deleting \fIpathname\fP \fB/dot\fP is unclear, because
+the name of the file (directory) in the parent directory
+to be removed is not clear, particularly in the presence of multiple
+links to a directory.
+.LP
+The POSIX.1-1990 standard was silent with regard to the behavior of
+\fIrmdir\fP() when there are multiple hard links to the
+directory being removed. The requirement to set \fIerrno\fP to [EEXIST]
+or [ENOTEMPTY] clarifies the behavior in this case.
+.LP
+If the process' current working directory is being removed, that should
+be an allowed error.
+.LP
+Virtually all existing implementations detect [ENOTEMPTY] or the case
+of dot-dot. The text in \fIError Numbers\fP about returning any one
+of the possible errors permits that behavior to
+continue. The [ELOOP] error may be returned if more than {SYMLOOP_MAX}
+symbolic links are encountered during resolution of the
+\fIpath\fP argument.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIError Numbers\fP , \fImkdir\fP() , \fIremove\fP() , \fIunlink\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,295 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_CLEANUP_POP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_cleanup_pop 
+.SH NAME
+pthread_cleanup_pop, pthread_cleanup_push \- establish cancellation
+handlers
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+void pthread_cleanup_pop(int\fP \fIexecute\fP\fB);
+.br
+void pthread_cleanup_push(void (*\fP\fIroutine\fP\fB)(void*), void
+*\fP\fIarg\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_cleanup_pop\fP() function shall remove the routine
+at the top of the calling thread's cancellation cleanup stack
+and optionally invoke it (if \fIexecute\fP is non-zero).
+.LP
+The \fIpthread_cleanup_push\fP() function shall push the specified
+cancellation cleanup handler \fIroutine\fP onto the calling
+thread's cancellation cleanup stack. The cancellation cleanup handler
+shall be popped from the cancellation cleanup stack and
+invoked with the argument \fIarg\fP when:
+.IP " *" 3
+The thread exits (that is, calls \fIpthread_exit\fP()).
+.LP
+.IP " *" 3
+The thread acts upon a cancellation request.
+.LP
+.IP " *" 3
+The thread calls \fIpthread_cleanup_pop\fP() with a non-zero \fIexecute\fP
+argument.
+.LP
+.LP
+These functions may be implemented as macros. The application shall
+ensure that they appear as statements, and in pairs within
+the same lexical scope (that is, the \fIpthread_cleanup_push\fP()
+macro may be thought to expand to a token list whose first token
+is \fB'{'\fP with \fIpthread_cleanup_pop\fP() expanding to a token
+list whose last token is the corresponding \fB'}'\fP
+).
+.LP
+The effect of calling \fIlongjmp\fP() or \fIsiglongjmp\fP() is undefined
+if there have been any calls to \fIpthread_cleanup_push\fP()
+or \fIpthread_cleanup_pop\fP() made without the matching call since
+the jump buffer was filled. The effect of calling \fIlongjmp\fP()
+or \fIsiglongjmp\fP() from inside a
+cancellation cleanup handler is also undefined unless the jump buffer
+was also filled in the cancellation cleanup handler.
+.SH RETURN VALUE
+.LP
+The \fIpthread_cleanup_push\fP() and \fIpthread_cleanup_pop\fP() functions
+shall not return a value.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+These functions shall not return an error code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following is an example using thread primitives to implement a
+cancelable, writers-priority read-write lock:
+.sp
+.RS
+.nf
+
+\fBtypedef struct {
+    pthread_mutex_t lock;
+    pthread_cond_t rcond,
+        wcond;
+    int lock_count; /* < 0 .. Held by writer. */
+                    /* > 0 .. Held by lock_count readers. */
+                    /* = 0 .. Held by nobody. */
+    int waiting_writers; /* Count of waiting writers. */
+} rwlock;
+.sp
+
+void
+waiting_reader_cleanup(void *arg)
+{
+    rwlock *l;
+.sp
+
+    l = (rwlock *) arg;
+    pthread_mutex_unlock(&l->lock);
+}
+.sp
+
+void
+lock_for_read(rwlock *l)
+{
+    pthread_mutex_lock(&l->lock);
+    pthread_cleanup_push(waiting_reader_cleanup, l);
+    while ((l->lock_count < 0) && (l->waiting_writers != 0))
+        pthread_cond_wait(&l->rcond, &l->lock);
+    l->lock_count++;
+   /*
+    * Note the pthread_cleanup_pop executes
+    * waiting_reader_cleanup.
+    */
+    pthread_cleanup_pop(1);
+}
+.sp
+
+void
+release_read_lock(rwlock *l)
+{
+    pthread_mutex_lock(&l->lock);
+    if (--l->lock_count == 0)
+        pthread_cond_signal(&l->wcond);
+    pthread_mutex_unlock(l);
+}
+.sp
+
+void
+waiting_writer_cleanup(void *arg)
+{
+    rwlock *l;
+.sp
+
+    l = (rwlock *) arg;
+    if ((--l->waiting_writers == 0) && (l->lock_count >= 0)) {
+       /*
+        * This only happens if we have been canceled.
+        */
+        pthread_cond_broadcast(&l->wcond);
+}
+    pthread_mutex_unlock(&l->lock);
+}
+.sp
+
+void
+lock_for_write(rwlock *l)
+{
+    pthread_mutex_lock(&l->lock);
+    l->waiting_writers++;
+    pthread_cleanup_push(waiting_writer_cleanup, l);
+    while (l->lock_count != 0)
+        pthread_cond_wait(&l->wcond, &l->lock);
+    l->lock_count = -1;
+   /*
+    * Note the pthread_cleanup_pop executes
+    * waiting_writer_cleanup.
+    */
+    pthread_cleanup_pop(1);
+}
+.sp
+
+void
+release_write_lock(rwlock *l)
+{
+    pthread_mutex_lock(&l->lock);
+    l->lock_count = 0;
+    if (l->waiting_writers == 0)
+        pthread_cond_broadcast(&l->rcond)
+    else
+        pthread_cond_signal(&l->wcond);
+    pthread_mutex_unlock(&l->lock);
+}
+.sp
+
+/*
+ * This function is called to initialize the read/write lock.
+ */
+void
+initialize_rwlock(rwlock *l)
+{
+    pthread_mutex_init(&l->lock, pthread_mutexattr_default);
+    pthread_cond_init(&l->wcond, pthread_condattr_default);
+    pthread_cond_init(&l->rcond, pthread_condattr_default);
+    l->lock_count = 0;
+    l->waiting_writers = 0;
+}
+.sp
+
+reader_thread()
+{
+    lock_for_read(&lock);
+    pthread_cleanup_push(release_read_lock, &lock);
+   /*
+    * Thread has read lock.
+    */
+    pthread_cleanup_pop(1);
+}
+.sp
+
+writer_thread()
+{
+    lock_for_write(&lock);
+    pthread_cleanup_push(release_write_lock, &lock);
+   /*
+    * Thread has write lock.
+    */
+pthread_cleanup_pop(1);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The two routines that push and pop cancellation cleanup handlers,
+\fIpthread_cleanup_push\fP() and
+\fIpthread_cleanup_pop\fP(), can be thought of as left and right parentheses.
+They always need to be matched.
+.SH RATIONALE
+.LP
+The restriction that the two routines that push and pop cancellation
+cleanup handlers, \fIpthread_cleanup_push\fP() and
+\fIpthread_cleanup_pop\fP(), have to appear in the same lexical scope
+allows for efficient macro or compiler implementations and
+efficient storage management. A sample implementation of these routines
+as macros might look like this:
+.sp
+.RS
+.nf
+
+\fB#define pthread_cleanup_push(rtn,arg) { \\
+    struct _pthread_handler_rec __cleanup_handler, **__head; \\
+    __cleanup_handler.rtn = rtn; \\
+    __cleanup_handler.arg = arg; \\
+    (void) pthread_getspecific(_pthread_handler_key, &__head); \\
+    __cleanup_handler.next = *__head; \\
+    *__head = &__cleanup_handler;
+.sp
+
+#define pthread_cleanup_pop(ex) \\
+    *__head = __cleanup_handler.next; \\
+    if (ex) (*__cleanup_handler.rtn)(__cleanup_handler.arg); \\
+}
+\fP
+.fi
+.RE
+.LP
+A more ambitious implementation of these routines might do even better
+by allowing the compiler to note that the cancellation
+cleanup handler is a constant and can be expanded inline.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 currently leaves unspecified
+the effect of calling \fIlongjmp\fP() from a signal handler executing
+in a POSIX System Interfaces function. If an
+implementation wants to allow this and give the programmer reasonable
+behavior, the \fIlongjmp\fP() function has to call all cancellation
+cleanup handlers that have been pushed but
+not popped since the time \fIsetjmp\fP() was called.
+.LP
+Consider a multi-threaded function called by a thread that uses signals.
+If a signal were delivered to a signal handler during
+the operation of \fIqsort\fP() and that handler were to call \fIlongjmp\fP()
+(which, in turn, did \fInot\fP call the cancellation cleanup handlers)
+the helper
+threads created by the \fIqsort\fP() function would not be canceled.
+Instead, they would
+continue to execute and write into the argument array even though
+the array might have been popped off the stack.
+.LP
+Note that the specified cleanup handling mechanism is especially tied
+to the C language and, while the requirement for a uniform
+mechanism for expressing cleanup is language-independent, the mechanism
+used in other languages may be quite different. In
+addition, this mechanism is really only necessary due to the lack
+of a real exception mechanism in the C language, which would be
+the ideal solution.
+.LP
+There is no notion of a cancellation cleanup-safe function. If an
+application has no cancellation points in its signal handlers,
+blocks any signal whose handler may have cancellation points while
+calling async-unsafe functions, or disables cancellation while
+calling async-unsafe functions, all functions may be safely called
+from cancellation cleanup routines.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_cancel\fP() , \fIpthread_setcancelstate\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

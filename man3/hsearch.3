@@ -1,0 +1,197 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\" Copyright 1993 Ulrich Drepper (drepper@karlsruhe.gmd.de)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" References consulted:
+.\"     SunOS 4.1.1 man pages
+.\" Modified Sat Sep 30 21:52:01 1995 by Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" Remarks from dhw@gamgee.acad.emich.edu Fri Jun 19 06:46:31 1998
+.\" Modified 2001-12-26, 2003-11-28, 2004-05-20, aeb
+.\"
+.TH HSEARCH 3 2004-05-20 "GNU" "Linux Programmer's Manual"
+.SH NAME
+hcreate, hdestroy, hsearch \- hash table management
+.SH SYNOPSIS
+.B #include <search.h>
+.sp
+.BI "int hcreate(size_t " nel );
+.sp
+.BI "ENTRY *hsearch(ENTRY " item ", ACTION " action );
+.sp
+.B "void hdestroy(void);"
+.sp 2
+.B #define _GNU_SOURCE
+.br
+.B #include <search.h>
+.sp
+.BI "int hcreate_r(size_t " nel ", struct hsearch_data *" tab );
+.sp
+.BI "int *hsearch_r(ENTRY " item ", ACTION " action ,
+.BI "ENTRY **" ret ", struct hsearch_data *" tab );
+.sp
+.BI "void hdestroy_r(struct hsearch_data *" tab );
+.SH DESCRIPTION
+The three functions
+.BR hcreate ,
+.BR hsearch ,
+and
+.BR hdestroy
+allow the user to create a hash table (only one at a time)
+which associates a key with any data.
+.PP
+First the table must be created with the function \fBhcreate()\fP.
+The argument \fInel\fP is an estimate of the maximum number of entries
+in the table.
+The function \fBhcreate()\fP may adjust this value upward to improve the
+performance of the resulting hash table.
+.PP
+The corresponding function \fBhdestroy()\fP frees the memory occupied by
+the hash table so that a new table can be constructed.
+.PP
+The argument \fIitem\fP is of type \fBENTRY\fP, which is a typedef defined in
+\fI<search.h>\fP and includes these elements:
+.sp
+.nf
+	typedef struct entry { 
+	    char *\fIkey\fP;
+	    void *\fIdata\fP; 
+	} ENTRY;
+.fi
+.sp
+The field \fIkey\fP points to the NUL-terminated string which is the
+search key.
+The field \fIdata\fP points to the data associated with that key.
+The function \fBhsearch()\fP searches the hash table for an
+item with the same key as \fIitem\fP (where "the same" is determined using
+.BR strcmp (3)),
+and if successful returns a pointer to it.
+The argument \fIaction\fP determines what \fBhsearch()\fP does
+after an unsuccessful search.  A value of \fBENTER\fP instructs it to
+insert a copy of \fIitem\fP, while a value of \fBFIND\fP means to return
+\fBNULL\fP.
+.PP
+The three functions
+.BR hcreate_r ,
+.BR hsearch_r ,
+.BR hdestroy_r
+are reentrant versions that allow the use of more than one table.
+The last argument used identifies the table. The struct it points to
+must be zeroed before the first call to
+.BR hcreate_r() .
+.SH "RETURN VALUE"
+\fBhcreate()\fP and \fBhcreate_r()\fP return 0 when allocation of the memory
+for the hash table fails, nonzero otherwise.
+.LP
+\fBhsearch()\fP returns \fBNULL\fP if \fIaction\fP is \fBENTER\fP and
+the hash table is full, or \fIaction\fP is \fBFIND\fP and \fIitem\fP
+cannot be found in the hash table.
+.LP
+\fBhsearch_r()\fP returns 0 if \fIaction\fP is \fBENTER\fP and
+the hash table is full, and nonzero otherwise.
+.SH ERRORS
+POSIX documents
+.TP
+.B ENOMEM
+Out of memory.
+.LP
+The glibc implementation will return the following two errors.
+.TP
+.B ENOMEM
+Table full with \fIaction\fP set to \fBENTER\fP.
+.TP
+.B ESRCH
+The \fIaction\fP parameter is \fBFIND\fP and no corresponding element
+is found in the table.
+.SH "CONFORMS TO"
+The functions
+.BR hcreate ,
+.BR hsearch ,
+and
+.BR hdestroy
+are from SVID, and are described in POSIX 1003.1-2001.
+The functions
+.BR hcreate_r ,
+.BR hsearch_r ,
+.BR hdestroy_r
+are GNU extensions.
+.SH BUGS
+SVID and POSIX 1003.1-2001 specify that \fIaction\fP
+is significant only for unsuccessful searches, so that an ENTER
+should not do anything for a successful search. The libc and glibc
+implementations update the \fIdata\fP for the given \fIkey\fP
+in this case.
+.\" Tue Jan 29 09:27:40 2002: fixed in latest glibc snapshot
+.LP
+Individual hash table entries can be added, but not deleted.
+.SH EXAMPLE
+.PP
+The following program inserts 24 items in to a hash table, then prints
+some of them.
+.nf
+
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <search.h>
+    
+    char *data[] = { "alpha", "bravo", "charlie", "delta",
+         "echo", "foxtrot", "golf", "hotel", "india", "juliet",
+         "kilo", "lima", "mike", "november", "oscar", "papa",
+         "quebec", "romeo", "sierra", "tango", "uniform",
+         "victor", "whisky", "x-ray", "yankee", "zulu" 
+    };
+
+    int main() {
+      ENTRY e, *ep;
+      int i;
+    
+      /* starting with small table, and letting it grow does not work */
+      hcreate(30);
+      for (i = 0; i < 24; i++) {
+          e.key = data[i]; 
+          /* data is just an integer, instead of a
+             pointer to something */
+          e.data = (char *)i;
+          ep = hsearch(e, ENTER);
+          /* there should be no failures */
+          if (ep == NULL) {
+            fprintf(stderr, "entry failed\\n");
+            exit(1);
+          }
+      }
+      for (i = 22; i < 26; i++) {
+          /* print two entries from the table, and
+             show that two are not in the table */
+          e.key = data[i];
+          ep = hsearch(e, FIND);
+          printf("%9.9s -> %9.9s:%d\\n", e.key,
+                 ep ? ep->key : "NULL",
+                 ep ? (int)(ep->data) : 0);
+      }
+      return 0;
+    }
+
+.fi
+.SH "SEE ALSO"
+.BR bsearch (3),
+.BR lsearch (3),
+.BR malloc (3),
+.BR tsearch (3)

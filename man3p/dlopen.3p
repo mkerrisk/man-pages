@@ -1,0 +1,194 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "DLOPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" dlopen 
+.SH NAME
+dlopen \- gain access to an executable object file
+.SH SYNOPSIS
+.LP
+\fB#include <dlfcn.h>
+.br
+.sp
+void *dlopen(const char *\fP\fIfile\fP\fB, int\fP \fImode\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIdlopen\fP() function shall make an executable object file specified
+by \fIfile\fP available to the calling program. The
+class of files eligible for this operation and the manner of their
+construction are implementation-defined, though typically such
+files are executable objects such as shared libraries, relocatable
+files, or programs. Note that some implementations permit the
+construction of dependencies between such objects that are embedded
+within files. In such cases, a \fIdlopen\fP() operation shall
+load such dependencies in addition to the object referenced by \fIfile\fP.
+Implementations may also impose specific constraints on
+the construction of programs that can employ \fIdlopen\fP() and its
+related services.
+.LP
+A successful \fIdlopen\fP() shall return a \fIhandle\fP which the
+caller may use on subsequent calls to \fIdlsym\fP() and \fIdlclose\fP().
+The value of this
+\fIhandle\fP should not be interpreted in any way by the caller.
+.LP
+The \fIfile\fP argument is used to construct a pathname to the object
+file. If \fIfile\fP contains a slash character, the
+\fIfile\fP argument is used as the pathname for the file. Otherwise,
+\fIfile\fP is used in an implementation-defined manner to
+yield a pathname.
+.LP
+If the value of \fIfile\fP is 0, \fIdlopen\fP() shall provide a \fIhandle\fP
+on a global symbol object. This object shall
+provide access to the symbols from an ordered set of objects consisting
+of the original program image file, together with any
+objects loaded at program start-up as specified by that process image
+file (for example, shared libraries), and the set of objects
+loaded using a \fIdlopen\fP() operation together with the RTLD_GLOBAL
+flag. As the latter set of objects can change during
+execution, the set identified by \fIhandle\fP can also change dynamically.
+.LP
+Only a single copy of an object file is brought into the address space,
+even if \fIdlopen\fP() is invoked multiple times in
+reference to the file, and even if different pathnames are used to
+reference the file.
+.LP
+The \fImode\fP parameter describes how \fIdlopen\fP() shall operate
+upon \fIfile\fP with respect to the processing of
+relocations and the scope of visibility of the symbols provided within
+\fIfile\fP. When an object is brought into the address
+space of a process, it may contain references to symbols whose addresses
+are not known until the object is loaded. These references
+shall be relocated before the symbols can be accessed. The \fImode\fP
+parameter governs when these relocations take place and may
+have the following values:
+.TP 7
+RTLD_LAZY
+Relocations shall be performed at an implementation-defined time,
+ranging from the time of the \fIdlopen\fP() call until the
+first reference to a given symbol occurs. Specifying RTLD_LAZY should
+improve performance on implementations supporting dynamic
+symbol binding as a process may not reference all of the functions
+in any given object. And, for systems supporting dynamic symbol
+resolution for normal process execution, this behavior mimics the
+normal handling of process execution.
+.TP 7
+RTLD_NOW
+All necessary relocations shall be performed when the object is first
+loaded. This may waste some processing if relocations are
+performed for functions that are never referenced. This behavior may
+be useful for applications that need to know as soon as an
+object is loaded that all symbols referenced during execution are
+available.
+.sp
+.LP
+Any object loaded by \fIdlopen\fP() that requires relocations against
+global symbols can reference the symbols in the original
+process image file, any objects loaded at program start-up, from the
+object itself as well as any other object included in the same
+\fIdlopen\fP() invocation, and any objects that were loaded in any
+\fIdlopen\fP() invocation and which specified the RTLD_GLOBAL
+flag. To determine the scope of visibility for the symbols loaded
+with a \fIdlopen\fP() invocation, the \fImode\fP parameter
+should be a bitwise-inclusive OR with one of the following values:
+.TP 7
+RTLD_GLOBAL
+The object's symbols shall be made available for the relocation processing
+of any other object. In addition, symbol lookup
+using \fIdlopen\fP(\fI0, mode\fP) and an associated \fIdlsym\fP()
+allows objects loaded
+with this \fImode\fP to be searched.
+.TP 7
+RTLD_LOCAL
+The object's symbols shall not be made available for the relocation
+processing of any other object.
+.sp
+.LP
+If neither RTLD_GLOBAL nor RTLD_LOCAL are specified, then an implementation-defined
+default behavior shall be applied.
+.LP
+If a \fIfile\fP is specified in multiple \fIdlopen\fP() invocations,
+\fImode\fP is interpreted at each invocation. Note,
+however, that once RTLD_NOW has been specified all relocations shall
+have been completed rendering further RTLD_NOW operations
+redundant and any further RTLD_LAZY operations irrelevant. Similarly,
+note that once RTLD_GLOBAL has been specified the object
+shall maintain the RTLD_GLOBAL status regardless of any previous or
+future specification of RTLD_LOCAL, as long as the object
+remains in the address space (see \fIdlclose\fP() ).
+.LP
+Symbols introduced into a program through calls to \fIdlopen\fP()
+may be used in relocation activities. Symbols so introduced
+may duplicate symbols already defined by the program or previous \fIdlopen\fP()
+operations. To resolve the ambiguities such a
+situation might present, the resolution of a symbol reference to symbol
+definition is based on a symbol resolution order. Two such
+resolution orders are defined: \fIload\fP or \fIdependency\fP ordering.
+Load order establishes an ordering among symbol
+definitions, such that the definition first loaded (including definitions
+from the image file and any dependent objects loaded with
+it) has priority over objects added later (via \fIdlopen\fP()). Load
+ordering is used in relocation processing. Dependency
+ordering uses a breadth-first order starting with a given object,
+then all of its dependencies, then any dependents of those,
+iterating until all dependencies are satisfied. With the exception
+of the global symbol object obtained via a \fIdlopen\fP()
+operation on a \fIfile\fP of 0, dependency ordering is used by the
+\fIdlsym\fP() function.
+Load ordering is used in \fIdlsym\fP() operations upon the global
+symbol object.
+.LP
+When an object is first made accessible via \fIdlopen\fP() it and
+its dependent objects are added in dependency order. Once all
+the objects are added, relocations are performed using load order.
+Note that if an object or its dependencies had been previously
+loaded, the load and dependency orders may yield different resolutions.
+.LP
+The symbols introduced by \fIdlopen\fP() operations and available
+through \fIdlsym\fP()
+are at a minimum those which are exported as symbols of global scope
+by the object. Typically such symbols shall be those that were
+specified in (for example) C source code as having \fIextern\fP linkage.
+The precise manner in which an implementation constructs
+the set of exported symbols for a \fIdlopen\fP() object is specified
+by that implementation.
+.SH RETURN VALUE
+.LP
+If \fIfile\fP cannot be found, cannot be opened for reading, is not
+of an appropriate object format for processing by
+\fIdlopen\fP(), or if an error occurs during the process of loading
+\fIfile\fP or relocating its symbolic references,
+\fIdlopen\fP() shall return NULL. More detailed diagnostic information
+shall be available through \fIdlerror\fP() .
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIdlclose\fP() , \fIdlerror\fP() , \fIdlsym\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<dlfcn.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

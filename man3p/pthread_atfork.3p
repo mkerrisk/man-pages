@@ -1,0 +1,153 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_ATFORK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_atfork 
+.SH NAME
+pthread_atfork \- register fork handlers
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_atfork(void (*\fP\fIprepare\fP\fB)(void), void (*\fP\fIparent\fP\fB)(void),
+.br
+\ \ \ \ \ \  void (*\fP\fIchild\fP\fB)(void)); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_atfork\fP() function shall declare fork handlers to
+be called before and after \fIfork\fP(), in the context of the thread
+that called \fIfork\fP(). The \fIprepare\fP fork handler shall be
+called before \fIfork\fP() processing commences. The \fIparent\fP
+fork handle shall be called after \fIfork\fP() processing completes
+in the parent process. The \fIchild\fP fork handler shall be
+called after \fIfork\fP() processing completes in the child process.
+If no handling is
+desired at one or more of these three points, the corresponding fork
+handler address(es) may be set to NULL.
+.LP
+The order of calls to \fIpthread_atfork\fP() is significant. The \fIparent\fP
+and \fIchild\fP fork handlers shall be called
+in the order in which they were established by calls to \fIpthread_atfork\fP().
+The \fIprepare\fP fork handlers shall be called
+in the opposite order.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIpthread_atfork\fP() shall return a
+value of zero; otherwise, an error number shall be returned
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIpthread_atfork\fP() function shall fail if:
+.TP 7
+.B ENOMEM
+Insufficient table space exists to record the fork handler addresses.
+.sp
+.LP
+The \fIpthread_atfork\fP() function shall not return an error code
+of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+There are at least two serious problems with the semantics of \fIfork\fP()
+in a
+multi-threaded program. One problem has to do with state (for example,
+memory) covered by mutexes. Consider the case where one
+thread has a mutex locked and the state covered by that mutex is inconsistent
+while another thread calls \fIfork\fP(). In the child, the mutex is
+in the locked state (locked by a nonexistent thread and thus
+can never be unlocked). Having the child simply reinitialize the mutex
+is unsatisfactory since this approach does not resolve the
+question about how to correct or otherwise deal with the inconsistent
+state in the child.
+.LP
+It is suggested that programs that use \fIfork\fP() call an \fIexec\fP
+function very soon afterwards in the child process, thus resetting
+all states. In the
+meantime, only a short list of async-signal-safe library routines
+are promised to be available.
+.LP
+Unfortunately, this solution does not address the needs of multi-threaded
+libraries. Application programs may not be aware that
+a multi-threaded library is in use, and they feel free to call any
+number of library routines between the \fIfork\fP() and \fIexec\fP
+calls, just as they always have.
+Indeed, they may be extant single-threaded programs and cannot, therefore,
+be expected to obey new restrictions imposed by the
+threads library.
+.LP
+On the other hand, the multi-threaded library needs a way to protect
+its internal state during \fIfork\fP() in case it is re-entered later
+in the child process. The problem arises especially in
+multi-threaded I/O libraries, which are almost sure to be invoked
+between the \fIfork\fP()
+and \fIexec\fP calls to effect I/O redirection. The solution may require
+locking mutex
+variables during \fIfork\fP(), or it may entail simply resetting the
+state in the child after
+the \fIfork\fP() processing completes.
+.LP
+The \fIpthread_atfork\fP() function provides multi-threaded libraries
+with a means to protect themselves from innocent
+application programs that call \fIfork\fP(), and it provides multi-threaded
+application
+programs with a standard mechanism for protecting themselves from
+\fIfork\fP() calls in a
+library routine or the application itself.
+.LP
+The expected usage is that the \fIprepare\fP handler acquires all
+mutex locks and the other two fork handlers release them.
+.LP
+For example, an application can supply a \fIprepare\fP routine that
+acquires the necessary mutexes the library maintains and
+supply \fIchild\fP and \fIparent\fP routines that release those mutexes,
+thus ensuring that the child gets a consistent snapshot
+of the state of the library (and that no mutexes are left stranded).
+Alternatively, some libraries might be able to supply just a
+\fIchild\fP routine that reinitializes the mutexes in the library
+and all associated states to some known value (for example, what
+it was when the image was originally executed).
+.LP
+When \fIfork\fP() is called, only the calling thread is duplicated
+in the child process.
+Synchronization variables remain in the same state in the child as
+they were in the parent at the time \fIfork\fP() was called. Thus,
+for example, mutex locks may be held by threads that no longer exist
+in the child process, and any associated states may be inconsistent.
+The parent process may avoid this by explicit code that
+acquires and releases locks critical to the child via \fIpthread_atfork\fP().
+In addition, any critical threads need to be
+recreated and reinitialized to the proper state in the child (also
+via \fIpthread_atfork\fP()).
+.LP
+A higher-level package may acquire locks on its own data structures
+before invoking lower-level packages. Under this scenario,
+the order specified for fork handler calls allows a simple rule of
+initialization for avoiding package deadlock: a package
+initializes all packages on which it depends before it calls the \fIpthread_atfork\fP()
+function for itself.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIatexit\fP() , \fIfork\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,78 @@
+.\" Copyright (c) Bruno Haible <haible@clisp.cons.org>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" References consulted:
+.\"   GNU glibc-2 source code and manual
+.\"   Dinkumware C library reference http://www.dinkumware.com/
+.\"   OpenGroup's Single Unix specification
+.\"      http://www.UNIX-systems.org/online.html
+.\"   ISO/IEC 9899:1999
+.\"
+.TH MBRTOWC 3  2001-11-22 "GNU" "Linux Programmer's Manual"
+.SH NAME
+mbrtowc \- convert a multibyte sequence to a wide character
+.SH SYNOPSIS
+.nf
+.B #include <wchar.h>
+.sp
+.BI "size_t mbrtowc(wchar_t *" pwc ", const char *" s ", size_t " n ", mbstate_t *" ps );
+.fi
+.SH DESCRIPTION
+The main case for this function is when \fIs\fP is not NULL and \fIpwc\fP is
+not NULL. In this case, the \fBmbrtowc\fP function inspects at most \fIn\fP
+bytes of the multibyte string starting at \fIs\fP, extracts the next complete
+multibyte character, converts it to a wide character and stores it at
+\fI*pwc\fP. It updates the shift state \fI*ps\fP. If the converted wide
+character is not L'\\0', it returns the number of bytes that were consumed
+from \fIs\fP. If the converted wide character is L'\\0', it resets the shift
+state \fI*ps\fP to the initial state and returns 0.
+.PP
+If the \fIn\fP bytes starting at \fIs\fP do not contain a complete multibyte
+character, \fBmbrtowc\fP returns \fI(size_t)(-2)\fP. This can happen even if
+\fIn\fP >= \fIMB_CUR_MAX\fP, if the multibyte string contains redundant shift
+sequences.
+.PP
+If the multibyte string starting at \fIs\fP contains an invalid multibyte
+sequence before the next complete character, \fBmbrtowc\fP returns
+\fI(size_t)(-1)\fP and sets \fBerrno\fP to \fBEILSEQ\fP. In this case,
+the effects on \fI*ps\fP are undefined.
+.PP
+A different case is when \fIs\fP is not NULL but \fIpwc\fP is NULL. In this
+case the \fBmbrtowc\fP function behaves as above, excepts that it does not
+store the converted wide character in memory.
+.PP
+A third case is when \fIs\fP is NULL. In this case, \fIpwc\fP and \fIn\fP are
+ignored. If the conversion state represented by \fI*ps\fP denotes an
+incomplete multibyte character conversion, the \fBmbrtowc\fP function
+returns \fI(size_t)(-1)\fP, sets \fBerrno\fP to \fBEILSEQ\fP, and
+leaves \fI*ps\fP in an undefined state. Otherwise, the \fBmbrtowc\fP function
+puts \fI*ps\fP in the initial state and returns 0.
+.PP
+In all of the above cases, if \fIps\fP is a NULL pointer, a static anonymous
+state only known to the mbrtowc function is used instead.
+Otherwise, \fI*ps\fP must be a valid \fBmbstate_t\fP object.
+An \fBmbstate_t\fP object \fIa\fP can be initialized to the initial state
+by zeroing it, for example using
+.sp
+.RS
+memset(&a, 0, sizeof(a));
+.RE
+.SH "RETURN VALUE"
+The \fBmbrtowc\fP function returns the number of bytes parsed from the
+multibyte sequence starting at \fIs\fP, if a non-L'\\0' wide character
+was recognized.
+It returns 0, if a L'\\0' wide character was recognized. It returns (size_t)(-1)
+and sets \fBerrno\fP to \fBEILSEQ\fP, if an invalid multibyte sequence was
+encountered. It returns (size_t)(-2) if it couldn't parse a complete multibyte
+character, meaning that \fIn\fP should be increased.
+.SH "CONFORMING TO"
+ISO/ANSI C, UNIX98
+.SH "SEE ALSO"
+.BR mbsrtowcs (3)
+.SH NOTES
+The behaviour of \fBmbrtowc\fP depends on the LC_CTYPE category of the
+current locale.

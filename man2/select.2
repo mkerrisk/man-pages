@@ -1,0 +1,394 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is copyright (C) 1992 Drew Eckhardt,
+.\"                 copyright (C) 1995 Michael Shields.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-05-18 by Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" Sun Feb 11 14:07:00 MET 1996  Martin Schulze  <joey@linux.de>
+.\"	* layout slightly modified
+.\"
+.\" Modified Mon Oct 21 23:05:29 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Thu Feb 24 01:41:09 CET 2000 by aeb
+.\" Modified Thu Feb  9 22:32:09 CET 2001 by bert hubert <ahu@ds9a.nl>, aeb
+.\" Modified Mon Nov 11 14:35:00 PST 2002 by Ben Woodard <ben@zork.net>
+.\"
+.TH SELECT 2 2001-02-09 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexing
+.SH SYNOPSIS
+/* According to POSIX 1003.1-2001 */
+.br
+.B #include <sys/select.h>
+.sp
+/* According to earlier standards */
+.br
+.B #include <sys/time.h>
+.br
+.B #include <sys/types.h>
+.br
+.B #include <unistd.h>
+.sp
+\fBint select(int \fIn\fB, fd_set *\fIreadfds\fB,
+fd_set *\fIwritefds\fB, fd_set *\fIexceptfds\fB,
+struct timeval *\fItimeout\fB);
+.sp
+\fBint pselect(int \fIn\fB, fd_set *\fIreadfds\fB,
+fd_set *\fIwritefds\fB, fd_set *\fIexceptfds\fB,
+const struct timespec *\fItimeout\fB, const sigset_t *\fIsigmask\fB);
+.sp
+.BI "FD_CLR(int " fd ", fd_set *" set );
+.br
+.BI "FD_ISSET(int " fd ", fd_set *" set );
+.br
+.BI "FD_SET(int " fd ", fd_set *" set );
+.br
+.BI "FD_ZERO(fd_set *" set );
+.fi
+.SH DESCRIPTION
+The functions
+.B select
+and
+.B pselect
+wait for a number of file descriptors to change status.
+.PP
+Their function is identical, with three differences:
+.TP
+(i)
+The
+.B select
+function uses a timeout that is a
+.I struct timeval
+(with seconds and microseconds), while
+.B pselect
+uses a
+.I struct timespec
+(with seconds and nanoseconds).
+.TP
+(ii)
+The
+.B select
+function may update the
+.I timeout
+parameter to indicate how much time was left. The
+.B pselect
+function does not change this parameter.
+.TP
+(iii)
+The
+.B select
+function has no
+.I sigmask
+parameter, and behaves as
+.B pselect
+called with NULL
+.IR sigmask .
+.PP
+Three independent sets of descriptors are watched.  Those listed in
+.I readfds
+will be watched to see if characters become
+available for reading (more precisely, to see if a read will not
+block - in particular, a file descriptor is also ready on end-of-file),
+those in
+.I writefds
+will be watched to see if a write will not block, and
+those in
+.I exceptfds
+will be watched for exceptions.  On exit, the sets are modified in place
+to indicate which descriptors actually changed status.
+.PP
+Four macros are provided to manipulate the sets.
+.B FD_ZERO
+will clear a set.
+.B FD_SET
+and
+.B FD_CLR
+add or remove a given descriptor from a set.
+.B FD_ISSET
+tests to see if a descriptor is part of the set; this is useful after
+.B select
+returns.
+.PP
+.I n
+is the highest-numbered descriptor in any of the three sets, plus 1.
+.PP
+.I timeout
+is an upper bound on the amount of time elapsed before
+.B select
+returns. It may be zero, causing
+.B select
+to return immediately. (This is useful for polling.) If
+.I timeout
+is NULL (no timeout),
+.B select
+can block indefinitely.
+.PP
+.I sigmask
+is a pointer to a signal mask (see
+.BR sigprocmask (2));
+if it is not NULL, then
+.B pselect
+first replaces the current signal mask by the one pointed to by
+.IR sigmask ,
+then does the `select' function, and then restores the original
+signal mask again.
+.PP
+The idea of
+.B pselect
+is that if one wants to wait for an event, either a signal
+or something on a file descriptor, an atomic test is needed to prevent
+race conditions. (Suppose the signal handler sets a global flag and
+returns. Then a test of this global flag followed by a call of
+.BR select ()
+could hang indefinitely if the signal arrived just after the test
+but just before the call. On the other hand,
+.B pselect
+allows one to first block signals, handle the signals that have come in,
+then call
+.BR pselect ()
+with the desired
+.IR sigmask ,
+avoiding the race.)
+Since Linux today does not have a
+.BR pselect ()
+system call, the current glibc2 routine still contains this race.
+.SS "The timeout"
+The time structures involved are defined in
+.I <sys/time.h>
+and look like
+
+.RS
+.nf
+struct timeval { 
+    long    tv_sec;         /* seconds */
+    long    tv_usec;        /* microseconds */
+};
+.fi
+.RE
+
+and
+
+.RS
+.nf
+struct timespec {
+    long    tv_sec;         /* seconds */
+    long    tv_nsec;        /* nanoseconds */
+};
+.fi
+.RE
+
+(However, see below on the POSIX 1003.1-2001 versions.)
+.PP
+Some code calls
+.B select
+with all three sets empty,
+.I n
+zero, and a non-null
+.I timeout
+as a fairly portable way to sleep with subsecond precision.
+.PP
+On Linux, the function
+.B select
+modifies
+.I timeout
+to reflect the amount of time not slept; most other implementations
+do not do this.  This causes problems both when Linux code which reads
+.I timeout
+is ported to other operating systems, and when code is ported to Linux
+that reuses a struct timeval for multiple
+.BR select s
+in a loop without reinitializing it.  Consider
+.I timeout
+to be undefined after
+.B select
+returns.
+.\" .PP - it is rumoured that:
+.\" On BSD, when a timeout occurs, the file descriptor bits are not changed.
+.\" - it is certainly true that:
+.\" Linux follows SUSv2 and sets the bit masks to zero upon a timeout.
+.SH "RETURN VALUE"
+On success,
+.B select
+and
+.B pselect
+return the number of descriptors contained in the three returned
+descriptor sets (that is, the total number of one bits in
+.IR readfds ,
+.IR writefds ,
+.IR exceptfds )
+which may be zero if the timeout expires before anything interesting happens.
+On error, \-1 is returned, and
+.I errno
+is set appropriately; the sets and
+.I timeout
+become undefined, so do not
+rely on their contents after an error.
+.SH ERRORS
+.TP
+.B EBADF
+An invalid file descriptor was given in one of the sets.
+.TP
+.B EINTR
+A non blocked signal was caught.
+.TP
+.B EINVAL
+.I n
+is negative or the value contained within
+.I timeout
+is invalid.
+.TP
+.B ENOMEM
+.B select
+was unable to allocate memory for internal tables.
+.SH EXAMPLE
+.nf
+#include <stdio.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int
+main(void) {
+    fd_set rfds;
+    struct timeval tv;
+    int retval;
+
+    /* Watch stdin (fd 0) to see when it has input. */
+    FD_ZERO(&rfds);
+    FD_SET(0, &rfds);
+    /* Wait up to five seconds. */
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    retval = select(1, &rfds, NULL, NULL, &tv);
+    /* Don't rely on the value of tv now! */
+
+    if (retval == -1)
+        perror("select()");
+    else if (retval)
+        printf("Data is available now.\\n");
+        /* FD_ISSET(0, &rfds) will be true. */
+    else
+        printf("No data within five seconds.\\n");
+
+    return 0;
+}
+.fi
+.SH "CONFORMING TO"
+4.4BSD (the
+.B select
+function first appeared in 4.2BSD).  Generally portable to/from
+non-BSD systems supporting clones of the BSD socket layer (including
+System V variants).  However, note that the System V variant typically
+sets the timeout variable before exit, but the BSD variant does not.
+.PP
+The
+.B pselect
+function is defined in IEEE Std 1003.1g-2000 (POSIX.1g), and part of
+POSIX 1003.1-2001.
+It is found in glibc2.1 and later.
+Glibc2.0 has a function with this name, that however does not take a
+.I sigmask
+parameter.
+.SH NOTES
+An fd_set is a fixed size buffer. Executing FD_CLR or FD_SET with a value of
+.I fd
+that is negative or is equal to or larger than FD_SETSIZE will result
+in undefined behavior. Moreover, POSIX requires
+.I fd
+to be a valid file descriptor.
+
+Concerning the types involved, the classical situation is that
+the two fields of a struct timeval are longs (as shown above),
+and the struct is defined in
+.IR <sys/time.h> .
+The POSIX 1003.1-2001 situation is
+
+.RS
+.nf
+struct timeval {
+    time_t         tv_sec;     /* seconds */
+    suseconds_t    tv_usec;    /* microseconds */
+};
+.fi
+.RE
+
+where the struct is defined in
+.I <sys/select.h>
+and the data types time_t and suseconds_t are defined in
+.IR <sys/types.h> .
+.LP
+Concerning prototypes, the classical situation is that one should
+include
+.I <time.h>
+for
+.BR select .
+The POSIX 1003.1-2001 situation is that one should include
+.I <sys/select.h>
+for
+.B select
+and
+.BR pselect .
+Libc4 and libc5 do not have a
+.I <sys/select.h>
+header; under glibc 2.0 and later this header exists.
+Under glibc 2.0 it unconditionally gives the wrong prototype for
+.BR pselect ,
+under glibc 2.1-2.2.1 it gives
+.B pselect
+when
+.B _GNU_SOURCE
+is defined, under glibc 2.2.2-2.2.4 it gives it when
+.B _XOPEN_SOURCE
+is defined and has a value of 600 or larger.
+No doubt, since POSIX 1003.1-2001, it should give the prototype by default.
+.SH BUGS
+.B pselect
+is currently emulated with a user-space wrapper that has a race condition.
+For reliable (and more portable) signal trapping, use the self-pipe trick.
+(Where a signal handler writes to a pipe whose other end is read by the
+main loop.)
+
+Under Linux,
+.B select
+may report a socket file descriptor as "ready for reading", while
+nevertheless a subsequent read blocks. This could for example
+happen when data has arrived but upon examination has wrong
+checksum and is discarded. There may be other circumstances.
+.\" Stevens discusses a case where accept can block after select
+.\" returns successfully because of an intervening RST from the client.
+Thus it may be safer to use O_NONBLOCK on sockets that should not block.
+.\" Maybe the kernel should have returned EIO in such a situation?
+.SH "SEE ALSO"
+For a tutorial with discussion and examples, see
+.BR select_tut (2).
+.LP
+For vaguely related stuff, see
+.BR accept (2),
+.BR connect (2),
+.BR poll (2),
+.BR read (2),
+.BR recv (2),
+.BR send (2),
+.BR sigprocmask (2),
+.BR write (2)

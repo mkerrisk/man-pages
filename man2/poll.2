@@ -1,0 +1,145 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 1997 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Additions from Richard Gooch <rgooch@atnf.CSIRO.AU> and aeb, 971207
+.\"
+.TH POLL 2 1997-12-07 "Linux 2.1.23" "Linux Programmer's Manual"
+.SH NAME
+poll \- wait for some event on a file descriptor
+.SH SYNOPSIS
+.B #include <sys/poll.h>
+.sp
+.BI "int poll(struct pollfd *" ufds ", unsigned int " nfds ", int " timeout );
+.SH DESCRIPTION
+.B poll
+is a variation on the theme of 
+.BR select .
+It specifies an array of
+.I nfds
+structures of type
+.br
+.nf
+        struct pollfd {
+                int fd;           /* file descriptor */
+                short events;     /* requested events */
+                short revents;    /* returned events */
+        };
+.fi
+and a
+.I timeout
+in milliseconds. A negative value means infinite timeout.
+The field
+.I fd
+contains a file descriptor for an open file.
+The field
+.I events
+is an input parameter, a bitmask specifying the events the application
+is interested in.
+The field
+.I revents
+is an output parameter, filled by the kernel with the events that
+actually occurred, either of the type requested, or of one of the
+types
+.B POLLERR
+or
+.B POLLHUP
+or
+.BR POLLNVAL .
+(These three bits are meaningless in the
+.I events
+field, and will be set in the
+.I revents
+field whenever the corresponding condition is true.)
+If none of the events requested (and no error) has occurred for any
+of the file descriptors, the kernel waits for
+.I timeout
+milliseconds for one of these events to occur.
+The following possible bits in these masks are defined in <sys/poll.h>
+.br
+.nf
+    #define POLLIN      0x0001    /* There is data to read */
+    #define POLLPRI     0x0002    /* There is urgent data to read */
+    #define POLLOUT     0x0004    /* Writing now will not block */
+    #define POLLERR     0x0008    /* Error condition */
+    #define POLLHUP     0x0010    /* Hung up */
+    #define POLLNVAL    0x0020    /* Invalid request: fd not open */
+.fi
+When compiling XPG4.2 source one also has
+.br
+.nf
+#ifdef _XOPEN_SOURCE
+    #define POLLRDNORM  0x0040    /* Normal data may be read */
+    #define POLLRDBAND  0x0080    /* Priority data may be read */
+    #define POLLWRNORM  0x0100    /* Writing now will not block */
+    #define POLLWRBAND  0x0200    /* Priority data may be written */
+#endif
+.fi
+Finally, Linux knows about
+.br
+.nf
+#ifdef _GNU_SOURCE
+    #define POLLMSG     0x0400
+#endif
+.fi
+.SH "RETURN VALUE"
+On success, a positive number is returned, where the number returned
+is the number of structures which have non-zero
+.I revents
+fields (in other words, those descriptors with events or errors reported).
+A value of 0 indicates that the call timed out and no file
+descriptors have been selected. On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+An invalid file descriptor was given in one of the sets.
+.TP
+.B EFAULT
+The array given as argument was not contained in the calling program's
+address space.
+.TP
+.B EINTR
+A signal occurred before any requested event.
+.TP
+.B EINVAL
+The
+.I nfds
+value exceeds the RLIMIT_NOFILE value.
+.TP
+.B ENOMEM
+There was no space to allocate file descriptor tables.
+.SH BUGS
+See the BUGS section of
+.BR select (2).
+.SH "CONFORMING TO"
+XPG4-UNIX.
+.SH AVAILABILITY
+The poll() systemcall was introduced in Linux 2.1.23.
+The poll() library call was introduced in libc 5.4.28
+(and provides emulation using select if your kernel does not
+have a poll syscall).
+.SH "SEE ALSO"
+.BR select (2),
+.BR select_tut (2)

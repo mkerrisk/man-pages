@@ -1,0 +1,751 @@
+.\" This manpage is copyright (C) 2001 Paul Sheer.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" very minor changes, aeb
+.\"
+.\" Modified 5 June 2002, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH SELECT_TUT 2 "October 21, 2001" "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexing
+.SH SYNOPSIS
+.B #include <sys/time.h>
+.br
+.B #include <sys/types.h>
+.br
+.B #include <unistd.h>
+.sp
+.BI "int select(int " nfds ", fd_set *" readfds ,
+.BI "fd_set *" writefds ", fd_set *" exceptfds ,
+.BI "struct timeval *" utimeout );
+.sp
+.BI "int pselect(int " nfds ", fd_set *" readfds ,
+.BI "fd_set *" writefds ", fd_set *" exceptfds ,
+.BI "const struct timespec *" ntimeout ", sigset_t *" sigmask );
+.sp
+.BI "FD_CLR(int " fd ", fd_set *" set );
+.br
+.BI "FD_ISSET(int " fd ", fd_set *" set );
+.br
+.BI "FD_SET(int " fd ", fd_set *" set );
+.br
+.BI "FD_ZERO(fd_set *" set );
+.fi
+.SH DESCRIPTION
+
+\fBselect\fP (or \fBpselect\fP) is the pivot function of most C programs that
+handle more than one simultaneous file descriptor (or socket handle) in an efficient
+manner. Its principal arguments are three arrays of file descriptors:
+\fIreadfds\fP, \fIwritefds\fP, and \fIexceptfds\fP. The way that
+\fBselect\fP is usually used is to block while waiting for a "change of
+status" on one or more of the file descriptors. A "change of status" is
+when more characters become available from the file descriptor, \fIor\fP
+when space becomes available within the kernel's internal buffers for
+more to be written to the file descriptor, \fIor\fP when a file
+descriptor goes into error (in the case of a socket or pipe this is
+when the other end of the connection is closed).
+
+In summary, \fBselect\fP just watches multiple file descriptors,
+and is the standard Unix call to do so.
+
+The arrays of file descriptors are called \fIfile descriptor sets\fP.
+Each set is declared as type \fBfd_set\fP, and its contents can be
+altered with the macros \fBFD_CLR\fP, \fBFD_ISSET\fP, \fBFD_SET\fP,  and
+\fBFD_ZERO\fP. \fBFD_ZERO\fP is usually the first function to be used on
+a newly declared set. Thereafter, the individual file descriptors that
+you are interested in can be added one by one with \fBFD_SET\fP.
+\fBselect\fP modifies the contents of the sets according to the rules
+described below; after calling \fBselect\fP you can test if your file
+descriptor is still present in the set with the \fBFD_ISSET\fP macro.
+\fBFD_ISSET\fP returns non-zero if the descriptor is present and zero if
+it is not. \fBFD_CLR\fP removes a file descriptor from the set although
+I can't see the use for it in a clean program.
+
+.SH ARGUMENTS
+.TP
+\fIreadfds\fP
+This set is watched to see if data is available for reading from any of
+its file descriptors. After \fBselect\fP has returned, \fIreadfds\fP will be
+cleared of all file descriptors except for those file descriptors that
+are immediately available for reading with a \fBrecv()\fP (for sockets) or
+\fBread()\fP (for pipes, files, and sockets) call.
+.TP
+\fIwritefds\fP
+This set is watched to see if there is space to write data to any of
+its file descriptor. After \fBselect\fP has returned, \fIwritefds\fP will be
+cleared of all file descriptors except for those file descriptors that
+are immediately available for writing with a \fBsend()\fP (for sockets) or
+\fBwrite()\fP (for pipes, files, and sockets) call.
+.TP
+\fIexceptfds\fP
+This set is watched for exceptions or errors on any of the file
+descriptors. However, that is actually just a rumor. How you use
+\fIexceptfds\fP is to watch for \fIout\-of\-band\fP (OOB) data. OOB data
+is data sent on a socket using the \fBMSG_OOB\fP flag, and hence
+\fIexceptfds\fP only really applies to sockets. See \fBrecv\fP(2) and
+\fBsend\fP(2) about this. After \fBselect\fP has returned,
+\fIexceptfds\fP will be cleared of all file descriptors except for those
+descriptors that are available for reading OOB data. You can only ever
+read one byte of OOB data though (which is done with \fBrecv()\fP), and
+writing OOB data (done with \fBsend\fP) can be done at any time and will
+not block. Hence there is no need for a fourth set to check if a socket
+is available for writing OOB data.
+.TP
+\fInfds\fP
+This is an integer one more than the maximum of any file descriptor in
+any of the sets. In other words, while you are busy adding file descriptors
+to your sets, you must calculate the maximum integer value of all of
+them, then increment this value by one, and then pass this as \fInfds\fP to
+\fBselect\fP.
+.TP
+\fIutimeout\fP
+.RS
+This is the longest time \fBselect\fP must wait before returning, even
+if nothing interesting happened. If this value is passed as \fBNULL\fP,
+then \fBselect\fP blocks indefinitely waiting for an event.
+\fIutimeout\fP can be set to zero seconds, which causes \fBselect\fP to
+return immediately. The structure \fBstruct timeval\fP is defined as,
+.PP
+.nf
+struct timeval {
+    time_t tv_sec;    /* seconds */
+    long tv_usec;     /* microseconds */
+};
+.fi
+.RE
+.TP
+\fIntimeout\fP
+.RS
+This argument has the same meaning as \fIutimeout\fP but \fBstruct timespec\fP
+has nanosecond precision as follows,
+.PP
+.nf
+struct timespec {
+    long tv_sec;    /* seconds */
+    long tv_nsec;   /* nanoseconds */
+};
+.fi
+.RE
+.TP
+\fIsigmask\fP
+This argument holds a set of signals to allow while performing a \fBpselect\fP
+call (see \fBsigaddset\fP(3) and \fBsigprocmask\fP(2)). It can be passed
+as NULL, in which case it does not modify the set of allowed signals on
+entry and exit to the function. It will then behave just like \fBselect\fP.
+
+.SH COMBINING SIGNAL AND DATA EVENTS
+\fBpselect\fP must be used if you are waiting for a signal as well as
+data from a file descriptor. Programs that receive signals as events
+normally use the signal handler only to raise a global flag. The global
+flag will indicate that the event must be processed in the main loop of
+the program. A signal will cause the \fBselect\fP (or \fBpselect\fP)
+call to return with \fBerrno\fP set to \fBEINTR\fP. This behavior is
+essential so that signals can be processed in the main loop of the
+program, otherwise \fBselect\fP would block indefinitely. Now, somewhere
+in the main loop will be a conditional to check the global flag. So we
+must ask: what if a signal arrives after the conditional, but before the
+\fBselect\fP call? The answer is that \fBselect\fP would block
+indefinitely, even though an event is actually pending. This race
+condition is solved by the \fBpselect\fP call. This call can be used to
+mask out signals that are not to be received except within the
+\fBpselect\fP call. For instance, let us say that the event in question
+was the exit of a child process. Before the start of the main loop, we
+would block \fBSIGCHLD\fP using \fBsigprocmask\fP. Our \fBpselect\fP
+call would enable \fBSIGCHLD\fP by using the virgin signal mask. Our
+program would look like:
+.PP
+.nf
+int child_events = 0;
+
+void child_sig_handler (int x) {
+    child_events++;
+    signal (SIGCHLD, child_sig_handler);
+}
+
+int main (int argc, char **argv) {
+    sigset_t sigmask, orig_sigmask;
+
+    sigemptyset (&sigmask);
+    sigaddset (&sigmask, SIGCHLD);
+    sigprocmask (SIG_BLOCK, &sigmask,
+                                &orig_sigmask);
+
+    signal (SIGCHLD, child_sig_handler);
+
+    for (;;) { /* main loop */
+        for (; child_events > 0; child_events--) {
+            /* do event work here */
+        }
+        r = pselect (nfds, &rd, &wr, &er, 0, &orig_sigmask);
+
+        /* main body of program */
+    }
+}
+.fi
+.PP
+Note that the above \fBpselect\fP call can be replaced with:
+.PP
+.nf
+        sigprocmask (SIG_BLOCK, &orig_sigmask, 0);
+        r = select (nfds, &rd, &wr, &er, 0);
+        sigprocmask (SIG_BLOCK, &sigmask, 0);
+.fi
+.PP
+but then there is still the possibility that a signal
+could arrive after the first \fBsigprocmask\fP and before
+the \fBselect\fP. If you do do this, it is prudent to
+at least put a finite timeout so that the process does
+not block. At present glibc probably works this way.
+The Linux kernel does not have a native \fBpselect\fP
+system call as yet so this is all probably much of a
+moot point.
+.PP
+
+
+.SH PRACTICAL
+
+So what is the point of \fBselect\fP? Can't I just read and write to my
+descriptors whenever I want? The point of select is that it watches
+multiple descriptors at the same time and properly puts the process to
+sleep if there is no activity. It does this while enabling you to handle
+multiple simultaneous pipes and sockets. Unix programmers often find
+themselves in a position where they have to handle IO from more than one
+file descriptor where the data flow may be intermittent. If you were to
+merely create a sequence of \fBread\fP and \fBwrite\fP calls, you would
+find that one of your calls may block waiting for data from/to a file
+descriptor, while another file descriptor is unused though available
+for data. \fBselect\fP efficiently copes with this situation.
+
+A classic example of \fBselect\fP comes from the \fBselect\fP
+man page:
+
+.nf
+#include <stdio.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int
+main(void) {
+    fd_set rfds;
+    struct timeval tv;
+    int retval;
+
+    /* Watch stdin (fd 0) to see when it has input. */
+    FD_ZERO(&rfds);
+    FD_SET(0, &rfds);
+    /* Wait up to five seconds. */
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    retval = select(1, &rfds, NULL, NULL, &tv);
+    /* Don't rely on the value of tv now! */
+
+    if (retval == -1)
+        perror("select()");
+    else if (retval)
+        printf("Data is available now.\\n");
+        /* FD_ISSET(0, &rfds) will be true. */
+    else
+        printf("No data within five seconds.\\n");
+
+    exit(0);
+}
+.fi
+
+
+.SH PORT FORWARDING EXAMPLE
+
+Here is an example that better demonstrates the true utility of
+\fBselect\fP. The listing below a TCP forwarding program that forwards
+from one TCP port to another.
+.PP
+.nf
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+
+static int forward_port;
+
+#undef max
+#define max(x,y) ((x) > (y) ? (x) : (y))
+
+static int listen_socket (int listen_port) {
+    struct sockaddr_in a;
+    int s;
+    int yes;
+    if ((s = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror ("socket");
+        return -1;
+    }
+    yes = 1;
+    if (setsockopt
+        (s, SOL_SOCKET, SO_REUSEADDR,
+         (char *) &yes, sizeof (yes)) < 0) {
+        perror ("setsockopt");
+        close (s);
+        return -1;
+    }
+    memset (&a, 0, sizeof (a));
+    a.sin_port = htons (listen_port);
+    a.sin_family = AF_INET;
+    if (bind
+        (s, (struct sockaddr *) &a, sizeof (a)) < 0) {
+        perror ("bind");
+        close (s);
+        return -1;
+    }
+    printf ("accepting connections on port %d\\n",
+            (int) listen_port);
+    listen (s, 10);
+    return s;
+}
+
+static int connect_socket (int connect_port,
+                           char *address) {
+    struct sockaddr_in a;
+    int s;
+    if ((s = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror ("socket");
+        close (s);
+        return -1;
+    }
+
+    memset (&a, 0, sizeof (a));
+    a.sin_port = htons (connect_port);
+    a.sin_family = AF_INET;
+
+    if (!inet_aton
+        (address,
+         (struct in_addr *) &a.sin_addr.s_addr)) {
+        perror ("bad IP address format");
+        close (s);
+        return -1;
+    }
+
+    if (connect
+        (s, (struct sockaddr *) &a,
+         sizeof (a)) < 0) {
+        perror ("connect()");
+        shutdown (s, SHUT_RDWR);
+        close (s);
+        return -1;
+    }
+    return s;
+}
+
+#define SHUT_FD1 {                      \\
+        if (fd1 >= 0) {                 \\
+            shutdown (fd1, SHUT_RDWR);  \\
+            close (fd1);                \\
+            fd1 = -1;                   \\
+        }                               \\
+    }
+
+#define SHUT_FD2 {                      \\
+        if (fd2 >= 0) {                 \\
+            shutdown (fd2, SHUT_RDWR);  \\
+            close (fd2);                \\
+            fd2 = -1;                   \\
+        }                               \\
+    }
+
+#define BUF_SIZE 1024
+
+int main (int argc, char **argv) {
+    int h;
+    int fd1 = -1, fd2 = -1;
+    char buf1[BUF_SIZE], buf2[BUF_SIZE];
+    int buf1_avail, buf1_written;
+    int buf2_avail, buf2_written;
+
+    if (argc != 4) {
+        fprintf (stderr,
+                 "Usage\\n\\tfwd <listen-port> \\
+<forward-to-port> <forward-to-ip-address>\\n");
+        exit (1);
+    }
+
+    signal (SIGPIPE, SIG_IGN);
+
+    forward_port = atoi (argv[2]);
+
+    h = listen_socket (atoi (argv[1]));
+    if (h < 0)
+        exit (1);
+
+    for (;;) {
+        int r, nfds = 0;
+        fd_set rd, wr, er;
+        FD_ZERO (&rd);
+        FD_ZERO (&wr);
+        FD_ZERO (&er);
+        FD_SET (h, &rd);
+        nfds = max (nfds, h);
+        if (fd1 > 0 && buf1_avail < BUF_SIZE) {
+            FD_SET (fd1, &rd);
+            nfds = max (nfds, fd1);
+        }
+        if (fd2 > 0 && buf2_avail < BUF_SIZE) {
+            FD_SET (fd2, &rd);
+            nfds = max (nfds, fd2);
+        }
+        if (fd1 > 0
+            && buf2_avail - buf2_written > 0) {
+            FD_SET (fd1, &wr);
+            nfds = max (nfds, fd1);
+        }
+        if (fd2 > 0
+            && buf1_avail - buf1_written > 0) {
+            FD_SET (fd2, &wr);
+            nfds = max (nfds, fd2);
+        }
+        if (fd1 > 0) {
+            FD_SET (fd1, &er);
+            nfds = max (nfds, fd1);
+        }
+        if (fd2 > 0) {
+            FD_SET (fd2, &er);
+            nfds = max (nfds, fd2);
+        }
+
+        r = select (nfds + 1, &rd, &wr, &er, NULL);
+
+        if (r == -1 && errno == EINTR)
+            continue;
+        if (r < 0) {
+            perror ("select()");
+            exit (1);
+        }
+        if (FD_ISSET (h, &rd)) {
+            unsigned int l;
+            struct sockaddr_in client_address;
+            memset (&client_address, 0, l =
+                    sizeof (client_address));
+            r = accept (h, (struct sockaddr *)
+                        &client_address, &l);
+            if (r < 0) {
+                perror ("accept()");
+            } else {
+                SHUT_FD1;
+                SHUT_FD2;
+                buf1_avail = buf1_written = 0;
+                buf2_avail = buf2_written = 0;
+                fd1 = r;
+                fd2 =
+                    connect_socket (forward_port,
+                                    argv[3]);
+                if (fd2 < 0) {
+                    SHUT_FD1;
+                } else
+                    printf ("connect from %s\\n",
+                            inet_ntoa
+                            (client_address.sin_addr));
+            }
+        }
+/* NB: read oob data before normal reads */
+        if (fd1 > 0)
+            if (FD_ISSET (fd1, &er)) {
+                char c;
+                errno = 0;
+                r = recv (fd1, &c, 1, MSG_OOB);
+                if (r < 1) {
+                    SHUT_FD1;
+                } else
+                    send (fd2, &c, 1, MSG_OOB);
+            }
+        if (fd2 > 0)
+            if (FD_ISSET (fd2, &er)) {
+                char c;
+                errno = 0;
+                r = recv (fd2, &c, 1, MSG_OOB);
+                if (r < 1) {
+                    SHUT_FD1;
+                } else
+                    send (fd1, &c, 1, MSG_OOB);
+            }
+        if (fd1 > 0)
+            if (FD_ISSET (fd1, &rd)) {
+                r =
+                    read (fd1, buf1 + buf1_avail,
+                          BUF_SIZE - buf1_avail);
+                if (r < 1) {
+                    SHUT_FD1;
+                } else
+                    buf1_avail += r;
+            }
+        if (fd2 > 0)
+            if (FD_ISSET (fd2, &rd)) {
+                r =
+                    read (fd2, buf2 + buf2_avail,
+                          BUF_SIZE - buf2_avail);
+                if (r < 1) {
+                    SHUT_FD2;
+                } else
+                    buf2_avail += r;
+            }
+        if (fd1 > 0)
+            if (FD_ISSET (fd1, &wr)) {
+                r =
+                    write (fd1,
+                           buf2 + buf2_written,
+                           buf2_avail -
+                           buf2_written);
+                if (r < 1) {
+                    SHUT_FD1;
+                } else
+                    buf2_written += r;
+            }
+        if (fd2 > 0)
+            if (FD_ISSET (fd2, &wr)) {
+                r =
+                    write (fd2,
+                           buf1 + buf1_written,
+                           buf1_avail -
+                           buf1_written);
+                if (r < 1) {
+                    SHUT_FD2;
+                } else
+                    buf1_written += r;
+            }
+/* check if write data has caught read data */
+        if (buf1_written == buf1_avail)
+            buf1_written = buf1_avail = 0;
+        if (buf2_written == buf2_avail)
+            buf2_written = buf2_avail = 0;
+/* one side has closed the connection, keep
+   writing to the other side until empty */
+        if (fd1 < 0
+            && buf1_avail - buf1_written == 0) {
+            SHUT_FD2;
+        }
+        if (fd2 < 0
+            && buf2_avail - buf2_written == 0) {
+            SHUT_FD1;
+        }
+    }
+    return 0;
+}
+.fi
+.PP
+The above program properly forwards most kinds of TCP connections
+including OOB signal data transmitted by \fBtelnet\fP servers. It
+handles the tricky problem of having data flow in both directions
+simultaneously. You might think it more efficient to use a \fBfork()\fP
+call and devote a thread to each stream. This becomes more tricky than
+you might suspect. Another idea is to set non-blocking IO using an
+\fBioctl()\fP call. This also has its problems because you end up having
+to have inefficient timeouts.
+
+The program does not handle more than one simultaneous connection at a
+time, although it could easily be extended to do this with a linked list
+of buffers - one for each connection. At the moment, new
+connections cause the current connection to be dropped.
+
+.SH SELECT LAW
+
+Many people who try to use \fBselect\fP come across behavior that is
+difficult to understand and produces non-portable or borderline
+results. For instance, the above program is carefully written not to
+block at any point, even though it does not set its file descriptors to
+non-blocking mode at all (see \fBioctl\fP(2)). It is easy to introduce
+subtle errors that will remove the advantage of using \fBselect\fP,
+hence I will present a list of essentials to watch for when using the
+\fBselect\fP call.
+
+.TP
+\fB1.\fP
+You should always try use \fBselect\fP without a timeout. Your program
+should have nothing to do if there is no data available. Code that
+depends on timeouts is not usually portable and difficult to debug.
+.TP
+\fB2.\fP
+The value \fInfds\fP must be properly calculated for efficiency as
+explained above.
+.TP
+\fB3.\fP
+No file descriptor must be added to any set if you do not intend
+to check its result after the \fBselect\fP call, and respond
+appropriately. See next rule.
+.TP
+\fB4.\fP
+After \fBselect\fP returns, all file descriptors in all sets
+\fImust\fP be checked. Any file descriptor that is available
+for writing \fImust\fP be written to, and any file descriptor
+available for reading \fImust\fP be read, etc.
+.TP
+\fB5.\fP
+The functions \fBread()\fP, \fBrecv()\fP, \fBwrite()\fP, and
+\fBsend()\fP do \fInot\fP necessarily read/write the full amount of data
+that you have requested. If they do read/write the full amount, its
+because you have a low traffic load and a fast stream. This is not
+always going to be the case. You should cope with the case of your
+functions only managing to send or receive a single byte.
+.TP
+\fB6.\fP
+Never read/write only in single bytes at a time unless your are really
+sure that you have a small amount of data to process. It is extremely
+inefficient not to read/write as much data as you can buffer each time.
+The buffers in the example above are 1024 bytes although they could
+easily be made as large as the maximum possible packet size on your
+local network.
+.TP
+\fB7.\fP
+The functions \fBread()\fP, \fBrecv()\fP, \fBwrite()\fP, and
+\fBsend()\fP as well as the \fBselect()\fP call can return -1 with an
+errno of \fBEINTR\fP or \fBEAGAIN\fP (\fBEWOULDBLOCK\fP) which are not
+errors. These results must be properly managed (not done properly
+above). If your program is not going to receive any signals then
+it is unlikely you will get \fBEINTR\fP. If your program does not
+set non-blocking IO, you will not get \fBEAGAIN\fP. Nonetheless
+you should still cope with these errors for completeness.
+.TP
+\fB8.\fP
+Never call \fBread()\fP, \fBrecv()\fP, \fBwrite()\fP, or \fBsend()\fP
+with a buffer length of zero.
+.TP
+\fB9.\fP
+Except as indicated in \fB7.\fP, the functions \fBread()\fP,
+\fBrecv()\fP, \fBwrite()\fP, and \fBsend()\fP never have a return value
+less than 1 except if an error has occurred. For instance, a
+\fBread()\fP on a pipe where the other end has died returns zero (so
+does an end-of-file error), \fIbut\fP only returns zero
+once (a followup read or write will return \-1). Should
+any of these functions return 0 or \-1, you should \fInot\fP
+pass that descriptor to select ever again. In the above example,
+I close the descriptor immediately, and then set it to \-1
+to prevent it being included in a set.
+.TP
+\fB10.\fP
+The timeout value must be initialized with each new call to \fBselect\fP,
+since some operating systems modify the structure. \fBpselect\fP
+however does not modify its timeout structure.
+.TP
+\fB11.\fP
+I have heard that the Windows socket layer does not cope with OOB data
+properly. It also does not cope with \fBselect\fP calls when no file
+descriptors are set at all. Having no file descriptors set is a useful
+way to sleep the process with sub-second precision by using the timeout.
+(See further on.)
+
+.SH USLEEP EMULATION
+
+On systems that do not have a \fBusleep\fP function, you can call
+\fBselect\fP with a finite timeout and no file descriptors as
+follows:
+.PP
+.nf
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 200000;  /* 0.2 seconds */
+    select (0, NULL, NULL, NULL, &tv);
+.fi
+.PP
+This is only guarenteed to work on Unix systems, however.
+
+.SH RETURN VALUE
+
+On success, \fBselect\fP returns the total number of file descriptors
+still present in the file descriptor sets.
+
+If \fBselect\fP timed out, then the file descriptors sets should be all
+empty (but may not be on some systems). However the return value will
+definitely be zero.
+
+A return value of \-1 indicates an error, with \fBerrno\fP being
+set appropriately. In the case of an error, the returned sets and
+the timeout struct contents are undefined and should not be used.
+\fBpselect\fP however never modifies \fIntimeout\fP.
+
+.SH ERRORS
+.TP
+\fBEBADF\fP
+A set contained an invalid file descriptor. This error often occurs when
+you add a file descriptor to a set that you have already issued a
+\fBclose\fP on, or when that file descriptor has experienced some kind
+of error. Hence you should cease adding to sets any file descriptor that
+returns an error on reading or writing.
+.TP
+\fBEINTR\fP
+An interrupting signal was caught like \fBSIGINT\fP or \fBSIGCHLD\fP etc.
+In this case you should rebuild your file descriptor sets and retry.
+.TP
+\fBEINVAL\fP
+Occurs if \fInfds\fP is negative or an invalid value is specified
+in \fIutimeout\fP or \fIntimeout\fP.
+.TP
+\fBENOMEM\fP
+Internal memory allocation failure.
+
+.SH NOTES
+Generally speaking, all operating systems that support sockets, also
+support \fBselect\fP. Some people consider \fBselect\fP to be an
+esoteric and rarely used function. Indeed, many types of programs become
+extremely complicated without it. \fBselect\fP can be used to solve
+many problems in a portable and efficient way that naive programmers try
+to solve with threads, forking, IPCs, signals, memory sharing and other
+dirty methods. \fBpselect\fP is a newer function that is less commonly
+used.
+.PP
+The
+.BR poll (2)
+system call has the same functionality as \fBselect\fP,
+but with less subtle behavior. It is less portable than \fBselect\fP.
+
+.SH CONFORMING TO
+4.4BSD (the \fBselect\fP function first appeared in 4.2BSD).  Generally
+portable to/from non-BSD systems supporting clones of the BSD socket
+layer (including System V variants). However, note that the System V
+variant typically sets the timeout variable before exit, but the BSD
+variant does not.
+.PP
+The \fBpselect\fP function is defined in IEEE Std 1003.1g-2000 (POSIX.1g).
+It is found in glibc2.1 and later. Glibc2.0 has a function with this name,
+that however does not take a \fIsigmask\fP parameter.
+
+.SH SEE ALSO
+.BR accept (2),
+.BR connect (2),
+.BR ioctl (2),
+.BR poll (2),
+.BR read (2),
+.BR recv (2),
+.BR select (2),
+.BR send (2),
+.BR sigprocmask (2),
+.BR write (2),
+.BR sigaddset (3),
+.BR sigdelset (3),
+.BR sigemptyset (3),
+.BR sigfillset (3),
+.BR sigismember (3)
+
+.SH AUTHORS
+This man page was written by Paul Sheer.

@@ -1,0 +1,138 @@
+.\" From michael.kerrisk@gmx.net  Wed Dec 10 17:40:03 2003
+.\"
+.\" Copyright (C) 2003, Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" 2003-12-10 Initial creation, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" 2004-10-28 aeb, corrected prototype, prot must be 0
+.\"
+.TH REMAP_FILE_PAGES 2 2004-10-28 "Linux 2.6" "Linux Programmer's Manual"
+.SH NAME
+remap_file_pages \- create a non-linear file mapping
+.SH SYNOPSIS
+.B #include <sys/mman.h>
+.sp
+.BI "int remap_file_pages(void *" start ", "
+.BI "size_t " size ", int " prot ", "
+.BI "ssize_t " pgoff ", int " flags );
+.SH DESCRIPTION
+The
+.B remap_file_pages()
+system call is used to create a non-linear mapping, that is, a mapping
+in which the pages of the file are mapped into a non-sequential order
+in memory.
+The advantage of using
+.B remap_file_pages()
+over using repeated calls to
+.BR mmap (2)
+is that the former approach does not require the kernel to create
+additional VMA (Virtual Memory Area) data structures.
+
+To create a non-linear mapping we perform the following steps:
+.TP
+\fB1.\fp
+Use
+.B mmap()
+to create a mapping (which is initially linear).
+This mapping must be created with the
+MAP_SHARED flag.
+.TP
+\fB2.\fp
+Use one or more calls to
+.B remap_file_pages()
+to rearrange the correspondence between the pages of the mapping
+and the pages of the file.
+It is possible to map the same page of a file
+into multiple locations within the mapped region.
+.LP
+The
+.I pgoff
+and
+.I size
+arguments specify the region of the file that is to be relocated
+within the mapping:
+.I pgoff
+is a file offset in units of the system page size;
+.I size
+is the length of the region in bytes.
+
+The
+.I start
+argument serves two purposes.
+First, it identifies the mapping whose pages we want to rearrange.
+Thus,
+.I start
+must be an address that falls within
+a region previously mapped by a call to
+.BR mmap() .
+Second,
+.I start
+specifies the address at which the file pages
+identified by
+.I pgoff
+and
+.I size
+will be placed.
+
+The
+.I prot
+argument must be specified as 0.
+
+The
+.I flags
+argument has the same meaning as for
+.BR mmap() ,
+but all flags other than MAP_NONBLOCK are ignored.
+.SH "RETURN VALUE"
+On success,
+.B remap_file_pages()
+returns 0.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH NOTES
+The
+.B remap_file_pages()
+system call appeared in Linux 2.5.46.
+.SH ERRORS
+.TP
+.B EINVAL
+.I start
+does not refer to a valid mapping
+created with the MAP_SHARED flag.
+.TP
+.B EINVAL
+.IR start ,
+.IR size ,
+.IR prot ,
+or
+.I pgoff
+is invalid.
+.\" And possibly others from vma->vm_ops->populate()
+.SH "CONFORMING TO"
+The
+.B remap_file_pages()
+system call is Linux specific.
+.SH "SEE ALSO"
+.BR getpagesize (2),
+.BR mmap (2),
+.BR mmap2 (2),
+.BR mprotect (2),
+.BR mremap (2),
+.BR msync (2)

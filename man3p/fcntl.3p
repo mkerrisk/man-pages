@@ -1,0 +1,476 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FCNTL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" fcntl 
+.SH NAME
+fcntl \- file control
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h> \fP
+\fB
+.br
+#include <fcntl.h>
+.br
+.sp
+int fcntl(int\fP \fIfildes\fP\fB, int\fP \fIcmd\fP\fB, ...);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIfcntl\fP() function shall perform the operations described
+below on open files. The \fIfildes\fP argument is a file
+descriptor.
+.LP
+The available values for \fIcmd\fP are defined in \fI<fcntl.h>\fP
+and are as
+follows:
+.TP 7
+F_DUPFD
+Return a new file descriptor which shall be the lowest numbered available
+(that is, not already open) file descriptor greater
+than or equal to the third argument, \fIarg\fP, taken as an integer
+of type \fBint\fP. The new file descriptor shall refer to the
+same open file description as the original file descriptor, and shall
+share any locks. The FD_CLOEXEC flag associated with the new
+file descriptor shall be cleared to keep the file open across calls
+to one of the \fIexec\fP
+functions.
+.TP 7
+F_GETFD
+Get the file descriptor flags defined in \fI<fcntl.h>\fP that are
+associated with
+the file descriptor \fIfildes\fP. File descriptor flags are associated
+with a single file descriptor and do not affect other file
+descriptors that refer to the same file.
+.TP 7
+F_SETFD
+Set the file descriptor flags defined in \fI<fcntl.h>\fP, that are
+associated
+with \fIfildes\fP, to the third argument, \fIarg\fP, taken as type
+\fBint\fP. If the FD_CLOEXEC flag in the third argument is 0,
+the file shall remain open across the \fIexec\fP functions; otherwise,
+the file shall be
+closed upon successful execution of one of the \fIexec\fP functions.
+.TP 7
+F_GETFL
+Get the file status flags and file access modes, defined in \fI<fcntl.h>\fP,
+for
+the file description associated with \fIfildes\fP. The file access
+modes can be extracted from the return value using the mask
+O_ACCMODE, which is defined in \fI<fcntl.h>\fP. File status flags
+and file access
+modes are associated with the file description and do not affect other
+file descriptors that refer to the same file with different
+open file descriptions.
+.TP 7
+F_SETFL
+Set the file status flags, defined in \fI<fcntl.h>\fP, for the file
+description
+associated with \fIfildes\fP from the corresponding bits in the third
+argument, \fIarg\fP, taken as type \fBint\fP. Bits
+corresponding to the file access mode and the file creation flags,
+as defined in \fI<fcntl.h>\fP, that are set in \fIarg\fP shall be
+ignored. If any bits in \fIarg\fP other
+than those mentioned here are changed by the application, the result
+is unspecified.
+.TP 7
+F_GETOWN
+If \fIfildes\fP refers to a socket, get the process or process group
+ID specified to receive SIGURG signals when out-of-band
+data is available. Positive values indicate a process ID; negative
+values, other than -1, indicate a process group ID. If
+\fIfildes\fP does not refer to a socket, the results are unspecified.
+.TP 7
+F_SETOWN
+If \fIfildes\fP refers to a socket, set the process or process group
+ID specified to receive SIGURG signals when out-of-band
+data is available, using the value of the third argument, \fIarg\fP,
+taken as type \fBint\fP. Positive values indicate a process
+ID; negative values, other than -1, indicate a process group ID. If
+\fIfildes\fP does not refer to a socket, the results are
+unspecified.
+.sp
+.LP
+The following values for \fIcmd\fP are available for advisory record
+locking. Record locking shall be supported for regular
+files, and may be supported for other files.
+.TP 7
+F_GETLK
+Get the first lock which blocks the lock description pointed to by
+the third argument, \fIarg\fP, taken as a pointer to type
+\fBstruct flock\fP, defined in \fI<fcntl.h>\fP. The information retrieved
+shall
+overwrite the information passed to \fIfcntl\fP() in the structure
+\fBflock\fP. If no lock is found that would prevent this lock
+from being created, then the structure shall be left unchanged except
+for the lock type which shall be set to F_UNLCK.
+.TP 7
+F_SETLK
+Set or clear a file segment lock according to the lock description
+pointed to by the third argument, \fIarg\fP, taken as a
+pointer to type \fBstruct flock\fP, defined in \fI<fcntl.h>\fP. F_SETLK
+can
+establish shared (or read) locks (F_RDLCK) or exclusive (or write)
+locks (F_WRLCK), as well as to remove either type of lock
+(F_UNLCK). F_RDLCK, F_WRLCK, and F_UNLCK are defined in \fI<fcntl.h>\fP.
+If a shared
+or exclusive lock cannot be set, \fIfcntl\fP() shall return immediately
+with a return value of -1.
+.TP 7
+F_SETLKW
+This command shall be equivalent to F_SETLK except that if a shared
+or exclusive lock is blocked by other locks, the thread
+shall wait until the request can be satisfied. If a signal that is
+to be caught is received while \fIfcntl\fP() is waiting for a
+region, \fIfcntl\fP() shall be interrupted. Upon return from the signal
+handler, \fIfcntl\fP() shall return -1 with \fIerrno\fP
+set to [EINTR], and the lock operation shall not be done.
+.sp
+.LP
+Additional implementation-defined values for \fIcmd\fP may be defined
+in \fI<fcntl.h>\fP. Their names shall start with F_.
+.LP
+When a shared lock is set on a segment of a file, other processes
+shall be able to set shared locks on that segment or a portion
+of it. A shared lock prevents any other process from setting an exclusive
+lock on any portion of the protected area. A request for
+a shared lock shall fail if the file descriptor was not opened with
+read access.
+.LP
+An exclusive lock shall prevent any other process from setting a shared
+lock or an exclusive lock on any portion of the
+protected area. A request for an exclusive lock shall fail if the
+file descriptor was not opened with write access.
+.LP
+The structure \fBflock\fP describes the type ( \fIl_type\fP), starting
+offset ( \fIl_whence\fP), relative offset (
+\fIl_start\fP), size ( \fIl_len\fP), and process ID ( \fIl_pid\fP)
+of the segment of the file to be affected.
+.LP
+The value of \fIl_whence\fP is SEEK_SET, SEEK_CUR, or SEEK_END, to
+indicate that the relative offset \fIl_start\fP bytes shall
+be measured from the start of the file, current position, or end of
+the file, respectively. The value of \fIl_len\fP is the number
+of consecutive bytes to be locked. The value of \fIl_len\fP may be
+negative (where the definition of \fBoff_t\fP permits negative
+values of \fIl_len\fP). The \fIl_pid\fP field is only used with F_GETLK
+to return the process ID of the process holding a
+blocking lock. After a successful F_GETLK request, when a blocking
+lock is found, the values returned in the \fBflock\fP structure
+shall be as follows:
+.TP 7
+\fIl_type\fP
+Type of blocking lock found.
+.TP 7
+\fIl_whence\fP
+SEEK_SET.
+.TP 7
+\fIl_start\fP
+Start of the blocking lock.
+.TP 7
+\fIl_len\fP
+Length of the blocking lock.
+.TP 7
+\fIl_pid\fP
+Process ID of the process that holds the blocking lock.
+.sp
+.LP
+If the command is F_SETLKW and the process must wait for another process
+to release a lock, then the range of bytes to be locked
+shall be determined before the \fIfcntl\fP() function blocks. If the
+file size or file descriptor seek offset change while
+\fIfcntl\fP() is blocked, this shall not affect the range of bytes
+locked.
+.LP
+If \fIl_len\fP is positive, the area affected shall start at \fIl_start\fP
+and end at \fIl_start\fP+ \fIl_len\fP-1. If
+\fIl_len\fP is negative, the area affected shall start at \fIl_start\fP+
+\fIl_len\fP and end at \fIl_start\fP-1. Locks may
+start and extend beyond the current end of a file, but shall not extend
+before the beginning of the file. A lock shall be set to
+extend to the largest possible value of the file offset for that file
+by setting \fIl_len\fP to 0. If such a lock also has
+\fIl_start\fP set to 0 and \fIl_whence\fP is set to SEEK_SET, the
+whole file shall be locked.
+.LP
+There shall be at most one type of lock set for each byte in the file.
+Before a successful return from an F_SETLK or an F_SETLKW
+request when the calling process has previously existing locks on
+bytes in the region specified by the request, the previous lock
+type for each byte in the specified region shall be replaced by the
+new lock type. As specified above under the descriptions of
+shared locks and exclusive locks, an F_SETLK or an F_SETLKW request
+(respectively) shall fail or block when another process has
+existing locks on bytes in the specified region and the type of any
+of those locks conflicts with the type specified in the
+request.
+.LP
+All locks associated with a file for a given process shall be removed
+when a file descriptor for that file is closed by that
+process or the process holding that file descriptor terminates. Locks
+are not inherited by a child process.
+.LP
+A potential for deadlock occurs if a process controlling a locked
+region is put to sleep by attempting to lock another process'
+locked region. If the system detects that sleeping until a locked
+region is unlocked would cause a deadlock, \fIfcntl\fP() shall
+fail with an [EDEADLK] error.
+.LP
+An unlock (F_UNLCK) request in which \fIl_len\fP is non-zero and the
+offset of the last byte of the requested segment is the
+maximum value for an object of type \fBoff_t\fP, when the process
+has an existing lock in which \fIl_len\fP is 0 and which
+includes the last byte of the requested segment, shall be treated
+as a request to unlock from the start of the requested segment
+with an \fIl_len\fP equal to 0. Otherwise, an unlock (F_UNLCK) request
+shall attempt to unlock only the requested segment.
+.LP
+When the file descriptor \fIfildes\fP refers to a shared memory object,
+the behavior of \fIfcntl\fP() shall be the same as for a
+regular file except the effect of the following values for the argument
+\fIcmd\fP shall be unspecified: F_SETFL, F_GETLK, F_SETLK,
+and F_SETLKW. 
+.LP
+If \fIfildes\fP refers to a typed memory object, the result of the
+\fIfcntl\fP() function is unspecified. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, the value returned shall depend on \fIcmd\fP
+as follows:
+.TP 7
+F_DUPFD
+A new file descriptor.
+.TP 7
+F_GETFD
+Value of flags defined in \fI<fcntl.h>\fP. The return value shall
+not be
+negative.
+.TP 7
+F_SETFD
+Value other than -1.
+.TP 7
+F_GETFL
+Value of file status flags and access modes. The return value is not
+negative.
+.TP 7
+F_SETFL
+Value other than -1.
+.TP 7
+F_GETLK
+Value other than -1.
+.TP 7
+F_SETLK
+Value other than -1.
+.TP 7
+F_SETLKW
+Value other than -1.
+.TP 7
+F_GETOWN
+Value of the socket owner process or process group; this will not
+be -1.
+.TP 7
+F_SETOWN
+Value other than -1.
+.sp
+.LP
+Otherwise, -1 shall be returned and \fIerrno\fP set to indicate the
+error.
+.SH ERRORS
+.LP
+The \fIfcntl\fP() function shall fail if:
+.TP 7
+.B EACCES \fRor\fP EAGAIN
+.sp
+The \fIcmd\fP argument is F_SETLK; the type of lock ( \fIl_type\fP)
+is a shared (F_RDLCK) or exclusive (F_WRLCK) lock and the
+segment of a file to be locked is already exclusive-locked by another
+process, or the type is an exclusive lock and some portion of
+the segment of a file to be locked is already shared-locked or exclusive-locked
+by another process.
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor, or
+the argument \fIcmd\fP is F_SETLK or F_SETLKW, the type of
+lock, \fIl_type\fP, is a shared lock (F_RDLCK), and \fIfildes\fP is
+not a valid file descriptor open for reading, or the type of
+lock, \fIl_type\fP, is an exclusive lock (F_WRLCK), and \fIfildes\fP
+is not a valid file descriptor open for writing.
+.TP 7
+.B EINTR
+The \fIcmd\fP argument is F_SETLKW and the function was interrupted
+by a signal.
+.TP 7
+.B EINVAL
+The \fIcmd\fP argument is invalid, or the \fIcmd\fP argument is F_DUPFD
+and \fIarg\fP is negative or greater than or equal
+to {OPEN_MAX}, or the \fIcmd\fP argument is F_GETLK, F_SETLK, or F_SETLKW
+and the data pointed to by \fIarg\fP is not valid, or
+\fIfildes\fP refers to a file that does not support locking.
+.TP 7
+.B EMFILE
+The argument \fIcmd\fP is F_DUPFD and {OPEN_MAX} file descriptors
+are currently open in the calling process, or no file
+descriptors greater than or equal to \fIarg\fP are available.
+.TP 7
+.B ENOLCK
+The argument \fIcmd\fP is F_SETLK or F_SETLKW and satisfying the lock
+or unlock request would result in the number of locked
+regions in the system exceeding a system-imposed limit.
+.TP 7
+.B EOVERFLOW
+One of the values to be returned cannot be represented correctly.
+.TP 7
+.B EOVERFLOW
+The \fIcmd\fP argument is F_GETLK, F_SETLK, or F_SETLKW and the smallest
+or, if \fIl_len\fP is non-zero, the largest offset
+of any byte in the requested segment cannot be represented correctly
+in an object of type \fBoff_t\fP.
+.sp
+.LP
+The \fIfcntl\fP() function may fail if:
+.TP 7
+.B EDEADLK
+The \fIcmd\fP argument is F_SETLKW, the lock is blocked by a lock
+from another process, and putting the calling process to
+sleep to wait for that lock to become free would cause a deadlock.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The ellipsis in the SYNOPSIS is the syntax specified by the ISO\ C
+standard for a variable number of arguments. It is used
+because System V uses pointers for the implementation of file locking
+functions.
+.LP
+The \fIarg\fP values to F_GETFD, F_SETFD, F_GETFL, and F_SETFL all
+represent flag values to allow for future growth.
+Applications using these functions should do a read-modify-write operation
+on them, rather than assuming that only the values
+defined by this volume of IEEE\ Std\ 1003.1-2001 are valid. It is
+a common error to forget this, particularly in the case
+of F_SETFD.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 permits concurrent read and
+write access to file data using the \fIfcntl\fP()
+function; this is a change from the 1984 /usr/group standard and early
+proposals. Without concurrency controls, this feature may
+not be fully utilized without occasional loss of data.
+.LP
+Data losses occur in several ways. One case occurs when several processes
+try to update the same record, without sequencing
+controls; several updates may occur in parallel and the last writer
+"wins". Another case is a bit-tree or other internal
+list-based database that is undergoing reorganization. Without exclusive
+use to the tree segment by the updating process, other
+reading processes chance getting lost in the database when the index
+blocks are split, condensed, inserted, or deleted. While
+\fIfcntl\fP() is useful for many applications, it is not intended
+to be overly general and does not handle the bit-tree example
+well.
+.LP
+This facility is only required for regular files because it is not
+appropriate for many devices such as terminals and network
+connections.
+.LP
+Since \fIfcntl\fP() works with "any file descriptor associated with
+that file, however it is obtained", the file descriptor
+may have been inherited through a \fIfork\fP() or \fIexec\fP operation
+and thus may affect a file that another process also has open.
+.LP
+The use of the open file description to identify what to lock requires
+extra calls and presents problems if several processes
+are sharing an open file description, but there are too many implementations
+of the existing mechanism for this volume of
+IEEE\ Std\ 1003.1-2001 to use different specifications.
+.LP
+Another consequence of this model is that closing any file descriptor
+for a given file (whether or not it is the same open file
+description that created the lock) causes the locks on that file to
+be relinquished for that process. Equivalently, any close for
+any file/process pair relinquishes the locks owned on that file for
+that process. But note that while an open file description may
+be shared through \fIfork\fP(), locks are not inherited through \fIfork\fP().
+Yet locks may be inherited through one of the \fIexec\fP functions.
+.LP
+The identification of a machine in a network environment is outside
+the scope of this volume of IEEE\ Std\ 1003.1-2001.
+Thus, an \fIl_sysid\fP member, such as found in System V, is not included
+in the locking structure.
+.LP
+Changing of lock types can result in a previously locked region being
+split into smaller regions.
+.LP
+Mandatory locking was a major feature of the 1984 /usr/group standard.
+.LP
+For advisory file record locking to be effective, all processes that
+have access to a file must cooperate and use the advisory
+mechanism before doing I/O on the file. Enforcement-mode record locking
+is important when it cannot be assumed that all processes
+are cooperating. For example, if one user uses an editor to update
+a file at the same time that a second user executes another
+process that updates the same file and if only one of the two processes
+is using advisory locking, the processes are not
+cooperating. Enforcement-mode record locking would protect against
+accidental collisions.
+.LP
+Secondly, advisory record locking requires a process using locking
+to bracket each I/O operation with lock (or test) and unlock
+operations. With enforcement-mode file and record locking, a process
+can lock the file once and unlock when all I/O operations have
+been completed. Enforcement-mode record locking provides a base that
+can be enhanced; for example, with sharable locks. That is,
+the mechanism could be enhanced to allow a process to lock a file
+so other processes could read it, but none of them could write
+it.
+.LP
+Mandatory locks were omitted for several reasons:
+.IP " 1." 4
+Mandatory lock setting was done by multiplexing the set-group-ID bit
+in most implementations; this was confusing, at best.
+.LP
+.IP " 2." 4
+The relationship to file truncation as supported in 4.2 BSD was not
+well specified.
+.LP
+.IP " 3." 4
+Any publicly readable file could be locked by anyone. Many historical
+implementations keep the password database in a publicly
+readable file. A malicious user could thus prohibit logins. Another
+possibility would be to hold open a long-distance telephone
+line.
+.LP
+.IP " 4." 4
+Some demand-paged historical implementations offer memory mapped files,
+and enforcement cannot be done on that type of file.
+.LP
+.LP
+Since sleeping on a region is interrupted with any signal, \fIalarm\fP()
+may be used to
+provide a timeout facility in applications requiring it. This is useful
+in deadlock detection. Since implementation of full
+deadlock detection is not always feasible, the [EDEADLK] error was
+made optional.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIclose\fP() , \fIexec\fP() , \fIopen\fP() , \fIsigaction\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<fcntl.h>\fP,
+\fI<signal.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

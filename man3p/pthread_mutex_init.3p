@@ -1,0 +1,363 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_MUTEX_DESTROY" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_mutex_destroy 
+.SH NAME
+pthread_mutex_destroy, pthread_mutex_init \- destroy and initialize
+a mutex
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_mutex_destroy(pthread_mutex_t *\fP\fImutex\fP\fB);
+.br
+int pthread_mutex_init(pthread_mutex_t *restrict\fP \fImutex\fP\fB,
+.br
+\ \ \ \ \ \  const pthread_mutexattr_t *restrict\fP \fIattr\fP\fB);
+.br
+pthread_mutex_t\fP \fImutex\fP \fB= PTHREAD_MUTEX_INITIALIZER; \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_mutex_destroy\fP() function shall destroy the mutex
+object referenced by \fImutex\fP; the mutex object becomes,
+in effect, uninitialized. An implementation may cause \fIpthread_mutex_destroy\fP()
+to set the object referenced by \fImutex\fP
+to an invalid value. A destroyed mutex object can be reinitialized
+using \fIpthread_mutex_init\fP(); the results of otherwise
+referencing the object after it has been destroyed are undefined.
+.LP
+It shall be safe to destroy an initialized mutex that is unlocked.
+Attempting to destroy a locked mutex results in undefined
+behavior.
+.LP
+The \fIpthread_mutex_init\fP() function shall initialize the mutex
+referenced by \fImutex\fP with attributes specified by
+\fIattr\fP. If \fIattr\fP is NULL, the default mutex attributes are
+used; the effect shall be the same as passing the address of
+a default mutex attributes object. Upon successful initialization,
+the state of the mutex becomes initialized and unlocked.
+.LP
+Only \fImutex\fP itself may be used for performing synchronization.
+The result of referring to copies of \fImutex\fP in calls
+to \fIpthread_mutex_lock\fP(), \fIpthread_mutex_trylock\fP(), \fIpthread_mutex_unlock\fP(),
+and \fIpthread_mutex_destroy\fP() is undefined.
+.LP
+Attempting to initialize an already initialized mutex results in undefined
+behavior.
+.LP
+In cases where default mutex attributes are appropriate, the macro
+PTHREAD_MUTEX_INITIALIZER can be used to initialize mutexes
+that are statically allocated. The effect shall be equivalent to dynamic
+initialization by a call to \fIpthread_mutex_init\fP()
+with parameter \fIattr\fP specified as NULL, except that no error
+checks are performed.
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_mutex_destroy\fP() and \fIpthread_mutex_init\fP()
+functions shall return zero; otherwise, an
+error number shall be returned to indicate the error.
+.LP
+The [EBUSY] and [EINVAL] error checks, if implemented, act as if they
+were performed immediately at the beginning of processing
+for the function and shall cause an error return prior to modifying
+the state of the mutex specified by \fImutex\fP.
+.SH ERRORS
+.LP
+The \fIpthread_mutex_destroy\fP() function may fail if:
+.TP 7
+.B EBUSY
+The implementation has detected an attempt to destroy the object referenced
+by \fImutex\fP while it is locked or referenced
+(for example, while being used in a \fIpthread_cond_timedwait\fP()
+or \fIpthread_cond_wait\fP()) by another thread.
+.TP 7
+.B EINVAL
+The value specified by \fImutex\fP is invalid.
+.sp
+.LP
+The \fIpthread_mutex_init\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+The system lacked the necessary resources (other than memory) to initialize
+another mutex.
+.TP 7
+.B ENOMEM
+Insufficient memory exists to initialize the mutex.
+.TP 7
+.B EPERM
+The caller does not have the privilege to perform the operation.
+.sp
+.LP
+The \fIpthread_mutex_init\fP() function may fail if:
+.TP 7
+.B EBUSY
+The implementation has detected an attempt to reinitialize the object
+referenced by \fImutex\fP, a previously initialized, but
+not yet destroyed, mutex.
+.TP 7
+.B EINVAL
+The value specified by \fIattr\fP is invalid.
+.sp
+.LP
+These functions shall not return an error code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.SS Alternate Implementations Possible
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 supports several alternative
+implementations of mutexes. An implementation may
+store the lock directly in the object of type \fBpthread_mutex_t\fP.
+Alternatively, an implementation may store the lock in the
+heap and merely store a pointer, handle, or unique ID in the mutex
+object. Either implementation has advantages or may be required
+on certain hardware configurations. So that portable code can be written
+that is invariant to this choice, this volume of
+IEEE\ Std\ 1003.1-2001 does not define assignment or equality for
+this type, and it uses the term "initialize" to
+reinforce the (more restrictive) notion that the lock may actually
+reside in the mutex object itself.
+.LP
+Note that this precludes an over-specification of the type of the
+mutex or condition variable and motivates the opaqueness of
+the type.
+.LP
+An implementation is permitted, but not required, to have \fIpthread_mutex_destroy\fP()
+store an illegal value into the mutex.
+This may help detect erroneous programs that try to lock (or otherwise
+reference) a mutex that has already been destroyed.
+.SS Tradeoff Between Error Checks and Performance Supported
+.LP
+Many of the error checks were made optional in order to let implementations
+trade off performance \fIversus\fP degree of error
+checking according to the needs of their specific applications and
+execution environment. As a general rule, errors or conditions
+caused by the system (such as insufficient memory) always need to
+be reported, but errors due to an erroneously coded application
+(such as failing to provide adequate synchronization to prevent a
+mutex from being deleted while in use) are made optional.
+.LP
+A wide range of implementations is thus made possible. For example,
+an implementation intended for application debugging may
+implement all of the error checks, but an implementation running a
+single, provably correct application under very tight
+performance constraints in an embedded computer might implement minimal
+checks. An implementation might even be provided in two
+versions, similar to the options that compilers provide: a full-checking,
+but slower version; and a limited-checking, but faster
+version. To forbid this optionality would be a disservice to users.
+.LP
+By carefully limiting the use of "undefined behavior" only to things
+that an erroneous (badly coded) application might do, and
+by defining that resource-not-available errors are mandatory, this
+volume of IEEE\ Std\ 1003.1-2001 ensures that a
+fully-conforming application is portable across the full range of
+implementations, while not forcing all implementations to add
+overhead to check for numerous things that a correct program never
+does.
+.SS Why No Limits are Defined
+.LP
+Defining symbols for the maximum number of mutexes and condition variables
+was considered but rejected because the number of
+these objects may change dynamically. Furthermore, many implementations
+place these objects into application memory; thus, there is
+no explicit maximum.
+.SS Static Initializers for Mutexes and Condition Variables
+.LP
+Providing for static initialization of statically allocated synchronization
+objects allows modules with private static
+synchronization variables to avoid runtime initialization tests and
+overhead. Furthermore, it simplifies the coding of
+self-initializing modules. Such modules are common in C libraries,
+where for various reasons the design calls for
+self-initialization instead of requiring an explicit module initialization
+function to be called. An example use of static
+initialization follows.
+.LP
+Without static initialization, a self-initializing routine \fIfoo\fP()
+might look as follows:
+.sp
+.RS
+.nf
+
+\fBstatic pthread_once_t foo_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t foo_mutex;
+.sp
+
+void foo_init()
+{
+    pthread_mutex_init(&foo_mutex, NULL);
+}
+.sp
+
+void foo()
+{
+    pthread_once(&foo_once, foo_init);
+    pthread_mutex_lock(&foo_mutex);
+   /* Do work. */
+    pthread_mutex_unlock(&foo_mutex);
+}
+\fP
+.fi
+.RE
+.LP
+With static initialization, the same routine could be coded as follows:
+.sp
+.RS
+.nf
+
+\fBstatic pthread_mutex_t foo_mutex = PTHREAD_MUTEX_INITIALIZER;
+.sp
+
+void foo()
+{
+    pthread_mutex_lock(&foo_mutex);
+   /* Do work. */
+    pthread_mutex_unlock(&foo_mutex);
+}
+\fP
+.fi
+.RE
+.LP
+Note that the static initialization both eliminates the need for the
+initialization test inside \fIpthread_once\fP() and the fetch of &\fIfoo_mutex\fP
+to learn the address to be passed
+to \fIpthread_mutex_lock\fP() or \fIpthread_mutex_unlock\fP().
+.LP
+Thus, the C code written to initialize static objects is simpler on
+all systems and is also faster on a large class of systems;
+those where the (entire) synchronization object can be stored in application
+memory.
+.LP
+Yet the locking performance question is likely to be raised for machines
+that require mutexes to be allocated out of special
+memory. Such machines actually have to have mutexes and possibly condition
+variables contain pointers to the actual hardware locks.
+For static initialization to work on such machines, \fIpthread_mutex_lock\fP()
+also has to test whether or not the pointer to the actual lock has
+been allocated. If it has not, \fIpthread_mutex_lock\fP() has to initialize
+it before use. The reservation of such
+resources can be made when the program is loaded, and hence return
+codes have not been added to mutex locking and condition
+variable waiting to indicate failure to complete initialization.
+.LP
+This runtime test in \fIpthread_mutex_lock\fP() would at first seem
+to be
+extra work; an extra test is required to see whether the pointer has
+been initialized. On most machines this would actually be
+implemented as a fetch of the pointer, testing the pointer against
+zero, and then using the pointer if it has already been
+initialized. While the test might seem to add extra work, the extra
+effort of testing a register is usually negligible since no
+extra memory references are actually done. As more and more machines
+provide caches, the real expenses are memory references, not
+instructions executed.
+.LP
+Alternatively, depending on the machine architecture, there are often
+ways to eliminate \fIall\fP overhead in the most
+important case: on the lock operations that occur \fIafter\fP the
+lock has been initialized. This can be done by shifting more
+overhead to the less frequent operation: initialization. Since out-of-line
+mutex allocation also means that an address has to be
+dereferenced to find the actual lock, one technique that is widely
+applicable is to have static initialization store a bogus value
+for that address; in particular, an address that causes a machine
+fault to occur. When such a fault occurs upon the first attempt
+to lock such a mutex, validity checks can be done, and then the correct
+address for the actual lock can be filled in. Subsequent
+lock operations incur no extra overhead since they do not "fault".
+This is merely one technique that can be used to support
+static initialization, while not adversely affecting the performance
+of lock acquisition. No doubt there are other techniques that
+are highly machine-dependent.
+.LP
+The locking overhead for machines doing out-of-line mutex allocation
+is thus similar for modules being implicitly initialized,
+where it is improved for those doing mutex allocation entirely inline.
+The inline case is thus made much faster, and the
+out-of-line case is not significantly worse.
+.LP
+Besides the issue of locking performance for such machines, a concern
+is raised that it is possible that threads would serialize
+contending for initialization locks when attempting to finish initializing
+statically allocated mutexes. (Such finishing would
+typically involve taking an internal lock, allocating a structure,
+storing a pointer to the structure in the mutex, and releasing
+the internal lock.) First, many implementations would reduce such
+serialization by hashing on the mutex address. Second, such
+serialization can only occur a bounded number of times. In particular,
+it can happen at most as many times as there are statically
+allocated synchronization objects. Dynamically allocated objects would
+still be initialized via \fIpthread_mutex_init\fP() or \fIpthread_cond_init\fP().
+.LP
+Finally, if none of the above optimization techniques for out-of-line
+allocation yields sufficient performance for an
+application on some implementation, the application can avoid static
+initialization altogether by explicitly initializing all
+synchronization objects with the corresponding \fIpthread_*_init\fP()
+functions,
+which are supported by all implementations. An implementation can
+also document the tradeoffs and advise which initialization
+technique is more efficient for that particular implementation.
+.SS Destroying Mutexes
+.LP
+A mutex can be destroyed immediately after it is unlocked. For example,
+consider the following code:
+.sp
+.RS
+.nf
+
+\fBstruct obj {
+pthread_mutex_t om;
+    int refcnt;
+    ...
+};
+.sp
+
+obj_done(struct obj *op)
+{
+    pthread_mutex_lock(&op->om);
+    if (--op->refcnt == 0) {
+        pthread_mutex_unlock(&op->om);
+(A)     pthread_mutex_destroy(&op->om);
+(B)     free(op);
+    } else
+(C)     pthread_mutex_unlock(&op->om);
+}
+\fP
+.fi
+.RE
+.LP
+In this case \fIobj\fP is reference counted and \fIobj_done\fP() is
+called whenever a reference to the object is dropped.
+Implementations are required to allow an object to be destroyed and
+freed and potentially unmapped (for example, lines A and B)
+immediately after the object is unlocked (line C).
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_mutex_getprioceiling\fP() , \fIpthread_mutex_lock\fP()
+, \fIpthread_mutex_timedlock\fP() , \fIpthread_mutexattr_getpshared\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

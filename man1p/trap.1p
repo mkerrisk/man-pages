@@ -1,0 +1,240 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "TRAP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" trap 
+.SH NAME
+trap \- trap signals
+.SH SYNOPSIS
+.LP
+\fBtrap\fP \fB[\fP\fIaction condition\fP \fB...\fP\fB]\fP
+.SH DESCRIPTION
+.LP
+If \fIaction\fP is \fB'-'\fP , the shell shall reset each \fIcondition\fP
+to the default value. If \fIaction\fP is null (
+\fB""\fP ), the shell shall ignore each specified \fIcondition\fP
+if it arises. Otherwise, the argument \fIaction\fP shall be
+read and executed by the shell when one of the corresponding conditions
+arises. The action of \fItrap\fP shall override a previous
+action (either default action or one explicitly set). The value of
+\fB"$?"\fP after the \fItrap\fP action completes shall be
+the value it had before \fItrap\fP was invoked.
+.LP
+The condition can be EXIT, 0 (equivalent to EXIT), or a signal specified
+using a symbolic name, without the SIG prefix, as
+listed in the tables of signal names in the \fI<signal.h>\fP header
+defined in the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 13, Headers;
+for example, HUP, INT, QUIT, TERM. Implementations may permit names
+with the SIG prefix or ignore case in signal names as an
+extension. Setting a trap for SIGKILL or SIGSTOP produces undefined
+results.
+.LP
+The environment in which the shell executes a \fItrap\fP on EXIT shall
+be identical to the environment immediately after the
+last command executed before the \fItrap\fP on EXIT was taken.
+.LP
+Each time \fItrap\fP is invoked, the \fIaction\fP argument shall be
+processed in a manner equivalent to:
+.sp
+.RS
+.nf
+
+\fBeval\fP \fIaction\fP
+.fi
+.RE
+.LP
+Signals that were ignored on entry to a non-interactive shell cannot
+be trapped or reset, although no error need be reported
+when attempting to do so. An interactive shell may reset or catch
+signals ignored on entry. Traps shall remain in place for a given
+shell until explicitly changed with another \fItrap\fP command.
+.LP
+When a subshell is entered, traps that are not being ignored are set
+to the default actions. This does not imply that the
+\fItrap\fP command cannot be used within the subshell to set new traps.
+.LP
+The \fItrap\fP command with no arguments shall write to standard output
+a list of commands associated with each condition. The
+format shall be:
+.sp
+.RS
+.nf
+
+\fB"trap -- %s %s ...\\n", <\fP\fIaction\fP\fB>, <\fP\fIcondition\fP\fB> ...
+\fP
+.fi
+.RE
+.LP
+The shell shall format the output, including the proper use of quoting,
+so that it is suitable for reinput to the shell as
+commands that achieve the same trapping results. For example:
+.sp
+.RS
+.nf
+
+\fBsave_traps=$(trap)
+\&...
+eval "$save_traps"
+\fP
+.fi
+.RE
+.LP
+XSI-conformant systems also allow numeric signal numbers for the conditions
+corresponding to the following signal names: 
+.TS C
+center; l l.
+\fBSignal Number\fP	\fBSignal Name\fP
+1	SIGHUP
+2	SIGINT
+3	SIGQUIT
+6	SIGABRT
+9	SIGKILL
+14	SIGALRM
+15	SIGTERM
+.TE
+.LP
+The \fItrap\fP special built-in shall conform to the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines.
+.SH OPTIONS
+.LP
+None.
+.SH OPERANDS
+.LP
+See the DESCRIPTION.
+.SH STDIN
+.LP
+Not used.
+.SH INPUT FILES
+.LP
+None.
+.SH ENVIRONMENT VARIABLES
+.LP
+None.
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+See the DESCRIPTION.
+.SH STDERR
+.LP
+The standard error shall be used only for diagnostic messages.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+If the trap name   \ or number  is invalid, a non-zero
+exit status shall be returned; otherwise, zero shall be returned.
+For both interactive and non-interactive shells, invalid signal
+names   \ or numbers  shall not be considered a syntax error and do
+not cause the shell to abort.
+.SH CONSEQUENCES OF ERRORS
+.LP
+Default.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+None.
+.SH EXAMPLES
+.LP
+Write out a list of all traps and actions:
+.sp
+.RS
+.nf
+
+\fBtrap
+\fP
+.fi
+.RE
+.LP
+Set a trap so the \fIlogout\fP utility in the directory referred to
+by the \fIHOME\fP
+environment variable executes when the shell terminates:
+.sp
+.RS
+.nf
+
+\fBtrap '$HOME/logout' EXIT
+\fP
+.fi
+.RE
+.LP
+or:
+.sp
+.RS
+.nf
+
+\fBtrap '$HOME/logout' 0
+\fP
+.fi
+.RE
+.LP
+Unset traps on INT, QUIT, TERM, and EXIT:
+.sp
+.RS
+.nf
+
+\fBtrap - INT QUIT TERM EXIT
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+Implementations may permit lowercase signal names as an extension.
+Implementations may also accept the names with the SIG
+prefix; no known historical shell does so. The \fItrap\fP and \fIkill\fP
+utilities in this
+volume of IEEE\ Std\ 1003.1-2001 are now consistent in their omission
+of the SIG prefix for signal names. Some \fIkill\fP implementations
+do not allow the prefix, and \fIkill\fP \fB-l\fP lists the signals
+without prefixes.
+.LP
+Trapping SIGKILL or SIGSTOP is syntactically accepted by some historical
+implementations, but it has no effect. Portable POSIX
+applications cannot attempt to trap these signals.
+.LP
+The output format is not historical practice. Since the output of
+historical \fItrap\fP commands is not portable (because
+numeric signal values are not portable) and had to change to become
+so, an opportunity was taken to format the output in a way that
+a shell script could use to save and then later reuse a trap if it
+wanted.
+.LP
+The KornShell uses an \fBERR\fP trap that is triggered whenever \fIset\fP
+\fB-e\fP would
+cause an exit. This is allowable as an extension, but was not mandated,
+as other shells have not used it.
+.LP
+The text about the environment for the EXIT trap invalidates the behavior
+of some historical versions of interactive shells
+which, for example, close the standard input before executing a trap
+on 0. For example, in some historical interactive shell
+sessions the following trap on 0 would always print \fB"--"\fP :
+.sp
+.RS
+.nf
+
+\fBtrap 'read foo; echo "-$foo-"' 0
+\fP
+.fi
+.RE
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISpecial Built-In Utilities\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

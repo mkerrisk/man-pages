@@ -1,0 +1,145 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETCWD" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getcwd 
+.SH NAME
+getcwd \- get the pathname of the current working directory
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+char *getcwd(char *\fP\fIbuf\fP\fB, size_t\fP \fIsize\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetcwd\fP() function shall place an absolute pathname of the
+current working directory in the array pointed to by
+\fIbuf\fP, and return \fIbuf\fP. The pathname copied to the array
+shall contain no components that are symbolic links. The
+\fIsize\fP argument is the size in bytes of the character array pointed
+to by the \fIbuf\fP argument. If \fIbuf\fP is a null
+pointer, the behavior of \fIgetcwd\fP() is unspecified.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIgetcwd\fP() shall return the \fIbuf\fP
+argument. Otherwise, \fIgetcwd\fP() shall return a null
+pointer and set \fIerrno\fP to indicate the error. The contents of
+the array pointed to by \fIbuf\fP are then undefined.
+.SH ERRORS
+.LP
+The \fIgetcwd\fP() function shall fail if:
+.TP 7
+.B EINVAL
+The \fIsize\fP argument is 0.
+.TP 7
+.B ERANGE
+The \fIsize\fP argument is greater than 0, but is smaller than the
+length of the pathname +1.
+.sp
+.LP
+The \fIgetcwd\fP() function may fail if:
+.TP 7
+.B EACCES
+Read or search permission was denied for a component of the pathname.
+.TP 7
+.B ENOMEM
+Insufficient storage space is available.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Determining the Absolute Pathname of the Current Working Directory
+.LP
+The following example returns a pointer to an array that holds the
+absolute pathname of the current working directory. The
+pointer is returned in the \fIptr\fP variable, which points to the
+\fIbuf\fP array where the pathname is stored.
+.sp
+.RS
+.nf
+
+\fB#include <stdlib.h>
+#include <unistd.h>
+\&...
+long size;
+char *buf;
+char *ptr;
+.sp
+
+size = pathconf(".", _PC_PATH_MAX);
+.sp
+
+if ((buf = (char *)malloc((size_t)size)) != NULL)
+    ptr = getcwd(buf, (size_t)size);
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+Since the maximum pathname length is arbitrary unless {PATH_MAX} is
+defined, an application generally cannot supply a \fIbuf\fP
+with \fIsize\fP {{PATH_MAX}+1}.
+.LP
+Having \fIgetcwd\fP() take no arguments and instead use the \fImalloc\fP()
+function to
+produce space for the returned argument was considered. The advantage
+is that \fIgetcwd\fP() knows how big the working directory
+pathname is and can allocate an appropriate amount of space. But the
+programmer would have to use the \fIfree\fP() function to free the
+resulting object, or each use of \fIgetcwd\fP() would further
+reduce the available memory. Also, \fImalloc\fP() and \fIfree\fP()
+are used nowhere else in this volume of IEEE\ Std\ 1003.1-2001. Finally,
+\fIgetcwd\fP() is taken from the SVID where it has the two arguments
+used in this volume of IEEE\ Std\ 1003.1-2001.
+.LP
+The older function \fIgetwd\fP() was rejected for use in this context
+because it had only
+a buffer argument and no \fIsize\fP argument, and thus had no way
+to prevent overwriting the buffer, except to depend on the
+programmer to provide a large enough buffer.
+.LP
+On some implementations, if \fIbuf\fP is a null pointer, \fIgetcwd\fP()
+may obtain \fIsize\fP bytes of memory using \fImalloc\fP(). In this
+case, the pointer returned by \fIgetcwd\fP() may be used as the argument
+in a subsequent call to \fIfree\fP(). Invoking \fIgetcwd\fP() with
+\fIbuf\fP as a null
+pointer is not recommended in conforming applications.
+.LP
+If a program is operating in a directory where some (grand)parent
+directory does not permit reading, \fIgetcwd\fP() may fail,
+as in most implementations it must read the directory to determine
+the name of the file. This can occur if search, but not read,
+permission is granted in an intermediate directory, or if the program
+is placed in that directory by some more privileged process
+(for example, login). Including the [EACCES] error condition makes
+the reporting of the error consistent and warns the application
+writer that \fIgetcwd\fP() can fail for reasons beyond the control
+of the application writer or user. Some implementations can
+avoid this occurrence (for example, by implementing \fIgetcwd\fP()
+using \fIpwd\fP, where \fIpwd\fP is a set-user-root process), thus
+the error was made optional. Since this volume of
+IEEE\ Std\ 1003.1-2001 permits the addition of other errors, this
+would be a common addition and yet one that applications
+could not be expected to deal with without this addition.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fImalloc\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

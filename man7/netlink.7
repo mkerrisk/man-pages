@@ -1,0 +1,254 @@
+'\" t
+.\" Don't change the first line, it tells man that tbl is needed.
+.\" This man page copyright 1998 by Andi Kleen. Subject to the GPL.
+.\" This manpage copyright 1998 by Andi Kleen. Subject to the GPL.
+.\" Based on the original comments from Alexey Kuznetsov
+.\" $Id: netlink.7,v 1.8 2000/06/22 13:23:00 ak Exp $
+.TH NETLINK  7 1999-04-27 "Linux Man Page" "Linux Programmer's Manual"
+.SH NAME
+netlink, PF_NETLINK \- Communication between kernel and user
+.SH SYNOPSIS
+.nf
+.\" XXX
+.B #include <asm/types.h>
+.br
+.B #include <sys/socket.h>
+.br
+.B #include <linux/netlink.h> 
+.br
+.PP
+.BI "netlink_socket = socket(PF_NETLINK, " socket_type ", " netlink_family ); 
+.SH DESCRIPTION
+Netlink is used to transfer information between kernel modules and user space processes.  
+It consists of a standard sockets based interface for user processes and an
+internal kernel API for kernel modules. The internal kernel interface is not 
+documented in this man page. Also there is an obsolete netlink interface via
+netlink character devices, this interface is not documented here and is only
+provided for backwards compatibility. 
+
+Netlink is a datagram oriented service.  Both
+.B SOCK_RAW 
+and
+.B SOCK_DGRAM
+are valid values for
+.IR socket_type ;
+however the netlink protocol does not distinguish between
+datagram and raw sockets.
+
+.I netlink_family
+selects the kernel module or netlink group to communicate with. 
+The currently assigned netlink families are:
+.TP
+.B NETLINK_ROUTE
+Receives routing updates and may be used to modify the IPv4 routing
+table (see
+.BR rtnetlink (7)).
+.TP
+.B NETLINK_FIREWALL 
+Receives packets sent by the IPv4 firewall code.
+.TP
+.B NETLINK_ARPD
+For managing the arp table in user space.
+.TP
+.B NETLINK_ROUTE6
+Receives and sends IPv6 routing table updates.
+.TP
+.B NETLINK_IP6_FW
+to receive packets that failed the IPv6 firewall checks (currently not
+implemented).
+.TP
+.BR NETLINK_TAPBASE ... NETLINK_TAPBASE+15
+are the instances of the
+.B ethertap
+device. Ethertap is a pseudo network tunnel device that allows an
+ethernet driver to be simulated from user space.
+.TP
+.B NETLINK_SKIP
+Reserved for ENskip.
+.TP
+.B NETLINK_USERSOCK
+is reserved for future user space protocols.
+.PP
+Netlink messages consist of a byte stream with one or multiple 
+.B nlmsghdr
+headers and associated payload.
+For multipart messages the first and all following headers have the
+.B NLM_F_MULTI
+flag set, except for the last header
+which has the type
+.BR NLMSG_DONE .
+The byte stream should only be accessed with the standard
+.B NLMSG_*
+macros, see
+.BR netlink (3). 
+
+Netlink is not a reliable protocol.  It tries its best to deliver a 
+message to its destination(s), but may drop messages when an out of
+memory condition or other error occurs.  For reliable transfer the
+sender can request an acknowledgement from the receiver by setting the
+.B NLM_F_ACK
+flag.  An acknowledgment is an
+.B NLMSG_ERROR 
+packet with the error field set to 0.  The application must generate
+acks for received messages itself.  The kernel tries to send an
+.B NLMSG_ERROR
+message for every failed packet.  A user process should follow this convention too. 
+
+Each netlink family has a set of 32 multicast groups.
+When
+.BR bind (2)
+is called on the socket, the
+.B nl_groups
+field in the
+.B sockaddr_nl
+should be set to a bitmask of the groups which it wishes to listen to.
+The default value for this field is zero which means that no multicasts
+will be received.
+A socket may multicast messages to any of the multicast groups by setting
+.B nl_groups
+to a bitmask of the groups it wishes to send to when it calls
+.BR sendmsg (2) 
+or does a 
+.BR connect (2).
+Only users with an effective uid of 0 or the
+.B CAP_NET_ADMIN
+capability may send or listen to
+a netlink multicast group.
+Any replies to a message received for a multicast group
+should be sent back to the sending pid and the multicast group. 
+
+.RS
+.nf
+.ta 4 13 25
+struct nlmsghdr
+{
+	__u32	nlmsg_len;	/* Length of message including header */
+	__u16	nlmsg_type;	/* Message content */
+	__u16	nlmsg_flags;	/* Additional flags */
+	__u32	nlmsg_seq;	/* Sequence number */
+	__u32	nlmsg_pid;	/* PID of the process that opened the socket */
+};
+
+
+struct nlmsgerr
+{
+	int	error;	/* negative errno or 0 for acks. */ 
+	struct nlmsghdr msg;	/* message header that caused the error */ 
+};
+.ta
+.fi
+.RE
+
+After each
+.B nlmsghdr
+the payload follows. 
+.B nlmsg_type
+can be one of the standard message types: 
+.B NLMSG_NOOP
+message is to be ignored,
+.B NLMSG_ERROR
+the message signals an error and the payload contains a 
+.I nlmsgerr 
+structure,
+.B NLMSG_DONE
+message terminates a multipart message,
+.\" 2.1.130 does not seem to use it.
+.\" .B NLMSG_OVERRUN
+.\" data was lost. 
+
+A netlink family usually specifies more message types, see the
+appropriate man pages for that, e.g. 
+.BR rtnetlink (7)
+for 
+.IR NETLINK_ROUTE .
+
+.TS 
+tab(:); 
+l s 
+l l.
+Standard Flag bits in nlmsg_flags
+NLM_F_REQUEST:set on all request messages
+NLM_F_MULTI:T{
+the message is part of a multipart message terminated by 
+.B 
+NLMSG_DONE
+.\" XXX describe that
+T}
+NLM_F_ACK:reply with an acknowledgment on success
+NLM_F_ECHO:echo this request
+.TE
+
+.TS
+tab(:);
+l s 
+l l.
+Additional flag bits for GET requests
+NLM_F_ROOT:Return the complete table instead of a single entry.
+NLM_F_MATCH:Not implemented yet. 
+NLM_F_ATOMIC:Return an atomic snapshot of the table.
+NLM_F_DUMP:not documented yet.
+.TE
+
+.TS
+tab(:);
+l s
+l l.
+Additional flag bits for NEW requests
+NLM_F_REPLACE:Override existing object.
+NLM_F_EXCL:Don't replace if the object already exists.
+NLM_F_CREATE:Create object if it doesn't already exist.
+NLM_F_APPEND:Add to the end of the object list.
+.TE
+
+Note that NLM_F_ATOMIC requires CAP_NET_ADMIN or super user rights.
+
+.SH "ADDRESS FORMATS"
+The
+.B sockaddr_nl
+structure describes a netlink client in user space or in the kernel.
+A sockaddr_nl can be either unicast (only send to one peer) or send 
+to netlink groups (nl_groups not equal 0). 
+
+.RS
+.nf
+struct sockaddr_nl
+{
+    sa_family_t nl_family;    /* AF_NETLINK */
+    unsigned short nl_pad;    /* zero */
+    pid_t       nl_pid;       /* process pid */
+    __u32       nl_groups;    /* multicast groups mask */
+};
+.fi
+.RE
+
+.B nl_pid
+is the pid of the process owning the destination socket, or 0 if the
+destination is in the kernel. 
+.B nl_groups 
+is a bitmask with every bit representing a netlink group number.
+.\" XXX describe what that is. 
+
+
+.SH BUGS
+This man page is not complete. 
+
+.SH NOTES
+It is often better to use netlink via 
+.B libnetlink
+than via the low level kernel interface.
+
+.SH VERSIONS
+The socket interface to netlink is a new feature of Linux 2.2
+
+Linux 2.0 supported a more primitive device based netlink interface (which
+is still available as a compatibility option). This obsolete interface is not
+described here. 
+
+.SH "SEE ALSO"
+.BR cmsg (3),
+.BR netlink (3),
+.BR capabilities (7),
+.BR rtnetlink (7)
+.PP
+ftp://ftp.inr.ac.ru/ip-routing/iproute2* 
+for libnetlink

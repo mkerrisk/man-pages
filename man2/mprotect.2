@@ -1,0 +1,155 @@
+.\" -*- nroff -*- 
+.\"
+.\" Copyright (C) 1995 Michael Shields <shields@tembel.org>.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and author of this work.
+.\"
+.\" Modified 1996-10-22 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1997-05-31 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified 2003-08-24 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified 2004-08-16 by Andi Kleen <ak@muc.de>
+.\"
+.TH MPROTECT 2 2003-08-24 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+mprotect \- control allowable accesses to a region of memory
+.SH SYNOPSIS
+.nf
+.B #include <sys/mman.h>
+.sp
+\fBint mprotect(const void *\fIaddr\fB, size_t \fIlen\fB, int \fIprot\fB);
+.fi
+.SH DESCRIPTION
+The function
+.B mprotect
+specifies the desired protection for the memory page(s) containing
+part or all of the interval [\fIaddr\fP,\fIaddr\fP+\fIlen\fP-1].
+If an access is disallowed by the protection given it, the program receives a
+.BR SIGSEGV .
+.PP
+.I prot
+is a bitwise-or of the following values:
+.TP 1.1i
+.B PROT_NONE
+The memory cannot be accessed at all.
+.TP
+.B PROT_READ
+The memory can be read.
+.TP
+.B PROT_WRITE
+The memory can be written to.
+.TP
+.B PROT_EXEC
+The memory can contain executing code.
+.PP
+The new protection replaces any existing protection.  For example, if the
+memory had previously been marked \fBPROT_READ\fR, and \fBmprotect\fR
+is then called with \fIprot\fR \fBPROT_WRITE\fR, it will no longer
+be readable.
+.SH "RETURN VALUE"
+On success,
+.B mprotect
+returns zero.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EACCES
+The memory cannot be given the specified access.  This can happen,
+for example, if you
+.BR mmap (2)
+a file to which you have read-only access, then ask
+.B mprotect
+to mark it
+.BR PROT_WRITE .
+.TP
+.B EFAULT
+The memory cannot be accessed.
+.TP
+.B EINVAL
+\fIaddr\fR is not a valid pointer, or not a multiple of PAGESIZE.
+.TP
+.B ENOMEM
+Internal kernel structures could not be allocated.
+.SH EXAMPLE
+.nf
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/mman.h>
+
+#include <limits.h>    /* for PAGESIZE */
+#ifndef PAGESIZE
+#define PAGESIZE 4096
+#endif
+
+int
+main(void)
+{
+    char *p;
+    char c;
+
+    /* Allocate a buffer; it will have the default
+       protection of PROT_READ|PROT_WRITE. */
+    p = malloc(1024+PAGESIZE-1);
+    if (!p) {
+        perror("Couldn't malloc(1024)");
+        exit(errno);
+    }
+
+    /* Align to a multiple of PAGESIZE, assumed to be a power of two */
+    p = (char *)(((int) p + PAGESIZE-1) & ~(PAGESIZE-1));
+
+    c = p[666];         /* Read; ok */
+    p[666] = 42;        /* Write; ok */
+
+    /* Mark the buffer read-only. */
+    if (mprotect(p, 1024, PROT_READ)) {
+        perror("Couldn't mprotect");
+        exit(errno);
+    }
+
+    c = p[666];         /* Read; ok */
+    p[666] = 42;        /* Write; program dies on SIGSEGV */
+
+    exit(0);
+}
+.fi
+.SH "CONFORMING TO"
+SVr4, POSIX.1b (formerly POSIX.4).  SVr4 defines an additional error
+code EAGAIN. The SVr4 error conditions don't map neatly onto Linux's.
+POSIX says that
+.B mprotect
+can be used only on regions of memory obtained from
+.BR mmap (2).
+.SH NOTES
+On Linux it is always legal to call
+.B mprotect
+on any address in a process' address space (except for the
+kernel vsyscall area). In particular it can be used
+to change existing code mappings to be writable.
+
+Whether
+.B PROT_EXEC
+has any effect different from
+.B PROT_READ
+is architecture and kernel version dependent.
+.SH "SEE ALSO"
+.BR mmap (2)

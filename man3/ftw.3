@@ -1,0 +1,168 @@
+.\" Copyright (c) 1993 Michael Haardt (michael@moria.de)
+.\" Copyright (c) 1999 Andries Brouwer (aeb@cwi.nl)
+.\" Fri Jun 25 00:34:07 CEST 1999
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" Modified Sun Jul 25 11:02:22 1993 by Rik Faith (faith@cs.unc.edu)
+.TH FTW 3 1999-06-25 "Linux" "Linux Programmer's Manual"
+.SH NAME
+ftw, nftw \- file tree walk
+.SH SYNOPSIS
+.B #include <ftw.h>
+.sp
+.BI "int ftw(const char *" dir ", int (*" fn ")(const"
+.BI "char *" file ", const struct stat *" sb ", int " flag ),
+.BI "int " nopenfd );
+.sp
+.BI "int nftw(const char *" dir ", int (*" fn ")(const"
+.BI "char *" file ", const struct stat *" sb ", int " flag ,
+.BI "struct FTW *" s ),
+.BI "int " nopenfd ", int " flags );
+.SH DESCRIPTION
+\fBftw\fP() walks through the directory tree starting from the indicated
+directory \fIdir\fP.  For each found entry in the tree, it calls
+\fIfn\fP() with the full pathname of the entry, a pointer to the
+.BR stat (2)
+structure for the entry and an int \fIflag\fP, which value will be one of
+the following:
+.TP
+.B FTW_F
+Item is a normal file
+.TP
+.B FTW_D
+Item is a directory
+.TP
+.B FTW_DNR
+Item is a directory which can't be read
+.TP
+.B FTW_SL
+Item is a symbolic link
+.TP
+.B FTW_NS
+The stat failed on the item which is not a symbolic link
+.LP
+If the item is a symbolic link and stat failed, XPG4v2 states
+that it is undefined whether FTW_NS or FTW_SL is used.
+.PP
+\fBftw\fP() recursively calls itself for traversing found directories,
+handling a directory before its files or subdirectories.
+To avoid using up all a program's file descriptors, \fInopenfd\fP
+specifies the maximum number of simultaneous open directories.  When
+the search depth exceeds this, \fBftw\fP() will become slower because
+directories have to be closed and reopened. \fBftw\fP() uses at most
+one file descriptor for each level in the file hierarchy.
+.PP
+To stop the tree walk, \fIfn\fP() returns a non-zero value; this
+value will become the return value of \fBftw\fP().  Otherwise,
+\fBftw\fP() will continue until it has traversed the entire tree, in
+which case it will return zero, or until it hits an error other than EACCES
+(such as a
+.BR malloc (3)
+failure), in which case it will return \-1.
+.PP
+Because \fBftw()\fP uses dynamic data structures, the only safe way to
+exit out of a tree walk is to return a non-zero value.  To handle
+interrupts, for example, mark that the interrupt occurred and return a
+non-zero value\(emdon't use
+.BR longjmp (3)
+unless the program is going to terminate.
+
+The function \fBnftw\fP() does precisely the same as \fBftw\fP(),
+except that it has one additional argument \fIflags\fP
+(and calls the supplied function with one more argument).
+This \fIflags\fP argument is an OR of zero or more of the following flags:
+.TP
+.B FTW_CHDIR
+If set, do a
+.IR chdir ()
+to each directory before handling its contents.
+.TP
+.B FTW_DEPTH
+If set, do a depth-first search, that is, call the function for
+the directory itself only after handling the contents of the directory
+and its subdirectories.
+.TP
+.B FTW_MOUNT
+If set, stay within the same file system.
+.TP
+.B FTW_PHYS
+If set, do not follow symbolic links.
+(This is what you want.)
+If not set, symbolic links are followed, but no file is reported twice.
+.LP
+If FTW_PHYS is not set, but FTW_DEPTH is set, then the function
+.IR fn ()
+is never called for a directory that would be a descendant of itself.
+.LP
+The function
+.IR fn ()
+is called with four arguments: the pathname of the reported entry,
+a pointer to a struct stat for this entry, an integer describing
+its type, and a pointer to a struct FTW. The type will be one
+of the following: FTW_F, FTW_D, FTW_DNR, FTW_SL, FTW_NS
+(with meaning as above; FTW_SL occurs only with FTW_PHYS set) or
+.TP
+.B FTW_DP
+Item is a directory and all its descendants have been handled
+already. (This occurs only with FTW_DEPTH set.)
+.TP
+.B FTW_SLN
+Item is a symbolic link pointing to a nonexisting file.
+(This occurs only with FTW_PHYS unset.)
+.LP
+The struct FTW pointed to by the fourth argument to
+.IR fn ()
+has at least the fields
+.IR base ,
+the offset of the item's filename in the pathname
+given as first argument of
+.IR fn (),
+and
+.IR level ,
+the depth of the item relative to the starting point
+(which has depth 0).
+.SH NOTES
+The function
+.IR nftw ()
+and the use of FTW_SL with
+.IR ftw ()
+were introduced in XPG4v2.
+.LP
+On some systems
+.IR ftw ()
+will never use FTW_SL, on other systems FTW_SL occurs only
+for symbolic links that do not point to an existing file,
+and again on other systems
+.IR ftw ()
+will use FTW_SL for each symbolic link. For predictable control, use
+.IR nftw ().
+.LP
+Under Linux, libc4 and libc5 and glibc 2.0.6 will
+use FTW_F for all objects (files, symbolic links, fifos, etc)
+that can be stat'ed but are not a directory.
+The function
+.IR nftw ()
+is available since glibc 2.1.
+.SH "CONFORMING TO"
+AES, SVID2, SVID3, XPG2, XPG3, XPG4, XPG4v2.
+.SH "SEE ALSO"
+.BR stat (2)

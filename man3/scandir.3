@@ -1,0 +1,145 @@
+.\" Copyright (C) 1993 David Metcalfe (david@prism.demon.co.uk)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References consulted:
+.\"     Linux libc source code
+.\"     Lewine's _POSIX Programmer's Guide_ (O'Reilly & Associates, 1991)
+.\"     386BSD man pages
+.\" Modified Sat Jul 24 18:26:16 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified Thu Apr 11 17:11:33 1996 by Andries Brouwer (aeb@cwi.nl):
+.\"     Corrected type of compar routines, as suggested by
+.\"     Miguel Barreiro (enano@avalon.yaix.es).  Added example.
+.\" Modified Sun Sep 24 20:15:46 2000 by aeb, following Petter Reinholdtsen.
+.\" Modified 2001-12-26 by aeb, following Joey. Added versionsort.
+.\"
+.TH SCANDIR 3  2001-12-26 "GNU" "Linux Programmer's Manual"
+.SH NAME
+scandir, alphasort, versionsort \- scan a directory for matching entries
+.SH SYNOPSIS
+.nf
+.B #include <dirent.h>
+.sp
+.BI "int scandir(const char *" dir ", struct dirent ***" namelist ,
+.RS
+.BI "int(*" filter ")(const struct dirent *),"
+.BI "int(*" compar ")(const struct dirent **, const struct dirent **));"
+.RE
+.sp
+.BI "int alphasort(const void *" a ", const void *" b );
+.br
+.BI "int versionsort(const void *" a ", const void *" b );
+.fi
+.SH DESCRIPTION
+The \fBscandir()\fP function scans the directory \fIdir\fP, calling
+\fIfilter()\fP on each directory entry.  Entries for which 
+\fIfilter()\fP returns non-zero are stored in strings allocated via
+\fBmalloc()\fP, sorted using \fBqsort()\fP with the comparison
+function \fIcompar()\fP, and collected in array \fInamelist\fP
+which is allocated via \fBmalloc()\fP.
+If \fIfilter\fP is NULL, all entries are selected.
+.LP
+The
+.B alphasort()
+and
+.B versionsort()
+functions can be used as the comparison function
+.IR compar() .
+The former sorts directory entries using
+.BR strcoll (3),
+the latter using
+.BR strvers\%cmp (3)
+on the strings \fI(*a)->d_name\fP and \fI(*b)->d_name\fP.
+.SH "RETURN VALUE"
+The \fBscandir()\fP function returns the number of directory entries
+selected or \-1 if an error occurs.
+.PP
+The
+.B alphasort()
+and
+.B versionsort()
+functions return an integer less than, equal to, 
+or greater than zero if the first argument is considered to be 
+respectively less than, equal to, or greater than the second.
+.SH ERRORS
+.TP
+.B ENOMEM
+Insufficient memory to complete the operation.
+.SH "CONFORMING TO"
+None of these functions is in POSIX.
+LSB has deprecated the library call
+.B alphasort()
+and never contained
+.BR scandir() .
+.LP
+The functions
+.B scandir()
+and
+.B alphasort()
+are from BSD 4.3, and have been available under Linux since libc4.
+Libc4 and libc5 use the more precise prototype
+.sp
+.nf
+.BI "int alphasort(const struct dirent **" a ", const struct dirent **" b );
+.fi
+.sp
+but glibc 2.0 returns to the imprecise BSD prototype.
+.LP
+The function
+.B versionsort()
+is a GNU extension, available since glibc 2.1.
+Since glibc 2.1,
+.B alphasort()
+calls
+.BR strcoll (3);
+earlier it used
+.BR strcmp (3).
+.SH EXAMPLE
+.nf
+/* print files in current directory in reverse order */
+#include <dirent.h>
+main(){
+    struct dirent **namelist;
+    int n;
+
+    n = scandir(".", &namelist, 0, alphasort);
+    if (n < 0)
+        perror("scandir");
+    else {
+        while(n--) {
+            printf("%s\en", namelist[n]->d_name);
+            free(namelist[n]);
+        }
+        free(namelist);
+    }
+}
+.fi
+.SH "SEE ALSO"
+.BR closedir (3),
+.BR fnmatch (3),
+.BR opendir (3),
+.BR readdir (3),
+.BR rewinddir (3),
+.BR seekdir (3),
+.BR strcmp (3),
+.BR strcoll (3),
+.BR strverscmp (3),
+.BR telldir (3)

@@ -1,0 +1,202 @@
+.\" This page is in the public domain.
+.\" Almost all details are from RFC 2553.
+.\"
+.TH getnameinfo 3 2000-12-11 "Linux Man Page" "UNIX Programmer's Manual"
+.SH NAME
+getnameinfo \- address-to-name translation in protocol-independent manner
+.SH SYNOPSIS
+.nf
+.B #include <sys/socket.h>
+.B #include <netdb.h>
+.sp
+.BI "int getnameinfo(const struct sockaddr *" "sa" ", socklen_t " "salen" ,
+.BI "                char *" "host" ", size_t " "hostlen" ,
+.BI "                char *" "serv" ", size_t " "servlen" ", int " "flags" );
+.fi
+.SH DESCRIPTION
+The
+.BR getnameinfo (3)
+function is defined for protocol-independent address-to-nodename translation.
+It combines the functionality of
+.BR gethostbyaddr (3)
+and
+.BR getservbyport (3)
+and is the inverse of
+.BR getaddrinfo (3).
+The
+.I sa
+argument is a pointer to a generic socket address structure
+(of type
+.I sockaddr_in
+or
+.IR sockaddr_in6 )
+of size
+.IR salen
+that holds the input IP address and port number.
+The arguments
+.I host
+and
+.I serv
+are pointers to buffers (of size
+.I hostlen
+and
+.I servlen
+respectively) to hold the return values.
+
+The caller can specify that no hostname (or no service name)
+is required by providing a NULL
+.I host
+(or
+.IR serv )
+argument or a zero
+.I hostlen
+(or
+.IR servlen )
+parameter. However, at least one of hostname or service name
+must be requested.
+
+The
+.I flags
+argument modifies the behaviour of
+.BR getnameinfo (3)
+as follows:
+.TP
+.B NI_NOFQDN
+If set, return only the hostname part of the FQDN for local hosts.
+.TP
+.B NI_NUMERICHOST
+If set, then the numeric form of the hostname is returned.
+.\" For example, by calling
+.\" .I inet_ntop()
+.\" instead of
+.\" .IR gethostbyaddr() .
+(When not set, this will still happen in case the node's name
+cannot be looked up.)
+.TP
+.B NI_NAMEREQD
+If set, then a error is returned if the hostname cannot be looked up.
+.TP
+.B NI_NUMERICSERV
+If set, then the service address is returned in numeric form,
+for example by its port number.
+.TP
+.B NI_DGRAM
+If set, then the service is datagram (UDP) based rather than
+stream (TCP) based. This is required for the few ports (512-514)
+that have different services for UDP and TCP.
+.SH "RETURN VALUE"
+On success 0 is returned, and node and service names, if requested,
+are filled with NUL-terminated strings, possibly truncated to fit
+the specified buffer lengths.
+On error a nonzero value is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EAI_AGAIN
+The name could not be resolved at this time. Try again later.
+.TP
+.B EAI_BADFLAGS
+The
+.I flags
+parameter has an invalid value.
+.TP
+.B EAI_FAIL
+A non-recoverable error occurred.
+.TP
+.B EAI_FAMILY
+The address family was not recognized,
+or the address length was invalid for the specified family.
+.TP
+.B EAI_MEMORY
+Out of memory.
+.TP
+.B EAI_NONAME
+The name does not resolve for the supplied parameters.
+NI_NAMEREQD is set and the host's name cannot be located,
+or neither hostname nor service name were requested.
+.TP
+.B EAI_SYSTEM
+A system error occurred. The error code can be found in
+.IR errno .
+.SH FILES
+/etc/hosts
+.br
+/etc/nsswitch.conf
+.br
+/etc/resolv.conf
+.SH NOTE
+In order to assist the programmer in choosing reasonable sizes
+for the supplied buffers,
+.I <netdb.h>
+defines the constants
+.RS
+.nf
+# define NI_MAXHOST      1025
+.br
+# define NI_MAXSERV      32
+.fi
+.RE
+The former is the constant MAXDNAME in recent versions of BIND's
+.I <arpa/nameser.h>
+header file. The latter is a guess based on the services listed
+in the current Assigned Numbers RFC.
+.SH EXAMPLES
+The following code tries to get the numeric hostname and service name, for
+a given socket address. Note that there is no hardcoded reference to
+a particular address family.
+
+.RS
+.nf
+  struct sockaddr *sa;    /* input */
+  char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
+  if (getnameinfo(sa, sa->sa_len, hbuf, sizeof(hbuf), sbuf,
+      sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+          printf("host=%s, serv=%s\en", hbuf, sbuf);
+.fi
+.RE
+
+The following version checks if the socket address has a
+reverse address mapping.
+
+.RS
+.fi
+  struct sockaddr *sa;    /* input */
+  char hbuf[NI_MAXHOST];
+
+  if (getnameinfo(sa, sa->sa_len, hbuf, sizeof(hbuf),
+      NULL, 0, NI_NAMEREQD))
+         printf("could not resolve hostname");
+  else
+         printf("host=%s\en", hbuf);
+.fi
+.RE
+.SH "CONFORMING TO"
+RFC 2553. (See also XNS, issue 5.2.)
+.SH "SEE ALSO"
+.BR getaddrinfo (3),
+.BR gethostbyaddr (3),
+.BR getservbyname (3),
+.BR getservbyport (3),
+.BR inet_ntop (3),
+.BR socket (3),
+.BR hosts (5),
+.BR services (5),
+.BR hostname (7),
+.BR named (8)
+.LP
+R. Gilligan, S. Thomson, J. Bound and W. Stevens,
+.IR "Basic Socket Interface Extensions for IPv6" ,
+RFC 2553, March 1999.
+.LP
+Tatsuya Jinmei and Atsushi Onoe,
+.IR "An Extension of Format for IPv6 Scoped Addresses" ,
+internet draft, work in progress.
+ftp://ftp.ietf.org/internet-drafts/draft-ietf-ipngwg-scopedaddr-format-02.txt
+.LP
+Craig Metz,
+.IR "Protocol Independence Using the Sockets API" ,
+Proceedings of the freenix track:
+2000 USENIX annual technical conference, June 2000.
+http://www.usenix.org/publications/library/proceedings/usenix2000/freenix/metzprotocol.html

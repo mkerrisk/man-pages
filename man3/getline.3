@@ -1,0 +1,141 @@
+.\" Copyright (c) 2001 John Levon <moz@compsoc.man.ac.uk>
+.\" Based in part on GNU libc documentation
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.TH GETLINE 3  2001-10-07 "GNU" "Linux Programmer's Manual"
+.SH NAME
+getline, getdelim \- delimited string input
+.SH SYNOPSIS
+.nf
+.B #define _GNU_SOURCE
+.B #include <stdio.h>
+.sp
+.BI "ssize_t getline(char **" lineptr ", size_t *" n ", FILE *" stream );
+.nl
+.BI "ssize_t getdelim(char **" lineptr ", size_t *" n ", int " delim ", FILE *" stream );
+.SH DESCRIPTION
+.B getline()
+reads an entire line, storing the address of the buffer containing
+the text into
+.IR "*lineptr".
+The buffer is null-terminated and includes the newline character, if a
+newline delimiter was found.
+
+.\" FIXME: what happens if *lineptr is NULL but *n isn't zero ?
+.\" Answer: *n is ignored and a new buffer is allocated
+If
+.IR "*lineptr"
+is
+.BR "NULL",
+the
+.BR getline()
+routine will allocate a buffer for containing the line, which must be freed
+by the user program.
+Alternatively, before calling
+.BR "getline()",
+.IR "*lineptr"
+can contain a pointer to a
+.BR "malloc()"\-allocated
+buffer
+.IR "*n"
+bytes in size. If the buffer is not large enough to hold the line read in,
+.B getline()
+resizes the buffer to fit with
+.BR "realloc()",
+updating
+.IR "*lineptr"
+and
+.IR "*n"
+as necessary. In either case, on a successful call,
+.IR "*lineptr"
+and
+.IR "*n"
+will be updated to reflect the buffer address and size respectively.
+
+.BR getdelim()
+works like
+.BR "getline()",
+except a line delimiter other than newline can be specified as the
+.IR delimiter
+argument. As with
+.BR "getline()",
+a delimiter character is not added if one was not present
+in the input before end of file was reached.
+
+.SH "RETURN VALUE"
+On success,
+.B "getline()"
+and
+.B "getdelim()"
+return the number of characters read, including the delimiter character,
+but not including the terminating null character. This value can be used
+to handle embedded null characters in the line read.
+
+Both functions return \-1  on failure to read a line (including end of file
+condition).
+
+.SH ERRORS
+.TP
+.B EINVAL
+Bad parameters
+.RI ( n
+or
+.I lineptr
+is NULL, or
+.I stream
+is not valid).
+
+.SH "EXAMPLE"
+.nf
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+	FILE * fp;
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	fp = fopen("/etc/motd", "r");
+	if (fp == NULL)
+		exit(EXIT_FAILURE);
+	while ((read = getline(&line, &len, fp)) != -1) {
+		printf("Retrieved line of length %zu :\en", read);
+		printf("%s", line);
+	}
+	if (line)
+		free(line);
+	return EXIT_SUCCESS;
+}
+.fi
+.SH "CONFORMING TO"
+Both getline() and getdelim() are GNU extensions.
+They are available since libc 4.6.27.
+
+.SH "SEE ALSO"
+.BR read (2),
+.BR fgets (3),
+.BR fopen (3),
+.BR fread (3),
+.BR gets (3),
+.BR scanf (3)

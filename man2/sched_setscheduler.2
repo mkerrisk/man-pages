@@ -1,0 +1,289 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) Tom Bjorkholm, Markus Kuhn & David A. Wheeler 1996-1999
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 1996-04-01 Tom Bjorkholm <tomb@mydata.se>
+.\"            First version written
+.\" 1996-04-10 Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"            revision
+.\" 1999-08-18 David A. Wheeler <dwheeler@ida.org> added Note.
+.\" Modified, 25 Jun 2002, Michael Kerrisk <mtk16.ext.canterbury.ac.nz>
+.\"	Corrected description of queue placement by sched_setparam() and 
+.\"		sched_setscheduler()
+.\"	A couple of grammar clean-ups
+.\" Modified 2004-05-27 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH SETSCHEDULER 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+sched_setscheduler, sched_getscheduler \-
+set and get scheduling algorithm/parameters
+.SH SYNOPSIS
+.B #include <sched.h>
+.sp
+.BI "int sched_setscheduler(pid_t " pid ", int " policy ,
+.BI "const struct sched_param *" p );
+.sp
+.BI "int sched_getscheduler(pid_t " pid );
+.sp
+.nf
+.ta 4n
+\fBstruct sched_param {
+	...
+	int \fIsched_priority\fB;
+	...
+};
+.ta
+.fi
+.SH DESCRIPTION
+.B sched_setscheduler
+sets both the scheduling policy and the associated parameters for the
+process identified by \fIpid\fP. If \fIpid\fP equals zero, the
+scheduler of the calling process will be set. The interpretation of
+the parameter \fIp\fP depends on the selected policy. Currently, the
+following three scheduling policies are supported under Linux:
+.IR SCHED_FIFO , 
+.IR SCHED_RR ,
+and 
+.IR SCHED_OTHER ;
+their respective semantics are described below.
+
+.B sched_getscheduler
+queries the scheduling policy currently applied to the process
+identified by \fIpid\fP. If \fIpid\fP equals zero, the policy of the
+calling process will be retrieved.
+
+
+.SS Scheduling Policies
+The scheduler is the kernel part that decides which runnable process
+will be executed by the CPU next. The Linux scheduler offers three
+different scheduling policies, one for normal processes and two for
+real-time applications. A static priority value \fIsched_priority\fP
+is assigned to each process and this value can be changed only via
+system calls. Conceptually, the scheduler maintains a list of runnable
+processes for each possible \fIsched_priority\fP value, and
+\fIsched_priority\fP can have a value in the range 0 to 99. In order
+to determine the process that runs next, the Linux scheduler looks for
+the non-empty list with the highest static priority and takes the
+process at the head of this list. The scheduling policy determines for
+each process, where it will be inserted into the list of processes
+with equal static priority and how it will move inside this list.
+
+\fISCHED_OTHER\fP is the default universal time-sharing scheduler
+policy used by most processes, \fISCHED_FIFO\fP and \fISCHED_RR\fP are
+intended for special time-critical applications that need precise
+control over the way in which runnable processes are selected for
+execution. Processes scheduled with \fISCHED_OTHER\fP must be assigned
+the static priority 0, processes scheduled under \fISCHED_FIFO\fP or
+\fISCHED_RR\fP can have a static priority in the range 1 to 99. Only
+processes with superuser privileges can get a static priority higher
+than 0 and can therefore be scheduled under \fISCHED_FIFO\fP or
+\fISCHED_RR\fP. The system calls \fBsched_get_priority_min\fP and
+\fBsched_get_priority_max\fP can be used to find out the valid
+priority range for a scheduling policy in a portable way on all
+POSIX.1b conforming systems.
+
+All scheduling is preemptive: If a process with a higher static
+priority gets ready to run, the current process will be preempted and
+returned into its wait list. The scheduling policy only determines the
+ordering within the list of runnable processes with equal static
+priority.
+
+.SS SCHED_FIFO: First In-First Out scheduling
+\fISCHED_FIFO\fP can only be used with static priorities higher than
+0, which means that when a \fISCHED_FIFO\fP processes becomes runnable,
+it will always preempt immediately any currently running normal
+\fISCHED_OTHER\fP process. \fISCHED_FIFO\fP is a simple scheduling
+algorithm without time slicing. For processes scheduled under the
+\fISCHED_FIFO\fP policy, the following rules are applied: A
+\fISCHED_FIFO\fP process that has been preempted by another process of
+higher priority will stay at the head of the list for its priority and
+will resume execution as soon as all processes of higher priority are
+blocked again. When a \fISCHED_FIFO\fP process becomes runnable, it
+will be inserted at the end of the list for its priority. A call to
+\fBsched_setscheduler\fP or \fBsched_setparam\fP will put the
+\fISCHED_FIFO\fP (or \fISCHED_RR\fP) process identified by
+\fIpid\fP at the start of the list if it was runnable.
+As a consequence, it may preempt the currently running process if
+it has the same priority.
+(POSIX 1003.1 specifies that the process should go to the end
+of the list.)
+.\" In 2.2.x and 2.4.x, the process is placed at the front of the queue
+.\" In 2.0.x, the Right Thing happened: the process went to the back -- MTK
+A process calling \fBsched_yield\fP will be
+put at the end of the list. No other events will move a process
+scheduled under the \fISCHED_FIFO\fP policy in the wait list of
+runnable processes with equal static priority. A \fISCHED_FIFO\fP
+process runs until either it is blocked by an I/O request, it is
+preempted by a higher priority process, or it calls \fBsched_yield\fP.
+
+
+.SS SCHED_RR: Round Robin scheduling
+\fISCHED_RR\fP is a simple enhancement of \fISCHED_FIFO\fP. Everything
+described above for \fISCHED_FIFO\fP also applies to \fISCHED_RR\fP,
+except that each process is only allowed to run for a maximum time
+quantum. If a \fISCHED_RR\fP process has been running for a time
+period equal to or longer than the time quantum, it will be put at the
+end of the list for its priority. A \fISCHED_RR\fP process that has
+been preempted by a higher priority process and subsequently resumes
+execution as a running process will complete the unexpired portion of
+its round robin time quantum. The length of the time quantum can be
+retrieved by \fBsched_rr_get_interval\fP.
+.\" On Linux 2.4, the length of the RR interval is influenced
+.\" by the process nice value -- MTK
+
+.SS SCHED_OTHER: Default Linux time-sharing scheduling
+\fISCHED_OTHER\fP can only be used at static priority 0.
+\fISCHED_OTHER\fP is the standard Linux time-sharing scheduler that is
+intended for all processes that do not require special static priority
+real-time mechanisms. The process to run is chosen from the static
+priority 0 list based on a dynamic priority that is determined only
+inside this list. The dynamic priority is based on the nice level (set
+by the \fBnice\fP or \fBsetpriority\fP system call) and increased for
+each time quantum the process is ready to run, but denied to run by
+the scheduler. This ensures fair progress among all \fISCHED_OTHER\fP
+processes.
+
+.SS Response time
+A blocked high priority process waiting for the I/O has a certain
+response time before it is scheduled again. The device driver writer
+can greatly reduce this response time by using a "slow interrupt"
+interrupt handler.
+.\" as described in
+.\" .BR request_irq (9).
+
+.SS Miscellaneous
+Child processes inherit the scheduling algorithm and parameters across a
+.BR fork .
+
+Memory locking is usually needed for real-time processes to avoid 
+paging delays, this can be done with
+.B mlock 
+or 
+.BR mlockall .
+
+As a non-blocking end-less loop in a process scheduled under
+\fISCHED_FIFO\fP or \fISCHED_RR\fP will block all processes with lower
+priority forever, a software developer should always keep available on
+the console a shell scheduled under a higher static priority than the
+tested application. This will allow an emergency kill of tested
+real-time applications that do not block or terminate as expected. As
+\fISCHED_FIFO\fP and \fISCHED_RR\fP processes can preempt other
+processes forever, only root processes are allowed to activate these
+policies under Linux.
+
+POSIX systems on which
+.B sched_setscheduler
+and
+.B sched_getscheduler
+are available define
+.I _POSIX_PRIORITY_SCHEDULING
+in <unistd.h>.
+
+.SH "RETURN VALUE"
+On success,
+.BR sched_setscheduler
+returns zero.  
+On success,
+.BR sched_getscheduler
+returns the policy for the process (a non-negative integer).  
+On error, \-1 is returned,
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EINVAL
+The scheduling \fIpolicy\fP is not one of the recognized policies,
+or the parameter \fIp\fP does not make sense for the \fIpolicy\fP.
+.TP
+.B EPERM
+The calling process does not have appropriate privileges
+(Linux: does not have the
+.B CAP_SYS_NICE
+capability). Only privileged processes are allowed to
+activate the \fISCHED_FIFO\fP and \fISCHED_RR\fP
+policies. A process calling 
+.BR sched_setscheduler
+needs an effective user ID equal to the user ID or effective user ID
+of the process identified by
+.IR pid ,
+or it must be privileged.
+.TP
+.B ESRCH
+The process whose ID is \fIpid\fP could not be found.
+.SH "CONFORMING TO"
+POSIX.1b (formerly POSIX.4)
+.SH NOTE
+Standard Linux is a general-purpose operating system
+and can handle background processes,
+interactive applications, and soft real-time applications
+(applications that need to usually meet timing deadlines).
+This man page is directed at these kinds of applications.
+.PP
+Standard Linux is
+.I not
+designed to support
+hard real-time applications, that is, applications in which deadlines
+(often much shorter than a second) must be guaranteed or the system
+will fail catastrophically.
+Like all general-purpose operating systems, Linux
+is designed to maximize average case performance
+instead of worst case performance.
+Linux's worst case performance for
+interrupt handling is much poorer than its average case, its various
+kernel locks (such as for SMP) produce long maximum wait times, and
+many of its performance improvement techniques decrease average time by
+increasing worst-case time.
+For most situations, that's what you want, but
+if you truly are developing a hard real-time application,
+consider using hard real-time extensions to Linux such as
+RTLinux (http://www.rtlinux.org) or RTAI (http://www.rtai.org)
+or use a different operating system
+designed specifically for hard real-time applications.
+.SH "SEE ALSO"
+.BR getpriority (2),
+.BR mlock (2),
+.BR mlockall (2),
+.BR munlock (2),
+.BR munlockall (2),
+.BR nice (2),
+.BR sched_get_priority_max (2),
+.BR sched_get_priority_min (2),
+.BR sched_getaffinity (2),
+.BR sched_getparam (2),
+.BR sched_rr_get_interval (2),
+.BR sched_setaffinity (2),
+.BR sched_setparam (2),
+.BR sched_yield (2),
+.BR setpriority (2),
+.BR capabilities (7)
+.PP
+.I Programming for the real world \- POSIX.4
+by Bill O. Gallmeister, O'Reilly & Associates, Inc., ISBN 1-56592-074-0
+.br
+.I IEEE Std 1003.1b-1993
+(POSIX.1b standard)
+.br
+.I ISO/IEC 9945-1:1996
+\- This is the new 1996 revision of POSIX.1 which contains in one
+single standard POSIX.1(1990), POSIX.1b(1993), POSIX.1c(1995), and
+POSIX.1i(1995).

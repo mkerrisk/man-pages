@@ -1,0 +1,158 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "TIMES" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" times 
+.SH NAME
+times \- get process and waited-for child process times
+.SH SYNOPSIS
+.LP
+\fB#include <sys/times.h>
+.br
+.sp
+clock_t times(struct tms *\fP\fIbuffer\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fItimes\fP() function shall fill the \fBtms\fP structure pointed
+to by \fIbuffer\fP with time-accounting information.
+The \fBtms\fP structure is defined in \fI<sys/times.h>\fP.
+.LP
+All times are measured in terms of the number of clock ticks used.
+.LP
+The times of a terminated child process shall be included in the \fItms_cutime\fP
+and \fItms_cstime\fP elements of the parent
+when \fIwait\fP() or \fIwaitpid\fP() returns the
+process ID of this terminated child. If a child process has not waited
+for its children, their times shall not be included in its
+times.
+.IP " *" 3
+The \fItms_utime\fP structure member is the CPU time charged for the
+execution of user instructions of the calling process.
+.LP
+.IP " *" 3
+The \fItms_stime\fP structure member is the CPU time charged for execution
+by the system on behalf of the calling process.
+.LP
+.IP " *" 3
+The \fItms_cutime\fP structure member is the sum of the \fItms_utime\fP
+and \fItms_cutime\fP times of the child
+processes.
+.LP
+.IP " *" 3
+The \fItms_cstime\fP structure member is the sum of the \fItms_stime\fP
+and \fItms_cstime\fP times of the child
+processes.
+.LP
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fItimes\fP() shall return the elapsed
+real time, in clock ticks, since an arbitrary point in the
+past (for example, system start-up time). This point does not change
+from one invocation of \fItimes\fP() within the process to
+another. The return value may overflow the possible range of type
+\fBclock_t\fP. If \fItimes\fP() fails, (\fBclock_t\fP)-1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Timing a Database Lookup
+.LP
+The following example defines two functions, \fIstart_clock\fP() and
+\fIend_clock\fP(), that are used to time a lookup. It
+also defines variables of type \fBclock_t\fP and \fBtms\fP to measure
+the duration of transactions. The \fIstart_clock\fP()
+function saves the beginning times given by the \fItimes\fP() function.
+The \fIend_clock\fP() function gets the ending times and
+prints the difference between the two times.
+.sp
+.RS
+.nf
+
+\fB#include <sys/times.h>
+#include <stdio.h>
+\&...
+void start_clock(void);
+void end_clock(char *msg);
+\&...
+static clock_t st_time;
+static clock_t en_time;
+static struct tms st_cpu;
+static struct tms en_cpu;
+\&...
+void
+start_clock()
+{
+    st_time = times(&st_cpu);
+}
+.sp
+
+/* This example assumes that the result of each subtraction
+   is within the range of values that can be represented in
+   an integer type. */
+void
+end_clock(char *msg)
+{
+    en_time = times(&en_cpu);
+.sp
+
+    fputs(msg,stdout);
+    printf("Real Time: %jd, User Time %jd, System Time %jd\\n",
+        (intmax_t)(en_time - st_time),
+        (intmax_t)(en_cpu.tms_utime - st_cpu.tms_utime),
+        (intmax_t)(en_cpu.tms_stime - st_cpu.tms_stime));
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Applications should use \fIsysconf\fP(_SC_CLK_TCK) to determine the
+number of clock ticks per second as it may vary from system
+to system.
+.SH RATIONALE
+.LP
+The accuracy of the times reported is intentionally left unspecified
+to allow implementations flexibility in design, from
+uniprocessor to multi-processor networks.
+.LP
+The inclusion of times of child processes is recursive, so that a
+parent process may collect the total times of all of its
+descendants. But the times of a child are only added to those of its
+parent when its parent successfully waits on the child. Thus,
+it is not guaranteed that a parent process can always see the total
+times of all its descendants; see also the discussion of the
+term ``realtime'' in \fIalarm\fP() .
+.LP
+If the type \fBclock_t\fP is defined to be a signed 32-bit integer,
+it overflows in somewhat more than a year if there are 60
+clock ticks per second, or less than a year if there are 100. There
+are individual systems that run continuously for longer than
+that. This volume of IEEE\ Std\ 1003.1-2001 permits an implementation
+to make the reference point for the returned value be
+the start-up time of the process, rather than system start-up time.
+.LP
+The term ``charge'' in this context has nothing to do with billing
+for services. The operating system accounts for time used in
+this way. That information must be correct, regardless of how that
+information is used.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIexec\fP() , \fIfork\fP() , \fIsysconf\fP() , \fItime\fP()
+, \fIwait\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<sys/times.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

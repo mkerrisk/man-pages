@@ -1,0 +1,144 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SIGALTSTACK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sigaltstack 
+.SH NAME
+sigaltstack \- set and get signal alternate stack context
+.SH SYNOPSIS
+.LP
+\fB#include <signal.h>
+.br
+.sp
+int sigaltstack(const stack_t *restrict\fP \fIss\fP\fB, stack_t *restrict\fP
+\fIoss\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsigaltstack\fP() function allows a process to define and examine
+the state of an alternate stack for signal handlers for
+the current thread. Signals that have been explicitly declared to
+execute on the alternate stack shall be delivered on the
+alternate stack.
+.LP
+If \fIss\fP is not a null pointer, it points to a \fBstack_t\fP structure
+that specifies the alternate signal stack that shall
+take effect upon return from \fIsigaltstack\fP(). The \fIss_flags\fP
+member specifies the new stack state. If it is set to
+SS_DISABLE, the stack is disabled and \fIss_sp\fP and \fIss_size\fP
+are ignored. Otherwise, the stack shall be enabled, and the
+\fIss_sp\fP and \fIss_size\fP members specify the new address and
+size of the stack.
+.LP
+The range of addresses starting at \fIss_sp\fP up to but not including
+\fIss_sp\fP+ \fIss_size\fP is available to the
+implementation for use as the stack. This function makes no assumptions
+regarding which end is the stack base and in which
+direction the stack grows as items are pushed.
+.LP
+If \fIoss\fP is not a null pointer, on successful completion it shall
+point to a \fBstack_t\fP structure that specifies the
+alternate signal stack that was in effect prior to the call to \fIsigaltstack\fP().
+The \fIss_sp\fP and \fIss_size\fP members
+specify the address and size of that stack. The \fIss_flags\fP member
+specifies the stack's state, and may contain one of the
+following values:
+.TP 7
+SS_ONSTACK
+The process is currently executing on the alternate signal stack.
+Attempts to modify the alternate signal stack while the
+process is executing on it fail. This flag shall not be modified by
+processes.
+.TP 7
+SS_DISABLE
+The alternate signal stack is currently disabled.
+.sp
+.LP
+The value SIGSTKSZ is a system default specifying the number of bytes
+that would be used to cover the usual case when manually
+allocating an alternate stack area. The value MINSIGSTKSZ is defined
+to be the minimum stack size for a signal handler. In
+computing an alternate stack size, a program should add that amount
+to its stack requirements to allow for the system
+implementation overhead. The constants SS_ONSTACK, SS_DISABLE, SIGSTKSZ,
+and MINSIGSTKSZ are defined in \fI<signal.h>\fP.
+.LP
+After a successful call to one of the \fIexec\fP functions, there
+are no alternate signal
+stacks in the new process image.
+.LP
+In some implementations, a signal (whether or not indicated to execute
+on the alternate stack) shall always execute on the
+alternate stack if it is delivered while another signal is being caught
+using the alternate stack.
+.LP
+Use of this function by library threads that are not bound to kernel-scheduled
+entities results in undefined behavior.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIsigaltstack\fP() shall return 0; otherwise,
+it shall return -1 and set \fIerrno\fP to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIsigaltstack\fP() function shall fail if:
+.TP 7
+.B EINVAL
+The \fIss\fP argument is not a null pointer, and the \fIss_flags\fP
+member pointed to by \fIss\fP contains flags other than
+SS_DISABLE.
+.TP 7
+.B ENOMEM
+The size of the alternate stack area is less than MINSIGSTKSZ.
+.TP 7
+.B EPERM
+An attempt was made to modify an active stack.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Allocating Memory for an Alternate Stack
+.LP
+The following example illustrates a method for allocating memory for
+an alternate stack.
+.sp
+.RS
+.nf
+
+\fB#include <signal.h>
+\&...
+if ((sigstk.ss_sp = malloc(SIGSTKSZ)) == NULL)
+    /* Error return. */
+sigstk.ss_size = SIGSTKSZ;
+sigstk.ss_flags = 0;
+if (sigaltstack(&sigstk,(stack_t *)0) < 0)
+    perror("sigaltstack");
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+On some implementations, stack space is automatically extended as
+needed. On those implementations, automatic extension is
+typically not available for an alternate stack. If the stack overflows,
+the behavior is undefined.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISignal Concepts\fP , \fIsigaction\fP() , \fIsigsetjmp\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<signal.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

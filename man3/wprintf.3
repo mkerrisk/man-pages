@@ -1,0 +1,149 @@
+.\" Copyright (c) Bruno Haible <haible@clisp.cons.org>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" References consulted:
+.\"   GNU glibc-2 source code and manual
+.\"   Dinkumware C library reference http://www.dinkumware.com/
+.\"   OpenGroup's Single Unix specification http://www.UNIX-systems.org/online.html
+.\"   ISO/IEC 9899:1999
+.\"
+.TH WPRINTF 3  1999-11-20 "GNU" "Linux Programmer's Manual"
+.SH NAME
+wprintf, fwprintf, swprintf, vwprintf, vfwprintf, vswprintf \- formatted wide character output conversion
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <wchar.h>
+.sp
+.BI "int wprintf(const wchar_t *" format ", ...);"
+.BI "int fwprintf(FILE *" stream ", const wchar_t *" format ", ...);"
+.BI "int swprintf(wchar_t *" wcs ", size_t " maxlen ,
+.BI "              const wchar_t *" format ", ...);"
+.sp
+.B #include <stdarg.h>
+.sp
+.BI "int vwprintf(const wchar_t *" format ", va_list " args );
+.BI "int vfwprintf(FILE *" stream ", const wchar_t *" format ", va_list " args );
+.BI "int vswprintf(wchar_t *" wcs ", size_t " maxlen ,
+.BI "               const wchar_t *" format ", va_list " args );
+.fi
+.SH DESCRIPTION
+The \fBwprintf\fP family of functions is the wide-character equivalent of the
+\fBprintf\fP family of functions. It performs formatted output of wide
+characters.
+.PP
+The \fBwprintf\fP and \fBvwprintf\fP functions perform wide character output
+to \fBstdout\fP. \fBstdout\fP must not be byte oriented; see function
+\fBfwide\fP for more information.
+.PP
+The \fBfwprintf\fP and \fBvfwprintf\fP functions perform wide character output
+to \fIstream\fP. \fIstream\fP must not be byte oriented; see function
+\fBfwide\fP for more information.
+.PP
+The \fBswprintf\fP and \fBvswprintf\fP functions perform wide character output
+to an array of wide characters.
+The programmer must ensure that there is room for at least \fImaxlen\fP wide
+characters at \fIwcs\fP.
+.PP
+These functions are like the \fBprintf\fP, \fBvprintf\fP, \fBfprintf\fP,
+\fBvfprintf\fP, \fBsprintf\fP, \fBvsprintf\fP functions except for the
+following differences:
+.TP
+.B \(bu
+The \fIformat\fP string is a wide character string.
+.TP
+.B \(bu
+The output consists of wide characters, not bytes.
+.TP
+.B \(bu
+\fBswprintf\fP and \fBvswprintf\fP take a \fImaxlen\fP argument,
+\fBsprintf\fP and \fBvsprintf\fP do not. (\fBsnprintf\fP and \fBvsnprintf\fP
+take a \fImaxlen\fP argument, but these functions do not return \-1 upon
+buffer overflow on Linux.)
+.PP
+The treatment of the conversion characters \fBc\fP and \fBs\fP is different:
+.TP
+.B c
+If no
+.B l
+modifier is present, the
+.I int
+argument is converted to a wide character by a call to the
+.B btowc
+function, and the resulting wide character is written.
+If an
+.B l
+modifier is present, the
+.I wint_t
+(wide character) argument is written.
+.TP
+.B s
+If no
+.B l
+modifier is present: The
+.IR "" `` "const char *" ''
+argument is expected to be a pointer to an array of character type
+(pointer to a string) containing a multibyte character sequence beginning
+in the initial shift state. Characters from the array are converted to
+wide characters (each by a call to the
+.B mbrtowc
+function with a conversion state starting in the initial state before
+the first byte). The resulting wide characters are written up to
+(but not including) the terminating null wide character. If a precision is
+specified, no more wide characters than the number specified are written.
+Note that the precision determines the number of
+.I wide characters
+written, not the number of
+.I bytes
+or
+.IR "screen positions" .
+The array must contain a terminating null byte, unless a precision is given
+and it is so small that the number of converted wide characters reaches it
+before the end of the array is reached. -- If an
+.B l
+modifier is present: The
+.IR "" `` "const wchar_t *" ''
+argument is expected to be a pointer to an array of wide characters.
+Wide characters from the array are written up to (but not including) a
+terminating null wide character. If a precision is specified, no more than
+the number specified are written. The array must contain a terminating null
+wide character, unless a precision is given and it is smaller than or equal
+to the number of wide characters in the array.
+.SH "RETURN VALUE"
+The functions return the number of wide characters written, excluding the
+terminating null wide character in case of the functions \fBswprintf\fP and
+\fBvswprintf\fP. They return \-1 when an error occurs.
+.SH "CONFORMING TO"
+ISO/ANSI C, UNIX98
+.SH "SEE ALSO"
+.BR fprintf (3),
+.BR fputwc (3),
+.BR fwide (3),
+.BR printf (3),
+.BR snprintf (3),
+.BR wscanf (3)
+.SH NOTES
+The behaviour of \fBwprintf\fP et al. depends on the LC_CTYPE category of the
+current locale.
+.PP
+If the \fIformat\fP string contains non-ASCII wide characters, the program
+will only work correctly if the LC_CTYPE category of the current locale at
+run time is the same as the LC_CTYPE category of the current locale at
+compile time. This is because the
+.B wchar_t
+representation is platform and locale dependent. (The GNU libc represents
+wide characters using their Unicode (ISO-10646) code point, but other
+platforms don't do this. Also, the use of ISO C99 universal character names
+of the form \\unnnn does not solve this problem.) Therefore, in
+internationalized programs, the \fIformat\fP string should consist of ASCII
+wide characters only, or should be constructed at run time in an
+internationalized way (e.g. using
+.B gettext
+or
+.BR iconv ,
+followed by
+.BR mbstowcs ).

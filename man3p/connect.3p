@@ -1,0 +1,220 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "CONNECT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" connect 
+.SH NAME
+connect \- connect a socket
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+.sp
+int connect(int\fP \fIsocket\fP\fB, const struct sockaddr *\fP\fIaddress\fP\fB,
+.br
+\ \ \ \ \ \  socklen_t\fP \fIaddress_len\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIconnect\fP() function shall attempt to make a connection on
+a socket. The function takes the following arguments:
+.TP 7
+\fIsocket\fP
+Specifies the file descriptor associated with the socket.
+.TP 7
+\fIaddress\fP
+Points to a \fBsockaddr\fP structure containing the peer address.
+The length and format of the address depend on the address
+family of the socket.
+.TP 7
+\fIaddress_len\fP
+Specifies the length of the \fBsockaddr\fP structure pointed to by
+the \fIaddress\fP argument.
+.sp
+.LP
+If the socket has not already been bound to a local address, \fIconnect\fP()
+shall bind it to an address which, unless the
+socket's address family is AF_UNIX, is an unused local address.
+.LP
+If the initiating socket is not connection-mode, then \fIconnect\fP()
+shall set the socket's peer address, and no connection is
+made. For SOCK_DGRAM sockets, the peer address identifies where all
+datagrams are sent on subsequent \fIsend\fP() functions, and limits
+the remote sender for subsequent \fIrecv\fP() functions. If \fIaddress\fP
+is a null address for the protocol, the socket's peer
+address shall be reset.
+.LP
+If the initiating socket is connection-mode, then \fIconnect\fP()
+shall attempt to establish a connection to the address
+specified by the \fIaddress\fP argument. If the connection cannot
+be established immediately and O_NONBLOCK is not set for the
+file descriptor for the socket, \fIconnect\fP() shall block for up
+to an unspecified timeout interval until the connection is
+established. If the timeout interval expires before the connection
+is established, \fIconnect\fP() shall fail and the connection
+attempt shall be aborted. If \fIconnect\fP() is interrupted by a signal
+that is caught while blocked waiting to establish a
+connection, \fIconnect\fP() shall fail and set \fIerrno\fP to [EINTR],
+but the connection request shall not be aborted, and the
+connection shall be established asynchronously.
+.LP
+If the connection cannot be established immediately and O_NONBLOCK
+is set for the file descriptor for the socket,
+\fIconnect\fP() shall fail and set \fIerrno\fP to [EINPROGRESS], but
+the connection request shall not be aborted, and the
+connection shall be established asynchronously. Subsequent calls to
+\fIconnect\fP() for the same socket, before the connection is
+established, shall fail and set \fIerrno\fP to [EALREADY].
+.LP
+When the connection has been established asynchronously, \fIselect\fP()
+and \fIpoll\fP() shall indicate that the file descriptor for the socket
+is ready for writing.
+.LP
+The socket in use may require the process to have appropriate privileges
+to use the \fIconnect\fP() function.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIconnect\fP() shall return 0; otherwise,
+-1 shall be returned and \fIerrno\fP set to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIconnect\fP() function shall fail if:
+.TP 7
+.B EADDRNOTAVAIL
+The specified address is not available from the local machine.
+.TP 7
+.B EAFNOSUPPORT
+The specified address is not a valid address for the address family
+of the specified socket.
+.TP 7
+.B EALREADY
+A connection request is already in progress for the specified socket.
+.TP 7
+.B EBADF
+The \fIsocket\fP argument is not a valid file descriptor.
+.TP 7
+.B ECONNREFUSED
+The target address was not listening for connections or refused the
+connection request.
+.TP 7
+.B EINPROGRESS
+O_NONBLOCK is set for the file descriptor for the socket and the connection
+cannot be immediately established; the connection
+shall be established asynchronously.
+.TP 7
+.B EINTR
+The attempt to establish a connection was interrupted by delivery
+of a signal that was caught; the connection shall be
+established asynchronously.
+.TP 7
+.B EISCONN
+The specified socket is connection-mode and is already connected.
+.TP 7
+.B ENETUNREACH
+No route to the network is present.
+.TP 7
+.B ENOTSOCK
+The \fIsocket\fP argument does not refer to a socket.
+.TP 7
+.B EPROTOTYPE
+The specified address has a different type than the socket bound to
+the specified peer address.
+.TP 7
+.B ETIMEDOUT
+The attempt to connect timed out before a connection was made.
+.sp
+.LP
+If the address family of the socket is AF_UNIX, then \fIconnect\fP()
+shall fail if:
+.TP 7
+.B EIO
+An I/O error occurred while reading from or writing to the file system.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+pathname in \fIaddress\fP.
+.TP 7
+.B ENAMETOOLONG
+A component of a pathname exceeded {NAME_MAX} characters, or an entire
+pathname exceeded {PATH_MAX} characters.
+.TP 7
+.B ENOENT
+A component of the pathname does not name an existing file or the
+pathname is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix of the pathname in \fIaddress\fP is
+not a directory.
+.sp
+.LP
+The \fIconnect\fP() function may fail if:
+.TP 7
+.B EACCES
+Search permission is denied for a component of the path prefix; or
+write access to the named socket is denied.
+.TP 7
+.B EADDRINUSE
+Attempt to establish a connection that uses addresses that are already
+in use.
+.TP 7
+.B ECONNRESET
+Remote host reset the connection request.
+.TP 7
+.B EHOSTUNREACH
+The destination host cannot be reached (probably because the host
+is down or a remote router cannot reach it).
+.TP 7
+.B EINVAL
+The \fIaddress_len\fP argument is not a valid length for the address
+family; or invalid address family in the \fBsockaddr\fP
+structure.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the pathname in \fIaddress\fP.
+.TP 7
+.B ENAMETOOLONG
+Pathname resolution of a symbolic link produced an intermediate result
+whose length exceeds {PATH_MAX}.
+.TP 7
+.B ENETDOWN
+The local network interface used to reach the destination is down.
+.TP 7
+.B ENOBUFS
+No buffer space is available.
+.TP 7
+.B EOPNOTSUPP
+The socket is listening and cannot be connected.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If \fIconnect\fP() fails, the state of the socket is unspecified.
+Conforming applications should close the file descriptor and
+create a new socket before attempting to reconnect.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIaccept\fP() , \fIbind\fP() , \fIclose\fP() , \fIgetsockname\fP()
+, \fIpoll\fP() , \fIselect\fP() , \fIsend\fP() , \fIshutdown\fP()
+, \fIsocket\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

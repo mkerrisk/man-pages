@@ -1,0 +1,198 @@
+.\" Copyright (c) 2003 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH WORDEXP 3 2003-11-11  "" "Linux Programmer's Manual"
+.SH NAME
+wordexp, wordfree \- perform word expansion like a posix-shell
+.SH SYNOPSIS
+.sp
+.B "#include <wordexp.h>"
+.sp
+.BI "int wordexp(const char *" s ", wordexp_t *" p ", int " flags );
+.sp
+.BI "void wordfree(wordexp_t *" p );
+.sp
+.SH DESCRIPTION
+The function
+.B wordexp() 
+performs a shell-like expansion of the string
+.I s
+and returns the result in the structure pointed to by
+.IR p .
+The data type
+.B wordexp_t
+is a structure that at least has the fields
+.IR we_wordc ,
+.IR we_wordv ,
+and
+.IR we_offs .
+The field
+.I we_wordc
+is a
+.B size_t
+that gives the number of words in the expansion of
+.IR s .
+The field
+.I we_wordv
+is a
+.B char **
+that points to the array of words found.
+The field
+.I we_offs
+of type
+.B size_t
+is sometimes (depending on
+.IR flags ,
+see below) used to indicate the number of initial elements in the
+.I we_wordv
+array that should be filled with NULLs.
+.LP
+The function 
+.B wordfree() 
+frees the allocated memory again. More precisely, it does not free
+its argument, but it frees the array
+.I we_wordv
+and the strings that points to.
+
+.SH EXAMPLE
+First a small example. The output is approximately that of "ls [a-c]*.c".
+.LP
+.nf
+#include <stdio.h>
+#include <wordexp.h>
+
+int main(int argc, char **argv) {
+        wordexp_t p;
+        char **w;
+        int i;
+
+        wordexp("[a-c]*.c", &p, 0);
+        w = p.we_wordv;
+        for (i=0; i<p.we_wordc; i++)
+                printf("%s\en", w[i]);
+        wordfree(&p);
+        return 0;
+}
+.fi
+.SH DETAILS
+.SS "The string argument"
+Since the expansion is the same as the expansion by the shell (see
+.BR sh (1))
+of the parameters to a command, the string
+.I s
+must not contain characters that would be illegal in shell command
+parameters. In particular, there must not be any non-escaped
+newline or |, &, ;, <, >, (, ), {, } characters
+outside a command substitution or parameter substitution context.
+.LP
+If the argument
+.I s
+contains a word that starts with an unquoted comment character #,
+then it is unspecified whether that word and all following words
+are ignored, or the # is treated as a non-comment character.
+
+.SS "The expansion"
+The expansion done consists of the following stages:
+tilde expansion (replacing ~user by user's home directory),
+variable substitution (replacing $FOO by the value of the environment
+variable FOO), command substitution (replacing $(command) or `command`
+by the output of command), arithmetic expansion, field splitting,
+wildcard expansion, quote removal.
+.LP
+The result of expansion of special parameters
+($@, $*, $#, $?, $-, $$, $!, $0) is unspecified.
+.LP
+Field splitting is done using the environment variable $IFS.
+If it is not set, the field separators are space, tab and newline.
+
+.SS "The output array"
+The array
+.I we_wordv
+contains the words found, followed by a NULL.
+
+.SS "The flags argument"
+The
+.I flag
+argument is a bitwise inclusive OR of the following values:
+.TP
+.B WRDE_APPEND
+Append the words found to the array resulting from a previous call.
+.TP
+.B  WRDE_DOOFFS
+Insert
+.I we_offs
+initial NULLs in the array
+.IR we_wordv .
+(These are not counted in the returned
+.IR we_wordc .)
+.TP
+.B  WRDE_NOCMD
+Don't do command substitution.
+.TP
+.B WRDE_REUSE
+The parameter
+.I p
+resulted from a previous call to
+.BR wordexp() ,
+and
+.BR wordfree()
+was not called. Reuse the allocated storage.
+.TP
+.B WRDE_SHOWERR
+Normally during command substitution
+.I stderr
+is redirected to
+.IR /dev/null .
+This flag specifies that
+.I stderr
+is not to be redirected.
+.TP
+.B WRDE_UNDEF
+Consider it an error if an undefined shell variable is expanded.
+.SH "RETURN VALUE"
+In case of success 0 is returned. In case of error
+one of the following five values is returned.
+.TP
+.B WRDE_BADCHAR 
+Illegal occurrence of newline or one of |, &, ;, <, >, (, ), {, }.
+.TP
+.B WRDE_BADVAL
+An undefined shell variable was referenced, and the WRDE_UNDEF flag
+told us to consider this an error.
+.TP
+.B WRDE_CMDSUB
+Command substitution occurred, and the WRDE_NOCMD flag
+told us to consider this an error.
+.TP
+.B WRDE_NOSPACE
+Out of memory.
+.TP
+.B WRDE_SYNTAX
+Shell syntax error, such as unbalanced parentheses or
+unmatched quotes.
+
+.SH "CONFORMING TO"
+XPG4, POSIX 1003.1-2003
+ 
+.SH "SEE ALSO"
+.BR fnmatch (3),
+.BR glob (3)

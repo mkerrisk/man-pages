@@ -1,0 +1,286 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POLL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" poll 
+.SH NAME
+poll \- input/output multiplexing
+.SH SYNOPSIS
+.LP
+\fB#include <poll.h>
+.br
+.sp
+int poll(struct pollfd\fP \fIfds\fP\fB[], nfds_t\fP \fInfds\fP\fB,
+int\fP \fItimeout\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpoll\fP() function provides applications with a mechanism for
+multiplexing input/output over a set of file descriptors.
+For each member of the array pointed to by \fIfds\fP, \fIpoll\fP()
+shall examine the given file descriptor for the event(s)
+specified in \fIevents\fP. The number of \fBpollfd\fP structures in
+the \fIfds\fP array is specified by \fInfds\fP. The
+\fIpoll\fP() function shall identify those file descriptors on which
+an application can read or write data, or on which certain
+events have occurred.
+.LP
+The \fIfds\fP argument specifies the file descriptors to be examined
+and the events of interest for each file descriptor. It is
+a pointer to an array with one member for each open file descriptor
+of interest. The array's members are \fBpollfd\fP structures
+within which \fIfd\fP specifies an open file descriptor and \fIevents\fP
+and \fIrevents\fP are bitmasks constructed by OR'ing a
+combination of the following event flags:
+.TP 7
+POLLIN
+Data other than high-priority data may be read without blocking. 
+.LP
+For STREAMS, this flag is set in \fIrevents\fP even if the message
+is of zero length. This flag shall be equivalent to POLLRDNORM
+| POLLRDBAND. 
+.TP 7
+POLLRDNORM
+Normal data may be read without blocking. 
+.LP
+For STREAMS, data on priority band 0 may be read without blocking.
+This flag is set in \fIrevents\fP even if the message is of
+zero length. 
+.TP 7
+POLLRDBAND
+Priority data may be read without blocking. 
+.LP
+For STREAMS, data on priority bands greater than 0 may be read without
+blocking. This flag is set in \fIrevents\fP even if the
+message is of zero length. 
+.TP 7
+POLLPRI
+High-priority data may be read without blocking. 
+.LP
+For STREAMS, this flag is set in \fIrevents\fP even if the message
+is of zero length. 
+.TP 7
+POLLOUT
+Normal data may be written without blocking. 
+.LP
+For STREAMS, data on priority band 0 may be written without blocking.
+.TP 7
+POLLWRNORM
+Equivalent to POLLOUT.
+.TP 7
+POLLWRBAND
+Priority data may be written. 
+.LP
+For STREAMS, data on priority bands greater than 0 may be written
+without blocking. If any priority band has been written to on
+this STREAM, this event only examines bands that have been written
+to at least once. 
+.TP 7
+POLLERR
+An error has occurred on the device or stream. This flag is only valid
+in the \fIrevents\fP bitmask; it shall be ignored in
+the \fIevents\fP member.
+.TP 7
+POLLHUP
+The device has been disconnected. This event and POLLOUT are mutually-exclusive;
+a stream can never be writable if a hangup has
+occurred. However, this event and POLLIN, POLLRDNORM, POLLRDBAND,
+or POLLPRI are not mutually-exclusive. This flag is only valid in
+the \fIrevents\fP bitmask; it shall be ignored in the \fIevents\fP
+member.
+.TP 7
+POLLNVAL
+The specified \fIfd\fP value is invalid. This flag is only valid in
+the \fIrevents\fP member; it shall ignored in the
+\fIevents\fP member.
+.sp
+.LP
+The significance and semantics of normal, priority, and high-priority
+data are file and device-specific.
+.LP
+If the value of \fIfd\fP is less than 0, \fIevents\fP shall be ignored,
+and \fIrevents\fP shall be set to 0 in that entry on
+return from \fIpoll\fP().
+.LP
+In each \fBpollfd\fP structure, \fIpoll\fP() shall clear the \fIrevents\fP
+member, except that where the application
+requested a report on a condition by setting one of the bits of \fIevents\fP
+listed above, \fIpoll\fP() shall set the
+corresponding bit in \fIrevents\fP if the requested condition is true.
+In addition, \fIpoll\fP() shall set the POLLHUP, POLLERR,
+and POLLNVAL flag in \fIrevents\fP if the condition is true, even
+if the application did not set the corresponding bit in
+\fIevents\fP.
+.LP
+If none of the defined events have occurred on any selected file descriptor,
+\fIpoll\fP() shall wait at least \fItimeout\fP
+milliseconds for an event to occur on any of the selected file descriptors.
+If the value of \fItimeout\fP is 0, \fIpoll\fP()
+shall return immediately. If the value of \fItimeout\fP is -1, \fIpoll\fP()
+shall block until a requested event occurs or until
+the call is interrupted.
+.LP
+Implementations may place limitations on the granularity of timeout
+intervals. If the requested timeout interval requires a
+finer granularity than the implementation supports, the actual timeout
+interval shall be rounded up to the next supported
+value.
+.LP
+The \fIpoll\fP() function shall not be affected by the O_NONBLOCK
+flag.
+.LP
+The \fIpoll\fP() function shall support regular files, terminal and
+pseudo-terminal devices, FIFOs, pipes, sockets and  
+\ STREAMS-based files.  The behavior of \fIpoll\fP() on
+elements of \fIfds\fP that refer to other types of file is unspecified.
+.LP
+Regular files shall always poll TRUE for reading and writing.
+.LP
+A file descriptor for a socket that is listening for connections shall
+indicate that it is ready for reading, once connections
+are available. A file descriptor for a socket that is connecting asynchronously
+shall indicate that it is ready for writing, once a
+connection has been established.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIpoll\fP() shall return a non-negative
+value. A positive value indicates the total number of file
+descriptors that have been selected (that is, file descriptors for
+which the \fIrevents\fP member is non-zero). A value of 0
+indicates that the call timed out and no file descriptors have been
+selected. Upon failure, \fIpoll\fP() shall return -1 and set
+\fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIpoll\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+The allocation of internal data structures failed but a subsequent
+request may succeed.
+.TP 7
+.B EINTR
+A signal was caught during \fIpoll\fP().
+.TP 7
+.B EINVAL
+The \fInfds\fP argument is greater than {OPEN_MAX},   \ or one of
+the \fIfd\fP members refers to a STREAM or multiplexer
+that is linked (directly or indirectly) downstream from a multiplexer.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Checking for Events on a Stream
+.LP
+The following example opens a pair of STREAMS devices and then waits
+for either one to become writable. This example proceeds as
+follows:
+.IP " 1." 4
+Sets the \fItimeout\fP parameter to 500 milliseconds.
+.LP
+.IP " 2." 4
+Opens the STREAMS devices \fB/dev/dev0\fP and \fB/dev/dev1\fP, and
+then polls them, specifying POLLOUT and POLLWRBAND as the
+events of interest.
+.LP
+The STREAMS device names \fB/dev/dev0\fP and \fB/dev/dev1\fP are only
+examples of how STREAMS devices can be named; STREAMS
+naming conventions may vary among systems conforming to the IEEE\ Std\ 1003.1-2001.
+.LP
+.IP " 3." 4
+Uses the \fIret\fP variable to determine whether an event has occurred
+on either of the two STREAMS. The \fIpoll\fP() function
+is given 500 milliseconds to wait for an event to occur (if it has
+not occurred prior to the \fIpoll\fP() call).
+.LP
+.IP " 4." 4
+Checks the returned value of \fIret\fP. If a positive value is returned,
+one of the following can be done:
+.RS
+.IP " a." 4
+Priority data can be written to the open STREAM on priority bands
+greater than 0, because the POLLWRBAND event occurred on the
+open STREAM ( \fIfds\fP[0] or \fIfds\fP[1]).
+.LP
+.IP " b." 4
+Data can be written to the open STREAM on priority-band 0, because
+the POLLOUT event occurred on the open STREAM ( \fIfds\fP[0]
+or \fIfds\fP[1]).
+.LP
+.RE
+.LP
+.IP " 5." 4
+If the returned value is not a positive value, permission to write
+data to the open STREAM (on any priority band) is denied.
+.LP
+.IP " 6." 4
+If the POLLHUP event occurs on the open STREAM ( \fIfds\fP[0] or \fIfds\fP[1]),
+the device on the open STREAM has
+disconnected.
+.LP
+.sp
+.RS
+.nf
+
+\fB#include <stropts.h>
+#include <poll.h>
+\&...
+struct pollfd fds[2];
+int timeout_msecs = 500;
+int ret;
+    int i;
+.sp
+
+/* Open STREAMS device. */
+fds[0].fd = open("/dev/dev0", ...);
+fds[1].fd = open("/dev/dev1", ...);
+    fds[0].events = POLLOUT | POLLWRBAND;
+    fds[1].events = POLLOUT | POLLWRBAND;
+.sp
+
+ret = poll(fds, 2, timeout_msecs);
+.sp
+
+if (ret > 0) {
+    /* An event on one of the fds has occurred. */
+    for (i=0; i<2; i++) {
+        if (fds[i].revents & POLLWRBAND) {
+        /* Priority data may be written on device number i. */
+\&...
+        }
+        if (fds[i].revents & POLLOUT) {
+        /* Data may be written on device number i. */
+\&...
+        }
+        if (fds[i].revents & POLLHUP) {
+        /* A hangup has occurred on device number i. */
+\&...
+        }
+    }
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISTREAMS\fP , \fIgetmsg\fP() , \fIputmsg\fP() , \fIread\fP() , \fIselect\fP()
+, \fIwrite\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<poll.h>\fP, \fI<stropts.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

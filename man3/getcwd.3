@@ -1,0 +1,176 @@
+.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\" Modified Wed Jul 21 22:35:42 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified 18 Mar 1996 by Martin Schulze (joey@infodrom.north.de):
+.\"   Corrected description of getwd().
+.\" Modified Sat Aug 21 12:32:12 MET 1999 by aeb - applied fix by aj
+.\" Modified Mon Dec 11 13:32:51 MET 2000 by aeb
+.\" Modified Thu Apr 22 03:49:15 CEST 2002 by Roger Luethi <rl@hellgate.ch>
+.\"
+.TH GETCWD 3 2002-04-22 "GNU" "Linux Programmer's Manual"
+.SH NAME
+getcwd, get_current_dir_name, getwd \- Get current working directory
+.SH SYNOPSIS
+.nf
+.B #include <unistd.h>
+.sp
+.BI "char *getcwd(char *" buf ", size_t " size );
+.B "char *get_current_dir_name(void);"
+.BI "char *getwd(char *" buf );
+.fi
+.SH DESCRIPTION
+The
+.BR getcwd ()
+function copies an absolute pathname of the current working directory
+to the array pointed to by
+.IR buf ,
+which is of length
+.IR size .
+.PP
+If the current absolute path name would require a buffer longer than
+.I size
+elements,
+.B NULL
+is returned, and
+.I errno
+is set to
+.BR ERANGE ;
+an application should check for this error, and allocate a larger
+buffer if necessary.
+.PP
+If
+.I buf
+is NULL, the behaviour of
+.BR getcwd ()
+is undefined.
+.PP
+As an extension to the POSIX.1 standard, Linux (libc4, libc5, glibc)
+.B getcwd()
+allocates the buffer dynamically using
+.B malloc()
+if
+.I buf
+is
+.B NULL
+on call.  In this case, the allocated buffer has the length
+.I size
+unless
+.I size
+is zero, when
+.I buf
+is allocated as big as necessary.  It is possible (and, indeed,
+advisable) to
+.B free()
+the buffers if they have been obtained this way.
+
+.BR get_current_dir_name ,
+which is only prototyped if
+.B _GNU_SOURCE
+is defined, will
+.BR malloc (3)
+an array big enough to hold the current directory name.  If the environment
+variable
+.B PWD
+is set, and its value is correct, then that value will be returned.
+
+.BR getwd ,
+which is only prototyped if
+.B _BSD_SOURCE
+or
+.B _XOPEN_SOURCE_EXTENDED
+is defined, will not
+.BR malloc (3)
+any memory. The
+.I buf
+argument should be a pointer to an array at least
+.B PATH_MAX
+bytes long.
+.BR getwd
+does only return the first
+.B PATH_MAX
+bytes of the actual pathname.
+Note that
+.B PATH_MAX
+need not be a compile-time constant; it may depend on the filesystem
+and may even be unlimited. For portability and security reasons, use of
+.B getwd
+is deprecated.
+.SH "RETURN VALUE"
+.B NULL
+on failure with
+.I errno
+set accordingly, and
+.I buf
+on success. The contents of the array pointed to by
+.IR buf
+is undefined on error.
+.SH ERRORS
+.TP
+.B EACCES
+Permission to read or search a component of the file name was denied. 
+.TP
+.B EFAULT
+.IR buf
+points to a bad address.
+.TP
+.B EINVAL
+The 
+.IR size
+argument is zero and
+.IR buf
+is not a null pointer.
+.TP
+.B ENOENT
+The current working directory has been unlinked.
+.TP
+.B ERANGE
+The
+.IR size
+argument is less than the length of the working directory name.
+You need to allocate a bigger array and try again.
+.SH NOTES
+Under Linux, the function
+.BR getcwd ()
+is a system call (since 2.1.92).
+On older systems it would query
+.IR /proc/self/cwd .
+If both system call and proc file system are missing, a
+generic implementation is called. Only in that case can
+these calls fail under Linux with
+.BR EACCES .
+.LP
+These functions are often used to save the location of the current working
+directory for the purpose of returning to it later. Opening the current
+directory (".") and calling
+.BR fchdir (2)
+to return is usually a faster and more reliable alternative when sufficiently
+many file descriptors are available, especially on platforms other than Linux.
+.SH "CONFORMING TO"
+POSIX.1
+.SH "SEE ALSO"
+.BR chdir (2),
+.BR fchdir (2),
+.BR open (2),
+.BR unlink (2),
+.BR free (3),
+.BR malloc (3)

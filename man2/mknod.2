@@ -1,0 +1,177 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt
+.\"                               1993,1994 Ian Jackson.
+.\" You may distribute it under the terms of the GNU General
+.\" Public Licence. It comes with NO WARRANTY.
+.\"
+.\" Modified 1996-08-18 by urs
+.\" Modified 2003-04-23 by Michael Kerrisk
+.\" Modified 2004-06-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH MKNOD 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+mknod \- create a special or ordinary file
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <fcntl.h>
+.B #include <unistd.h>
+.sp
+.BI "int mknod(const char *" pathname ", mode_t " mode ", dev_t " dev );
+.fi
+.SH DESCRIPTION
+The system call
+.B mknod
+creates a filesystem node (file, device special file or
+named pipe) named
+.IR pathname ,
+with attributes specified by
+.I mode
+and
+.IR dev .
+
+The
+.I mode
+argument specifies both the permissions to use and the type of node
+to be created.
+It should be a combination (using bitwise OR) of one of the file types
+listed below and the permissions for the new node.
+
+The permissions are modified by the process's
+.BR umask
+in the usual way: the permissions of the created node are
+.BR "(mode & ~umask)" .
+
+The file type must be one of
+.BR S_IFREG ,
+.BR S_IFCHR ,
+.BR S_IFBLK ,
+.BR S_IFIFO
+or
+.BR S_IFSOCK
+.\" (S_IFSOCK since Linux 1.2.4)
+to specify a normal file (which will be created empty), character
+special file, block special file, FIFO (named pipe), or Unix domain socket,
+respectively.
+(Zero file type is equivalent to type S_IFREG.)
+
+If the file type is
+.BR S_IFCHR " or " S_IFBLK
+then
+.I dev
+specifies the major and minor numbers of the newly created device
+special file; otherwise it is ignored.
+
+If
+.I pathname
+already exists, or is a symbolic link, this call fails with an EEXIST error.
+
+The newly created node will be owned by the effective user ID of the
+process.  If the directory containing the node has the set group ID
+bit set, or if the filesystem is mounted with BSD group semantics, the
+new node will inherit the group ownership from its parent directory;
+otherwise it will be owned by the effective group ID of the process.
+.SH "RETURN VALUE"
+.BR mknod
+returns zero on success, or \-1 if an error occurred (in which case,
+.I errno
+is set appropriately).
+.SH ERRORS
+.TP
+.B EACCES
+The parent directory does not allow write permission to the process,
+or one of the directories in the path prefix of
+.IR pathname
+did not allow search permission.
+(See also
+.BR path_resolution (2).)
+.TP
+.B EEXIST
+.I pathname
+already exists.
+.TP
+.B EFAULT
+.IR pathname " points outside your accessible address space."
+.TP
+.B EINVAL
+.I mode
+requested creation of something other than a normal file, device
+special file, FIFO or socket.
+.TP
+.B ELOOP
+Too many symbolic links were encountered in resolving
+.IR pathname .
+.TP
+.B ENAMETOOLONG
+.IR pathname " was too long."
+.TP
+.B ENOENT
+A directory component in
+.I pathname
+does not exist or is a dangling symbolic link.
+.TP
+.B ENOMEM
+Insufficient kernel memory was available.
+.TP
+.B ENOSPC
+The device containing
+.I pathname
+has no room for the new node.
+.TP
+.B ENOTDIR
+A component used as a directory in
+.I pathname
+is not, in fact, a directory.
+.TP
+.B EPERM
+.I mode
+requested creation of something other than a regular file,
+FIFO (named pipe), or Unix domain socket, and the caller
+is not privileged (Linux: does not have the
+.B CAP_MKNOD
+capability); also returned if the filesystem containing
+.I pathname
+does not support the type of node requested.
+.TP
+.B EROFS
+.I pathname
+refers to a file on a read-only filesystem.
+.SH "CONFORMING TO"
+SVr4 (but the call requires privilege and is thus not in POSIX),
+4.4BSD.  The Linux version differs from the SVr4 version in that it
+does not require root permission to create pipes, also in that no
+EMULTIHOP, ENOLINK, or EINTR error is documented.
+.SH NOTES
+POSIX 1003.1-2001 says: "The only portable use of
+.BR mknod ()
+is to create a FIFO-special file. If
+.I mode
+is not S_IFIFO or
+.I dev
+is not 0, the behavior of
+.BR mknod ()
+is unspecified."
+
+Under Linux, this call cannot be used to create directories.
+One should make directories with
+.BR mkdir ,
+and FIFOs with
+.BR mkfifo .
+.\" Unix domain sockets with .BR socket " (and " bind ),
+
+There are many infelicities in the protocol underlying NFS.  Some
+of these affect
+.BR mknod .
+.SH "SEE ALSO"
+.BR fcntl (2),
+.BR mkdir (2),
+.BR mount (2),
+.BR path_resolution (2),
+.BR socket (2),
+.BR stat (2),
+.BR umask (2),
+.BR unlink (2),
+.BR mkfifo (3)

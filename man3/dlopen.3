@@ -1,0 +1,378 @@
+.\" -*- nroff -*-
+.\" Copyright 1995 Yggdrasil Computing, Incorporated.
+.\" written by Adam J. Richter (adam@yggdrasil.com),
+.\" with typesetting help from Daniel Quinlan (quinlan@yggdrasil.com).
+.\" Additional material copyright 2003, Michael Kerrisk
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+.\" USA.
+.\"
+.\" Modified by David A. Wheeler <dwheeler@dwheeler.com> 2000-11-28.
+.\" Applied patch by Terran Melconian, aeb, 2001-12-14.
+.\" Modified by Hacksaw <hacksaw@hacksaw.org> 2003-03-13.
+.\" Modified by Matt Domsch, 2003-04-09: _init and _fini obsolete
+.\" Modified by Michael Kerrisk <mtk16@ext.canterbury.ac.nz> 2003-05-16.
+.\" Modified by Walter Harms: dladdr, dlvsym
+.\"
+.TH DLOPEN 3 2003-11-17 "Linux" "Linux Programmer's Manual"
+.SH NAME
+dladdr, dlclose, dlerror, dlopen, dlsym, dlvsym \- programming interface to
+dynamic linking loader
+.SH SYNOPSIS
+.B #include <dlfcn.h>
+.sp
+.BI "void *dlopen(const char *" filename ", int " flag );
+.sp
+.BI "char *dlerror(void);"
+.sp
+.BI "void *dlsym(void *" handle ", const char *" symbol );
+.sp
+.BI "int dlclose(void *" handle );
+.SH DESCRIPTION
+The four functions
+.BR dlopen() ,
+.BR dlsym() ,
+.BR dlclose() ,
+.BR dlerror()
+implement the interface to the dynamic linking loader.
+.SS "dlerror"
+The function
+.B dlerror()
+returns a human readable string describing the most recent error
+that occurred from any of the dl routines (dlopen, dlsym or dlclose)
+since the last call to
+.BR dlerror() .
+It returns NULL if no errors have occurred since initialization or since
+it was last called.
+.SS "dlopen"
+The function
+.B dlopen()
+loads the dynamic library file named by the null-terminated
+string
+.I filename
+and returns an opaque "handle" for the dynamic library.
+If
+.I filename
+is NULL, then the returned handle is for the main program.
+If
+.I filename
+contains a slash ("/"), then it is interpreted as a (relative
+or absolute) pathname.
+Otherwise, the dynamic linker searches for the library as follows
+(see
+.BR ld.so (8)
+for further details):
+.IP o
+(ELF only) If the executable file for the calling program
+contains a DT_RPATH tag, and does not contain a DT_RUNPATH tag,
+then the directories listed in the DT_RPATH tag are searched.
+.IP o
+If the environment variable
+.BR LD_LIBRARY_PATH
+is defined to contain a colon-separated list of directories,
+then these are searched.
+(As a security measure this variable is ignored for set-UID and 
+set-GID programs.)
+.IP o
+(ELF only) If the executable file for the calling program
+contains a DT_RUNPATH tag, then the directories listed in that tag
+are searched.
+.IP o
+The cache file
+.BR /etc/ld.so.cache
+(maintained by
+.BR ldconfig (8))
+is checked to see whether it contains an entry for
+.IR filename .
+.IP o
+The directories
+.B /lib 
+and 
+.B /usr/lib 
+are searched (in that order).
+.PP
+If the library has dependencies on other shared libraries,
+then these are also automatically loaded by the dynamic linker
+using the same rules.  (This process may occur recursively,
+if those libraries in turn have dependencies, and so on.)
+.PP
+The value of
+.I flag
+can be either
+.B RTLD_LAZY
+or
+.BR RTLD_NOW .
+When
+.B RTLD_NOW
+is specified, or the environment variable
+.B LD_BIND_NOW
+is set to a non-empty string,
+all undefined symbols in the library are resolved before
+.B dlopen()
+returns. If this cannot be done, an error is returned.
+Otherwise binding is lazy: symbol values are first resolved
+when needed.
+.PP
+Optionally,
+.B RTLD_GLOBAL
+may be or'ed into
+.IR flag ,
+in which case the external symbols defined in the library will be
+made available for symbol resolution of subsequently loaded libraries.
+(The converse of
+.B RTLD_GLOBAL
+is
+.BR RTLD_LOCAL .
+.\" that indicates that the symbols in this library should not be made
+.\" available for resolution of symbols of subsequently loaded libraries.
+This is the default.)
+.PP
+If
+.I filename
+is a NULL pointer, then the returned handle is for the main program.
+When given to
+.BR dlsym() ,
+this handle causes a search for a symbol in the main program,
+followed by all shared libraries loaded at program startup,
+and then all shared libraries loaded by 
+.BR dlopen()
+with the flag
+.B RTLD_GLOBAL.
+.PP
+External references in the library are resolved using the libraries
+in that library's dependency list and any other libraries previously
+opened with the 
+.B RTLD_GLOBAL
+flag.
+If the executable was linked with the flag "-rdynamic"
+(or, synonymously, "--export-dynamic"),
+then the global symbols in the executable will also be used
+to resolve references in a dynamically loaded library.
+.PP
+If the same library is loaded again with
+.BR dlopen() ,
+the same file handle is returned. The dl library maintains reference
+counts for library handles, so a dynamic library is not
+deallocated until
+.B dlclose()
+has been called on it as many times as
+.B dlopen()
+has succeeded on it. The
+.B _init
+routine, if present, is only called once. But a subsequent call with
+.B RTLD_NOW
+may force symbol resolution for a library earlier loaded with
+.BR RTLD_LAZY .
+.PP
+If
+.B dlopen()
+fails for any reason, it returns NULL.
+.SS "dlsym"
+The function
+.B dlsym()
+takes a "handle" of a dynamic library returned by dlopen and the
+NUL-terminated symbol name, returning the address where that symbol is
+loaded into memory.  If the symbol is not found, in the specified
+library or any of the libraries that were automatically loaded by
+.B dlopen()
+when that library was loaded,
+.B dlsym()
+returns NULL.
+(The search performed by
+.B dlsym()
+is breadth first through the dependency tree of these libraries.)
+Since the value of the symbol could actually be NULL (so that a
+NULL return from
+.B dlsym()
+need not indicate an error), the correct way to test for an error
+is to call
+.B dlerror()
+to clear any old error conditions, then call
+.BR dlsym() ,
+and then call
+.B dlerror()
+again, saving its return value into a variable, and check whether
+this saved value is not NULL.
+.PP
+There are two special pseudo-handles,
+.B RTLD_DEFAULT
+and
+.BR RTLD_NEXT .
+The former will find the first occurrence of the desired symbol
+using the default library search order. The latter
+will find the next occurrence of a function in the search order
+after the current library.  This allows one to provide a wrapper
+around a function in another shared library.
+.SS "dlclose"
+The function
+.B dlclose()
+decrements the reference count on the dynamic library handle
+.IR handle .
+If the reference count drops to zero and no other loaded libraries use
+symbols in it, then the dynamic library is unloaded.
+.LP
+The function
+.B dlclose()
+returns 0 on success, and non-zero on error.
+.SS "The obsolete symbols _init and _fini"
+The linker recognizes special symbols
+.B _init
+and
+.BR _fini .
+If a dynamic library exports a routine named
+.BR _init ,
+then that code is executed after the loading, before
+.B dlopen()
+returns. If the dynamic library exports a routine named
+.BR _fini ,
+then that routine is called just before the library is unloaded.
+In case you  need to  avoid  linking against the system startup files,
+this can be done by giving gcc the "-nostartfiles" parameter on
+the command line.
+.LP
+Using these routines, or the gcc
+.B \-nostartupfiles
+or
+.B \-nostdlib
+options, is not recommended. Their use may result in undesired behavior,
+since the constructor/destructor routines will not be executed
+(unless special measures are taken).
+.\" void _init(void) __attribute__((constructor));
+.\" void _fini(void) __attribute__((destructor));
+.LP
+Instead, libraries should export routines using the
+.BR __attribute__((constructor))
+and
+.BR __attribute__((destructor))
+function attributes.  See the gcc info pages for information on these.
+Constructor routines are executed before
+.B dlopen
+returns, and destructor routines are executed before
+.B dlclose
+returns.
+.SH "GNU EXTENSIONS"
+Glibc adds two functions not described by POSIX, with prototypes
+.sp
+.nf
+.B #define GNU_SOURCE
+.B #include <dlfcn.h>
+.sp
+.BI "int dladdr(void *" addr ", Dl_info *" info );
+.sp
+.BI "void *dlvsym(void *" handle ", char *" symbol ", char *" version );
+.fi
+.PP
+The function
+.B dladdr()
+takes a function pointer and tries to resolve name
+and file where it is located. Information is stored in the
+Dl_info structure:
+.sp
+.nf
+typedef struct {
+  const char *dli_fname;/* File name of defining object */
+  void *dli_fbase;      /* Load address of that object */
+  const char *dli_sname;/* Name of nearest lower symbol */
+  void *dli_saddr;      /* Exact value of nearest symbol */
+} Dl_info;
+.fi
+.sp
+.B dladdr()
+returns 0 on error, and non-zero on success.
+.PP
+The function
+.B dlvsym()
+does the same as
+.B dlsym()
+but takes a version string as additional argument.
+
+.SH EXAMPLE
+.B Load the math library, and print the cosine of 2.0:
+.RS
+.nf
+.if t .ft CW
+#include <stdio.h>
+#include <dlfcn.h>
+
+int main(int argc, char **argv) {
+    void *handle;
+    double (*cosine)(double);
+    char *error;
+
+    handle = dlopen ("libm.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf (stderr, "%s\en", dlerror());
+        exit(1);
+    }
+
+    dlerror();    /* Clear any existing error */
+.\" This is the (somewhat ugly) SUSv3 TC1 fix for
+.\" the dlsym() typecasting problem
+    *(void **) (&cosine) = dlsym(handle, "cos");
+    if ((error = dlerror()) != NULL)  {
+        fprintf (stderr, "%s\en", error);
+        exit(1);
+    }
+
+    printf ("%f\en", (*cosine)(2.0));
+    dlclose(handle);
+    return 0;
+}
+.if t .ft P
+.fi
+.RE
+.PP
+If this program were in a file named "foo.c", you would build the program
+with the following command:
+.RS
+.LP
+gcc -rdynamic -o foo foo.c -ldl
+.RE
+.PP
+Libraries exporting _init() and _fini() will want to be compiled as
+follows, using bar.c as the example name:
+.RS
+.LP
+gcc -shared -nostartfiles -o bar bar.c
+.RE
+.SH NOTES
+The symbols RTLD_DEFAULT and RTLD_NEXT are defined by
+.I <dlfcn.h>
+only when _GNU_SOURCE was defined before including it.
+.\" .LP
+.\" The string returned by
+.\" .B dlerror()
+.\" should not be modified. Some systems give the prototype as
+.\" .sp
+.\" .in +5
+.\" .B "const char *dlerror(void);"
+.\" .in
+.SH HISTORY
+The dlopen interface standard comes from SunOS. That system also has
+dladdr, but not dlvsym.
+.SH "CONFORMING TO"
+POSIX 1003.1-2003 describes dlclose, dlerror, dlopen, dlsym.
+.SH "SEE ALSO"
+.BR ld (1),
+.BR ldd (1),
+.BR dl_iterate_phdr (3),
+.BR ld.so (8),
+.BR ldconfig (8),
+ld.so info pages, gcc info pages, ld info pages

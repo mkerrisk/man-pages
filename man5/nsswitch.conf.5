@@ -1,0 +1,264 @@
+.\" Copyright (c) 1998, 1999 Thorsten Kukuk (kukuk@vt.uni-paderborn.de)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" This manual page based on the GNU C Library info pages.
+.\"
+.TH NSSWITCH.CONF 5 1999-01-17 "Linux" "Linux Programmer's Manual"
+.SH NAME
+nsswitch.conf \- System Databases and Name Service Switch configuration file
+.SH DESCRIPTION
+Various functions in the C Library need to be configured to work
+correctly in the local environment.  Traditionally, this was done by
+using files (e.g., `/etc/passwd'), but other nameservices (like the
+Network Information Service (NIS) and the Domain Name Service (DNS))
+became popular, and were hacked into the C library, usually with a fixed
+search order.
+.LP
+The Linux libc5 with NYS support and the GNU C Library 2.x (libc.so.6)
+contain a cleaner solution of this problem.  It is designed after a method
+used by Sun Microsystems in the C library of Solaris 2. We follow their
+name and call this scheme "Name Service Switch" (NSS). The sources for
+the "databases" and their lookup order are specified in the
+.B /etc/nsswitch.conf
+file.
+.LP
+The following databases are available in the NSS:
+.TP
+.B aliases
+Mail aliases, used by
+.BR sendmail (8).
+Presently ignored.
+.TP
+.B ethers
+Ethernet numbers.
+.TP
+.B group
+Groups of users, used by
+.BR getgrent (3)
+functions.
+.TP
+.B hosts
+Host names and numbers, used by
+.BR gethostbyname (3)
+and similar functions.
+.TP
+.B netgroup
+Network wide list of hosts and users, used for access rules.
+C libraries before glibc 2.1 only support netgroups over NIS.
+.TP
+.B network
+Network names and numbers, used by
+.BR getnetent (3)
+functions.
+.TP
+.B passwd
+User passwords, used by
+.BR getpwent (3)
+functions.
+.TP
+.B protocols
+Network protocols, used by
+.BR getprotoent (3)
+functions.
+.TP
+.B publickey
+Public and secret keys for Secure_RPC used by NFS and NIS+.
+.TP
+.B rpc
+Remote procedure call names and numbers, used by
+.BR getrpcbyname (3)
+and similar functions.
+.TP
+.B services
+Network services, used by
+.BR getservent (3)
+functions.
+.TP
+.B shadow
+Shadow user passwords, used by
+.BR getspnam (3).
+.LP
+An example
+.B /etc/nsswitch.conf
+(namely, the default used when
+.B /etc/nsswitch.conf
+is missing):
+.sp 1n
+.PD 0
+.TP 16
+passwd:
+compat
+.TP
+group:
+compat
+.TP
+shadow:
+compat
+.sp 1n
+.TP
+hosts:
+dns [!UNAVAIL=return] files
+.TP
+networks:
+nis [NOTFOUND=return] files
+.TP
+ethers:
+nis [NOTFOUND=return] files
+.TP
+protocols:
+nis [NOTFOUND=return] files
+.TP
+rpc:
+nis [NOTFOUND=return] files
+.TP
+services:
+nis [NOTFOUND=return] files
+.PD
+.LP
+The first column is the database.
+The rest of the line specifies how the lookup process works.
+You can specify the way it works for each database individually.
+.LP
+The configuration specification for each database can contain two
+different items:
+.PD 0
+.TP
+* The service specification like `files', `db', or `nis'.
+.TP
+* The reaction on lookup result like `[NOTFOUND=return]'.
+.PD
+.LP
+For libc5 with NYS, the allowed service specifications are `files', `nis',
+and `nisplus'. For hosts, you could specify `dns' as extra service, for
+passwd and group `compat', but not for shadow.
+.LP
+For glibc, you must have a file called
+.BI /lib/libnss_SERVICE.so. X
+for every SERVICE you are using. On a standard installation, you could use
+`files', `db', `nis', and `nisplus'. For hosts, you could specify `dns' as
+extra service, for passwd, group, and shadow `compat'. These services will not
+be used by libc5 with NYS.
+The version number
+.I X
+is 1 for glibc 2.0 and 2 for glibc 2.1.
+.LP
+The second item in the specification gives the user much finer
+control on the lookup process.  Action items are placed between two
+service names and are written within brackets.  The general form is
+.LP
+`[' ( `!'? STATUS `=' ACTION )+ `]'
+.LP
+where
+.sp 1n
+.PD 0
+.TP
+STATUS => success | notfound | unavail | tryagain
+.TP
+ACTION => return | continue
+.PD
+.LP
+The case of the keywords is insignificant. The STATUS values are
+the results of a call to a lookup function of a specific service.  They
+mean:
+.TP
+.B success
+No error occurred and the wanted entry is returned. The default
+action for this is `return'.
+.TP
+.B notfound
+The lookup process works ok but the needed value was not found.
+The default action is `continue'.
+.TP
+.B unavail
+The service is permanently unavailable.  This can either mean the
+needed file is not available, or, for DNS, the server is not
+available or does not allow queries.  The default action is
+`continue'.
+.TP
+.B tryagain
+The service is temporarily unavailable.  This could mean a file is
+locked or a server currently cannot accept more connections.  The
+default action is `continue'.
+.LP
+.SS Interaction with +/- syntax (compat mode)
+Linux libc5 without NYS does not have the name service switch but does
+allow the user some policy control. In
+.B /etc/passwd
+you could have entries of the form +user or +@netgroup
+(include the specified user from the NIS passwd map),
+-user or -@netgroup (exclude the specified user),
+and + (include every user, except the excluded ones, from the NIS
+passwd map). Since most people only put a + at the end of
+.B /etc/passwd
+to include everything from NIS, the switch provides a faster
+alternative for this case (`passwd: files nis') which doesn't
+require the single + entry in
+.BR /etc/passwd ,
+.BR /etc/group ,
+and
+.BR /etc/shadow .
+If this is not sufficient, the NSS `compat' service provides full
++/- semantics. By default, the source is `nis', but this may be
+overriden by specifying `nisplus' as source for the pseudo-databases
+.BR passwd_compat,
+.B group_compat
+and
+.BR shadow_compat.
+This pseudo-databases are only available in GNU C Library.
+.SH FILES
+A service named SERVICE is implemented by a shared object library named
+.BI libnss_SERVICE.so. X
+that resides in
+.IR /lib .
+.TP 25
+.PD 0
+.B /etc/nsswitch.conf
+configuration file
+.TP
+.BI /lib/libnss_compat.so. X
+implements `compat' source for glibc2
+.TP
+.BI /lib/libnss_db.so. X
+implements `db' source for glibc2
+.TP
+.BI /lib/libnss_dns.so. X
+implements `dns' source for glibc2
+.TP
+.BI /lib/libnss_files.so. X
+implements `files' source for glibc2
+.TP
+.BI /lib/libnss_hesiod.so. X
+implements `hesiod' source for glibc2
+.TP
+.BI /lib/libnss_nis.so. X
+implements `nis' source for glibc2
+.TP
+.B /lib/libnss_nisplus.so.2
+implements `nisplus' source for glibc 2.1
+.SH NOTES
+Within each process that uses
+.BR nsswitch.conf ,
+the entire file is read only once; if the file is later changed, the
+process will continue using the old configuration.
+.LP
+With Solaris, it isn't possible to link programs using the NSS Service
+statically. With Linux, this is no problem.

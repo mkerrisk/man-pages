@@ -1,0 +1,215 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETSUBOPT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getsubopt 
+.SH NAME
+getsubopt \- parse suboption arguments from a string
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+.sp
+int getsubopt(char **\fP\fIoptionp\fP\fB, char * const *\fP\fIkeylistp\fP\fB,
+char **\fP\fIvaluep\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetsubopt\fP() function shall parse suboption arguments in
+a flag argument. Such options often result from the use of \fIgetopt\fP().
+.LP
+The \fIgetsubopt\fP() argument \fIoptionp\fP is a pointer to a pointer
+to the option argument string. The suboption arguments
+shall be separated by commas and each may consist of either a single
+token, or a token-value pair separated by an equal sign.
+.LP
+The \fIkeylistp\fP argument shall be a pointer to a vector of strings.
+The end of the vector is identified by a null pointer.
+Each entry in the vector is one of the possible tokens that might
+be found in *\fIoptionp\fP. Since commas delimit suboption
+arguments in \fIoptionp\fP, they should not appear in any of the strings
+pointed to by \fIkeylistp\fP. Similarly, because an
+equal sign separates a token from its value, the application should
+not include an equal sign in any of the strings pointed to by
+\fIkeylistp\fP.
+.LP
+The \fIvaluep\fP argument is the address of a value string pointer.
+.LP
+If a comma appears in \fIoptionp\fP, it shall be interpreted as a
+suboption separator. After commas have been processed, if
+there are one or more equal signs in a suboption string, the first
+equal sign in any suboption string shall be interpreted as a
+separator between a token and a value. Subsequent equal signs in a
+suboption string shall be interpreted as part of the value.
+.LP
+If the string at *\fIoptionp\fP contains only one suboption argument
+(equivalently, no commas), \fIgetsubopt\fP() shall update
+*\fIoptionp\fP to point to the null character at the end of the string.
+Otherwise, it shall isolate the suboption argument by
+replacing the comma separator with a null character, and shall update
+*\fIoptionp\fP to point to the start of the next suboption
+argument. If the suboption argument has an associated value (equivalently,
+contains an equal sign), \fIgetsubopt\fP() shall update
+*\fIvaluep\fP to point to the value's first character. Otherwise,
+it shall set *\fIvaluep\fP to a null pointer. The calling
+application may use this information to determine whether the presence
+or absence of a value for the suboption is an error.
+.LP
+Additionally, when \fIgetsubopt\fP() fails to match the suboption
+argument with a token in the \fIkeylistp\fP array, the
+calling application should decide if this is an error, or if the unrecognized
+option should be processed in another way.
+.SH RETURN VALUE
+.LP
+The \fIgetsubopt\fP() function shall return the index of the matched
+token string, or -1 if no token strings were matched.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <stdlib.h>
+.sp
+
+int do_all;
+const char *type;
+int read_size;
+int write_size;
+int read_only;
+.sp
+
+enum
+{
+    RO_OPTION = 0,
+    RW_OPTION,
+    READ_SIZE_OPTION,
+    WRITE_SIZE_OPTION
+};
+.sp
+
+const char *mount_opts[] =
+{
+    [RO_OPTION] = "ro",
+    [RW_OPTION] = "rw",
+    [READ_SIZE_OPTION] = "rsize",
+    [WRITE_SIZE_OPTION] = "wsize",
+    NULL
+};
+.sp
+
+int
+main(int argc, char *argv[])
+{
+    char *subopts, *value;
+    int opt;
+.sp
+
+    while ((opt = getopt(argc, argv, "at:o:")) != -1)
+        switch(opt)
+            {
+            case 'a':
+                do_all = 1;
+                break;
+            case 't':
+                type = optarg;
+                break;
+            case 'o':
+                subopts = optarg;
+                while (*subopts != '\\0')
+                    switch(getsubopt(&subopts, mount_opts, &value))
+                {
+                case RO_OPTION:
+                    read_only = 1;
+                    break;
+                case RW_OPTION:
+                    read_only = 0;
+                    break;
+                case READ_SIZE_OPTION:
+                    if (value == NULL)
+                        abort();
+                    read_size = atoi(value);
+                    break;
+                case WRITE_SIZE_OPTION:
+                    if (value == NULL)
+                        abort();
+                    write_size = atoi(value);
+                    break;
+                default:
+                    /* Unknown suboption. */
+                    printf("Unknown suboption `%s'\\n", value);
+                    break;
+                }
+            break;
+        default:
+            abort();
+        }
+.sp
+
+    /* Do the real work. */
+.sp
+
+    return 0;
+}
+\fP
+.fi
+.RE
+.SS Parsing Suboptions
+.LP
+The following example uses the \fIgetsubopt\fP() function to parse
+a \fIvalue\fP argument in the \fIoptarg\fP external
+variable returned by a call to \fIgetopt\fP().
+.sp
+.RS
+.nf
+
+\fB#include <stdlib.h>
+\&...
+char *tokens[] = {"HOME", "PATH", "LOGNAME", (char *) NULL };
+char *value;
+int opt, index;
+.sp
+
+while ((opt = getopt(argc, argv, "e:")) != -1) {
+    switch(opt)  {
+    case 'e' :
+        while ((index = getsubopt(&optarg, tokens, &value)) != -1) {
+            switch(index) {
+\&...
+        }
+        break;
+\&...
+    }
+}
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetopt\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<stdlib.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

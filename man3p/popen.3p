@@ -1,0 +1,169 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" popen 
+.SH NAME
+popen \- initiate pipe streams to or from a process
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+FILE *popen(const char *\fP\fIcommand\fP\fB, const char *\fP\fImode\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpopen\fP() function shall execute the command specified by
+the string \fIcommand\fP. It shall create a pipe between the
+calling program and the executed command, and shall return a pointer
+to a stream that can be used to either read from or write to
+the pipe.
+.LP
+The environment of the executed command shall be as if a child process
+were created within the \fIpopen\fP() call using the \fIfork\fP()
+function, and the child invoked the \fIsh\fP
+utility using the call:
+.sp
+.RS
+.nf
+
+\fBexecl(\fP\fIshell path\fP\fB, "sh", "-c",\fP \fIcommand\fP\fB, (char *)0);
+\fP
+.fi
+.RE
+.LP
+where \fIshell path\fP is an unspecified pathname for the \fIsh\fP
+utility.
+.LP
+The \fIpopen\fP() function shall ensure that any streams from previous
+\fIpopen\fP() calls that remain open in the parent
+process are closed in the new child process.
+.LP
+The \fImode\fP argument to \fIpopen\fP() is a string that specifies
+I/O mode:
+.IP " 1." 4
+If \fImode\fP is \fIr\fP, when the child process is started, its file
+descriptor STDOUT_FILENO shall be the writable end of
+the pipe, and the file descriptor \fIfileno\fP(\fIstream\fP) in the
+calling process, where \fIstream\fP is the stream pointer
+returned by \fIpopen\fP(), shall be the readable end of the pipe.
+.LP
+.IP " 2." 4
+If \fImode\fP is \fIw\fP, when the child process is started its file
+descriptor STDIN_FILENO shall be the readable end of the
+pipe, and the file descriptor \fIfileno\fP(\fIstream\fP) in the calling
+process, where \fIstream\fP is the stream pointer
+returned by \fIpopen\fP(), shall be the writable end of the pipe.
+.LP
+.IP " 3." 4
+If \fImode\fP is any other value, the result is undefined.
+.LP
+.LP
+After \fIpopen\fP(), both the parent and the child process shall be
+capable of executing independently before either
+terminates.
+.LP
+Pipe streams are byte-oriented.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIpopen\fP() shall return a pointer to
+an open stream that can be used to read or write to the
+pipe. Otherwise, it shall return a null pointer and may set \fIerrno\fP
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIpopen\fP() function may fail if:
+.TP 7
+.B EMFILE
+{FOPEN_MAX} or {STREAM_MAX} streams are currently open in the calling
+process.
+.TP 7
+.B EINVAL
+The \fImode\fP argument is invalid.
+.sp
+.LP
+The \fIpopen\fP() function may also set \fIerrno\fP values as described
+by \fIfork\fP() or \fIpipe\fP() .
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Since open files are shared, a mode \fIr\fP command can be used as
+an input filter and a mode \fIw\fP command as an output
+filter.
+.LP
+Buffered reading before opening an input filter may leave the standard
+input of that filter mispositioned. Similar problems with
+an output filter may be prevented by careful buffer flushing; for
+example, with \fIfflush\fP() .
+.LP
+A stream opened by \fIpopen\fP() should be closed by \fIpclose\fP().
+.LP
+The behavior of \fIpopen\fP() is specified for values of \fImode\fP
+of \fIr\fP and \fIw\fP. Other modes such as \fIrb\fP
+and \fIwb\fP might be supported by specific implementations, but these
+would not be portable features. Note that historical
+implementations of \fIpopen\fP() only check to see if the first character
+of \fImode\fP is \fIr\fP. Thus, a \fImode\fP of
+\fIrobert the robot\fP would be treated as \fImode\fP \fIr\fP, and
+a \fImode\fP of \fIanything else\fP would be treated as
+\fImode\fP \fIw\fP.
+.LP
+If the application calls \fIwaitpid\fP() or \fIwaitid\fP() with a
+\fIpid\fP argument greater than 0, and it still has a stream that
+was called
+with \fIpopen\fP() open, it must ensure that \fIpid\fP does not refer
+to the process started by \fIpopen\fP().
+.LP
+To determine whether or not the environment specified in the Shell
+and Utilities volume of IEEE\ Std\ 1003.1-2001 is
+present, use the function call:
+.sp
+.RS
+.nf
+
+\fBsysconf(_SC_2_VERSION)
+\fP
+.fi
+.RE
+.LP
+(See \fIsysconf\fP() ).
+.SH RATIONALE
+.LP
+The \fIpopen\fP() function should not be used by programs that have
+set user (or group) ID privileges. The \fIfork\fP() and \fIexec\fP
+family of functions (except \fIexeclp\fP() and \fIexecvp\fP()), should
+be used
+instead. This prevents any unforeseen manipulation of the environment
+of the user that could cause execution of commands not
+anticipated by the calling program.
+.LP
+If the original and \fIpopen\fP()ed processes both intend to read
+or write or read and write a common file, and either will be
+using FILE-type C functions ( \fIfread\fP(), \fIfwrite\fP(), and so
+on), the rules for sharing file handles must be observed (see \fIInteraction
+of File Descriptors and Standard I/O Streams\fP ).
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpclose\fP() , \fIpipe\fP() , \fIsysconf\fP()
+, \fIsystem\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<stdio.h>\fP, the Shell and Utilities volume of IEEE\ Std\ 1003.1-2001,
+\fIsh\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

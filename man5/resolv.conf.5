@@ -1,0 +1,195 @@
+.\" Copyright (c) 1986 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms are permitted
+.\" provided that the above copyright notice and this paragraph are
+.\" duplicated in all such forms and that any documentation,
+.\" advertising materials, and other materials related to such
+.\" distribution and use acknowledge that the software was developed
+.\" by the University of California, Berkeley.  The name of the
+.\" University may not be used to endorse or promote products derived
+.\" from this software without specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+.\" IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.\"	@(#)resolver.5	5.9 (Berkeley) 12/14/89
+.\"	$Id: resolver.5,v 8.6 1999/05/21 00:01:02 vixie Exp $
+.\"
+.\" Added ndots remark by Bernhard R. Link - debian bug #182886
+.\"
+.TH RESOLV.CONF 5 2004-10-31
+.UC 4
+.SH NAME
+resolv.conf \- resolver configuration file
+.SH SYNOPSIS
+/etc/resolv.conf
+.SH DESCRIPTION
+The
+.I resolver
+is a set of routines in the C library
+that provide access to the Internet Domain Name System (DNS).
+The resolver configuration file contains information that is read
+by the resolver routines the first time they are invoked by a process.
+The file is designed to be human readable and contains a list of
+keywords with values that provide various types of resolver information.
+.LP
+On a normally configured system this file should not be necessary.
+The only name server to be queried will be on the local machine;
+the domain name is determined from the host name
+and the domain search path is constructed from the domain name.
+.LP
+The different configuration options are:
+.TP
+\fBnameserver\fP Name server IP address
+Internet address (in dot notation) of a name server
+that the resolver should query.
+Up to MAXNS (currently 3, see <resolv.h>) name servers may be listed,
+one per keyword.
+If there are multiple servers,
+the resolver library queries them in the order listed.
+If no \fBnameserver\fP entries are present,
+the default is to use the name server on the local machine.
+(The algorithm used is to try a name server, and if the query times out,
+try the next, until out of name servers,
+then repeat trying all the name servers
+until a maximum number of retries are made.)
+.TP
+\fBdomain\fP Local domain name.
+Most queries for names within this domain can use short names
+relative to the local domain.
+If no \fBdomain\fP entry is present, the domain is determined
+from the local host name returned by
+\fIgethostname\fP();
+the domain part is taken to be everything after the first `.'.
+Finally, if the host name does not contain a domain part, the root
+domain is assumed.
+.TP
+\fBsearch\fP Search list for host-name lookup.
+The search list is normally determined from the local domain name;
+by default, it contains only the local domain name.
+This may be changed by listing the desired domain search path
+following the \fIsearch\fP keyword with spaces or tabs separating
+the names.
+Resolver queries having fewer than
+.I ndots
+dots (default is 1) in them will be attempted using each component
+of the search path in turn until a match is found.
+For environments with multiple subdomains please read
+.BI "options ndots:" n
+below to avoid man-in-the-middle attacks and unnecessary
+traffic for the root-dns-servers.
+.\" When having a resolv.conv with a line
+.\"  search subdomain.domain.tld domain.tld
+.\" and doing a hostlookup, for example by
+.\"  ping host.anothersubdomain
+.\" it sends dns-requests for
+.\"  host.anothersubdomain.
+.\"  host.anothersubdomain.subdomain.domain.tld.
+.\"  host.anothersubdomain.domain.tld.
+.\" thus not only causing unnecessary traffic for the root-dns-servers
+.\" but broadcasting information to the outside and making man-in-the-middle
+.\" attacks possible.
+Note that this process may be slow and will generate a lot of network
+traffic if the servers for the listed domains are not local,
+and that queries will time out if no server is available
+for one of the domains.
+.IP
+The search list is currently limited to six domains
+with a total of 256 characters.
+.TP
+\fBsortlist\fP
+Sortlist allows addresses returned by gethostbyname to be sorted.
+A sortlist is specified by IP address netmask pairs. The netmask is
+optional and defaults to the natural netmask of the net. The IP address
+and optional network pairs are separated by slashes. Up to 10 pairs may
+be specified. E.g.,
+.br
+.in +2
+sortlist 130.155.160.0/255.255.240.0 130.155.0.0
+.in -2
+.br
+.TP
+\fBoptions\fP
+Options allows certain internal resolver variables to be modified.
+The syntax is
+.RS
+.IP
+\fBoptions\fP \fIoption\fP \fI...\fP
+.LP
+where \fIoption\fP is one of the following:
+.TP
+\fBdebug\fP
+sets RES_DEBUG in
+.IR _res.options .
+.TP
+.BI ndots: n
+sets a threshold for the number of dots which
+must appear in a name given to \fBres_query\fP() (see
+.BR resolver (3))
+before an \fIinitial absolute query\fP will be made.  The default for
+\fIn\fP is ``1'', meaning that if there are any dots in a name, the name
+will be tried first as an absolute name before any \fIsearch list\fP
+elements are appended to it.
+.TP
+.BI timeout: n
+sets the amount of time the resolver will wait for a
+response from a remote name server before retrying the
+query via a different name server.  Measured in seconds,
+the default is RES_TIMEOUT (currently 5, see <resolv.h>).
+.TP
+.BI attempts: n
+sets the number of times the resolver will send a
+query to its name servers before giving up and returning
+an error to the calling application.  The default
+is RES_DFLRETRY (currently 2, see <resolv.h>).
+.TP
+.B rotate
+sets RES_ROTATE in
+.IR _res.options ,
+which causes round robin selection of nameservers from among those listed.
+This has the effect of spreading the query load among all listed servers,
+rather than having all clients try the first listed server first every time.
+.TP
+.B no-check-names
+sets RES_NOCHECKNAME in
+.IR _res.options ,
+which disables the modern BIND checking of incoming host names and
+mail names for invalid characters such as underscore (_), non-ASCII,
+or control characters.
+.TP
+.B inet6
+sets RES_USE_INET6 in
+.IR _res.options .
+This has the effect of trying a AAAA query before an A query inside the
+.IR gethostbyname ()
+function, and of mapping IPv4 responses in IPv6 ``tunnelled form''
+if no AAAA records are found but an A record set exists.
+.RE
+.LP
+The \fIdomain\fP and \fIsearch\fP keywords are mutually exclusive.
+If more than one instance of these keywords is present,
+the last instance wins.
+.LP
+The \fIsearch\fP keyword of a system's \fIresolv.conf\fP file can be
+overridden on a per-process basis by setting the environment variable
+``\s-1LOCALDOMAIN\s+1'' to a space-separated list of search domains.
+.LP
+The \fIoptions\fP keyword of a system's \fIresolv.conf\fP file can be
+amended on a per-process basis by setting the environment variable
+``\s-1RES_OPTIONS\s+1'' to a space-separated list of resolver options
+as explained above under \fBoptions\fP.
+.LP
+The keyword and value must appear on a single line, and the keyword
+(e.g. \fBnameserver\fP) must start the line.  The value follows
+the keyword, separated by white space.
+.SH FILES
+.IR /etc/resolv.conf ,
+.I <resolv.h>
+.SH "SEE ALSO"
+.BR gethostbyname (3),
+.BR resolver (3),
+.BR hostname (7),
+.BR named (8)
+.br
+Name Server Operations Guide for BIND

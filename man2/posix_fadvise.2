@@ -1,0 +1,107 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright 2003 Abhijit Menon-Sen <ams@wiw.org>
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH POSIX_FADVISE 2 "14 Feb 2003" "Linux 2.5.60" "Linux Programmer's Manual"
+.SH NAME
+posix_fadvise \- predeclare an access pattern for file data
+.SH SYNOPSIS
+.nf
+.B #include <fcntl.h>
+.sp
+.BI "int posix_fadvise(int " fd ", off_t " offset ", off_t " len ", int " advice ");"
+.fi
+.SH DESCRIPTION
+Programs can use \fBposix_fadvise\fP to announce an intention to access
+file data in a specific pattern in the future, thus allowing the kernel
+to perform appropriate optimisations.
+
+The \fIadvice\fP applies to a (not necessarily existent) region starting
+at \fIoffset\fP and extending for \fIlen\fP bytes (or until the end of
+the file if \fIlen\fP is 0) within the file referred to by \fIfd\fP. The
+advice is not binding; it merely constitutes an expectation on behalf of
+the application.
+
+Permissible values for \fIadvice\fP include:
+.TP
+.B POSIX_FADV_NORMAL
+Indicates that the application has no advice to give about its access
+pattern for the specified data. If no advice is given for an open file,
+this is the default assumption.
+.TP
+.B POSIX_FADV_SEQUENTIAL
+The application expects to access the specified data sequentially (with
+lower offsets read before higher ones).
+.TP
+.B POSIX_FADV_RANDOM
+The specified data will be accessed in random order.
+.TP
+.B POSIX_FADV_NOREUSE
+The specified data will be accessed only once.
+.TP
+.B POSIX_FADV_WILLNEED
+The specified data will be accessed in the near future.
+.TP
+.B POSIX_FADV_DONTNEED
+The specified data will not be accessed in the near future.
+.SH "RETURN VALUE"
+On success, zero is returned. On error, \-1 is returned, and \fIerrno\fP
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+The \fIfd\fP argument was not a valid file descriptor.
+.TP
+.B EINVAL
+An invalid value was specified for \fIadvice\fP.
+.TP
+.B ESPIPE
+The specified file descriptor refers to a pipe or FIFO. (Linux actually
+returns EINVAL in this case.)
+.SH NOTES
+Under Linux, \fBPOSIX_FADV_NORMAL\fP sets the readahead window to the
+default size for the backing device; \fBPOSIX_FADV_SEQUENTIAL\fP doubles
+this size, and \fBPOSIX_FADV_RANDOM\fP disables file readahead entirely.
+These changes affect the the entire file, not just the specified region
+(but other open file handles to the same file are unaffected).
+
+\fBPOSIX_FADV_WILLNEED\fP and \fBPOSIX_FADV_NOREUSE\fP both initiate a
+non-blocking read of the specified region into the page cache. The amount
+of data read may be decreased by the kernel depending on VM load. (A few
+megabytes will usually be fully satisfied, and more is rarely useful.)
+
+\fBPOSIX_FADV_DONTNEED\fP attempts to free cached pages associated with
+the specified region. This is useful, for example, while streaming large
+files. A program may periodically request the kernel to free cached data
+that has already been used, so that more useful cached pages are not
+discarded instead.
+
+Pages that have not yet been written out will be unaffected, so if the
+application wishes to guarantee that pages will be released, it should
+call \fBfsync\fP or \fBfdatasync\fP first.
+.SH "CONFORMING TO"
+SUSv3 (Advanced Realtime Option), POSIX 1003.1-2003.
+Note that the type of the
+.I len
+parameter was changed from size_t to off_t in POSIX 1003.1-2003 TC5.
+.SH "SEE ALSO"
+.BR posix_fallocate "(2), " posix_madvise "(2)."

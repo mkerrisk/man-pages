@@ -1,0 +1,92 @@
+.\" Copyright (C) 1995, Thomas K. Dyas <tdyas@eden.rutgers.edu>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Created   1995-08-06 Thomas K. Dyas <tdyas@eden.rutgers.edu>
+.\" Modified  2000-07-01 aeb
+.\" Modified  2002-07-23 aeb
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH SETFSUID 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+setfsuid \- set user identity used for file system checks
+.SH SYNOPSIS
+.B #include <unistd.h>
+/* glibc uses <sys/fsuid.h> */
+.sp
+.BI "int setfsuid(uid_t " fsuid );
+.SH DESCRIPTION
+The system call
+.B setfsuid
+sets the user ID that the Linux kernel uses to check for all accesses
+to the file system. Normally, the value of
+.I fsuid
+will shadow the value of the effective user ID. In fact, whenever the
+effective user ID is changed,
+.I fsuid
+will also be changed to the new value of the effective user ID.
+
+Explicit calls to
+.B setfsuid
+and
+.B setfsgid
+are usually only used by programs such as the Linux NFS server that
+need to change what user and group ID is used for file access without a
+corresponding change in the real and effective user and group IDs.
+A change in the normal user IDs for a program such as the NFS server
+is a security hole that can expose it to unwanted signals. (But see below.)
+
+.B setfsuid
+will only succeed if the caller is the superuser or if
+.I fsuid
+matches either the real user ID, effective user ID, saved set-user-ID, or
+the current value of
+.IR fsuid .
+.SH "RETURN VALUE"
+On success, the previous value of
+.I fsuid
+is returned.  On error, the current value of
+.I fsuid
+is returned.
+.SH "CONFORMING TO"
+.B setfsuid
+is Linux specific and should not be used in programs intended to be portable.
+It is present since Linux 1.1.44 and in libc since libc 4.7.6.
+.SH BUGS
+No error messages of any kind are returned to the caller. At the very
+least,
+.B EPERM
+should be returned when the call fails (because the caller lacks the
+.B CAP_SETUID
+capability).
+.SH NOTES
+When glibc determines that the argument is not a valid user ID,
+it will return \-1 and set \fIerrno\fP to EINVAL without attempting
+the system call.
+.LP
+Note that at the time this system call was introduced, a process
+could send a signal to a process with the same effective user ID.
+Today signal permission handling is slightly different.
+.SH "SEE ALSO"
+.BR kill (2),
+.BR setfsgid (2),
+.BR capabilities (7)

@@ -1,0 +1,88 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH MSYNC 2 2003-08-21 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+msync \- synchronize a file with a memory map
+.SH SYNOPSIS
+.B #include <sys/mman.h>
+.sp
+.BI "int msync(void *" start ", size_t " length ", int " flags );
+.SH DESCRIPTION
+.B msync
+flushes changes made to the in-core copy of a file that was mapped
+into memory using
+.BR mmap (2)
+back to disk.  Without use of this call
+there is no guarantee that changes are written back before
+.BR munmap (2)
+is called.  To be more precise, the part of the file that
+corresponds to the memory area starting at
+.I start
+and having length
+.I length
+is updated.  The
+.I flags
+argument may have the bits MS_ASYNC, MS_SYNC and MS_INVALIDATE set,
+but not both MS_ASYNC and MS_SYNC.
+MS_ASYNC specifies that an update be scheduled, but the call
+returns immediately.
+MS_SYNC asks for an update and waits for it to complete.
+MS_INVALIDATE asks to invalidate other mappings of the same file
+(so that they can be updated with the fresh values just written).
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.BR EINVAL
+.I start
+is not a multiple of PAGESIZE, or any bit other than
+MS_ASYNC | MS_INVALIDATE | MS_SYNC is set in
+.IR flags.
+.TP
+.B ENOMEM
+The indicated memory (or part of it) was not mapped.
+.SH AVAILABILITY
+On POSIX systems on which
+.B msync
+is available, both
+.B _POSIX_MAPPED_FILES
+and
+.B _POSIX_SYNCHRONIZED_IO
+are defined in <unistd.h> to a value greater than 0. (See also
+.BR sysconf (3).)
+.\" POSIX 1003.1-2001: It shall be defined to -1 or 0 or 200112L.
+.\" -1: unavailable, 0: ask using sysconf().
+.\" glibc defines them to 1.
+.SH "CONFORMING TO"
+POSIX.1b (formerly POSIX.4)
+
+This call was introduced in Linux 1.3.21, and then used EFAULT instead of
+ENOMEM. In Linux 2.4.19 this was changed to the POSIX value ENOMEM.
+.SH "SEE ALSO"
+.BR mmap (2)
+.br
+B.O. Gallmeister, POSIX.4, O'Reilly, pp. 128-129 and 389-391.

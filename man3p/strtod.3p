@@ -1,0 +1,274 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "STRTOD" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" strtod 
+.SH NAME
+strtod, strtof, strtold \- convert a string to a double-precision number
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+.sp
+double strtod(const char *restrict\fP \fInptr\fP\fB, char **restrict\fP
+\fIendptr\fP\fB);
+.br
+float strtof(const char *restrict\fP \fInptr\fP\fB, char **restrict\fP
+\fIendptr\fP\fB);
+.br
+long double strtold(const char *restrict\fP \fInptr\fP\fB, char **restrict\fP
+\fIendptr\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions shall convert the initial portion of the string pointed
+to by \fInptr\fP to \fBdouble\fP, \fBfloat\fP, and
+\fBlong double\fP representation, respectively. First, they decompose
+the input string into three parts:
+.IP " 1." 4
+An initial, possibly empty, sequence of white-space characters (as
+specified by \fIisspace\fP())
+.LP
+.IP " 2." 4
+A subject sequence interpreted as a floating-point constant or representing
+infinity or NaN
+.LP
+.IP " 3." 4
+A final string of one or more unrecognized characters, including the
+terminating null byte of the input string
+.LP
+.LP
+Then they shall attempt to convert the subject sequence to a floating-point
+number, and return the result.
+.LP
+The expected form of the subject sequence is an optional plus or minus
+sign, then one of the following:
+.IP " *" 3
+A non-empty sequence of decimal digits optionally containing a radix
+character, then an optional exponent part
+.LP
+.IP " *" 3
+A 0x or 0X, then a non-empty sequence of hexadecimal digits optionally
+containing a radix character, then an optional binary
+exponent part
+.LP
+.IP " *" 3
+One of INF or INFINITY, ignoring case
+.LP
+.IP " *" 3
+One of NAN or NAN(\fIn-char-sequence_opt\fP), ignoring case in the
+NAN part, where:
+.sp
+.RS
+.nf
+
+\fBn-char-sequence:
+    digit
+    nondigit
+    n-char-sequence digit
+    n-char-sequence nondigit
+\fP
+.fi
+.RE
+.LP
+.LP
+The subject sequence is defined as the longest initial subsequence
+of the input string, starting with the first non-white-space
+character, that is of the expected form. The subject sequence contains
+no characters if the input string is not of the expected
+form.
+.LP
+If the subject sequence has the expected form for a floating-point
+number, the sequence of characters starting with the first
+digit or the decimal-point character (whichever occurs first) shall
+be interpreted as a floating constant of the C language, except
+that the radix character shall be used in place of a period, and that
+if neither an exponent part nor a radix character appears in
+a decimal floating-point number, or if a binary exponent part does
+not appear in a hexadecimal floating-point number, an exponent
+part of the appropriate type with value zero is assumed to follow
+the last digit in the string. If the subject sequence begins with
+a minus sign, the sequence shall be interpreted as negated. A character
+sequence INF or INFINITY shall be interpreted as an
+infinity, if representable in the return type, else as if it were
+a floating constant that is too large for the range of the return
+type. A character sequence NAN or NAN(\fIn-char-sequence_opt\fP) shall
+be interpreted as a quiet NaN, if
+supported in the return type, else as if it were a subject sequence
+part that does not have the expected form; the meaning of the
+\fIn\fP-char sequences is implementation-defined. A pointer to the
+final string is stored in the object pointed to by
+\fIendptr\fP, provided that \fIendptr\fP is not a null pointer.
+.LP
+If the subject sequence has the hexadecimal form and FLT_RADIX is
+a power of 2, the value resulting from the conversion is
+correctly rounded.
+.LP
+The
+radix character is defined in the program's locale (category \fILC_NUMERIC
+).\fP In the POSIX locale, or in a locale where the
+radix character is not defined, the radix character shall default
+to a period ( \fB'.'\fP ). 
+.LP
+In other than the C   \ or POSIX  locales, other
+implementation-defined subject sequences may be accepted.
+.LP
+If the subject sequence is empty or does not have the expected form,
+no conversion shall be performed; the value of \fIstr\fP
+is stored in the object pointed to by \fIendptr\fP, provided that
+\fIendptr\fP is not a null pointer.
+.LP
+The
+\fIstrtod\fP() function shall not change the setting of \fIerrno\fP
+if successful.
+.LP
+Since 0 is returned on error and is also a valid return on success,
+an application wishing to check for error situations should
+set \fIerrno\fP to 0, then call \fIstrtod\fP(), \fIstrtof\fP(), or
+\fIstrtold\fP(), then check \fIerrno\fP. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, these functions shall return the converted
+value. If no conversion could be performed, 0 shall be
+returned, and \fIerrno\fP may be set to [EINVAL].
+.LP
+If the correct value is outside the range of representable values,
+\(+-HUGE_VAL, \(+-HUGE_VALF, or \(+-HUGE_VALL
+shall be returned (according to the sign of the value), and \fIerrno\fP
+shall be set to [ERANGE].
+.LP
+If the correct value would cause an underflow, a value whose magnitude
+is no greater than the smallest normalized positive
+number in the return type shall be returned and \fIerrno\fP set to
+[ERANGE].
+.SH ERRORS
+.LP
+These functions shall fail if:
+.TP 7
+.B ERANGE
+The value to be returned would cause overflow   \ or underflow. 
+.sp
+.LP
+These functions may fail if:
+.TP 7
+.B EINVAL
+No
+conversion could be performed. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If the subject sequence has the hexadecimal form and FLT_RADIX is
+not a power of 2, and the result is not exactly representable,
+the result should be one of the two numbers in the appropriate internal
+format that are adjacent to the hexadecimal floating source
+value, with the extra stipulation that the error should have a correct
+sign for the current rounding direction.
+.LP
+If the subject sequence has the decimal form and at most DECIMAL_DIG
+(defined in \fI<float.h>\fP) significant digits, the result should
+be correctly rounded. If the subject
+sequence \fID\fP has the decimal form and more than DECIMAL_DIG significant
+digits, consider the two bounding, adjacent decimal
+strings \fIL\fP and \fIU\fP, both having DECIMAL_DIG significant digits,
+such that the values of \fIL\fP, \fID\fP, and \fIU\fP
+satisfy \fIL\fP <= \fID\fP <= \fIU\fP. The result should be one of
+the (equal or adjacent) values that would be obtained
+by correctly rounding \fIL\fP and \fIU\fP according to the current
+rounding direction, with the extra stipulation that the error
+with respect to \fID\fP should have a correct sign for the current
+rounding direction.
+.LP
+The changes to \fIstrtod\fP() introduced by the ISO/IEC\ 9899:1999
+standard can alter the behavior of well-formed
+applications complying with the ISO/IEC\ 9899:1990 standard and thus
+earlier versions of the base documents. One such example
+would be:
+.sp
+.RS
+.nf
+
+\fBint
+what_kind_of_number (char *s)
+{
+    char *endp;
+    double d;
+    long l;
+.sp
+
+    d = strtod(s, &endp);
+    if (s != endp && *endp == `\\0')
+        printf("It's a float with value %g\\n", d);
+    else
+    {
+        l = strtol(s, &endp, 0);
+        if (s != endp && *endp == `\\0')
+            printf("It's an integer with value %ld\\n", 1);
+        else
+            return 1;
+    }
+    return 0;
+}
+\fP
+.fi
+.RE
+.LP
+If the function is called with:
+.sp
+.RS
+.nf
+
+\fBwhat_kind_of_number ("0x10")
+\fP
+.fi
+.RE
+.LP
+an ISO/IEC\ 9899:1990 standard-compliant library will result in the
+function printing:
+.sp
+.RS
+.nf
+
+\fBIt's an integer with value 16
+\fP
+.fi
+.RE
+.LP
+With the ISO/IEC\ 9899:1999 standard, the result is:
+.sp
+.RS
+.nf
+
+\fBIt's a float with value 16
+\fP
+.fi
+.RE
+.LP
+The change in behavior is due to the inclusion of floating-point numbers
+in hexadecimal notation without requiring that either a
+decimal point or the binary exponent be present.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIisspace\fP() , \fIlocaleconv\fP() , \fIscanf\fP() , \fIsetlocale\fP()
+, \fIstrtol\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 7, Locale,
+\fI<float.h>\fP, \fI<stdlib.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

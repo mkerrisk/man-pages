@@ -1,0 +1,139 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SIGQUEUE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sigqueue 
+.SH NAME
+sigqueue \- queue a signal to a process (\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <signal.h>
+.br
+.sp
+int sigqueue(pid_t\fP \fIpid\fP\fB, int\fP \fIsigno\fP\fB, const union
+sigval\fP \fIvalue\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsigqueue\fP() function shall cause the signal specified by
+\fIsigno\fP to be sent with the value specified by
+\fIvalue\fP to the process specified by \fIpid\fP. If \fIsigno\fP
+is zero (the null signal), error checking is performed but no
+signal is actually sent. The null signal can be used to check the
+validity of \fIpid\fP.
+.LP
+The conditions required for a process to have permission to queue
+a signal to another process are the same as for the \fIkill\fP() function.
+.LP
+The \fIsigqueue\fP() function shall return immediately. If SA_SIGINFO
+is set for \fIsigno\fP and if the resources were
+available to queue the signal, the signal shall be queued and sent
+to the receiving process. If SA_SIGINFO is not set for
+\fIsigno\fP, then \fIsigno\fP shall be sent at least once to the receiving
+process; it is unspecified whether \fIvalue\fP shall
+be sent to the receiving process as a result of this call.
+.LP
+If the value of \fIpid\fP causes \fIsigno\fP to be generated for the
+sending process, and if \fIsigno\fP is not blocked for
+the calling thread and if no other thread has \fIsigno\fP unblocked
+or is waiting in a \fIsigwait\fP() function for \fIsigno\fP, either
+\fIsigno\fP or at least the pending, unblocked
+signal shall be delivered to the calling thread before the \fIsigqueue\fP()
+function returns. Should any multiple pending signals
+in the range SIGRTMIN to SIGRTMAX be selected for delivery, it shall
+be the lowest numbered one. The selection order between
+realtime and non-realtime signals, or between multiple pending non-realtime
+signals, is unspecified.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the specified signal shall have been queued,
+and the \fIsigqueue\fP() function shall return a value
+of zero. Otherwise, the function shall return a value of -1 and set
+\fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIsigqueue\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+No resources are available to queue the signal. The process has already
+queued {SIGQUEUE_MAX} signals that are still pending at
+the receiver(s), or a system-wide resource limit has been exceeded.
+.TP 7
+.B EINVAL
+The value of the \fIsigno\fP argument is an invalid or unsupported
+signal number.
+.TP 7
+.B EPERM
+The process does not have the appropriate privilege to send the signal
+to the receiving process.
+.TP 7
+.B ESRCH
+The process \fIpid\fP does not exist.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The \fIsigqueue\fP() function allows an application to queue a realtime
+signal to itself or to another process, specifying the
+application-defined value. This is common practice in realtime applications
+on existing realtime systems. It was felt that
+specifying another function in the \fIsig\fP... name space already
+carved out for signals was preferable to extending the
+interface to \fIkill\fP().
+.LP
+Such a function became necessary when the put/get event function of
+the message queues was removed. It should be noted that the
+\fIsigqueue\fP() function implies reduced performance in a security-conscious
+implementation as the access permissions between the
+sender and receiver have to be checked on each send when the \fIpid\fP
+is resolved into a target process. Such access checks were
+necessary only at message queue open in the previous interface.
+.LP
+The standard developers required that \fIsigqueue\fP() have the same
+semantics with respect to the null signal as \fIkill\fP(), and that
+the same permission checking be used. But because of the difficulty
+of
+implementing the "broadcast" semantic of \fIkill\fP() (for example,
+to process groups) and
+the interaction with resource allocation, this semantic was not adopted.
+The \fIsigqueue\fP() function queues a signal to a single
+process specified by the \fIpid\fP argument.
+.LP
+The \fIsigqueue\fP() function can fail if the system has insufficient
+resources to queue the signal. An explicit limit on the
+number of queued signals that a process could send was introduced.
+While the limit is "per-sender", this volume of
+IEEE\ Std\ 1003.1-2001 does not specify that the resources be part
+of the state of the sender. This would require either
+that the sender be maintained after exit until all signals that it
+had sent to other processes were handled or that all such
+signals that had not yet been acted upon be removed from the queue(s)
+of the receivers. This volume of
+IEEE\ Std\ 1003.1-2001 does not preclude this behavior, but an implementation
+that allocated queuing resources from a
+system-wide pool (with per-sender limits) and that leaves queued signals
+pending after the sender exits is also permitted.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIRealtime Signals\fP , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<signal.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

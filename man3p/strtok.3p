@@ -1,0 +1,179 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "STRTOK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" strtok 
+.SH NAME
+strtok, strtok_r \- split string into tokens
+.SH SYNOPSIS
+.LP
+\fB#include <string.h>
+.br
+.sp
+char *strtok(char *restrict\fP \fIs1\fP\fB, const char *restrict\fP
+\fIs2\fP\fB);
+.br
+\fP
+.LP
+\fBchar *strtok_r(char *restrict\fP \fIs\fP\fB, const char *restrict\fP
+\fIsep\fP\fB,
+.br
+\ \ \ \ \ \  char **restrict\fP \fIlasts\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+For \fIstrtok\fP():   The functionality described on this reference
+page is aligned with the ISO\ C standard. Any
+conflict between the requirements described here and the ISO\ C standard
+is unintentional. This volume of
+IEEE\ Std\ 1003.1-2001 defers to the ISO\ C standard. 
+.LP
+A sequence of calls to \fIstrtok\fP() breaks the string pointed to
+by \fIs1\fP into a sequence of tokens, each of which is
+delimited by a byte from the string pointed to by \fIs2\fP. The first
+call in the sequence has \fIs1\fP as its first argument,
+and is followed by calls with a null pointer as their first argument.
+The separator string pointed to by \fIs2\fP may be different
+from call to call.
+.LP
+The first call in the sequence searches the string pointed to by \fIs1\fP
+for the first byte that is \fInot\fP contained in
+the current separator string pointed to by \fIs2\fP. If no such byte
+is found, then there are no tokens in the string pointed to
+by \fIs1\fP and \fIstrtok\fP() shall return a null pointer. If such
+a byte is found, it is the start of the first token.
+.LP
+The \fIstrtok\fP() function then searches from there for a byte that
+\fIis\fP contained in the current separator string. If no
+such byte is found, the current token extends to the end of the string
+pointed to by \fIs1\fP, and subsequent searches for a token
+shall return a null pointer. If such a byte is found, it is overwritten
+by a null byte, which terminates the current token. The
+\fIstrtok\fP() function saves a pointer to the following byte, from
+which the next search for a token shall start.
+.LP
+Each subsequent call, with a null pointer as the value of the first
+argument, starts searching from the saved pointer and
+behaves as described above.
+.LP
+The implementation shall behave as if no function defined in this
+volume of IEEE\ Std\ 1003.1-2001 calls
+\fIstrtok\fP().
+.LP
+The
+\fIstrtok\fP() function need not be reentrant. A function that is
+not required to be reentrant is not required to be thread-safe.
+.LP
+The \fIstrtok_r\fP() function considers the null-terminated string
+\fIs\fP as a sequence of zero or more text tokens separated by
+spans of one or more characters from the separator string \fIsep\fP.
+The argument \fIlasts\fP points to a user-provided pointer
+which points to stored information necessary for \fIstrtok_r\fP()
+to continue scanning the same string.
+.LP
+In the first call to \fIstrtok_r\fP(), \fIs\fP points to a null-terminated
+string, \fIsep\fP to a null-terminated string of
+separator characters, and the value pointed to by \fIlasts\fP is ignored.
+The \fIstrtok_r\fP() function shall return a pointer to
+the first character of the first token, write a null character into
+\fIs\fP immediately following the returned token, and update
+the pointer to which \fIlasts\fP points.
+.LP
+In subsequent calls, \fIs\fP is a NULL pointer and \fIlasts\fP shall
+be unchanged from the previous call so that subsequent
+calls shall move through the string \fIs\fP, returning successive
+tokens until no tokens remain. The separator string \fIsep\fP
+may be different from call to call. When no token remains in \fIs\fP,
+a NULL pointer shall be returned. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIstrtok\fP() shall return a pointer
+to the first byte of a token. Otherwise, if there is no
+token, \fIstrtok\fP() shall return a null pointer.
+.LP
+The \fIstrtok_r\fP() function shall return a pointer to the token
+found, or a NULL pointer when no token is found. 
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Searching for Word Separators
+.LP
+The following example searches for tokens separated by <space>s.
+.sp
+.RS
+.nf
+
+\fB#include <string.h>
+\&...
+char *token;
+char *line = "LINE TO BE SEPARATED";
+char *search = " ";
+.sp
+
+/* Token will point to "LINE". */
+token = strtok(line, search);
+.sp
+
+/* Token will point to "TO". */
+token = strtok(NULL, search);
+\fP
+.fi
+.RE
+.SS Breaking a Line
+.LP
+The following example uses \fIstrtok\fP() to break a line into two
+character strings separated by any combination of
+<space>s, <tab>s, or <newline>s.
+.sp
+.RS
+.nf
+
+\fB#include <string.h>
+\&...
+struct element {
+    char *key;
+    char *data;
+};
+\&...
+char line[LINE_MAX];
+char *key, *data;
+\&...
+key = strtok(line, "    \\n");
+data = strtok(NULL, "   \\n");
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIstrtok_r\fP() function is thread-safe and stores its state
+in a user-supplied buffer instead of possibly using a static
+data area that may be overwritten by an unrelated call from another
+thread.
+.SH RATIONALE
+.LP
+The \fIstrtok\fP() function searches for a separator string within
+a larger string. It returns a pointer to the last substring
+between separator strings. This function uses static storage to keep
+track of the current string position between calls. The new
+function, \fIstrtok_r\fP(), takes an additional argument, \fIlasts\fP,
+to keep track of the current position in the string.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+The Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<string.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,255 @@
+'\" t
+.\" Copyright (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" Copyright (c) 2002 by Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\" Modified Sat Jul 24 17:34:08 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified Sun Jan  7 01:41:27 1996 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Sun Apr 14 12:02:29 1996 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Sat Nov 13 16:28:23 1999 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified 10 Apr 2002, by Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\" Modified  7 Jun 2002, by Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"	Added information on real-time signals
+.\" Modified 13 Jun 2002, by Michael Kerrisk (mtk16@ext.canterbury.ac.nz)
+.\"	Noted that SIGSTKFLT is in fact unused
+.\"
+.TH SIGNAL 7  2002-06-13 "Linux 2.4.18" "Linux Programmer's Manual"
+.SH NAME
+signal \- list of available signals
+.SH DESCRIPTION
+Linux supports both POSIX reliable signals (hereinafter
+"standard signals") and POSIX real-time signals.
+.SS "Standard Signals"
+Linux supports the standard signals listed below. Several signal numbers
+are architecture dependent, as indicated in the "Value" column.
+(Where three values are given, the first one is usually valid for
+alpha and sparc, the middle one for i386, ppc and sh, and
+the last one for mips.
+A \- denotes that a signal is absent on the corresponding architecture.)
+
+The entries in the "Action" column of the table specify
+the default action for the signal, as follows:
+.IP Term
+Default action is to terminate the process.
+.IP Ign
+Default action is to ignore the signal.
+.IP Core
+Default action is to terminate the process and dump core.
+.IP Stop
+Default action is to stop the process.
+.PP
+First the signals described in the original POSIX.1 standard.
+.sp
+.PP
+.TS
+l c c l
+____
+lB c c l.
+Signal	Value	Action	Comment
+SIGHUP	\01	Term	Hangup detected on controlling terminal
+			or death of controlling process
+SIGINT	\02	Term	Interrupt from keyboard
+SIGQUIT	\03	Core	Quit from keyboard
+SIGILL	\04	Core	Illegal Instruction
+SIGABRT	\06	Core	Abort signal from \fIabort\fP(3)
+SIGFPE	\08	Core	Floating point exception
+SIGKILL	\09	Term	Kill signal
+SIGSEGV	11	Core	Invalid memory reference
+SIGPIPE	13	Term	Broken pipe: write to pipe with no readers
+SIGALRM	14	Term	Timer signal from \fIalarm\fP(2)
+SIGTERM	15	Term	Termination signal
+SIGUSR1	30,10,16	Term	User\-defined signal 1
+SIGUSR2	31,12,17	Term	User\-defined signal 2
+SIGCHLD	20,17,18	Ign	Child stopped or terminated
+SIGCONT	19,18,25		Continue if stopped
+SIGSTOP	17,19,23	Stop	Stop process
+SIGTSTP	18,20,24	Stop	Stop typed at tty
+SIGTTIN	21,21,26	Stop	tty input for background process
+SIGTTOU	22,22,27	Stop	tty output for background process
+.TE
+
+The signals
+.B SIGKILL
+and
+.B SIGSTOP
+cannot be caught, blocked, or ignored.
+
+Next the signals not in the POSIX.1 standard but described in SUSv2 and
+SUSv3 / POSIX 1003.1-2001.
+.sp
+.PP
+.TS
+l c c l
+____
+lB c c l.
+Signal	Value	Action	Comment
+SIGBUS	10,7,10	Core	Bus error (bad memory access)
+SIGPOLL		Term	Pollable event (Sys V). Synonym of SIGIO
+SIGPROF	27,27,29	Term	Profiling timer expired
+SIGSYS	12,\-,12	Core	Bad argument to routine (SVID)
+SIGTRAP	5	Core	Trace/breakpoint trap
+SIGURG	16,23,21	Ign	Urgent condition on socket (4.2 BSD)
+SIGVTALRM	26,26,28	Term	Virtual alarm clock (4.2 BSD)
+SIGXCPU	24,24,30	Core	CPU time limit exceeded (4.2 BSD)
+SIGXFSZ	25,25,31	Core	File size limit exceeded (4.2 BSD)
+.TE
+
+Up to and including Linux 2.2, the default behaviour for
+.BR SIGSYS ", " SIGXCPU ", " SIGXFSZ ", "
+and (on architectures other than SPARC and MIPS)
+.B SIGBUS
+was to terminate the process (without a core dump).
+(On some other Unices the default action for
+.BR SIGXCPU " and " SIGXFSZ
+is to terminate the process without a core dump.)
+Linux 2.4 conforms to the POSIX 1003.1-2001 requirements for these signals,
+terminating the process with a core dump.
+
+Next various other signals.
+.sp
+.PP
+.TS
+l c c l
+____
+lB c c l.
+Signal	Value	Action	Comment
+SIGIOT	6	Core	IOT trap. A synonym for SIGABRT
+SIGEMT	7,\-,7	Term
+SIGSTKFLT	\-,16,\-	Term	Stack fault on coprocessor (unused)
+SIGIO	23,29,22	Term	I/O now possible (4.2 BSD)
+SIGCLD	\-,\-,18	Ign	A synonym for SIGCHLD
+SIGPWR	29,30,19	Term	Power failure (System V)
+SIGINFO	29,\-,\-		A synonym for SIGPWR
+SIGLOST	\-,\-,\-	Term	File lock lost
+SIGWINCH	28,28,20	Ign	Window resize signal (4.3 BSD, Sun)
+SIGUNUSED	\-,31,\-	Term	Unused signal (will be SIGSYS)
+.TE
+
+(Signal 29 is
+.B SIGINFO
+/
+.B SIGPWR
+on an alpha but
+.B SIGLOST
+on a sparc.)
+
+.B SIGEMT
+is not specified in POSIX 1003.1-2001, but neverthless appears
+on most other Unices, where its default action is typically to terminate
+the process with a core dump.
+
+.B SIGPWR
+(which is not specified in POSIX 1003.1-2001) is typically ignored
+by default on those other Unices where it appears.
+
+.B SIGIO
+(which is not specified in POSIX 1003.1-2001) is ignored by default
+on several other Unices.
+.SS "Real-time Signals"
+Linux supports real-time signals as originally defined in the POSIX.4
+real-time extensions (and now included in POSIX 1003.1-2001).
+Linux supports 32 real-time signals, numbered from 32
+.RB ( SIGRTMIN )
+to 63
+.RB ( SIGRTMAX ).
+(Programs should always refer to real-time signals using notation
+.BR SIGRTMIN +n,
+since the range of real-time signal numbers varies across Unices.)
+.PP
+Unlike standard signals, real-time signals have no predefined meanings:
+the entire set of real-time signals can be used for application-defined
+purposes.
+(Note, however, that the LinuxThreads implementation uses the first
+three real-time signals.)
+.PP
+The default action for an unhandled real-time signal is to terminate the
+receiving process.
+.PP
+Real-time signals are distinguished by the following:
+.IP 1. 4
+Multiple instances of real-time signals can be queued.
+By contrast, if multiple instances of a standard signal are delivered
+while that signal is currently blocked, then only one instance is queued.
+.IP 2. 4
+If the signal is sent using
+.BR sigqueue (2),
+an accompanying value (either an integer or a pointer) can be sent
+with the signal.
+If the receiving process establishes a handler for this signal using the
+.B SA_SIGACTION
+flag to
+.BR sigaction (2)
+then it can obtain this data via the
+.I si_value
+field of the
+.I siginfo_t
+structure passed as the second argument to the handler.
+Furthermore, the
+.I si_pid
+and
+.I si_uid
+fields of this structure can be used to obtain the PID
+and real user ID of the process sending the signal.
+.IP 3. 4
+Real-time signals are delivered in a guaranteed order.
+Multiple real-time signals of the same type are delivered in the order
+they were sent.
+If different real-time signals are sent to a process, they are delivered
+starting with the lowest-numbered signal.
+(I.e., low-numbered signals have highest priority.)
+.PP
+If both standard and real-time signals are pending for a process,
+POSIX leaves it unspecified which is delivered first.
+Linux, like many other implementations, gives priority
+to standard signals in this case.
+.PP
+According to POSIX, an implementation should permit at least
+_POSIX_SIGQUEUE_MAX (32) real-time signals to be queued to
+a process.
+However, rather than placing a per-process limit, Linux imposes
+a system-wide limit on the number of queued real-time signals
+for all processes.
+This limit can be viewed and (with privilege) changed via the
+.I /proc/sys/kernel/rtsig-max
+file.
+A related file,
+.IR /proc/sys/kernel/rtsig-nr ,
+can be used to find out how many real-time signals are currently queued.
+.SH "CONFORMING TO"
+POSIX.1
+.SH BUGS
+.B SIGIO
+and
+.B SIGLOST
+have the same value.
+The latter is commented out in the kernel source, but
+the build process of some software still thinks that
+signal 29 is
+.BR SIGLOST .
+.SH "SEE ALSO"
+.BR kill (1),
+.BR kill (2),
+.BR setitimer (2),
+.BR sigaction (2),
+.BR signal (2),
+.BR sigprocmask (2),
+.BR sigqueue (2)

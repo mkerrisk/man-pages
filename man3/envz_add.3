@@ -1,0 +1,138 @@
+.\" Copyright 2002 walter harms (walter.harms@informatik.uni-oldenburg.de)
+.\" Distributed under GPL
+.\" based on the description in glibc source and infopages
+.\" 
+.\" Corrections and additions, aeb
+.TH ENVZ_ADD 3
+.SH NAME
+envz_add, envz_entry, envz_get, envz_merge,
+envz_remove, envz_strip \- environment string support
+.SH SYNOPSIS
+.nf
+.sp
+.B "#include <envz.h>"
+.sp
+.BI "error_t"
+.BI "envz_add(char **" envz ", size_t *" envz_len ,
+.ti 16n
+.BI "const char *" name ", const char *" value );
+.sp
+.BI "char *"
+.BI "envz_entry(const char *" envz ", size_t *" envz_len ", const char *" name );
+.sp
+.BI "char *"
+.BI "envz_get(const char *" envz ", size_t *" envz_len ", const char *" name );
+.sp
+.BI "error_t"
+.BI "envz_merge(char **" envz ", size_t *" envz_len ,
+.ti 16n
+.BI "const char *" envz2 ", size_t " envz2_len ", int " override );
+.sp
+.BI "void"
+.BI "envz_remove(char **" envz ", size_t *" envz_len ", const char *" name );
+.sp
+.BI "void"
+.BI "envz_strip(char **" envz ", size_t *" envz_len );
+.sp
+.SH DESCRIPTION
+These functions are glibc-specific.
+.LP
+An argz vector is a pointer to a character buffer together with a length,
+see
+.BR argz_add (3).
+An envz vector is a special argz vector, namely one where the strings
+have the form "name=value". Everything after the first '=' is considered
+to be the value. If there is no '=', the value is taken to be NULL.
+(While the value in case of a trailing '=' is the empty string "".)
+.LP
+These functions are for handling envz vectors.
+.LP
+.B envz_add()
+adds the string
+.RI \&" name = value \&"
+(in case
+.I value
+is non-NULL) or
+.RI \&" name \&"
+(in case
+.I value
+is NULL) to the envz vector
+.RI (* envz ,* envz_len )
+and updates
+.RI * envz
+and
+.RI * envz_len .
+If an entry with the same
+.I name
+existed, it is removed.
+.LP
+.B envz_entry()
+looks for
+.I name
+in the envz vector
+.RI ( envz , envz_len )
+and returns the entry if found, or NULL if not.
+.LP
+.B envz_get()
+looks for
+.I name
+in the envz vector
+.RI ( envz , envz_len )
+and returns the value if found, or NULL if not.
+(Note that the value can also be NULL, namely when there is
+an entry for
+.I name
+without '=' sign.)
+.LP
+.B envz_merge()
+adds each entry in
+.I envz2
+to
+.RI * envz ,
+as if with
+.BR envz_add() .
+If
+.I override
+is true, then values in
+.I envz2
+will supersede those with the same name in
+.RI * envz ,
+otherwise not.
+.LP
+.B envz_remove()
+removes the entry for
+.I name
+from
+.RI (* envz ,* envz_len )
+if there was one.
+.LP
+.B envz_strip
+removes all entries with value NULL.
+.SH "RETURN VALUE"
+All envz functions that do memory allocation have a return type of
+\fIerror_t\fP, and return \fB0\fP for success, and \fBENOMEM\fP
+if an allocation error occurs.
+.SH EXAMPLE
+.sp
+.nf
+#include <stdio.h>
+#include <envz.h>
+int
+main(int argc, char *argv[], char *envp[]) {
+	int i, e_len = 0;
+	char *str;
+
+	for (i=0; envp[i] != NULL; i++)
+		e_len += strlen(envp[i]) + 1;
+
+	str = envz_entry(*envp, e_len, "HOME");
+	printf("%s\en", str);
+	str = envz_get(*envp, e_len, "HOME");
+	printf("%s\en", str);
+	return 0;
+}
+.fi
+.SH NOTES
+These functions are a GNU extension. Handle with care.
+.SH "SEE ALSO"
+.BR argz (3)

@@ -1,0 +1,631 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POSIX_SPAWN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" posix_spawn 
+.SH NAME
+posix_spawn, posix_spawnp \- spawn a process (\fBADVANCED REALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <spawn.h>
+.br
+.sp
+int posix_spawn(pid_t *restrict\fP \fIpid\fP\fB, const char *restrict\fP
+\fIpath\fP\fB,
+.br
+\ \ \ \ \ \  const posix_spawn_file_actions_t *\fP\fIfile_actions\fP\fB,
+.br
+\ \ \ \ \ \  const posix_spawnattr_t *restrict\fP \fIattrp\fP\fB,
+.br
+\ \ \ \ \ \  char *const\fP \fIargv\fP\fB[restrict], char *const\fP
+\fIenvp\fP\fB[restrict]);
+.br
+int posix_spawnp(pid_t *restrict\fP \fIpid\fP\fB, const char *restrict\fP
+\fIfile\fP\fB,
+.br
+\ \ \ \ \ \  const posix_spawn_file_actions_t *\fP\fIfile_actions\fP\fB,
+.br
+\ \ \ \ \ \  const posix_spawnattr_t *restrict\fP \fIattrp\fP\fB,
+.br
+\ \ \ \ \ \  char *const\fP \fIargv\fP\fB[restrict], char * const\fP
+\fIenvp\fP\fB[restrict]);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIposix_spawn\fP() and \fIposix_spawnp\fP() functions shall create
+a new process (child process) from the specified
+process image. The new process image shall be constructed from a regular
+executable file called the new process image file.
+.LP
+When a C program is executed as the result of this call, it shall
+be entered as a C-language function call as follows:
+.sp
+.RS
+.nf
+
+\fBint main(int\fP \fIargc\fP\fB, char *\fP\fIargv\fP\fB[]);
+\fP
+.fi
+.RE
+.LP
+where \fIargc\fP is the argument count and \fIargv\fP is an array
+of character pointers to the arguments themselves. In
+addition, the following variable:
+.sp
+.RS
+.nf
+
+\fBextern char **environ;
+\fP
+.fi
+.RE
+.LP
+shall be initialized as a pointer to an array of character pointers
+to the environment strings.
+.LP
+The argument \fIargv\fP is an array of character pointers to null-terminated
+strings. The last member of this array shall be a
+null pointer and is not counted in \fIargc\fP. These strings constitute
+the argument list available to the new process image. The
+value in \fIargv\fP[0] should point to a filename that is associated
+with the process image being started by the
+\fIposix_spawn\fP() or \fIposix_spawnp\fP() function.
+.LP
+The argument \fIenvp\fP is an array of character pointers to null-terminated
+strings. These strings constitute the environment
+for the new process image. The environment array is terminated by
+a null pointer.
+.LP
+The number of bytes available for the child process' combined argument
+and environment lists is {ARG_MAX}. The implementation
+shall specify in the system documentation (see the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Chapter 2, Conformance) whether
+any list overhead, such as length words, null terminators,
+pointers, or alignment bytes, is included in this total.
+.LP
+The \fIpath\fP argument to \fIposix_spawn\fP() is a pathname that
+identifies the new process image file to execute.
+.LP
+The \fIfile\fP parameter to \fIposix_spawnp\fP() shall be used to
+construct a pathname that identifies the new process image
+file. If the \fIfile\fP parameter contains a slash character, the
+\fIfile\fP parameter shall be used as the pathname for the new
+process image file. Otherwise, the path prefix for this file shall
+be obtained by a search of the directories passed as the
+environment variable \fIPATH\fP (see the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 8, Environment Variables). If this
+environment variable is not defined, the results of
+the search are implementation-defined.
+.LP
+If \fIfile_actions\fP is a null pointer, then file descriptors open
+in the calling process shall remain open in the child
+process, except for those whose close-on- \fIexec\fP flag FD_CLOEXEC
+is set (see \fIfcntl\fP() ). For those file descriptors that remain
+open, all attributes of the corresponding open file
+descriptions, including file locks (see \fIfcntl\fP() ), shall remain
+unchanged.
+.LP
+If \fIfile_actions\fP is not NULL, then the file descriptors open
+in the child process shall be those open in the calling
+process as modified by the spawn file actions object pointed to by
+\fIfile_actions\fP and the FD_CLOEXEC flag of each remaining
+open file descriptor after the spawn file actions have been processed.
+The effective order of processing the spawn file actions
+shall be:
+.IP " 1." 4
+The set of open file descriptors for the child process shall initially
+be the same set as is open for the calling process. All
+attributes of the corresponding open file descriptions, including
+file locks (see \fIfcntl\fP() ), shall
+remain unchanged.
+.LP
+.IP " 2." 4
+The signal mask, signal default actions, and the effective user and
+group IDs for the child process shall be changed as
+specified in the attributes object referenced by \fIattrp\fP.
+.LP
+.IP " 3." 4
+The file actions specified by the spawn file actions object shall
+be performed in the order in which they were added to the
+spawn file actions object.
+.LP
+.IP " 4." 4
+Any file descriptor that has its FD_CLOEXEC flag set (see \fIfcntl\fP()
+) shall be closed.
+.LP
+.LP
+The \fBposix_spawnattr_t\fP spawn attributes object type is defined
+in \fI<spawn.h>\fP. It shall contain at least the attributes defined
+below.
+.LP
+If the POSIX_SPAWN_SETPGROUP flag is set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP, and the
+\fIspawn-pgroup\fP attribute of the same object is non-zero, then
+the child's process group shall be as specified in the
+\fIspawn-pgroup\fP attribute of the object referenced by \fIattrp\fP.
+.LP
+As a special case, if the POSIX_SPAWN_SETPGROUP flag is set in the
+\fIspawn-flags\fP attribute of the object referenced by
+\fIattrp\fP, and the \fIspawn-pgroup\fP attribute of the same object
+is set to zero, then the child shall be in a new process
+group with a process group ID equal to its process ID.
+.LP
+If the POSIX_SPAWN_SETPGROUP flag is not set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP, the
+new child process shall inherit the parent's process group.
+.LP
+If
+the POSIX_SPAWN_SETSCHEDPARAM flag is set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP, but
+POSIX_SPAWN_SETSCHEDULER is not set, the new process image shall initially
+have the scheduling policy of the calling process with
+the scheduling parameters specified in the \fIspawn-schedparam\fP
+attribute of the object referenced by \fIattrp\fP.
+.LP
+If the POSIX_SPAWN_SETSCHEDULER flag is set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP
+(regardless of the setting of the POSIX_SPAWN_SETSCHEDPARAM flag),
+the new process image shall initially have the scheduling policy
+specified in the \fIspawn-schedpolicy\fP attribute of the object referenced
+by \fIattrp\fP and the scheduling parameters
+specified in the \fIspawn-schedparam\fP attribute of the same object.
+.LP
+The POSIX_SPAWN_RESETIDS flag in the \fIspawn-flags\fP attribute of
+the object referenced by \fIattrp\fP governs the effective
+user ID of the child process. If this flag is not set, the child process
+shall inherit the parent process' effective user ID. If
+this flag is set, the child process' effective user ID shall be reset
+to the parent's real user ID. In either case, if the
+set-user-ID mode bit of the new process image file is set, the effective
+user ID of the child process shall become that file's
+owner ID before the new process image begins execution.
+.LP
+The POSIX_SPAWN_RESETIDS flag in the \fIspawn-flags\fP attribute of
+the object referenced by \fIattrp\fP also governs the
+effective group ID of the child process. If this flag is not set,
+the child process shall inherit the parent process' effective
+group ID. If this flag is set, the child process' effective group
+ID shall be reset to the parent's real group ID. In either case,
+if the set-group-ID mode bit of the new process image file is set,
+the effective group ID of the child process shall become that
+file's group ID before the new process image begins execution.
+.LP
+If the POSIX_SPAWN_SETSIGMASK flag is set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP, the
+child process shall initially have the signal mask specified in the
+\fIspawn-sigmask\fP attribute of the object referenced by
+\fIattrp\fP.
+.LP
+If the POSIX_SPAWN_SETSIGDEF flag is set in the \fIspawn-flags\fP
+attribute of the object referenced by \fIattrp\fP, the
+signals specified in the \fIspawn-sigdefault\fP attribute of the same
+object shall be set to their default actions in the child
+process. Signals set to the default action in the parent process shall
+be set to the default action in the child process.
+.LP
+Signals set to be caught by the calling process shall be set to the
+default action in the child process.
+.LP
+Except for SIGCHLD, signals set to be ignored by the calling process
+image shall be set to be ignored by the child process,
+unless otherwise specified by the POSIX_SPAWN_SETSIGDEF flag being
+set in the \fIspawn-flags\fP attribute of the object referenced
+by \fIattrp\fP and the signals being indicated in the \fIspawn-sigdefault\fP
+attribute of the object referenced by
+\fIattrp\fP.
+.LP
+If the SIGCHLD signal is set to be ignored by the calling process,
+it is unspecified whether the SIGCHLD signal is set to be
+ignored or to the default action in the child process, unless otherwise
+specified by the POSIX_SPAWN_SETSIGDEF flag being set in
+the \fIspawn_flags\fP attribute of the object referenced by \fIattrp\fP
+and the SIGCHLD signal being indicated in the
+\fIspawn_sigdefault\fP attribute of the object referenced by \fIattrp\fP.
+.LP
+If the value of the \fIattrp\fP pointer is NULL, then the default
+values are used.
+.LP
+All process attributes, other than those influenced by the attributes
+set in the object referenced by \fIattrp\fP as specified
+above or by the file descriptor manipulations specified in \fIfile_actions\fP,
+shall appear in the new process image as though \fIfork\fP() had been
+called to create a child process and then a member of the \fIexec\fP
+family of functions had been called by the child process to execute
+the new process
+image.
+.LP
+It is implementation-defined whether the fork handlers are run when
+\fIposix_spawn\fP() or \fIposix_spawnp\fP() is called. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+shall return the process ID of the child process to
+the parent process, in the variable pointed to by a non-NULL \fIpid\fP
+argument, and shall return zero as the function return
+value. Otherwise, no child process shall be created, the value stored
+into the variable pointed to by a non-NULL \fIpid\fP is
+unspecified, and an error number shall be returned as the function
+return value to indicate the error. If the \fIpid\fP argument
+is a null pointer, the process ID of the child is not returned to
+the caller.
+.SH ERRORS
+.LP
+The \fIposix_spawn\fP() and \fIposix_spawnp\fP() functions may fail
+if:
+.TP 7
+.B EINVAL
+The value specified by \fIfile_actions\fP or \fIattrp\fP is invalid.
+.sp
+.LP
+If this error occurs after the calling process successfully returns
+from the \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+function, the child process may exit with exit status 127.
+.LP
+If \fIposix_spawn\fP() or \fIposix_spawnp\fP() fail for any of the
+reasons that would cause \fIfork\fP() or one of the \fIexec\fP family
+of functions to
+fail, an error value shall be returned as described by \fIfork\fP()
+and \fIexec\fP, respectively (or, if the error occurs after the calling
+process successfully returns, the
+child process shall exit with exit status 127).
+.LP
+If POSIX_SPAWN_SETPGROUP is set in the \fIspawn-flags\fP attribute
+of the object referenced by \fIattrp\fP, and
+\fIposix_spawn\fP() or \fIposix_spawnp\fP() fails while changing the
+child's process group, an error value shall be returned as
+described by \fIsetpgid\fP() (or, if the error occurs after the calling
+process
+successfully returns, the child process shall exit with exit status
+127).
+.LP
+If
+POSIX_SPAWN_SETSCHEDPARAM is set and POSIX_SPAWN_SETSCHEDULER is not
+set in the \fIspawn-flags\fP attribute of the object
+referenced by \fIattrp\fP, then if \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+fails for any of the reasons that would cause \fIsched_setparam\fP()
+to fail, an error value shall be returned as described by \fIsched_setparam\fP()
+(or, if the error occurs after the calling process successfully
+returns, the child process shall exit with exit status 127).
+.LP
+If POSIX_SPAWN_SETSCHEDULER is set in the \fIspawn-flags\fP attribute
+of the object referenced by \fIattrp\fP, and if
+\fIposix_spawn\fP() or \fIposix_spawnp\fP() fails for any of the reasons
+that would cause \fIsched_setscheduler\fP() to fail, an error value
+shall be returned as described by \fIsched_setscheduler\fP() (or,
+if the error occurs after the calling process
+successfully returns, the child process shall exit with exit status
+127). 
+.LP
+If the \fIfile_actions\fP argument is not NULL, and specifies any
+\fIclose\fP, \fIdup2\fP, or \fIopen\fP actions to be
+performed, and if \fIposix_spawn\fP() or \fIposix_spawnp\fP() fails
+for any of the reasons that would cause \fIclose\fP(), \fIdup2\fP(),
+or \fIopen\fP() to fail, an error value shall be returned as described
+by \fIclose\fP(), \fIdup2\fP(), and \fIopen\fP(), respectively (or,
+if the error occurs after the calling process successfully returns,
+the child process shall exit with exit status 127). An open file action
+may, by itself, result in any of the errors described by \fIclose\fP()
+or \fIdup2\fP(), in addition to those
+described by \fIopen\fP().
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+These functions are part of the Spawn option and need not be provided
+on all implementations.
+.SH RATIONALE
+.LP
+The \fIposix_spawn\fP() function and its close relation \fIposix_spawnp\fP()
+have been introduced to overcome the following
+perceived difficulties with \fIfork\fP(): the \fIfork\fP() function
+is difficult or impossible to implement without swapping or dynamic
+address
+translation.
+.IP " *" 3
+Swapping is generally too slow for a realtime environment.
+.LP
+.IP " *" 3
+Dynamic address translation is not available everywhere that POSIX
+might be useful.
+.LP
+.IP " *" 3
+Processes are too useful to simply option out of POSIX whenever it
+must run without address translation or other MMU
+services.
+.LP
+.LP
+Thus, POSIX needs process creation and file execution primitives that
+can be efficiently implemented without address translation
+or other MMU services.
+.LP
+The \fIposix_spawn\fP() function is implementable as a library routine,
+but both \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+are designed as kernel operations. Also, although they may be an efficient
+replacement for many \fIfork\fP()/ \fIexec\fP pairs, their goal is
+to provide useful
+process creation primitives for systems that have difficulty with
+\fIfork\fP(), not to
+provide drop-in replacements for \fIfork\fP()/ \fIexec\fP.
+.LP
+This view of the role of \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+influenced the design of their API. It does not attempt
+to provide the full functionality of \fIfork\fP()/ \fIexec\fP in which
+arbitrary user-specified operations of any sort are permitted between
+the creation
+of the child process and the execution of the new process image; any
+attempt to reach that level would need to provide a
+programming language as parameters. Instead, \fIposix_spawn\fP() and
+\fIposix_spawnp\fP() are process creation primitives like
+the \fIStart_Process\fP and \fIStart_Process_Search\fP Ada language
+bindings package \fIPOSIX_Process_Primitives\fP and also
+like those in many operating systems that are not UNIX systems, but
+with some POSIX-specific additions.
+.LP
+To achieve its coverage goals, \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+have control of six types of inheritance: file
+descriptors, process group ID, user and group ID, signal mask, scheduling,
+and whether each signal ignored in the parent will
+remain ignored in the child, or be reset to its default action in
+the child.
+.LP
+Control of file descriptors is required to allow an independently
+written child process image to access data streams opened by
+and even generated or read by the parent process without being specifically
+coded to know which parent files and file descriptors
+are to be used. Control of the process group ID is required to control
+how the child process' job control relates to that of the
+parent.
+.LP
+Control of the signal mask and signal defaulting is sufficient to
+support the implementation of \fIsystem\fP(). Although support for
+\fIsystem\fP() is not
+explicitly one of the goals for \fIposix_spawn\fP() and \fIposix_spawnp\fP(),
+it is covered under the "at least 50%" coverage
+goal.
+.LP
+The intention is that the normal file descriptor inheritance across
+\fIfork\fP(), the
+subsequent effect of the specified spawn file actions, and the normal
+file descriptor inheritance across one of the \fIexec\fP family of
+functions should fully specify open file inheritance. The implementation
+need make
+no decisions regarding the set of open file descriptors when the child
+process image begins execution, those decisions having
+already been made by the caller and expressed as the set of open file
+descriptors and their FD_CLOEXEC flags at the time of the
+call and the spawn file actions object specified in the call. We have
+been assured that in cases where the POSIX
+\fIStart_Process\fP Ada primitives have been implemented in a library,
+this method of controlling file descriptor inheritance may
+be implemented very easily.
+.LP
+We can identify several problems with \fIposix_spawn\fP() and \fIposix_spawnp\fP(),
+but there does not appear to be a solution
+that introduces fewer problems. Environment modification for child
+process attributes not specifiable via the \fIattrp\fP or
+\fIfile_actions\fP arguments must be done in the parent process, and
+since the parent generally wants to save its context, it is
+more costly than similar functionality with \fIfork\fP()/ \fIexec\fP.
+It is also complicated to modify the environment of a multi-threaded
+process temporarily,
+since all threads must agree when it is safe for the environment to
+be changed. However, this cost is only borne by those
+invocations of \fIposix_spawn\fP() and \fIposix_spawnp\fP() that use
+the additional functionality. Since extensive modifications
+are not the usual case, and are particularly unlikely in time-critical
+code, keeping much of the environment control out of
+\fIposix_spawn\fP() and \fIposix_spawnp\fP() is appropriate design.
+.LP
+The \fIposix_spawn\fP() and \fIposix_spawnp\fP() functions do not
+have all the power of \fIfork\fP()/ \fIexec\fP. This is to be expected.
+The \fIfork\fP() function is a wonderfully powerful operation. We
+do not expect to duplicate its
+functionality in a simple, fast function with no special hardware
+requirements. It is worth noting that \fIposix_spawn\fP() and
+\fIposix_spawnp\fP() are very similar to the process creation operations
+on many operating systems that are not UNIX systems.
+.SS Requirements
+.LP
+The requirements for \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+are:
+.IP " *" 3
+They must be implementable without an MMU or unusual hardware.
+.LP
+.IP " *" 3
+They must be compatible with existing POSIX standards.
+.LP
+.LP
+Additional goals are:
+.IP " *" 3
+They should be efficiently implementable.
+.LP
+.IP " *" 3
+They should be able to replace at least 50% of typical executions
+of \fIfork\fP().
+.LP
+.IP " *" 3
+A system with \fIposix_spawn\fP() and \fIposix_spawnp\fP() and without
+\fIfork\fP()
+should be useful, at least for realtime applications.
+.LP
+.IP " *" 3
+A system with \fIfork\fP() and the \fIexec\fP family
+should be able to implement \fIposix_spawn\fP() and \fIposix_spawnp\fP()
+as library routines.
+.LP
+.SS Two-Syntax
+.LP
+POSIX \fIexec\fP has several calling sequences with approximately
+the same functionality.
+These appear to be required for compatibility with existing practice.
+Since the existing practice for the \fIposix_spawn*\fP() functions
+is otherwise substantially unlike POSIX, we feel that
+simplicity outweighs compatibility. There are, therefore, only two
+names for the \fIposix_spawn*\fP() functions.
+.LP
+The parameter list does not differ between \fIposix_spawn\fP() and
+\fIposix_spawnp\fP(); \fIposix_spawnp\fP() interprets the
+second parameter more elaborately than \fIposix_spawn\fP().
+.SS Compatibility with POSIX.5 (Ada)
+.LP
+The \fIStart_Process\fP and \fIStart_Process_Search\fP procedures
+from the \fIPOSIX_Process_Primitives\fP package from the
+Ada language binding to POSIX.1 encapsulate \fIfork\fP() and \fIexec\fP
+functionality in a manner similar to that of \fIposix_spawn\fP() and
+\fIposix_spawnp\fP().
+Originally, in keeping with our simplicity goal, the standard developers
+had limited the capabilities of \fIposix_spawn\fP() and
+\fIposix_spawnp\fP() to a subset of the capabilities of \fIStart_Process\fP
+and \fIStart_Process_Search\fP; certain non-default
+capabilities were not supported. However, based on suggestions by
+the ballot group to improve file descriptor mapping or drop it,
+and on the advice of an Ada Language Bindings working group member,
+the standard developers decided that \fIposix_spawn\fP() and
+\fIposix_spawnp\fP() should be sufficiently powerful to implement
+\fIStart_Process\fP and \fIStart_Process_Search\fP. The
+rationale is that if the Ada language binding to such a primitive
+had already been approved as an IEEE standard, there can be
+little justification for not approving the functionally-equivalent
+parts of a C binding. The only three capabilities provided by
+\fIposix_spawn\fP() and \fIposix_spawnp\fP() that are not provided
+by \fIStart_Process\fP and \fIStart_Process_Search\fP are
+optionally specifying the child's process group ID, the set of signals
+to be reset to default signal handling in the child process,
+and the child's scheduling policy and parameters.
+.LP
+For the Ada language binding for \fIStart_Process\fP to be implemented
+with \fIposix_spawn\fP(), that binding would need to
+explicitly pass an empty signal mask and the parent's environment
+to \fIposix_spawn\fP() whenever the caller of
+\fIStart_Process\fP allowed these arguments to default, since \fIposix_spawn\fP()
+does not provide such defaults. The ability of
+\fIStart_Process\fP to mask user-specified signals during its execution
+is functionally unique to the Ada language binding and
+must be dealt with in the binding separately from the call to \fIposix_spawn\fP().
+.SS Process Group
+.LP
+The process group inheritance field can be used to join the child
+process with an existing process group. By assigning a value
+of zero to the \fIspawn-pgroup\fP attribute of the object referenced
+by \fIattrp\fP, the \fIsetpgid\fP() mechanism will place the child
+process in a new process group.
+.SS Threads
+.LP
+Without the \fIposix_spawn\fP() and \fIposix_spawnp\fP() functions,
+systems without address translation can still use threads
+to give an abstraction of concurrency. In many cases, thread creation
+suffices, but it is not always a good substitute. The
+\fIposix_spawn\fP() and \fIposix_spawnp\fP() functions are considerably
+"heavier" than thread creation. Processes have several
+important attributes that threads do not. Even without address translation,
+a process may have base-and-bound memory protection.
+Each process has a process environment including security attributes
+and file capabilities, and powerful scheduling attributes.
+Processes abstract the behavior of non-uniform-memory-architecture
+multi-processors better than threads, and they are more
+convenient to use for activities that are not closely linked.
+.LP
+The \fIposix_spawn\fP() and \fIposix_spawnp\fP() functions may not
+bring support for multiple processes to every
+configuration. Process creation is not the only piece of operating
+system support required to support multiple processes. The total
+cost of support for multiple processes may be quite high in some circumstances.
+Existing practice shows that support for multiple
+processes is uncommon and threads are common among "tiny kernels".
+There should, therefore, probably continue to be AEPs for
+operating systems with only one process.
+.SS Asynchronous Error Notification
+.LP
+A library implementation of \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+may not be able to detect all possible errors before
+it forks the child process. IEEE\ Std\ 1003.1-2001 provides for an
+error indication returned from a child process which
+could not successfully complete the spawn operation via a special
+exit status which may be detected using the status value returned
+by \fIwait\fP() and \fIwaitpid\fP().
+.LP
+The \fIstat_val\fP interface and the macros used to interpret it are
+not well suited to the purpose of returning API errors,
+but they are the only path available to a library implementation.
+Thus, an implementation may cause the child process to exit with
+exit status 127 for any error detected during the spawn process after
+the \fIposix_spawn\fP() or \fIposix_spawnp\fP() function
+has successfully returned.
+.LP
+The standard developers had proposed using two additional macros to
+interpret \fIstat_val\fP. The first, WIFSPAWNFAIL, would
+have detected a status that indicated that the child exited because
+of an error detected during the \fIposix_spawn\fP() or
+\fIposix_spawnp\fP() operations rather than during actual execution
+of the child process image; the second, WSPAWNERRNO, would
+have extracted the error value if WIFSPAWNFAIL indicated a failure.
+Unfortunately, the ballot group strongly opposed this because
+it would make a library implementation of \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+dependent on kernel modifications to \fIwaitpid\fP() to be able to
+embed special information in \fIstat_val\fP to indicate a
+spawn failure.
+.LP
+The 8 bits of child process exit status that are guaranteed by IEEE\ Std\ 1003.1-2001
+to be accessible to the waiting
+parent process are insufficient to disambiguate a spawn error from
+any other kind of error that may be returned by an arbitrary
+process image. No other bits of the exit status are required to be
+visible in \fIstat_val\fP, so these macros could not be
+strictly implemented at the library level. Reserving an exit status
+of 127 for such spawn errors is consistent with the use of this
+value by \fIsystem\fP() and \fIpopen\fP() to signal
+failures in these operations that occur after the function has returned
+but before a shell is able to execute. The exit status of
+127 does not uniquely identify this class of error, nor does it provide
+any detailed information on the nature of the failure. Note
+that a kernel implementation of \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+is permitted (and encouraged) to return any possible
+error as the function value, thus providing more detailed failure
+information to the parent process.
+.LP
+Thus, no special macros are available to isolate asynchronous \fIposix_spawn\fP()
+or \fIposix_spawnp\fP() errors. Instead,
+errors detected by the \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+operations in the context of the child process before the new
+process image executes are reported by setting the child's exit status
+to 127. The calling process may use the WIFEXITED and
+WEXITSTATUS macros on the \fIstat_val\fP stored by the \fIwait\fP()
+or \fIwaitpid\fP() functions to detect spawn failures to the extent
+that other status values with
+which the child process image may exit (before the parent can conclusively
+determine that the child process image has begun
+execution) are distinct from exit status 127.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIchmod\fP() , \fIclose\fP() , \fIdup\fP() , \fIexec\fP()
+, \fIexit\fP() , \fIfcntl\fP() , \fIfork\fP() , \fIkill\fP() , \fIopen\fP()
+, \fIposix_spawn_file_actions_addclose\fP() , \fIposix_spawn_file_actions_adddup2\fP()
+, \fIposix_spawn_file_actions_addopen\fP() , \fIposix_spawn_file_actions_destroy\fP()
+, , \fIposix_spawnattr_destroy\fP() , \fIposix_spawnattr_init\fP()
+, \fIposix_spawnattr_getsigdefault\fP() , \fIposix_spawnattr_getflags\fP()
+, \fIposix_spawnattr_getpgroup\fP() , \fIposix_spawnattr_getschedparam\fP()
+, \fIposix_spawnattr_getschedpolicy\fP() , \fIposix_spawnattr_getsigmask\fP()
+, \fIposix_spawnattr_setsigdefault\fP() , \fIposix_spawnattr_setflags\fP()
+, \fIposix_spawnattr_setpgroup\fP() , \fIposix_spawnattr_setschedparam\fP()
+, \fIposix_spawnattr_setschedpolicy\fP() , \fIposix_spawnattr_setsigmask\fP()
+, \fIsched_setparam\fP() , \fIsched_setscheduler\fP() , \fIsetpgid\fP()
+, \fIsetuid\fP() , \fIstat\fP() , \fItimes\fP() , \fIwait\fP() , the
+Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<spawn.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,185 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POSIX_TYPED_MEM_OPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" posix_typed_mem_open 
+.SH NAME
+posix_typed_mem_open \- open a typed memory object (\fBADVANCED REALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <sys/mman.h>
+.br
+.sp
+int posix_typed_mem_open(const char *\fP\fIname\fP\fB, int\fP \fIoflag\fP\fB,
+int\fP \fItflag\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIposix_typed_mem_open\fP() function shall establish a connection
+between the typed memory object specified by the string
+pointed to by \fIname\fP and a file descriptor. It shall create an
+open file description that refers to the typed memory object
+and a file descriptor that refers to that open file description. The
+file descriptor is used by other functions to refer to that
+typed memory object. It is unspecified whether the name appears in
+the file system and is visible to other functions that take
+pathnames as arguments. The \fIname\fP argument shall conform to the
+construction rules for a pathname. If \fIname\fP begins with
+the slash character, then processes calling \fIposix_typed_mem_open\fP()
+with the same value of \fIname\fP shall refer to the
+same typed memory object. If \fIname\fP does not begin with the slash
+character, the effect is implementation-defined. The
+interpretation of slash characters other than the leading slash character
+in \fIname\fP is implementation-defined.
+.LP
+Each typed memory object supported in a system shall be identified
+by a name which specifies not only its associated typed
+memory pool, but also the path or port by which it is accessed. That
+is, the same typed memory pool accessed via several different
+ports shall have several different corresponding names. The binding
+between names and typed memory objects is established in an
+implementation-defined manner. Unlike shared memory objects, there
+is no way within IEEE\ Std\ 1003.1-2001 for a program to
+create a typed memory object.
+.LP
+The value of \fItflag\fP shall determine how the typed memory object
+behaves when subsequently mapped by calls to \fImmap\fP(). At most,
+one of the following flags defined in \fI<sys/mman.h>\fP may be specified:
+.TP 7
+POSIX_TYPED_MEM_ALLOCATE
+Allocate on \fImmap\fP().
+.TP 7
+POSIX_TYPED_MEM_ALLOCATE_CONTIG
+Allocate contiguously on \fImmap\fP().
+.TP 7
+POSIX_TYPED_MEM_MAP_ALLOCATABLE
+Map on \fImmap\fP(), without affecting allocatability.
+.sp
+.LP
+If \fItflag\fP has the flag POSIX_TYPED_MEM_ALLOCATE specified, any
+subsequent call to \fImmap\fP() using the returned file descriptor
+shall result in allocation and mapping of typed
+memory from the specified typed memory pool. The allocated memory
+may be a contiguous previously unallocated area of the typed
+memory pool or several non-contiguous previously unallocated areas
+(mapped to a contiguous portion of the process address space).
+If \fItflag\fP has the flag POSIX_TYPED_MEM_ALLOCATE_CONTIG specified,
+any subsequent call to \fImmap\fP() using the returned file descriptor
+shall result in allocation and mapping of a single
+contiguous previously unallocated area of the typed memory pool (also
+mapped to a contiguous portion of the process address space).
+If \fItflag\fP has none of the flags POSIX_TYPED_MEM_ALLOCATE or POSIX_TYPED_MEM_ALLOCATE_CONTIG
+specified, any subsequent call to
+\fImmap\fP() using the returned file descriptor shall map an application-chosen
+area from the
+specified typed memory pool such that this mapped area becomes unavailable
+for allocation until unmapped by all processes. If
+\fItflag\fP has the flag POSIX_TYPED_MEM_MAP_ALLOCATABLE specified,
+any subsequent call to \fImmap\fP() using the returned file descriptor
+shall map an application-chosen area from the
+specified typed memory pool without an effect on the availability
+of that area for allocation; that is, mapping such an object
+leaves each byte of the mapped area unallocated if it was unallocated
+prior to the mapping or allocated if it was allocated prior
+to the mapping. The appropriate privilege to specify the POSIX_TYPED_MEM_MAP_ALLOCATABLE
+flag is implementation-defined.
+.LP
+If successful, \fIposix_typed_mem_open\fP() shall return a file descriptor
+for the typed memory object that is the lowest
+numbered file descriptor not currently open for that process. The
+open file description is new, and therefore the file descriptor
+shall not share it with any other processes. It is unspecified whether
+the file offset is set. The FD_CLOEXEC file descriptor flag
+associated with the new file descriptor shall be cleared.
+.LP
+The behavior of \fImsync\fP(), \fIftruncate\fP(), and all file operations
+other than \fImmap\fP(), \fIposix_mem_offset\fP(), \fIposix_typed_mem_get_info\fP(),
+\fIfstat\fP(), \fIdup\fP(), \fIdup2\fP(), and \fIclose\fP(), is unspecified
+when passed a
+file descriptor connected to a typed memory object by this function.
+.LP
+The file status flags of the open file description shall be set according
+to the value of \fIoflag\fP. Applications shall
+specify exactly one of the three access mode values described below
+and defined in the \fI<fcntl.h>\fP header, as the value of \fIoflag\fP.
+.TP 7
+O_RDONLY
+Open for read access only.
+.TP 7
+O_WRONLY
+Open for write access only.
+.TP 7
+O_RDWR
+Open for read or write access.
+.sp
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIposix_typed_mem_open\fP() function
+shall return a non-negative integer representing the
+lowest numbered unused file descriptor. Otherwise, it shall return
+-1 and set \fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIposix_typed_mem_open\fP() function shall fail if:
+.TP 7
+.B EACCES
+The typed memory object exists and the permissions specified by \fIoflag\fP
+are denied.
+.TP 7
+.B EINTR
+The \fIposix_typed_mem_open\fP() operation was interrupted by a signal.
+.TP 7
+.B EINVAL
+The flags specified in \fItflag\fP are invalid (more than one of POSIX_TYPED_MEM_ALLOCATE,
+POSIX_TYPED_MEM_ALLOCATE_CONTIG, or
+POSIX_TYPED_MEM_MAP_ALLOCATABLE is specified).
+.TP 7
+.B EMFILE
+Too many file descriptors are currently in use by this process.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIname\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENFILE
+Too many file descriptors are currently open in the system.
+.TP 7
+.B ENOENT
+The named typed memory object does not exist.
+.TP 7
+.B EPERM
+The caller lacks the appropriate privilege to specify the flag POSIX_TYPED_MEM_MAP_ALLOCATABLE
+in argument \fItflag\fP.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclose\fP() , \fIdup\fP() , \fIexec\fP() , \fIfcntl\fP() , \fIfstat\fP()
+,
+\fIftruncate\fP() , \fImmap\fP() , \fImsync\fP() ,
+\fIposix_mem_offset\fP() , \fIposix_typed_mem_get_info\fP() , \fIumask\fP()
+, the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<fcntl.h>\fP, \fI<sys/mman.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

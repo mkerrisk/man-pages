@@ -1,0 +1,146 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) Markus Kuhn, 1996
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 1995-11-26  Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"	First version written
+.\" 2003-07-09  Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	Added note on suspend mode on laptops
+.\"
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH MLOCK 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+mlock \- disable paging for some parts of memory
+.SH SYNOPSIS
+.nf
+.B #include <sys/mman.h>
+.sp
+\fBint mlock(const void *\fIaddr\fB, size_t \fIlen\fB);
+.fi
+.SH DESCRIPTION
+.B mlock
+disables paging for the memory in the range starting at
+.I addr
+with length
+.I len
+bytes. All pages which contain a part of the specified memory range
+are guaranteed be resident in RAM when the
+.B mlock
+system call returns successfully and they are guaranteed to stay in RAM
+until the pages are unlocked by
+.B munlock
+or
+.BR munlockall ,
+until the pages are unmapped via
+.BR munmap ,
+or until the process terminates or starts another program with
+.BR exec .
+Child processes do not inherit page locks across a
+.BR fork .
+
+Memory locking has two main applications: real-time algorithms and
+high-security data processing. Real-time applications require
+deterministic timing, and, like scheduling, paging is one major cause
+of unexpected program execution delays. Real-time applications will
+usually also switch to a real-time scheduler with 
+.BR sched_setscheduler .
+Cryptographic security software often handles critical bytes like
+passwords or secret keys as data structures. As a result of paging,
+these secrets could be transferred onto a persistent swap store medium,
+where they might be accessible to the enemy long after the security
+software has erased the secrets in RAM and terminated.
+(But be aware that the suspend mode on laptops and some desktop
+computers will save a copy of the system's RAM to disk, regardless
+of memory locks.)
+
+Memory locks do not stack, i.e., pages which have been locked several times
+by calls to
+.B mlock
+or
+.B mlockall
+will be unlocked by a single call to
+.B munlock
+for the corresponding range or by
+.BR munlockall .
+Pages which are mapped to several locations or by several processes stay
+locked into RAM as long as they are locked at least at one location or by
+at least one process.
+
+On POSIX systems on which
+.B mlock
+and
+.B munlock
+are available,
+.B _POSIX_MEMLOCK_RANGE
+is defined in <unistd.h> and the value
+.B PAGESIZE
+from <limits.h> indicates the number of bytes per page.
+.SH NOTES
+With the Linux system call,
+.I addr
+is automatically rounded down to the nearest page boundary.  
+However, POSIX 1003.1-2001 allows an implementation to require that
+.I addr
+is page aligned, so portable applications should ensure this.
+.SH "RETURN VALUE"
+On success,
+.B mlock
+returns zero.  On error, \-1 is returned,
+.I errno
+is set appropriately, and no changes are made to any locks in the
+address space of the process.
+.SH ERRORS
+.TP
+.B EINVAL
+(Not on Linux)
+.I addr
+was not a multiple of the page size.
+.TP
+.B ENOMEM
+Some of the specified address range does not correspond to mapped
+pages in the address space of the process or the process tried to
+exceed the maximum number of allowed locked pages.
+.TP
+.B EPERM
+The calling process has insufficient privilege to call 
+.BR mlock .
+Under Linux the
+.B CAP_IPC_LOCK
+capability is required.
+.LP
+Linux adds
+.TP
+.B EINVAL
+.I len
+was negative.
+.SH "CONFORMING TO"
+POSIX.1b, SVr4.  SVr4 documents an additional EAGAIN error code.
+.SH "SEE ALSO"
+.BR mlockall (2),
+.BR munlock (2),
+.BR munlockall (2),
+.BR munmap (2),
+.BR setrlimit (2),
+.BR capabilities (7)

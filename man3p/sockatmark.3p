@@ -1,0 +1,117 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SOCKATMARK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sockatmark 
+.SH NAME
+sockatmark \- determine whether a socket is at the out-of-band mark
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+.sp
+int sockatmark(int\fP \fIs\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsockatmark\fP() function shall determine whether the socket
+specified by the descriptor \fIs\fP is at the out-of-band
+data mark (see the System Interfaces volume of IEEE\ Std\ 1003.1-2001,
+Section 2.10.12, Socket Out-of-Band State). If the protocol for the
+socket
+supports out-of-band data by marking the stream with an out-of-band
+data mark, the \fIsockatmark\fP() function shall return 1 when
+all data preceding the mark has been read and the out-of-band data
+mark is the first element in the receive queue. The
+\fIsockatmark\fP() function shall not remove the mark from the stream.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIsockatmark\fP() function shall
+return a value indicating whether the socket is at an
+out-of-band data mark. If the protocol has marked the data stream
+and all data preceding the mark has been read, the return value
+shall be 1; if there is no mark, or if data precedes the mark in the
+receive queue, the \fIsockatmark\fP() function shall return
+0. Otherwise, it shall return a value of -1 and set \fIerrno\fP to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIsockatmark\fP() function shall fail if:
+.TP 7
+.B EBADF
+The \fIs\fP argument is not a valid file descriptor.
+.TP 7
+.B ENOTTY
+The \fIs\fP argument does not specify a descriptor for a socket.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The use of this function between receive operations allows an application
+to determine which received data precedes the
+out-of-band data and which follows the out-of-band data.
+.LP
+There is an inherent race condition in the use of this function. On
+an empty receive queue, the current read of the location
+might well be at the "mark", but the system has no way of knowing
+that the next data segment that will arrive from the network
+will carry the mark, and \fIsockatmark\fP() will return false, and
+the next read operation will silently consume the mark.
+.LP
+Hence, this function can only be used reliably when the application
+already knows that the out-of-band data has been seen by the
+system or that it is known that there is data waiting to be read at
+the socket (via SIGURG or \fIselect\fP()). See \fISocket Receive Queue\fP
+, \fISocket Out-of-Band Data State\fP , \fISignals\fP , and \fIpselect\fP()
+for
+details.
+.SH RATIONALE
+.LP
+The \fIsockatmark\fP() function replaces the historical SIOCATMARK
+command to \fIioctl\fP() which implemented the same functionality
+on many implementations. Using a wrapper
+function follows the adopted conventions to avoid specifying commands
+to the \fIioctl\fP()
+function, other than those now included to support XSI STREAMS. The
+\fIsockatmark\fP() function could be implemented as
+follows:
+.sp
+.RS
+.nf
+
+\fB#include <sys/ioctl.h>
+.sp
+
+int sockatmark(int s)
+{
+    int val;
+    if (ioctl(s,SIOCATMARK,&val)==-1)
+        return(-1);
+    return(val);
+}
+\fP
+.fi
+.RE
+.LP
+The use of [ENOTTY] to indicate an incorrect descriptor type matches
+the historical behavior of SIOCATMARK.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpselect\fP() , \fIrecv\fP() , \fIrecvmsg\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

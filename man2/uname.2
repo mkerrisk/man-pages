@@ -1,0 +1,122 @@
+.\" Copyright (C) 2001 Andries Brouwer <aeb@cwi.nl>.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH UNAME 2 2001-12-15 "Linux 2.5.0" "Linux Programmer's Manual"
+.SH NAME
+uname \- get name and information about current kernel
+.SH SYNOPSIS
+.B #include <sys/utsname.h>
+.sp
+.BI "int uname(struct utsname *" buf );
+.SH DESCRIPTION
+.B uname
+returns system information in the structure pointed to by
+.IR buf .
+The 
+.I utsname 
+struct is defined in
+.IR <sys/utsname.h> :
+.RS
+.nf
+struct utsname {
+.in +8
+char sysname[];
+char nodename[];
+char release[];
+char version[];
+char machine[];
+.in -8
+#ifdef _GNU_SOURCE
+.in +8
+char domainname[];
+.in -8
+#endif
+};
+.fi
+.RE
+The length of the arrays in a
+.I struct utsname
+is unspecified; the fields are NUL-terminated.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EFAULT
+.I buf
+is not valid.
+.SH "CONFORMING TO"
+SVr4, SVID, POSIX, X/OPEN.
+There is no
+.B uname
+call in BSD 4.3.
+.PP
+The
+.I domainname
+member (the NIS or YP domain name) is a GNU extension.
+.SH NOTES
+This is a system call, and the operating system presumably knows
+its name, release and version. It also knows what hardware it runs on.
+So, four of the fields of the struct are meaningful.
+On the other hand, the field \fInodename\fP is meaningless:
+it gives the name of the present machine in some undefined
+network, but typically machines are in more than one network
+and have several names. Moreover, the kernel has no way of knowing
+about such things, so it has to be told what to answer here.
+The same holds for the additional \fIdomainname\fP field.
+.LP
+To this end Linux uses the system calls
+.BR sethostname (2)
+and
+.BR setdomainname (2).
+Note that there is no standard that says that the hostname set by
+.BR sethostname (2)
+is the same string as the \fInodename\fP field of the struct returned by
+.B uname
+(indeed, some systems allow a 256-byte hostname and an 8-byte nodename),
+but this is true on Linux. The same holds for
+.BR setdomainname (2)
+and the \fIdomainname\fP field.
+.LP
+The length of the fields in the struct varies. Some operating systems
+or libraries use a hardcoded 9 or 33 or 65 or 257. Other systems use
+SYS_NMLN or _SYS_NMLN or UTSLEN or _UTSNAME_LENGTH. Clearly, it is a bad
+idea to use any of these constants - just use sizeof(...).
+Often 257 is chosen in order to have room for an internet hostname.
+.LP
+There have been three Linux system calls \fIuname\fP(). The first one
+used length 9, the second one used 65, the third one also uses 65 but
+adds the \fIdomainname\fP field.
+.LP
+Part of the utsname information is also accessible via
+.I sysctl
+and via
+.IR /proc/sys/kernel/ { ostype ,
+.IR hostname ,
+.IR osrelease ,
+.IR version ,
+.IR domainname }.
+.SH "SEE ALSO"
+.BR uname (1),
+.BR getdomainname (2),
+.BR gethostname (2)

@@ -1,0 +1,238 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "DBM_CLEARERR" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" dbm_clearerr 
+.SH NAME
+dbm_clearerr, dbm_close, dbm_delete, dbm_error, dbm_fetch, dbm_firstkey,
+dbm_nextkey, dbm_open, dbm_store \- database
+functions
+.SH SYNOPSIS
+.LP
+\fB#include <ndbm.h>
+.br
+.sp
+int dbm_clearerr(DBM *\fP\fIdb\fP\fB);
+.br
+void dbm_close(DBM *\fP\fIdb\fP\fB);
+.br
+int dbm_delete(DBM *\fP\fIdb\fP\fB, datum\fP \fIkey\fP\fB);
+.br
+int dbm_error(DBM *\fP\fIdb\fP\fB);
+.br
+datum dbm_fetch(DBM *\fP\fIdb\fP\fB, datum\fP \fIkey\fP\fB);
+.br
+datum dbm_firstkey(DBM *\fP\fIdb\fP\fB);
+.br
+datum dbm_nextkey(DBM *\fP\fIdb\fP\fB);
+.br
+DBM *dbm_open(const char *\fP\fIfile\fP\fB, int\fP \fIopen_flags\fP\fB,
+mode_t\fP \fIfile_mode\fP\fB);
+.br
+int dbm_store(DBM *\fP\fIdb\fP\fB, datum\fP \fIkey\fP\fB, datum\fP
+\fIcontent\fP\fB, int\fP
+\fIstore_mode\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions create, access, and modify a database.
+.LP
+A \fBdatum\fP consists of at least two members, \fIdptr\fP and \fIdsize\fP.
+The \fIdptr\fP member points to an object that
+is \fIdsize\fP bytes in length. Arbitrary binary data, as well as
+character strings, may be stored in the object pointed to by
+\fIdptr\fP.
+.LP
+The database is stored in two files. One file is a directory containing
+a bitmap of keys and has \fB.dir\fP as its suffix. The
+second file contains all data and has \fB.pag\fP as its suffix.
+.LP
+The \fIdbm_open\fP() function shall open a database. The \fIfile\fP
+argument to the function is the pathname of the database.
+The function opens two files named \fIfile\fP\fB.dir\fP and \fIfile\fP\fB.pag\fP.
+The \fIopen_flags\fP argument has the same
+meaning as the \fIflags\fP argument of \fIopen\fP() except that a
+database opened for
+write-only access opens the files for read and write access and the
+behavior of the O_APPEND flag is unspecified. The
+\fIfile_mode\fP argument has the same meaning as the third argument
+of \fIopen\fP().
+.LP
+The \fIdbm_close\fP() function shall close a database. The application
+shall ensure that argument \fIdb\fP is a pointer to a
+\fBdbm\fP structure that has been returned from a call to \fIdbm_open\fP().
+.LP
+These database functions shall support an internal block size large
+enough to support key/content pairs of at least 1023
+bytes.
+.LP
+The \fIdbm_fetch\fP() function shall read a record from a database.
+The argument \fIdb\fP is a pointer to a database structure
+that has been returned from a call to \fIdbm_open\fP(). The argument
+\fIkey\fP is a \fBdatum\fP that has been initialized by the
+application to the value of the key that matches the key of the record
+the program is fetching.
+.LP
+The \fIdbm_store\fP() function shall write a record to a database.
+The argument \fIdb\fP is a pointer to a database structure
+that has been returned from a call to \fIdbm_open\fP(). The argument
+\fIkey\fP is a \fBdatum\fP that has been initialized by the
+application to the value of the key that identifies (for subsequent
+reading, writing, or deleting) the record the application is
+writing. The argument \fIcontent\fP is a \fBdatum\fP that has been
+initialized by the application to the value of the record the
+program is writing. The argument \fIstore_mode\fP controls whether
+\fIdbm_store\fP() replaces any pre-existing record that has
+the same key that is specified by the \fIkey\fP argument. The application
+shall set \fIstore_mode\fP to either DBM_INSERT or
+DBM_REPLACE. If the database contains a record that matches the \fIkey\fP
+argument and \fIstore_mode\fP is DBM_REPLACE, the
+existing record shall be replaced with the new record. If the database
+contains a record that matches the \fIkey\fP argument and
+\fIstore_mode\fP is DBM_INSERT, the existing record shall be left
+unchanged and the new record ignored. If the database does not
+contain a record that matches the \fIkey\fP argument and \fIstore_mode\fP
+is either DBM_INSERT or DBM_REPLACE, the new record
+shall be inserted in the database.
+.LP
+If the sum of a key/content pair exceeds the internal block size,
+the result is unspecified. Moreover, the application shall
+ensure that all key/content pairs that hash together fit on a single
+block. The \fIdbm_store\fP() function shall return an error
+in the event that a disk block fills with inseparable data.
+.LP
+The \fIdbm_delete\fP() function shall delete a record and its key
+from the database. The argument \fIdb\fP is a pointer to a
+database structure that has been returned from a call to \fIdbm_open\fP().
+The argument \fIkey\fP is a \fBdatum\fP that has been
+initialized by the application to the value of the key that identifies
+the record the program is deleting.
+.LP
+The \fIdbm_firstkey\fP() function shall return the first key in the
+database. The argument \fIdb\fP is a pointer to a database
+structure that has been returned from a call to \fIdbm_open\fP().
+.LP
+The \fIdbm_nextkey\fP() function shall return the next key in the
+database. The argument \fIdb\fP is a pointer to a database
+structure that has been returned from a call to \fIdbm_open\fP().
+The application shall ensure that the \fIdbm_firstkey\fP()
+function is called before calling \fIdbm_nextkey\fP(). Subsequent
+calls to \fIdbm_nextkey\fP() return the next key until all of
+the keys in the database have been returned.
+.LP
+The \fIdbm_error\fP() function shall return the error condition of
+the database. The argument \fIdb\fP is a pointer to a
+database structure that has been returned from a call to \fIdbm_open\fP().
+.LP
+The \fIdbm_clearerr\fP() function shall clear the error condition
+of the database. The argument \fIdb\fP is a pointer to a
+database structure that has been returned from a call to \fIdbm_open\fP().
+.LP
+The \fIdptr\fP pointers returned by these functions may point into
+static storage that may be changed by subsequent calls.
+.LP
+These functions need not be reentrant. A function that is not required
+to be reentrant is not required to be thread-safe.
+.SH RETURN VALUE
+.LP
+The \fIdbm_store\fP() and \fIdbm_delete\fP() functions shall return
+0 when they succeed and a negative value when they
+fail.
+.LP
+The \fIdbm_store\fP() function shall return 1 if it is called with
+a \fIflags\fP value of DBM_INSERT and the function finds an
+existing record with the same key.
+.LP
+The \fIdbm_error\fP() function shall return 0 if the error condition
+is not set and return a non-zero value if the error
+condition is set.
+.LP
+The return value of \fIdbm_clearerr\fP() is unspecified.
+.LP
+The \fIdbm_firstkey\fP() and \fIdbm_nextkey\fP() functions shall return
+a key \fBdatum\fP. When the end of the database is
+reached, the \fIdptr\fP member of the key is a null pointer. If an
+error is detected, the \fIdptr\fP member of the key shall be a
+null pointer and the error condition of the database shall be set.
+.LP
+The \fIdbm_fetch\fP() function shall return a content \fBdatum\fP.
+If no record in the database matches the key or if an error
+condition has been detected in the database, the \fIdptr\fP member
+of the content shall be a null pointer.
+.LP
+The \fIdbm_open\fP() function shall return a pointer to a database
+structure. If an error is detected during the operation,
+\fIdbm_open\fP() shall return a ( \fBDBM *\fP)0.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The following code can be used to traverse the database:
+.sp
+.RS
+.nf
+
+\fBfor(key = dbm_firstkey(db); key.dptr != NULL; key = dbm_nextkey(db))
+\fP
+.fi
+.RE
+.LP
+The \fIdbm_\fP* functions provided in this library should not be confused
+in any way with those of a general-purpose database
+management system. These functions do not provide for multiple search
+keys per entry, they do not protect against multi-user access
+(in other words they do not lock records or files), and they do not
+provide the many other useful database functions that are found
+in more robust database management systems. Creating and updating
+databases by use of these functions is relatively slow because of
+data copies that occur upon hash collisions. These functions are useful
+for applications requiring fast lookup of relatively static
+information that is to be indexed by a single key.
+.LP
+Note that a strictly conforming application is extremely limited by
+these functions: since there is no way to determine that the
+keys in use do not all hash to the same value (although that would
+be rare), a strictly conforming application cannot be guaranteed
+that it can store more than one block's worth of data in the database.
+As long as a key collision does not occur, additional data
+may be stored, but because there is no way to determine whether an
+error is due to a key collision or some other error condition (
+\fIdbm_error\fP() being effectively a Boolean), once an error is detected,
+the application is effectively limited to guessing what
+the error might be if it wishes to continue using these functions.
+.LP
+The \fIdbm_delete\fP() function need not physically reclaim file space,
+although it does make it available for reuse by the
+database.
+.LP
+After calling \fIdbm_store\fP() or \fIdbm_delete\fP() during a pass
+through the keys by \fIdbm_firstkey\fP() and
+\fIdbm_nextkey\fP(), the application should reset the database by
+calling \fIdbm_firstkey\fP() before again calling
+\fIdbm_nextkey\fP(). The contents of these files are unspecified and
+may not be portable.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIopen\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<ndbm.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

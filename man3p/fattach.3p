@@ -1,0 +1,166 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FATTACH" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" fattach 
+.SH NAME
+fattach \- attach a STREAMS-based file descriptor to a file in the
+file system name space (\fBSTREAMS\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <stropts.h>
+.br
+.sp
+int fattach(int\fP \fIfildes\fP\fB, const char *\fP\fIpath\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIfattach\fP() function shall attach a STREAMS-based file descriptor
+to a file, effectively associating a pathname with
+\fIfildes\fP. The application shall ensure that the \fIfildes\fP argument
+is a valid open file descriptor associated with a
+STREAMS file. The \fIpath\fP argument points to a pathname of an existing
+file. The application shall have the appropriate
+privileges or be the owner of the file named by \fIpath\fP and have
+write permission. A successful call to \fIfattach\fP() shall
+cause all pathnames that name the file named by \fIpath\fP to name
+the STREAMS file associated with \fIfildes\fP, until the
+STREAMS file is detached from the file. A STREAMS file can be attached
+to more than one file and can have several pathnames
+associated with it.
+.LP
+The attributes of the named STREAMS file shall be initialized as follows:
+the permissions, user ID, group ID, and times are set
+to those of the file named by \fIpath\fP, the number of links is set
+to 1, and the size and device identifier are set to those of
+the STREAMS file associated with \fIfildes\fP. If any attributes of
+the named STREAMS file are subsequently changed (for example,
+by \fIchmod\fP()), neither the attributes of the underlying file nor
+the attributes of the
+STREAMS file to which \fIfildes\fP refers shall be affected.
+.LP
+File descriptors referring to the underlying file, opened prior to
+an \fIfattach\fP() call, shall continue to refer to the
+underlying file.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIfattach\fP() shall return 0. Otherwise,
+-1 shall be returned and \fIerrno\fP set to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIfattach\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied for a component of the path prefix, or
+the process is the owner of \fIpath\fP but does not have
+write permissions on the file named by \fIpath\fP.
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor.
+.TP 7
+.B EBUSY
+The file named by \fIpath\fP is currently a mount point or has a STREAMS
+file attached to it.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The size of \fIpath\fP exceeds {PATH_MAX} or a component of \fIpath\fP
+is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B EPERM
+The effective user ID of the process is not the owner of the file
+named by \fIpath\fP and the process does not have
+appropriate privilege.
+.sp
+.LP
+The \fIfattach\fP() function may fail if:
+.TP 7
+.B EINVAL
+The \fIfildes\fP argument does not refer to a STREAMS file.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+Pathname resolution of a symbolic link produced an intermediate result
+whose length exceeds {PATH_MAX}.
+.TP 7
+.B EXDEV
+A link to a file on another file system was attempted.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Attaching a File Descriptor to a File
+.LP
+In the following example, \fIfd\fP refers to an open STREAMS file.
+The call to \fIfattach\fP() associates this STREAM with the
+file \fB/tmp/named-STREAM\fP, such that any future calls to open \fB/tmp/named-STREAM\fP,
+prior to breaking the attachment via a
+call to \fIfdetach\fP(), will instead create a new file handle referring
+to the STREAMS
+file associated with \fIfd\fP.
+.sp
+.RS
+.nf
+
+\fB#include <stropts.h>
+\&...
+    int fd;
+    char *filename = "/tmp/named-STREAM";
+    int ret;
+.sp
+
+    ret = fattach(fd, filename);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIfattach\fP() function behaves similarly to the traditional
+\fImount\fP() function in the way a file is temporarily
+replaced by the root directory of the mounted file system. In the
+case of \fIfattach\fP(), the replaced file need not be a
+directory and the replacing file is a STREAMS file.
+.SH RATIONALE
+.LP
+The file attributes of a file which has been the subject of an \fIfattach\fP()
+call are specifically set because of an artefact
+of the original implementation. The internal mechanism was the same
+as for the \fImount\fP() function. Since \fImount\fP() is
+typically only applied to directories, the effects when applied to
+a regular file are a little surprising, especially as regards
+the link count which rigidly remains one, even if there were several
+links originally and despite the fact that all original links
+refer to the STREAM as long as the \fIfattach\fP() remains in effect.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfdetach\fP() , \fIisastream\fP() , the Base Definitions volume
+of
+IEEE\ Std\ 1003.1-2001, \fI<stropts.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

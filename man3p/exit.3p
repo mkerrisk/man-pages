@@ -1,0 +1,380 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "EXIT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" exit 
+.SH NAME
+exit, _Exit, _exit \- terminate a process
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+.sp
+void exit(int\fP \fIstatus\fP\fB);
+.br
+void _Exit(int\fP \fIstatus\fP\fB);
+.br
+.sp
+.sp
+#include <unistd.h>
+.br
+void _exit(int\fP \fIstatus\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+For \fIexit\fP() and \fI_Exit\fP():   The functionality described
+on this reference page is aligned with the
+ISO\ C standard. Any conflict between the requirements described here
+and the ISO\ C standard is unintentional. This volume
+of IEEE\ Std\ 1003.1-2001 defers to the ISO\ C standard. 
+.LP
+The value of \fIstatus\fP may be 0, EXIT_SUCCESS, EXIT_FAILURE,  
+\ or any other value, though only the least significant 8 bits
+(that is, \fIstatus\fP & 0377) shall be available to a waiting parent
+process. 
+.LP
+The \fIexit\fP() function shall first call all functions registered
+by \fIatexit\fP(),
+in the reverse order of their registration, except that a function
+is called after any previously registered functions that had
+already been called at the time it was registered. Each function is
+called as many times as it was registered. If, during the call
+to any such function, a call to the \fIlongjmp\fP() function is made
+that would terminate
+the call to the registered function, the behavior is undefined.
+.LP
+If a function registered by a call to \fIatexit\fP() fails to return,
+the remaining
+registered functions shall not be called and the rest of the \fIexit\fP()
+processing shall not be completed. If \fIexit\fP() is
+called more than once, the behavior is undefined.
+.LP
+The \fIexit\fP() function shall then flush all open streams with unwritten
+buffered data, close all open streams, and remove
+all files created by \fItmpfile\fP(). Finally, control shall be terminated
+with the
+consequences described below.
+.LP
+The
+\fI_Exit\fP() and \fI_exit\fP() functions shall be functionally equivalent.
+.LP
+The \fI_Exit\fP()   \ and \fI_exit\fP()  functions
+shall not call functions registered with \fIatexit\fP() nor any registered
+signal handlers.
+Whether open streams are flushed or closed, or temporary files are
+removed is implementation-defined. Finally, the calling process
+is terminated with the consequences described below.
+.LP
+These functions shall terminate the calling process   \ with the following
+consequences:  
+.TP 7
+\fBNote:\fP
+These consequences are all extensions to the ISO\ C standard and are
+not further CX shaded. However, XSI extensions are
+shaded.
+.sp
+.IP " *" 3
+All of the file descriptors, directory streams,   \ conversion descriptors,
+and message catalog descriptors  \ open in the calling process shall
+be closed.
+.LP
+.IP " *" 3
+If the parent process of the calling process is executing a \fIwait\fP()
+or \fIwaitpid\fP(),   \ and has neither set its SA_NOCLDWAIT flag
+nor set SIGCHLD to
+SIG_IGN,  it shall be notified of the calling process' termination
+and the low-order eight bits (that is, bits 0377) of \fIstatus\fP
+shall be made available to it. If the parent is not waiting, the
+child's status shall be made available to it when the parent subsequently
+executes \fIwait\fP() or \fIwaitpid\fP().
+.LP
+The semantics of the \fIwaitid\fP() function shall be equivalent to
+\fIwait\fP(). 
+.LP
+.IP " *" 3
+If the parent process of the calling process is not executing a \fIwait\fP()
+or \fIwaitpid\fP(),   \ and has neither set its SA_NOCLDWAIT flag
+nor set SIGCHLD to
+SIG_IGN,  the calling process shall be transformed into a \fIzombie
+process\fP. A \fIzombie process\fP is an inactive process and it shall
+be deleted at some later time when its parent process
+executes \fIwait\fP() or \fIwaitpid\fP().
+.LP
+The semantics of the \fIwaitid\fP() function shall be equivalent to
+\fIwait\fP(). 
+.LP
+.IP " *" 3
+Termination of a process does not directly terminate its children.
+The sending of a SIGHUP signal as described below indirectly
+terminates children in some circumstances.
+.LP
+.IP " *" 3
+Either:
+.LP
+If the implementation supports the SIGCHLD signal, a SIGCHLD shall
+be sent to the parent process.
+.LP
+Or:
+.LP
+If the parent process has set its SA_NOCLDWAIT flag, or set SIGCHLD
+to SIG_IGN, the status shall be discarded, and the lifetime of
+the calling process shall end immediately. If SA_NOCLDWAIT is set,
+it is implementation-defined whether a SIGCHLD signal is sent to
+the parent process. 
+.LP
+.IP " *" 3
+The parent process ID of all of the calling process' existing child
+processes and zombie processes shall be set to the process
+ID of an implementation-defined system process. That is, these processes
+shall be inherited by a special system process.
+.LP
+.IP " *" 3
+Each attached shared-memory segment is detached and the value of \fIshm_nattch\fP
+(see \fIshmget\fP()) in the data structure associated with its shared
+memory ID shall be decremented by
+1. 
+.LP
+.IP " *" 3
+For each semaphore for which the calling process has set a \fIsemadj\fP
+value (see \fIsemop\fP() ), that
+value shall be added to the \fIsemval\fP of the specified semaphore.
+.LP
+.IP " *" 3
+If the process is a controlling process, the SIGHUP signal shall be
+sent to each process in the foreground process group of the
+controlling terminal belonging to the calling process.
+.LP
+.IP " *" 3
+If the process is a controlling process, the controlling terminal
+associated with the session shall be disassociated from the
+session, allowing it to be acquired by a new controlling process.
+.LP
+.IP " *" 3
+If the exit of the process causes a process group to become orphaned,
+and if any member of the newly-orphaned process group is
+stopped, then a SIGHUP signal followed by a SIGCONT signal shall be
+sent to each process in the newly-orphaned process group.
+.LP
+.IP " *" 3
+All open named semaphores in the calling process shall be closed as
+if by appropriate calls to \fIsem_close\fP(). 
+.LP
+.IP " *" 3
+Any
+memory locks established by the process via calls to \fImlockall\fP()
+or \fImlock\fP() shall be removed. If locked pages in the address
+space of the calling process are also
+mapped into the address spaces of other processes and are locked by
+those processes, the locks established by the other processes
+shall be unaffected by the call by this process to \fI_Exit\fP() or
+\fI_exit\fP(). 
+.LP
+.IP " *" 3
+Memory mappings that were created in the process shall be unmapped
+before the process is destroyed. 
+.LP
+.IP " *" 3
+Any blocks of typed memory that were mapped in the calling process
+shall be unmapped, as if \fImunmap\fP() was implicitly called to unmap
+them. 
+.LP
+.IP " *" 3
+All open message queue descriptors in the calling process shall be
+closed as if by appropriate calls to \fImq_close\fP(). 
+.LP
+.IP " *" 3
+Any outstanding cancelable asynchronous I/O operations may be canceled.
+Those asynchronous I/O operations that are not canceled
+shall complete as if the \fI_Exit\fP() or \fI_exit\fP() operation
+had not yet occurred, but any associated signal notifications
+shall be suppressed. The \fI_Exit\fP() or \fI_exit\fP() operation
+may block awaiting such I/O completion. Whether any I/O is
+canceled, and which I/O may be canceled upon \fI_Exit\fP() or \fI_exit\fP(),
+is implementation-defined. 
+.LP
+.IP " *" 3
+Threads terminated by a call to \fI_Exit\fP() or \fI_exit\fP() shall
+not invoke their cancellation cleanup handlers or
+per-thread data destructors.
+.LP
+.IP " *" 3
+If the calling process is a trace controller process, any trace streams
+that were created by the calling process shall be shut down
+as described by the \fIposix_trace_shutdown\fP() function, and any
+process'
+mapping of trace event names to trace event type identifiers built
+for these trace streams may be deallocated. 
+.LP
+.SH RETURN VALUE
+.LP
+These functions do not return.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Normally applications should use \fIexit\fP() rather than \fI_Exit\fP()
+or \fI_exit\fP().
+.SH RATIONALE
+.SS Process Termination
+.LP
+Early proposals drew a distinction between normal and abnormal process
+termination. Abnormal termination was caused only by
+certain signals and resulted in implementation-defined "actions",
+as discussed below. Subsequent proposals distinguished three
+types of termination: \fInormal termination\fP (as in the current
+specification), \fIsimple abnormal termination\fP, and
+\fIabnormal termination with actions\fP. Again the distinction between
+the two types of abnormal termination was that they were
+caused by different signals and that implementation-defined actions
+would result in the latter case. Given that these actions were
+completely implementation-defined, the early proposals were only saying
+when the actions could occur and how their occurrence could
+be detected, but not what they were. This was of little or no use
+to conforming applications, and thus the distinction is not made
+in this volume of IEEE\ Std\ 1003.1-2001.
+.LP
+The implementation-defined actions usually include, in most historical
+implementations, the creation of a file named \fBcore\fP
+in the current working directory of the process. This file contains
+an image of the memory of the process, together with
+descriptive information about the process, perhaps sufficient to reconstruct
+the state of the process at the receipt of the
+signal.
+.LP
+There is a potential security problem in creating a \fBcore\fP file
+if the process was set-user-ID and the current user is not
+the owner of the program, if the process was set-group-ID and none
+of the user's groups match the group of the program, or if the
+user does not have permission to write in the current directory. In
+this situation, an implementation either should not create a
+\fBcore\fP file or should make it unreadable by the user.
+.LP
+Despite the silence of this volume of IEEE\ Std\ 1003.1-2001 on this
+feature, applications are advised not to create
+files named \fBcore\fP because of potential conflicts in many implementations.
+Some implementations use a name other than
+\fBcore\fP for the file; for example, by appending the process ID
+to the filename.
+.SS Terminating a Process
+.LP
+It is important that the consequences of process termination as described
+occur regardless of whether the process called
+\fI_exit\fP() (perhaps indirectly through \fIexit\fP()) or instead
+was terminated due to a signal or for some other reason. Note
+that in the specific case of \fIexit\fP() this means that the \fIstatus\fP
+argument to \fIexit\fP() is treated in the same way
+as the \fIstatus\fP argument to \fI_exit\fP().
+.LP
+A language other than C may have other termination primitives than
+the C-language \fIexit\fP() function, and programs written
+in such a language should use its native termination primitives, but
+those should have as part of their function the behavior of
+\fI_exit\fP() as described. Implementations in languages other than
+C are outside the scope of this version of this volume of
+IEEE\ Std\ 1003.1-2001, however.
+.LP
+As required by the ISO\ C standard, using \fBreturn\fP from \fImain\fP()
+has the same behavior (other than with respect to
+language scope issues) as calling \fIexit\fP() with the returned value.
+Reaching the end of the \fImain\fP() function has the
+same behavior as calling \fIexit\fP(0).
+.LP
+A value of zero (or EXIT_SUCCESS, which is required to be zero) for
+the argument \fIstatus\fP conventionally indicates
+successful termination. This corresponds to the specification for
+\fIexit\fP() in the ISO\ C standard. The convention is
+followed by utilities such as \fImake\fP and various shells, which
+interpret a zero status
+from a child process as success. For this reason, applications should
+not call \fIexit\fP(0) or \fI_exit\fP(0) when they
+terminate unsuccessfully; for example, in signal-catching functions.
+.LP
+Historically, the implementation-defined process that inherits children
+whose parents have terminated without waiting on them is
+called \fIinit\fP and has a process ID of 1.
+.LP
+The sending of a SIGHUP to the foreground process group when a controlling
+process terminates corresponds to somewhat different
+historical implementations. In System V, the kernel sends a SIGHUP
+on termination of (essentially) a controlling process. In 4.2
+BSD, the kernel does not send SIGHUP in a case like this, but the
+termination of a controlling process is usually noticed by a
+system daemon, which arranges to send a SIGHUP to the foreground process
+group with the \fIvhangup\fP() function. However, in 4.2
+BSD, due to the behavior of the shells that support job control, the
+controlling process is usually a shell with no other processes
+in its process group. Thus, a change to make \fI_exit\fP() behave
+this way in such systems should not cause problems with existing
+applications.
+.LP
+The termination of a process may cause a process group to become orphaned
+in either of two ways. The connection of a process
+group to its parent(s) outside of the group depends on both the parents
+and their children. Thus, a process group may be orphaned
+by the termination of the last connecting parent process outside of
+the group or by the termination of the last direct descendant
+of the parent process(es). In either case, if the termination of a
+process causes a process group to become orphaned, processes
+within the group are disconnected from their job control shell, which
+no longer has any information on the existence of the process
+group. Stopped processes within the group would languish forever.
+In order to avoid this problem, newly orphaned process groups
+that contain stopped processes are sent a SIGHUP signal and a SIGCONT
+signal to indicate that they have been disconnected from
+their session. The SIGHUP signal causes the process group members
+to terminate unless they are catching or ignoring SIGHUP. Under
+most circumstances, all of the members of the process group are stopped
+if any of them are stopped.
+.LP
+The action of sending a SIGHUP and a SIGCONT signal to members of
+a newly orphaned process group is similar to the action of 4.2
+BSD, which sends SIGHUP and SIGCONT to each stopped child of an exiting
+process. If such children exit in response to the SIGHUP,
+any additional descendants receive similar treatment at that time.
+In this volume of IEEE\ Std\ 1003.1-2001, the signals
+are sent to the entire process group at the same time. Also, in this
+volume of IEEE\ Std\ 1003.1-2001, but not in 4.2 BSD,
+stopped processes may be orphaned, but may be members of a process
+group that is not orphaned; therefore, the action taken at
+\fI_exit\fP() must consider processes other than child processes.
+.LP
+It is possible for a process group to be orphaned by a call to \fIsetpgid\fP()
+or \fIsetsid\fP(), as well as by process termination. This volume
+of
+IEEE\ Std\ 1003.1-2001 does not require sending SIGHUP and SIGCONT
+in those cases, because, unlike process termination,
+those cases are not caused accidentally by applications that are unaware
+of job control. An implementation can choose to send
+SIGHUP and SIGCONT in those cases as an extension; such an extension
+must be documented as required in \fI<signal.h>\fP.
+.LP
+The ISO/IEC\ 9899:1999 standard adds the \fI_Exit\fP() function that
+results in immediate program termination without
+triggering signals or \fIatexit\fP()-registered functions. In
+IEEE\ Std\ 1003.1-2001, this is equivalent to the \fI_exit\fP() function.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIatexit\fP() , \fIclose\fP() , \fIfclose\fP()
+, \fIlongjmp\fP() , \fIposix_trace_shutdown\fP() , \fIposix_trace_trid_eventid_open\fP()
+, \fIsemop\fP() , \fIshmget\fP() , \fIsigaction\fP() , \fIwait\fP()
+,
+\fIwaitid\fP() , \fIwaitpid\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<stdlib.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,176 @@
+.\" Copyright (C) 2003 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" The pathconf note is from Walter Harms
+.\" This is not a system call on Linux
+.\"
+.\" Modified 2004-06-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH STATVFS 2 2003-08-22 "Linux 2.6.0" "Linux Programmer's Manual"
+.SH NAME
+statvfs, fstatvfs \- get file system statistics
+.SH SYNOPSIS
+.B #include <sys/statvfs.h>
+.sp
+.BI "int statvfs(const char *" path ", struct statvfs *" buf );
+.br
+.BI "int fstatvfs(int " fd ", struct statvfs *" buf );
+.SH DESCRIPTION
+The function
+.B statvfs
+returns information about a mounted file system.
+.I path
+is the path name of any file within the mounted filesystem.
+.I buf
+is a pointer to a
+.I statvfs
+structure defined approximately as follows:
+
+.nf
+  struct statvfs {
+    unsigned long  f_bsize;    /* file system block size */
+    unsigned long  f_frsize;   /* fragment size */
+    fsblkcnt_t     f_blocks;   /* size of fs in f_frsize units */
+    fsblkcnt_t     f_bfree;    /* # free blocks */
+    fsblkcnt_t     f_bavail;   /* # free blocks for non-root */
+    fsfilcnt_t     f_files;    /* # inodes */
+    fsfilcnt_t     f_ffree;    /* # free inodes */
+    fsfilcnt_t     f_favail;   /* # free inodes for non-root */
+    unsigned long  f_fsid;     /* file system id */ 
+    unsigned long  f_flag;     /* mount flags */
+    unsigned long  f_namemax;  /* maximum filename length */
+  };
+.fi
+
+Here the types
+.B fsblkcnt_t
+and
+.B fsfilcnt_t
+are defined in
+.IR <sys/types.h> .
+Both used to be
+.BR "unsigned long" .
+
+The field
+.I f_flag
+is a bit mask (of mount flags, see
+.BR mount (8)).
+Bits defined by POSIX are
+.TP
+.B ST_RDONLY
+Read-only file system.
+.TP
+.B ST_NOSUID
+Setuid/setgid bits are ignored by
+.BR exec (2).
+.LP
+
+It is unspecified whether all members of the returned struct
+have meaningful values on all filesystems.
+
+.B fstatvfs
+returns the same information about an open file referenced by descriptor
+.IR fd .
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EACCES
+(statvfs)
+Search permission is denied for a component of the path prefix of
+.IR path .
+(See also
+.BR path_resolution (2).)
+.TP
+.B EBADF
+(fstatvfs)
+.I fd
+is not a valid open file descriptor.
+.TP
+.B EFAULT
+.I Buf
+or
+.I path
+points to an invalid address.
+.TP
+.B EINTR
+This call was interrupted by a signal.
+.TP
+.B EIO
+An I/O error occurred while reading from the file system.
+.TP
+.B ELOOP
+(statvfs)
+Too many symbolic links were encountered in translating
+.IR path .
+.TP
+.B ENAMETOOLONG
+(statvfs)
+.I path
+is too long.
+.TP
+.B ENOENT
+(statvfs)
+The file referred to by
+.I path
+does not exist.
+.TP
+.B ENOMEM
+Insufficient kernel memory was available.
+.TP
+.B ENOSYS
+The file system does not support this call.
+.TP
+.B ENOTDIR
+(statvfs)
+A component of the path prefix of
+.I path
+is not a directory.
+.TP
+.B EOVERFLOW
+Some values were too large to be represented in the returned struct.
+.PP
+.SH "CONFORMING TO"
+Solaris, Irix, POSIX 1003.1-2001
+.SH NOTES
+The Linux kernel has system calls statfs, fstatfs
+to support this library call.
+
+The current glibc implementation of
+.sp
+.nf
+   pathconf(path, _PC_REC_XFER_ALIGN);
+   pathconf(path, _PC_ALLOC_SIZE_MIN);
+   pathconf(path, _PC_REC_MIN_XFER_SIZE);
+.fi
+.sp
+uses the
+.IR f_frsize ,
+.IR f_frsize ,
+and
+.IR f_bsize
+fields of the return value of
+.IR "statvfs(path,buf)" .
+.SH "SEE ALSO"
+.BR statfs (2)

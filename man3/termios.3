@@ -1,0 +1,635 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1993 Michael Haardt
+.\" (michael@moria.de)
+.\" Fri Apr  2 11:32:09 MET DST 1993
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-02-25 by Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" Modified 1995-09-02 by Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" moved to man3, aeb, 950919
+.\" Modified 2001-09-22 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 2001-12-17, aeb
+.\" Modified 2004-10-31, aeb
+.\"
+.TH TERMIOS 3 2004-10-31 "Linux" "Linux Programmer's Manual"
+.SH NAME
+termios, tcgetattr, tcsetattr, tcsendbreak, tcdrain, tcflush, tcflow,
+cfmakeraw, cfgetospeed, cfgetispeed, cfsetispeed, cfsetospeed, cfsetspeed \-
+get and set terminal attributes, line control, get and set baud rate
+.SH SYNOPSIS
+.ad l
+.ft B
+#include <termios.h>
+.br
+#include <unistd.h>
+.sp
+.BI "int tcgetattr(int " fd ", struct termios *" termios_p );
+.sp
+.BI "int tcsetattr(int " fd ", int " optional_actions ", const struct termios *" termios_p );
+.sp
+.BI "int tcsendbreak(int " fd ", int " duration );
+.sp
+.BI "int tcdrain(int " fd );
+.sp
+.BI "int tcflush(int " fd ", int " queue_selector );
+.sp
+.BI "int tcflow(int " fd ", int " action );
+.sp
+.BI "void cfmakeraw(struct termios *" termios_p );
+.sp
+.BI "speed_t cfgetispeed(const struct termios *" termios_p );
+.sp
+.BI "speed_t cfgetospeed(const struct termios *" termios_p );
+.sp
+.BI "int cfsetispeed(struct termios *" termios_p ", speed_t " speed );
+.sp
+.BI "int cfsetospeed(struct termios *" termios_p ", speed_t " speed );
+.ft P
+.ad b
+.SH DESCRIPTION
+The termios functions describe a general terminal interface that is
+provided to control asynchronous communications ports.
+.LP
+Many of the functions described here have a \fItermios_p\fP argument
+that is a pointer to a \fBtermios\fP structure.  This structure contains
+at least the following members:
+.ne 9
+.sp
+.RS
+.nf
+tcflag_t \fIc_iflag\fP;      /* input modes */
+tcflag_t \fIc_oflag\fP;      /* output modes */
+tcflag_t \fIc_cflag\fP;      /* control modes */
+tcflag_t \fIc_lflag\fP;      /* local modes */
+cc_t \fIc_cc\fP[\fBNCCS\fP];       /* control chars */
+.fi
+.RE
+.PP
+\fIc_iflag\fP flag constants:
+.TP
+.B IGNBRK
+Ignore BREAK condition on input.
+.TP
+.B BRKINT
+If \fBIGNBRK\fP is set, a BREAK is ignored. If it is not set
+but \fBBRKINT\fP is set, then a BREAK causes the input and output
+queues to be flushed, and if the terminal is the controlling
+terminal of a foreground process group, it will cause a
+\fBSIGINT\fP to be sent to this foreground process group.
+When neither \fBIGNBRK\fP nor \fBBRKINT\fP are set, a BREAK
+reads as a NUL character, except when \fBPARMRK\fP is set,
+in which case it reads as the sequence \\377 \\0 \\0.
+.TP
+.B IGNPAR
+Ignore framing errors and parity errors.
+.TP
+.B PARMRK
+If \fBIGNPAR\fP is not set, prefix a character with a parity error or 
+framing error with \\377 \\0.  If neither \fBIGNPAR\fP nor \fBPARMRK\fP
+is set, read a character with a parity error or framing error
+as \\0.
+.TP
+.B INPCK
+Enable input parity checking.
+.TP
+.B ISTRIP
+Strip off eighth bit.
+.TP
+.B INLCR
+Translate NL to CR on input.
+.TP
+.B IGNCR
+Ignore carriage return on input.
+.TP
+.B ICRNL
+Translate carriage return to newline on input (unless \fBIGNCR\fP is set).
+.TP
+.B IUCLC
+(not in POSIX) Map uppercase characters to lowercase on input.
+.TP
+.B IXON
+Enable XON/XOFF flow control on output.
+.TP
+.B IXANY
+(not in POSIX.1; XSI) Enable any character to restart output.
+.TP
+.B IXOFF
+Enable XON/XOFF flow control on input.
+.TP
+.B IMAXBEL
+(not in POSIX) Ring bell when input queue is full.
+Linux does not implement this bit, and acts as if it is always set.
+.PP
+\fIc_oflag\fP flag constants defined in POSIX.1:
+.TP
+.B OPOST
+Enable implementation-defined output processing.
+.PP
+The remaining \fIc_oflag\fP flag constants are defined in POSIX 1003.1-2001,
+unless marked otherwise.
+.TP
+.B OLCUC
+(not in POSIX) Map lowercase characters to uppercase on output.
+.TP
+.B ONLCR
+(XSI) Map NL to CR-NL on output.
+.TP
+.B OCRNL
+Map CR to NL on output.
+.TP
+.B ONOCR
+Don't output CR at column 0.
+.TP
+.B ONLRET
+Don't output CR.
+.TP
+.B OFILL
+Send fill characters for a delay, rather than using a timed delay.
+.TP
+.B OFDEL
+(not in POSIX) Fill character is ASCII DEL (0177).
+If unset, fill character is ASCII NUL.
+.TP
+.B NLDLY
+Newline delay mask.  Values are \fBNL0\fP and \fBNL1\fP.
+.TP
+.B CRDLY
+Carriage return delay mask.
+Values are \fBCR0\fP, \fBCR1\fP, \fBCR2\fP, or \fBCR3\fP.
+.TP
+.B TABDLY
+Horizontal tab delay mask.
+Values are \fBTAB0\fP, \fBTAB1\fP, \fBTAB2\fP, \fBTAB3\fP (or \fBXTABS\fP).
+A value of TAB3, that is, XTABS, expands tabs to spaces
+(with tab stops every eight columns).
+.TP
+.B BSDLY
+Backspace delay mask.  Values are \fBBS0\fP or \fBBS1\fP.
+(Has never been implemented.)
+.TP
+.B VTDLY
+Vertical tab delay mask.  Values are \fBVT0\fP or \fBVT1\fP.
+.TP
+.B FFDLY
+Form feed delay mask.  Values are \fBFF0\fP or \fBFF1\fP.
+.PP
+\fIc_cflag\fP flag constants:
+.TP
+.B CBAUD
+(not in POSIX) Baud speed mask (4+1 bits).
+.TP
+.B CBAUDEX
+(not in POSIX) Extra baud speed mask (1 bit), included in CBAUD.
+.LP
+(POSIX says that the baud speed is stored in the termios structure
+without specifying where precisely, and provides
+.B cfgetispeed()
+and
+.B cfsetispeed()
+for getting at it. Some systems use bits selected by CBAUD in
+.IR c_cflag ,
+other systems use separate fields, e.g.
+.I sg_ispeed
+and
+.IR sg_ospeed .)
+.TP
+.B CSIZE
+Character size mask.
+Values are \fBCS5\fP, \fBCS6\fP, \fBCS7\fP, or \fBCS8\fP.
+.TP
+.B CSTOPB
+Set two stop bits, rather than one.
+.TP
+.B CREAD
+Enable receiver.
+.TP
+.B PARENB
+Enable parity generation on output and parity checking for input.
+.TP
+.B PARODD
+Parity for input and output is odd.
+.TP
+.B HUPCL
+Lower modem control lines after last process closes the device (hang up).
+.TP
+.B CLOCAL
+Ignore modem control lines.
+.TP
+.B LOBLK
+(not in POSIX) Block output from a noncurrent shell layer.
+(For use by \fBshl\fP.)
+.TP
+.B CIBAUD
+(not in POSIX) Mask for input speeds. The values for the CIBAUD bits are
+the same as the values for the CBAUD bits, shifted left IBSHIFT bits. 
+.TP
+.B CRTSCTS
+(not in POSIX) Enable RTS/CTS (hardware) flow control.
+.PP
+\fIc_lflag\fP flag constants:
+.TP
+.B ISIG
+When any of the characters INTR, QUIT, SUSP, or DSUSP are received,
+generate the corresponding signal.
+.TP
+.B ICANON
+Enable canonical mode.  This enables the special characters
+EOF, EOL, EOL2, ERASE, KILL, LNEXT, REPRINT, STATUS, and WERASE, and
+buffers by lines.  
+.TP
+.B XCASE
+(not in POSIX; not supported under Linux)
+If \fBICANON\fP is also set, terminal is uppercase only.
+Input is converted to lowercase, except for characters preceded by \\.
+On output, uppercase characters are preceded by \\ and lowercase
+characters are converted to uppercase.
+.TP
+.B ECHO
+Echo input characters.
+.TP
+.B ECHOE
+If \fBICANON\fP is also set, the ERASE character erases the preceding
+input character, and WERASE erases the preceding word.
+.TP
+.B ECHOK
+If \fBICANON\fP is also set, the KILL character erases the current line.
+.TP
+.B ECHONL
+If \fBICANON\fP is also set, echo the NL character even if ECHO is not set.
+.TP
+.B ECHOCTL
+(not in POSIX) If \fBECHO\fP is also set, ASCII control signals other than
+TAB, NL, START, and STOP are echoed as ^X, where X is the character with
+ASCII code 0x40 greater than the control signal.  For example, character
+0x08 (BS) is echoed as ^H.
+.TP
+.B ECHOPRT
+(not in POSIX) If \fBICANON\fP and \fBIECHO\fP are also set, characters
+are printed as they are being erased.
+.TP
+.B ECHOKE
+(not in POSIX) If \fBICANON\fP is also set, KILL is echoed by erasing
+each character on the line, as specified by \fBECHOE\fP and \fBECHOPRT\fP.
+.TP
+.B DEFECHO
+(not in POSIX) Echo only when a process is reading.
+.TP
+.B FLUSHO
+(not in POSIX; not supported under Linux)
+Output is being flushed.  This flag is toggled by typing
+the DISCARD character.
+.TP
+.B NOFLSH
+Disable flushing the input and output queues when generating the SIGINT,
+SIGQUIT and SIGSUSP signals.
+.\" Stevens lets SIGSUSP only flush the input queue
+.TP
+.B TOSTOP
+Send the SIGTTOU signal to the process group of a background process
+which tries to write to its controlling terminal.
+.TP
+.B PENDIN
+(not in POSIX; not supported under Linux)
+All characters in the input queue are reprinted when
+the next character is read.  (\fBbash\fP handles typeahead this way.)
+.TP
+.B IEXTEN
+Enable implementation-defined input processing.
+This flag, as well as \fBICANON\fP must be enabled for  the
+special characters EOL2, LNEXT, REPRINT, WERASE to be interpreted,
+and for the \fBIUCLC\fP flag to be effective.
+.PP
+The \fIc_cc\fP array defines the special control characters.
+The symbolic indices (initial values) and meaning are:
+.TP
+.B VINTR
+(003, ETX, Ctrl-C, or also 0177, DEL, rubout)
+Interrupt character. Send a SIGINT signal.
+Recognized when ISIG is set, and then not passed as input.
+.TP
+.B VQUIT
+(034, FS, Ctrl-\e)
+Quit character. Send SIGQUIT signal.
+Recognized when ISIG is set, and then not passed as input.
+.TP
+.B VERASE
+(0177, DEL, rubout, or 010, BS, Ctrl-H, or also #)
+Erase character. This erases the previous not-yet-erased character,
+but does not erase past EOF or beginning-of-line.
+Recognized when ICANON is set, and then not passed as input.
+.TP
+.B VKILL
+(025, NAK, Ctrl-U, or Ctrl-X, or also @)
+Kill character. This erases the input since the last EOF or beginning-of-line.
+Recognized when ICANON is set, and then not passed as input.
+.TP
+.B VEOF
+(004, EOT, Ctrl-D)
+End-of-file character.
+More precisely: this character causes the pending tty buffer to be sent
+to the waiting user program without waiting for end-of-line.
+If it is the first character of the line, the \fIread()\fP in the
+user program returns 0, which signifies end-of-file.
+Recognized when ICANON is set, and then not passed as input.
+.TP
+.B VMIN
+Minimum number of characters for non-canonical read.
+.TP
+.B VEOL
+(0, NUL)
+Additional end-of-line character.
+Recognized when ICANON is set.
+.TP
+.B VTIME
+Timeout in deciseconds for non-canonical read.
+.TP
+.B VEOL2
+(not in POSIX; 0, NUL)
+Yet another end-of-line character.
+Recognized when ICANON is set.
+.TP
+.B VSWTCH
+(not in POSIX; not supported under Linux; 0, NUL)
+Switch character. (Used by \fBshl\fP only.)
+.TP
+.B VSTART
+(021, DC1, Ctrl-Q)
+Start character. Restarts output stopped by the Stop character.
+Recognized when IXON is set, and then not passed as input.
+.TP
+.B VSTOP
+(023, DC3, Ctrl-S)
+Stop character. Stop output until Start character typed.
+Recognized when IXON is set, and then not passed as input.
+.TP
+.B VSUSP
+(032, SUB, Ctrl-Z)
+Suspend character. Send SIGTSTP signal.
+Recognized when ISIG is set, and then not passed as input.
+.TP
+.B VDSUSP
+(not in POSIX; not supported under Linux; 031, EM, Ctrl-Y)
+Delayed suspend character:
+send SIGTSTP signal when the character is read by the user program.
+Recognized when IEXTEN and ISIG are set, and the system supports
+job control, and then not passed as input.
+.TP
+.B VLNEXT
+(not in POSIX; 026, SYN, Ctrl-V)
+Literal next. Quotes the next input character, depriving it of
+a possible special meaning.
+Recognized when IEXTEN is set, and then not passed as input.
+.TP
+.B VWERASE
+(not in POSIX; 027, ETB, Ctrl-W)
+Word erase.
+Recognized when ICANON and IEXTEN are set, and then not passed as input.
+.TP
+.B VREPRINT
+(not in POSIX; 022, DC2, Ctrl-R)
+Reprint unread characters.
+Recognized when ICANON and IEXTEN are set, and then not passed as input.
+.TP
+.B VDISCARD
+(not in POSIX; not supported under Linux; 017, SI, Ctrl-O)
+Toggle: start/stop discarding pending output.
+Recognized when IEXTEN is set, and then not passed as input.
+.TP
+.B VSTATUS
+(not in POSIX; not supported under Linux;
+status request: 024, DC4, Ctrl-T).
+.LP
+These symbolic subscript values are all different, except that
+VTIME, VMIN may have the same value as VEOL, VEOF, respectively.
+(In non-canonical mode the special character meaning is replaced
+by the timeout meaning. MIN represents the minimum number of characters
+that should be received to satisfy the read. TIME is a decisecond-valued
+timer. When both are set, a read will wait until at least one character
+has been received, and then return as soon as either MIN characters
+have been received or time TIME has passed since the last character
+was received. If only MIN is set, the read will not return before
+MIN characters have been received. If only TIME is set, the read will
+return as soon as either at least one character has been received,
+or the timer times out. If neither is set, the read will return
+immediately, only giving the currently already available characters.)
+.PP
+.B tcgetattr()
+gets the parameters associated with the object referred by \fIfd\fP and
+stores them in the \fBtermios\fP structure referenced by
+\fItermios_p\fP.  This function may be invoked from a background process;
+however, the terminal attributes may be subsequently changed by a
+foreground process.
+.LP
+.B tcsetattr()
+sets the parameters associated with the terminal (unless support is
+required from the underlying hardware that is not available) from the
+\fBtermios\fP structure referred to by \fItermios_p\fP.  
+\fIoptional_actions\fP specifies when the changes take effect:
+.IP \fBTCSANOW\fP
+the change occurs immediately.
+.IP \fBTCSADRAIN\fP
+the change occurs after all output written to
+.I fd
+has been transmitted.  This function should be used when changing
+parameters that affect output.
+.IP \fBTCSAFLUSH\fP
+the change occurs after all output written to the object referred by
+.I fd
+has been transmitted, and all input that has been received but not read
+will be discarded before the change is made.
+.LP
+.B tcsendbreak()
+transmits a continuous stream of zero-valued bits for a specific
+duration, if the terminal is using asynchronous serial data
+transmission.  If \fIduration\fP is zero, it transmits zero-valued bits
+for at least 0.25 seconds, and not more that 0.5 seconds.  If
+\fIduration\fP is not zero, it sends zero-valued bits for some
+implementation-defined length of time.
+.LP
+If the terminal is not using asynchronous serial data transmission,
+\fBtcsendbreak()\fP returns without taking any action.
+.LP
+.B tcdrain()
+waits until all output written to the object referred to by
+.I fd
+has been transmitted.
+.LP
+.B tcflush()
+discards data written to the object referred to by
+.I fd
+but not transmitted, or data received but not read, depending on the
+value of
+.IR queue_selector :
+.IP \fBTCIFLUSH\fP
+flushes data received but not read.
+.IP \fBTCOFLUSH\fP
+flushes data written but not transmitted.
+.IP \fBTCIOFLUSH\fP
+flushes both data received but not read, and data written but not
+transmitted.
+.LP
+.B tcflow()
+suspends transmission or reception of data on the object referred to by
+.IR fd ,
+depending on the value of
+.IR action :
+.IP \fBTCOOFF\fP
+suspends output.
+.IP \fBTCOON\fP
+restarts suspended output.
+.IP \fBTCIOFF\fP
+transmits a STOP character, which stops the terminal device from transmitting data to the
+system.
+.IP \fBTCION\fP
+transmits a START character, which starts the terminal device transmitting data to the
+system.
+.LP
+The default on open of a terminal file is that neither its input nor its
+output is suspended.
+.LP
+The baud rate functions are provided for getting and setting the values
+of the input and output baud rates in the \fBtermios\fP structure.  The
+new values do not take effect
+until \fBtcsetattr()\fP is successfully called.
+
+Setting the speed to \fBB0\fP instructs the modem to "hang up".
+The actual bit rate corresponding to \fBB38400\fP may be altered with
+\fBsetserial\fP(8).	
+.LP
+The input and output baud rates are stored in the \fBtermios\fP
+structure.
+.LP
+\fBcfmakeraw\fP sets the terminal attributes as follows:
+.nf
+            termios_p->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP
+                            |INLCR|IGNCR|ICRNL|IXON);
+            termios_p->c_oflag &= ~OPOST;
+            termios_p->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+            termios_p->c_cflag &= ~(CSIZE|PARENB);
+            termios_p->c_cflag |= CS8;
+.fi
+.LP
+.B cfgetospeed()
+returns the output baud rate stored in the \fBtermios\fP structure
+pointed to by
+.IR termios_p .
+.LP
+.B cfsetospeed()
+sets the output baud rate stored in the \fBtermios\fP structure pointed
+to by \fItermios_p\fP to \fIspeed\fP, which must be one of these constants:
+.nf
+.ft B
+	B0
+	B50
+	B75
+	B110
+	B134
+	B150
+	B200
+	B300
+	B600
+	B1200
+	B1800
+	B2400
+	B4800
+	B9600
+	B19200
+	B38400
+	B57600
+	B115200
+	B230400
+.ft P
+.fi
+The zero baud rate, \fBB0\fP,
+is used to terminate the connection.  If B0
+is specified, the modem control lines shall no longer be asserted.
+Normally, this will disconnect the line.  \fBCBAUDEX\fP is a mask 
+for the speeds beyond those defined in POSIX.1 (57600 and above).
+Thus, \fBB57600\fP & \fBCBAUDEX\fP is nonzero.
+.LP
+.B cfgetispeed()
+returns the input baud rate stored in the \fBtermios\fP structure.
+.LP
+.B cfsetispeed()
+sets the input baud rate stored in the \fBtermios\fP structure to
+.IR speed .
+If the input baud rate is set to zero, the input baud rate will be
+equal to the output baud rate.
+.LP
+.B cfsetspeed()
+is a 4.4 BSD extension. It will set both input and output speed.
+.SH "RETURN VALUE"
+.LP
+.B cfgetispeed()
+returns the input baud rate stored in the
+\fBtermios\fP
+structure.
+.LP
+.B cfgetospeed()
+returns the output baud rate stored in the \fBtermios\fP structure.
+.LP
+All other functions return:
+.IP 0
+on success.
+.IP \-1
+on failure and set
+.I errno
+to indicate the error.
+.LP
+Note that
+.BI tcsetattr()
+returns success if \fIany\fP of the requested changes could be
+successfully carried out.  Therefore, when making multiple changes
+it may be necessary to follow this call with a further call to
+.BI tcgetattr()
+to check that all changes have been performed successfully.
+
+.SH NOTES
+Unix V7 and several later systems have a list of baud rates
+where after the fourteen values B0, ..., B9600 one finds the
+two constants EXTA, EXTB ("External A" and "External B").
+Many systems extend the list with much higher baud rates.
+.LP
+The effect of a nonzero \fIduration\fP with \fBtcsendbreak\fP varies.
+SunOS specifies a break of 
+.IB duration * N
+seconds, where \fIN\fP is at least 0.25, and not more than 0.5.
+Linux, AIX, DU, Tru64 send a break of
+.I duration
+milliseconds.
+FreeBSD and NetBSD and HP-UX and MacOS ignore the value of
+.IR duration .
+Under Solaris and Unixware,
+.B tcsendbreak
+with nonzero
+.I duration
+behaves like
+.BR tcdrain .
+.\" libc4 until 4.7.5, glibc for sysv: EINVAL for duration > 0.
+.\" libc4.7.6, libc5, glibc for unix: duration in ms.
+.\" glibc for bsd: duration in us
+.\" glibc for sunos4: ignore duration
+.SH "SEE ALSO"
+.BR stty (1),
+.BR setserial (8)

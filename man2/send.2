@@ -1,0 +1,363 @@
+.\" Copyright (c) 1983, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1996-10-22 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Oct 1998 by Andi Kleen
+.\" Modified Oct 2003 by aeb
+.\" Modified 2004-07-01 by mtk
+.\"
+.TH SEND 2 2004-07-01 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+send, sendto, sendmsg \- send a message from a socket
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <sys/socket.h>
+.sp
+.BI "ssize_t send(int " s ", const void *" buf ", size_t " len ,
+.BI "int " flags );
+.br
+.BI "ssize_t sendto(int " s ", const void *" buf ", size_t " len ,
+.BI "int " flags ", const struct sockaddr *" to ", socklen_t " tolen );
+.br
+.BI "ssize_t sendmsg(int " s ", const struct msghdr *" msg ,
+.BI "int " flags );
+.SH DESCRIPTION
+The system calls
+.BR send ,
+.BR sendto ,
+and
+.B sendmsg
+are used to transmit a message to another socket.
+.PP
+The
+.B send
+call may be used only when the socket is in a 
+.I connected
+state (so that the intended recipient is known).
+The only difference between
+.B send
+and
+.B write
+is the presence of
+.IR flags .
+With zero
+.I flags
+parameter,
+.B send
+is equivalent to
+.BR write .
+Also,
+.RI send( s , buf , len )
+is equivalent to
+.RI sendto( s , buf , len ,NULL,0).
+.PP
+The parameter
+.I s
+is the file descriptor of the sending socket.
+.PP
+If
+.B sendto
+is used on a connection-mode (SOCK_STREAM, SOCK_SEQPACKET) socket,
+the parameters
+.I to
+and
+.I tolen
+are ignored (and the error EISCONN may be returned when they are
+not NULL and 0), and the error ENOTCONN is returned when the socket was
+not actually connected. Otherwise, the address of the target is given by
+.I to
+with 
+.I tolen
+specifying its size.
+For
+.BR sendmsg ,
+the address of the target is given by
+.IR msg.msg_name ,
+with
+.I msg.msg_namelen
+specifying its size.
+.PP
+For
+.B send
+and
+.BR sendto ,
+the message is found in
+.I buf
+and has length
+.IR len .
+For
+.BR sendmsg ,
+the message is pointed to by the elements of the array
+.IR msg.msg_iov .
+The
+.B sendmsg
+call also allows sending ancillary data (also known as control information).
+.PP
+If the message is too long to pass atomically through the
+underlying protocol, the error
+.B EMSGSIZE
+is returned, and the message is not transmitted.
+.PP
+No indication of failure to deliver is implicit in a
+.BR send .
+Locally detected errors are indicated by a return value of \-1.
+.PP
+When the message does not fit into the send buffer of the socket,
+.B send
+normally blocks, unless the socket has been placed in non-blocking I/O
+mode.  In non-blocking mode it would return
+.B EAGAIN
+in this case.
+The
+.BR select (2)
+call may be used to determine when it is possible to send more data.
+.PP
+The
+.I flags
+parameter is the bitwise OR
+of zero or more of the following flags.
+.\" XXX document MSG_PROXY
+.TP
+.B MSG_OOB
+Sends
+.I out-of-band
+data on sockets that support this notion (e.g. of type
+.BR SOCK_STREAM );
+the underlying protocol must also support
+.I out-of-band
+data.
+.TP
+.B MSG_EOR
+Terminates a record (when this notion is supported, as for sockets of type
+.BR SOCK_SEQPACKET ).
+.TP
+.B MSG_DONTROUTE
+Don't use a gateway to send out the packet, only send to hosts on 
+directly connected networks. This is usually used only 
+by diagnostic or routing programs. This is only defined for protocol
+families that route; packet sockets don't.
+.TP
+.B MSG_DONTWAIT
+Enables non-blocking operation; if the operation would block,
+.B EAGAIN
+is returned (this can also be enabled using the
+.B O_NONBLOCK
+with the
+.B F_SETFL
+.BR fcntl (2)).
+.TP
+.B MSG_NOSIGNAL
+Requests not to send 
+.B SIGPIPE 
+on errors on stream oriented sockets when the other end breaks the
+connection. The 
+.B EPIPE
+error is still returned.
+.TP
+.BR MSG_CONFIRM " (Linux 2.3+ only)"
+Tell the link layer that forward progress happened: you got a successful
+reply from the other side. If the link layer doesn't get this 
+it'll regularly reprobe the neighbour (e.g. via a unicast ARP).
+Only valid on 
+.B SOCK_DGRAM
+and
+.B SOCK_RAW
+sockets and currently only implemented for IPv4 and IPv6. See
+.BR arp (7)
+for details.
+.TP
+.BR MSG_MORE " (Since Linux 2.4.4)"
+The caller has more data to send.
+This flag is used with TCP sockets to obtain the same effect
+as the TCP_CORK socket option (see
+.BR tcp (7)),
+with the difference that this flag can be set on a per-call basis.
+Since Linux 2.6, this flag is also supported for UDP sockets, and informs
+the kernel to package all of the data sent in calls with this flag set
+into a single datagram which is only transmitted when a call is performed
+that does not specify this flag.
+.PP
+The definition of the
+.I msghdr
+structure follows. See 
+.BR recv (2)
+and below for an exact description of its fields.
+.IP
+.RS
+.nf
+.ta 4n 17n 33n
+struct msghdr {
+	void	* msg_name;	/* optional address */
+	socklen_t	msg_namelen;	/* size of address */
+	struct iovec	* msg_iov;	/* scatter/gather array */
+	size_t	msg_iovlen;	/* # elements in msg_iov */
+	void	* msg_control;	/* ancillary data, see below */
+	socklen_t	msg_controllen;	/* ancillary data buffer len */
+	int	msg_flags;	/* flags on received message */
+};
+.ta
+.fi
+.RE
+.PP
+You may send control information using the 
+.I msg_control 
+and 
+.I msg_controllen 
+members. The maximum control buffer length the kernel can process is limited
+per socket by the
+.B net.core.optmem_max 
+sysctl; see
+.BR socket (7).
+.\" Still to be documented:
+.\"  Send file descriptors and user credentials using the
+.\"  msg_control* fields.
+.\"  The flags returned in msg_flags.
+.SH "RETURN VALUE"
+The calls return the number of characters sent, or \-1
+if an error occurred.
+.SH ERRORS
+These are some standard errors generated by the socket layer. Additional errors
+may be generated and returned from the underlying protocol modules; see their
+respective manual pages.
+.TP
+.B EACCES
+(For Unix domain sockets, which are identified by pathname)
+Write permission is denied on the destination socket file,
+or search permission is denied for one of the directories
+the path prefix. (See
+.BR path_resolution (2).)
+.TP
+.BR EAGAIN " or " EWOULDBLOCK
+The socket is marked non-blocking and the requested operation
+would block.
+.TP
+.B EBADF
+An invalid descriptor was specified.
+.TP
+.B ECONNRESET
+Connection reset by peer.
+.TP
+.B EDESTADDRREQ
+The socket is not connection-mode, and no peer address is set.
+.TP
+.B EFAULT
+An invalid user space address was specified for a parameter.
+.TP
+.B EINTR
+A signal occurred before any data was transmitted.
+.TP
+.B EINVAL
+Invalid argument passed.
+.TP
+.B EISCONN
+The connection-mode socket was connected already but a
+recipient was specified.
+(Now either this error is returned, or the recipient specification
+is ignored.)
+.TP
+.B EMSGSIZE
+The socket type
+.\" (e.g., SOCK_DGRAM )
+requires that message be sent atomically, and the size
+of the message to be sent made this impossible.
+.TP
+.B ENOBUFS
+The output queue for a network interface was full.
+This generally indicates that the interface has stopped sending,
+but may be caused by transient congestion.
+(Normally, this does not occur in Linux. Packets are just silently dropped
+when a device queue overflows.)
+.TP
+.B ENOMEM
+No memory available.
+.TP
+.B ENOTCONN
+The socket is not connected, and no target has been given.
+.TP
+.B ENOTSOCK
+The argument
+.I s
+is not a socket.
+.TP
+.B EOPNOTSUPP
+Some bit in the
+.I flags
+argument is inappropriate for the socket type.
+.TP
+.B EPIPE
+The local end has been shut down on a connection oriented socket.
+In this case the process
+will also receive a 
+.B SIGPIPE 
+unless 
+.B MSG_NOSIGNAL 
+is set.
+.SH "CONFORMING TO"
+4.4BSD, SVr4, POSIX 1003.1-2001.
+These function calls appeared in 4.2BSD.
+.LP
+POSIX only describes the
+.B MSG_OOB
+and
+.B MSG_EOR
+flags.
+The
+.B MSG_CONFIRM 
+flag is a Linux extension.
+.SH NOTE
+The prototypes given above follow the Single Unix Specification,
+as glibc2 also does; the
+.I flags
+argument was `int' in BSD 4.*, but `unsigned int' in libc4 and libc5;
+the
+.I len
+argument was `int' in BSD 4.* and libc4, but `size_t' in libc5;
+the
+.I tolen
+argument was `int' in BSD 4.* and libc4 and libc5.
+See also
+.BR accept (2).
+.SH BUGS
+Linux may return EPIPE instead of ENOTCONN.
+.SH "SEE ALSO"
+.BR fcntl (2),
+.BR getsockopt (2),
+.BR recv (2),
+.BR select (2),
+.BR sendfile (2),
+.BR socket (2),
+.BR write (2),
+.BR ip (7),
+.BR socket (7),
+.BR tcp (7),
+.BR udp (7)

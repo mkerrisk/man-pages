@@ -1,0 +1,212 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "WCSTOD" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" wcstod 
+.SH NAME
+wcstod, wcstof, wcstold \- convert a wide-character string to a double-precision
+number
+.SH SYNOPSIS
+.LP
+\fB#include <wchar.h>
+.br
+.sp
+double wcstod(const wchar_t *restrict\fP \fInptr\fP\fB, wchar_t **restrict\fP
+\fIendptr\fP\fB);
+.br
+float wcstof(const wchar_t *restrict\fP \fInptr\fP\fB, wchar_t **restrict\fP
+\fIendptr\fP\fB);
+.br
+long double wcstold(const wchar_t *restrict\fP \fInptr\fP\fB,
+.br
+\ \ \ \ \ \  wchar_t **restrict\fP \fIendptr\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions shall convert the initial portion of the wide-character
+string pointed to by \fInptr\fP to \fBdouble\fP,
+\fBfloat\fP, and \fBlong double\fP representation, respectively. First,
+they shall decompose the input wide-character string into
+three parts:
+.IP " 1." 4
+An initial, possibly empty, sequence of white-space wide-character
+codes (as specified by \fIiswspace\fP())
+.LP
+.IP " 2." 4
+A subject sequence interpreted as a floating-point constant or representing
+infinity or NaN
+.LP
+.IP " 3." 4
+A final wide-character string of one or more unrecognized wide-character
+codes, including the terminating null wide-character
+code of the input wide-character string
+.LP
+.LP
+Then they shall attempt to convert the subject sequence to a floating-point
+number, and return the result.
+.LP
+The expected form of the subject sequence is an optional plus or minus
+sign, then one of the following:
+.IP " *" 3
+A non-empty sequence of decimal digits optionally containing a radix
+character, then an optional exponent part
+.LP
+.IP " *" 3
+A 0x or 0X, then a non-empty sequence of hexadecimal digits optionally
+containing a radix character, then an optional binary
+exponent part
+.LP
+.IP " *" 3
+One of INF or INFINITY, or any other wide string equivalent except
+for case
+.LP
+.IP " *" 3
+One of NAN or NAN(\fIn-wchar-sequence_opt\fP), or any other wide string
+ignoring case in the NAN part,
+where:
+.sp
+.RS
+.nf
+
+\fBn-wchar-sequence:
+    digit
+    nondigit
+    n-wchar-sequence digit
+    n-wchar-sequence nondigit
+\fP
+.fi
+.RE
+.LP
+.LP
+The subject sequence is defined as the longest initial subsequence
+of the input wide string, starting with the first
+non-white-space wide character, that is of the expected form. The
+subject sequence contains no wide characters if the input wide
+string is not of the expected form.
+.LP
+If the subject sequence has the expected form for a floating-point
+number, the sequence of wide characters starting with the
+first digit or the radix character (whichever occurs first) shall
+be interpreted as a floating constant according to the rules of
+the C language, except that the radix character shall be used in place
+of a period, and that if neither an exponent part nor a
+radix character appears in a decimal floating-point number, or if
+a binary exponent part does not appear in a hexadecimal
+floating-point number, an exponent part of the appropriate type with
+value zero shall be assumed to follow the last digit in the
+string. If the subject sequence begins with a minus sign, the sequence
+shall be interpreted as negated. A wide-character sequence
+INF or INFINITY shall be interpreted as an infinity, if representable
+in the return type, else as if it were a floating constant
+that is too large for the range of the return type. A wide-character
+sequence NAN or
+NAN(\fIn-wchar-sequence_opt\fP) shall be interpreted as a quiet NaN,
+if supported in the return type,
+else as if it were a subject sequence part that does not have the
+expected form; the meaning of the \fIn\fP-wchar sequences is
+implementation-defined. A pointer to the final wide string shall be
+stored in the object pointed to by \fIendptr\fP, provided that
+\fIendptr\fP is not a null pointer.
+.LP
+If the subject sequence has the hexadecimal form and FLT_RADIX is
+a power of 2, the conversion shall be rounded in an
+implementation-defined manner.
+.LP
+The
+radix character shall be as defined in the program's locale (category
+\fILC_NUMERIC ).\fP In the POSIX locale, or in a locale
+where the radix character is not defined, the radix character shall
+default to a period ( \fB'.'\fP ). 
+.LP
+In other than the C   \ or POSIX  locales, other
+implementation-defined subject sequences may be accepted.
+.LP
+If the subject sequence is empty or does not have the expected form,
+no conversion shall be performed; the value of \fInptr\fP
+shall be stored in the object pointed to by \fIendptr\fP, provided
+that \fIendptr\fP is not a null pointer.
+.LP
+The
+\fIwcstod\fP() function shall not change the setting of \fIerrno\fP
+if successful.
+.LP
+Since 0 is returned on error and is also a valid return on success,
+an application wishing to check for error situations should
+set \fIerrno\fP to 0, then call \fIwcstod\fP(), \fIwcstof\fP(), or
+\fIwcstold\fP(), then check \fIerrno\fP. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, these functions shall return the converted
+value. If no conversion could be performed, 0 shall be
+returned   \ and \fIerrno\fP may be set to [EINVAL]. 
+.LP
+If the correct value is outside the range of representable values,
+\(+-HUGE_VAL, \(+-HUGE_VALF, or \(+-HUGE_VALL
+shall be returned (according to the sign of the value), and \fIerrno\fP
+shall be set to [ERANGE].
+.LP
+If the correct value would cause underflow, a value whose magnitude
+is no greater than the smallest normalized positive number
+in the return type shall be returned and \fIerrno\fP set to [ERANGE].
+.SH ERRORS
+.LP
+The \fIwcstod\fP() function shall fail if:
+.TP 7
+.B ERANGE
+The value to be returned would cause overflow or underflow.
+.sp
+.LP
+The \fIwcstod\fP() function may fail if:
+.TP 7
+.B EINVAL
+No
+conversion could be performed. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If the subject sequence has the hexadecimal form and FLT_RADIX is
+not a power of 2, and the result is not exactly representable,
+the result should be one of the two numbers in the appropriate internal
+format that are adjacent to the hexadecimal floating source
+value, with the extra stipulation that the error should have a correct
+sign for the current rounding direction.
+.LP
+If the subject sequence has the decimal form and at most DECIMAL_DIG
+(defined in \fI<float.h>\fP) significant digits, the result should
+be correctly rounded. If the subject
+sequence \fID\fP has the decimal form and more than DECIMAL_DIG significant
+digits, consider the two bounding, adjacent decimal
+strings \fIL\fP and \fIU\fP, both having DECIMAL_DIG significant digits,
+such that the values of \fIL\fP, \fID\fP, and \fIU\fP
+satisfy \fB"L <= D <= U"\fP . The result should be one of the (equal
+or adjacent) values that would be obtained by
+correctly rounding \fIL\fP and \fIU\fP according to the current rounding
+direction, with the extra stipulation that the error
+with respect to \fID\fP should have a correct sign for the current
+rounding direction.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIiswspace\fP() , \fIlocaleconv\fP() , \fIscanf\fP() , \fIsetlocale\fP()
+, \fIwcstol\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 7, Locale,
+\fI<float.h>\fP, \fI<wchar.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,178 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SCHED_SETPARAM" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sched_setparam 
+.SH NAME
+sched_setparam \- set scheduling parameters (\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <sched.h>
+.br
+.sp
+int sched_setparam(pid_t\fP \fIpid\fP\fB, const struct sched_param
+*\fP\fIparam\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsched_setparam\fP() function shall set the scheduling parameters
+of the process specified by \fIpid\fP to the values
+specified by the \fBsched_param\fP structure pointed to by \fIparam\fP.
+The value of the \fIsched_priority\fP member in the
+\fBsched_param\fP structure shall be any integer within the inclusive
+priority range for the current scheduling policy of the
+process specified by \fIpid\fP. Higher numerical values for the priority
+represent higher priorities. If the value of \fIpid\fP
+is negative, the behavior of the \fIsched_setparam\fP() function is
+unspecified.
+.LP
+If a process specified by \fIpid\fP exists, and if the calling process
+has permission, the scheduling parameters shall be set
+for the process whose process ID is equal to \fIpid\fP.
+.LP
+If \fIpid\fP is zero, the scheduling parameters shall be set for the
+calling process.
+.LP
+The conditions under which one process has permission to change the
+scheduling parameters of another process are
+implementation-defined.
+.LP
+Implementations may require the requesting process to have the appropriate
+privilege to set its own scheduling parameters or
+those of another process.
+.LP
+The target process, whether it is running or not running, shall be
+moved to the tail of the thread list for its priority.
+.LP
+If the priority of the process specified by the \fIpid\fP argument
+is set higher than that of the lowest priority running
+process and if the specified process is ready to run, the process
+specified by the \fIpid\fP argument shall preempt a lowest
+priority running process. Similarly, if the process calling \fIsched_setparam\fP()
+sets its own priority lower than that of one or
+more other non-empty process lists, then the process that is the head
+of the highest priority list shall also preempt the calling
+process. Thus, in either case, the originating process might not receive
+notification of the completion of the requested priority
+change until the higher priority process has executed.
+.LP
+If
+the scheduling policy of the target process is SCHED_SPORADIC, the
+value specified by the \fIsched_ss_low_priority\fP member of
+the \fIparam\fP argument shall be any integer within the inclusive
+priority range for the sporadic server policy. The
+\fIsched_ss_repl_period\fP and \fIsched_ss_init_budget\fP members
+of the \fIparam\fP argument shall represent the time
+parameters to be used by the sporadic server scheduling policy for
+the target process. The \fIsched_ss_max_repl\fP member of the
+\fIparam\fP argument shall represent the maximum number of replenishments
+that are allowed to be pending simultaneously for the
+process scheduled under this scheduling policy.
+.LP
+The specified \fIsched_ss_repl_period\fP shall be greater than or
+equal to the specified \fIsched_ss_init_budget\fP for the
+function to succeed; if it is not, then the function shall fail.
+.LP
+The value of \fIsched_ss_max_repl\fP shall be within the inclusive
+range [1, {SS_REPL_MAX}] for the function to succeed; if
+not, the function shall fail.
+.LP
+If the scheduling policy of the target process is either SCHED_FIFO
+or SCHED_RR, the \fIsched_ss_low_priority\fP,
+\fIsched_ss_repl_period\fP, and \fIsched_ss_init_budget\fP members
+of the \fIparam\fP argument shall have no effect on the
+scheduling behavior. If the scheduling policy of this process is not
+SCHED_FIFO, SCHED_RR, or SCHED_SPORADIC, the effects of these
+members are implementation-defined; this case includes the SCHED_OTHER
+policy. 
+.LP
+If the current scheduling policy for the process specified by \fIpid\fP
+is not SCHED_FIFO, SCHED_RR,   \ or
+SCHED_SPORADIC,  \ the result is implementation-defined; this
+case includes the SCHED_OTHER policy.
+.LP
+The effect of this function on individual threads is dependent on
+the scheduling contention scope of the threads:
+.IP " *" 3
+For threads with system scheduling contention scope, these functions
+shall have no effect on their scheduling.
+.LP
+.IP " *" 3
+For threads with process scheduling contention scope, the threads'
+scheduling parameters shall not be affected. However, the
+scheduling of these threads with respect to threads in other processes
+may be dependent on the scheduling parameters of their
+process, which are governed using these functions.
+.LP
+.LP
+If an implementation supports a two-level scheduling model in which
+library threads are multiplexed on top of several
+kernel-scheduled entities, then the underlying kernel-scheduled entities
+for the system contention scope threads shall not be
+affected by these functions.
+.LP
+The underlying kernel-scheduled entities for the process contention
+scope threads shall have their scheduling parameters changed
+to the value specified in \fIparam\fP. Kernel-scheduled entities for
+use by process contention scope threads that are created
+after this call completes shall inherit their scheduling policy and
+associated scheduling parameters from the process.
+.LP
+This function is not atomic with respect to other threads in the process.
+Threads may continue to execute while this function
+call is in the process of changing the scheduling policy for the underlying
+kernel-scheduled entities used by the process
+contention scope threads.
+.SH RETURN VALUE
+.LP
+If successful, the \fIsched_setparam\fP() function shall return zero.
+.LP
+If the call to \fIsched_setparam\fP() is unsuccessful, the priority
+shall remain unchanged, and the function shall return a
+value of -1 and set \fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIsched_setparam\fP() function shall fail if:
+.TP 7
+.B EINVAL
+One or more of the requested scheduling parameters is outside the
+range defined for the scheduling policy of the specified
+\fIpid\fP.
+.TP 7
+.B EPERM
+The requesting process does not have permission to set the scheduling
+parameters for the specified process, or does not have
+the appropriate privilege to invoke \fIsched_setparam\fP().
+.TP 7
+.B ESRCH
+No process can be found corresponding to that specified by \fIpid\fP.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIsched_getparam\fP() , \fIsched_getscheduler\fP() ,
+\fIsched_setscheduler\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<sched.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

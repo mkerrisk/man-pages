@@ -1,0 +1,377 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "WORDEXP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" wordexp 
+.SH NAME
+wordexp, wordfree \- perform word expansions
+.SH SYNOPSIS
+.LP
+\fB#include <wordexp.h>
+.br
+.sp
+int wordexp(const char *restrict\fP \fIwords\fP\fB, wordexp_t *restrict\fP
+\fIpwordexp\fP\fB,
+.br
+\ \ \ \ \ \  int\fP \fIflags\fP\fB);
+.br
+void wordfree(wordexp_t *\fP\fIpwordexp\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIwordexp\fP() function shall perform word expansions as described
+in the Shell and Utilities volume of
+IEEE\ Std\ 1003.1-2001, Section 2.6, Word Expansions, subject to
+quoting as in the Shell and Utilities volume of IEEE\ Std\ 1003.1-2001,
+Section 2.2, Quoting, and place the list of expanded words into the
+structure pointed
+to by \fIpwordexp\fP.
+.LP
+The \fIwords\fP argument is a pointer to a string containing one or
+more words to be expanded. The expansions shall be the same
+as would be performed by the command line interpreter if \fIwords\fP
+were the part of a command line representing the arguments to
+a utility. Therefore, the application shall ensure that \fIwords\fP
+does not contain an unquoted <newline> or any of the
+unquoted shell special characters \fB'|'\fP , \fB'&'\fP , \fB';'\fP
+, \fB'<'\fP , \fB'>'\fP except in the
+context of command substitution as specified in the Shell and Utilities
+volume of IEEE\ Std\ 1003.1-2001, Section 2.6.3, Command Substitution.
+It also shall not contain unquoted parentheses
+or braces, except in the context of command or variable substitution.
+The application shall ensure that every member of
+\fIwords\fP which it expects to have expanded by \fIwordexp\fP() does
+not contain an unquoted initial comment character. The
+application shall also ensure that any words which it intends to be
+ignored (because they begin or continue a comment) are deleted
+from \fIwords\fP. If the argument \fIwords\fP contains an unquoted
+comment character (number sign) that is the beginning of a
+token, \fIwordexp\fP() shall either treat the comment character as
+a regular character, or interpret it as a comment indicator and
+ignore the remainder of \fIwords\fP.
+.LP
+The structure type \fBwordexp_t\fP is defined in the \fI<wordexp.h>\fP
+header
+and includes at least the following members:
+.TS C
+center; l1 l1 lw(40).
+\fBMember Type\fP	\fBMember Name\fP	T{
+.na
+\fBDescription\fP
+.ad
+T}
+\fBsize_t\fP	\fIwe_wordc\fP	T{
+.na
+Count of words matched by \fIwords\fP.
+.ad
+T}
+\fBchar **\fP	\fIwe_wordv\fP	T{
+.na
+Pointer to list of expanded words.
+.ad
+T}
+\fBsize_t\fP	\fIwe_offs\fP	T{
+.na
+Slots to reserve at the beginning of \fIpwordexp\fP->\fIwe_wordv\fP.
+.ad
+T}
+.TE
+.LP
+The \fIwordexp\fP() function shall store the number of generated words
+into \fIpwordexp\fP->\fIwe_wordc\fP and a pointer
+to a list of pointers to words in \fIpwordexp\fP->\fIwe_wordv\fP.
+Each individual field created during field splitting (see
+the Shell and Utilities volume of IEEE\ Std\ 1003.1-2001, Section
+2.6.5, Field Splitting) or pathname expansion (see the Shell and Utilities
+volume of IEEE\ Std\ 1003.1-2001, Section 2.6.6, Pathname Expansion)
+shall be a separate word in the
+\fIpwordexp\fP->\fIwe_wordv\fP list. The words shall be in order as
+described in the Shell and Utilities volume of
+IEEE\ Std\ 1003.1-2001, Section 2.6, Word Expansions. The first
+pointer after the last word pointer shall be a null pointer. The expansion
+of special parameters described in the Shell and
+Utilities volume of IEEE\ Std\ 1003.1-2001, Section 2.5.2, Special
+Parameters is unspecified.
+.LP
+It is the caller's responsibility to allocate the storage pointed
+to by \fIpwordexp\fP. The \fIwordexp\fP() function shall
+allocate other space as needed, including memory pointed to by \fIpwordexp\fP->\fIwe_wordv\fP.
+The \fIwordfree\fP() function
+frees any memory associated with \fIpwordexp\fP from a previous call
+to \fIwordexp\fP().
+.LP
+The \fIflags\fP argument is used to control the behavior of \fIwordexp\fP().
+The value of \fIflags\fP is the
+bitwise-inclusive OR of zero or more of the following constants, which
+are defined in \fI<wordexp.h>\fP:
+.TP 7
+WRDE_APPEND
+Append words generated to the ones from a previous call to \fIwordexp\fP().
+.TP 7
+WRDE_DOOFFS
+Make use of \fIpwordexp\fP->\fIwe_offs\fP. If this flag is set, \fIpwordexp\fP->\fIwe_offs\fP
+is used to specify how
+many null pointers to add to the beginning of \fIpwordexp\fP->\fIwe_wordv\fP.
+In other words,
+\fIpwordexp\fP->\fIwe_wordv\fP shall point to \fIpwordexp\fP->\fIwe_offs\fP
+null pointers, followed by
+\fIpwordexp\fP->\fIwe_wordc\fP word pointers, followed by a null pointer.
+.TP 7
+WRDE_NOCMD
+If the implementation supports the utilities defined in the Shell
+and Utilities volume of IEEE\ Std\ 1003.1-2001, fail
+if command substitution, as specified in the Shell and Utilities volume
+of IEEE\ Std\ 1003.1-2001, Section 2.6.3, Command Substitution, is
+requested.
+.TP 7
+WRDE_REUSE
+The \fIpwordexp\fP argument was passed to a previous successful call
+to \fIwordexp\fP(), and has not been passed to
+\fIwordfree\fP(). The result shall be the same as if the application
+had called \fIwordfree\fP() and then called \fIwordexp\fP()
+without WRDE_REUSE.
+.TP 7
+WRDE_SHOWERR
+Do not redirect \fIstderr\fP to \fB/dev/null\fP.
+.TP 7
+WRDE_UNDEF
+Report error on an attempt to expand an undefined shell variable.
+.sp
+.LP
+The WRDE_APPEND flag can be used to append a new set of words to those
+generated by a previous call to \fIwordexp\fP(). The
+following rules apply to applications when two or more calls to \fIwordexp\fP()
+are made with the same value of \fIpwordexp\fP
+and without intervening calls to \fIwordfree\fP():
+.IP " 1." 4
+The first such call shall not set WRDE_APPEND. All subsequent calls
+shall set it.
+.LP
+.IP " 2." 4
+All of the calls shall set WRDE_DOOFFS, or all shall not set it.
+.LP
+.IP " 3." 4
+After the second and each subsequent call, \fIpwordexp\fP->\fIwe_wordv\fP
+shall point to a list containing the
+following:
+.RS
+.IP " a." 4
+Zero or more null pointers, as specified by WRDE_DOOFFS and \fIpwordexp\fP->\fIwe_offs\fP
+.LP
+.IP " b." 4
+Pointers to the words that were in the \fIpwordexp\fP->\fIwe_wordv\fP
+list before the call, in the same order as before
+.LP
+.IP " c." 4
+Pointers to the new words generated by the latest call, in the specified
+order
+.LP
+.RE
+.LP
+.IP " 4." 4
+The count returned in \fIpwordexp\fP->\fIwe_wordc\fP shall be the
+total number of words from all of the calls.
+.LP
+.IP " 5." 4
+The application can change any of the fields after a call to \fIwordexp\fP(),
+but if it does it shall reset them to the
+original value before a subsequent call, using the same \fIpwordexp\fP
+value, to \fIwordfree\fP() or \fIwordexp\fP() with the
+WRDE_APPEND or WRDE_REUSE flag.
+.LP
+.LP
+If the implementation supports the utilities defined in the Shell
+and Utilities volume of IEEE\ Std\ 1003.1-2001, and
+\fIwords\fP contains an unquoted character- <newline>, \fB'|'\fP ,
+\fB'&'\fP , \fB';'\fP , \fB'<'\fP ,
+\fB'>'\fP , \fB'('\fP , \fB')'\fP , \fB'{'\fP , \fB'}'\fP - in an
+inappropriate context, \fIwordexp\fP() shall
+fail, and the number of expanded words shall be 0.
+.LP
+Unless WRDE_SHOWERR is set in \fIflags\fP, \fIwordexp\fP() shall redirect
+\fIstderr\fP to \fB/dev/null\fP for any utilities
+executed as a result of command substitution while expanding \fIwords\fP.
+If WRDE_SHOWERR is set, \fIwordexp\fP() may write
+messages to \fIstderr\fP if syntax errors are detected while expanding
+\fIwords\fP.
+.LP
+The application shall ensure that if WRDE_DOOFFS is set, then \fIpwordexp\fP->\fIwe_offs\fP
+has the same value for each
+\fIwordexp\fP() call and \fIwordfree\fP() call using a given \fIpwordexp\fP.
+.LP
+The following constants are defined as error return values:
+.TP 7
+WRDE_BADCHAR
+One of the unquoted characters- <newline>, \fB'|'\fP , \fB'&'\fP ,
+\fB';'\fP , \fB'<'\fP ,
+\fB'>'\fP , \fB'('\fP , \fB')'\fP , \fB'{'\fP , \fB'}'\fP - appears
+in \fIwords\fP in an inappropriate
+context.
+.TP 7
+WRDE_BADVAL
+Reference to undefined shell variable when WRDE_UNDEF is set in \fIflags\fP.
+.TP 7
+WRDE_CMDSUB
+Command substitution requested when WRDE_NOCMD was set in \fIflags\fP.
+.TP 7
+WRDE_NOSPACE
+Attempt to allocate memory failed.
+.TP 7
+WRDE_SYNTAX
+Shell syntax error, such as unbalanced parentheses or unterminated
+string.
+.sp
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIwordexp\fP() shall return 0. Otherwise,
+a non-zero value, as described in \fI<wordexp.h>\fP, shall be returned
+to indicate an error. If \fIwordexp\fP() returns the
+value WRDE_NOSPACE, then \fIpwordexp\fP->\fIwe_wordc\fP and \fIpwordexp\fP->\fIwe_wordv\fP
+shall be updated to reflect
+any words that were successfully expanded. In other cases, they shall
+not be modified.
+.LP
+The \fIwordfree\fP() function shall not return a value.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIwordexp\fP() function is intended to be used by an application
+that wants to do all of the shell's expansions on a word
+or words obtained from a user. For example, if the application prompts
+for a filename (or list of filenames) and then uses
+\fIwordexp\fP() to process the input, the user could respond with
+anything that would be valid as input to the shell.
+.LP
+The WRDE_NOCMD flag is provided for applications that, for security
+or other reasons, want to prevent a user from executing
+shell commands. Disallowing unquoted shell special characters also
+prevents unwanted side effects, such as executing a command or
+writing a file.
+.SH RATIONALE
+.LP
+This function was included as an alternative to \fIglob\fP(). There
+had been continuing
+controversy over exactly what features should be included in \fIglob\fP().
+It is hoped that
+by providing \fIwordexp\fP() (which provides all of the shell word
+expansions, but which may be slow to execute) and \fIglob\fP() (which
+is faster, but which only performs pathname expansion, without tilde
+or parameter
+expansion) this will satisfy the majority of applications.
+.LP
+While \fIwordexp\fP() could be implemented entirely as a library routine,
+it is expected that most implementations run a shell
+in a subprocess to do the expansion.
+.LP
+Two different approaches have been proposed for how the required information
+might be presented to the shell and the results
+returned. They are presented here as examples.
+.LP
+One proposal is to extend the \fIecho\fP utility by adding a \fB-q\fP
+option. This option
+would cause \fIecho\fP to add a backslash before each backslash and
+<blank> that occurs
+within an argument. The \fIwordexp\fP() function could then invoke
+the shell as follows:
+.sp
+.RS
+.nf
+
+\fB(void) strcpy(buffer, "echo -q");
+(void) strcat(buffer,\fP \fIwords\fP\fB);
+if ((flags & WRDE_SHOWERR) == 0)
+    (void) strcat(buffer, "2>/dev/null");
+f = popen(buffer, "r");
+\fP
+.fi
+.RE
+.LP
+The \fIwordexp\fP() function would read the resulting output, remove
+unquoted backslashes, and break into words at unquoted
+<blank>s. If the WRDE_NOCMD flag was set, \fIwordexp\fP() would have
+to scan \fIwords\fP before starting the subshell to
+make sure that there would be no command substitution. In any case,
+it would have to scan \fIwords\fP for unquoted special
+characters.
+.LP
+Another proposal is to add the following options to \fIsh\fP:
+.TP 7
+\fB-w\fP\ \fIwordlist\fP
+.sp
+This option provides a wordlist expansion service to applications.
+The words in \fIwordlist\fP shall be expanded and the following
+written to standard output: 
+.RS
+.IP " 1." 4
+The count of the number of words after expansion, in decimal, followed
+by a null byte
+.LP
+.IP " 2." 4
+The number of bytes needed to represent the expanded words (not including
+null separators), in decimal, followed by a null
+byte
+.LP
+.IP " 3." 4
+The expanded words, each terminated by a null byte
+.LP
+.RE
+.LP
+If an error is encountered during word expansion, \fIsh\fP exits with
+a non-zero status
+after writing the former to report any words successfully expanded
+.TP 7
+\fB-P\fP
+Run in "protected" mode. If specified with the \fB-w\fP option, no
+command substitution shall be performed.
+.sp
+.LP
+With these options, \fIwordexp\fP() could be implemented fairly simply
+by creating a subprocess using \fIfork\fP() and executing \fIsh\fP
+using the line:
+.sp
+.RS
+.nf
+
+\fBexecl(<\fP\fIshell path\fP\fB>, "sh", "-P", "-w",\fP \fIwords\fP\fB, (char *)0);
+\fP
+.fi
+.RE
+.LP
+after directing standard error to \fB/dev/null\fP.
+.LP
+It seemed objectionable for a library routine to write messages to
+standard error, unless explicitly requested, so
+\fIwordexp\fP() is required to redirect standard error to \fB/dev/null\fP
+to ensure that no messages are generated, even for
+commands executed for command substitution. The WRDE_SHOWERR flag
+can be specified to request that error messages be written.
+.LP
+The WRDE_REUSE flag allows the implementation to avoid the expense
+of freeing and reallocating memory, if that is possible. A
+minimal implementation can call \fIwordfree\fP() when WRDE_REUSE is
+set.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfnmatch\fP() , \fIglob\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<wordexp.h>\fP, the Shell and Utilities
+volume
+of IEEE\ Std\ 1003.1-2001, Chapter 2, Shell Command Language
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

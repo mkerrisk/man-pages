@@ -1,0 +1,219 @@
+.\" Copyright 1993 Giorgio Ciucci <giorgio@crcc.it>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Added correction due to Nick Duffek <nsd@bbc.com>, aeb, 960426
+.\" Modified Wed Nov  6 04:00:31 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified, 8 Jan 2003, Michael Kerrisk, <mtk16@ext.canterbury.ac.nz>
+.\"	Removed EIDRM from errors - that can't happen...
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH MSGGET 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+msgget \- get a message queue identifier
+.SH SYNOPSIS
+.nf
+.B
+#include <sys/types.h>
+.B
+#include <sys/ipc.h>
+.B
+#include <sys/msg.h>
+.fi
+.sp
+.BI "int msgget(key_t " key ,
+.BI "int " msgflg );
+.SH DESCRIPTION
+The function returns the message queue identifier associated
+with the value of the
+.I key
+argument.
+A new message queue is created if
+.I key
+has the value
+.B IPC_PRIVATE
+or
+.I key
+isn't
+.BR IPC_PRIVATE ,
+no message queue with the given key
+.IR key
+exists, and
+.B IPC_CREAT
+is asserted in
+.I msgflg
+(i.e.,
+.IB msgflg & IPC_CREAT
+is nonzero).
+The presence in
+.I msgflg
+of the fields
+.B IPC_CREAT
+and
+.B IPC_EXCL
+plays the same role, with respect to the existence
+of the message queue, as the presence
+of
+.B O_CREAT
+and
+.B O_EXCL
+in the mode argument of the
+.BR open (2)
+system call: i.e. the
+.B msgget
+function fails if
+.I msgflg
+asserts both
+.B IPC_CREAT
+and
+.B IPC_EXCL
+and a message queue already exists for
+.IR key .
+.PP
+Upon creation, the lower 9 bits of the argument
+.I msgflg
+define the access permissions of the message queue.
+These permission bits have the same format and semantics
+as the access permissions parameter in 
+.BR open (2)
+or
+.BR creat (2)
+system calls.  (The execute permissions are not used.)
+.PP
+If a new message queue is created,
+the system call initializes the system message queue data structure
+.B msqid_ds
+as follows:
+.IP
+.B msg_perm.cuid
+and
+.B msg_perm.uid
+are set to the effective user\-ID of the calling process.
+.IP
+.B msg_perm.cgid
+and
+.B msg_perm.gid
+are set to the effective group\-ID of the calling process.
+.IP
+The lowest order 9 bits of
+.B msg_perm.mode
+are set to the lowest order 9 bit of
+.IR msgflg .
+.IP
+.BR msg_qnum ,
+.BR msg_lspid ,
+.BR msg_lrpid ,
+.BR msg_stime
+and
+.B msg_rtime
+are set to 0.
+.IP
+.B msg_ctime
+is set to the current time.
+.IP
+.B msg_qbytes
+is set to the system limit
+.BR MSGMNB .
+.PP
+If the message queue already exists the access permissions are
+verified, and a check is made to see if it is marked for
+destruction.
+.SH "RETURN VALUE"
+If successful, the return value will be the message queue identifier (a
+nonnegative integer), otherwise
+.B \-1
+with
+.B errno
+indicating the error.
+.SH ERRORS
+On failure,
+.B errno
+is set to one of the following values:
+.TP 11
+.B EACCES
+A message queue exists for
+.IR key ,
+but the calling process does not have permission to access the queue,
+and does not have the
+.BR CAP_IPC_OWNER
+capability.
+.TP
+.B EEXIST
+A message queue exists for
+.B key
+and
+.I msgflg
+was asserting both
+.B IPC_CREAT
+and
+.BR IPC_EXCL .
+.TP
+.B ENOENT
+No message queue exists for
+.I key
+and
+.I msgflg
+wasn't asserting
+.BR IPC_CREAT .
+.TP
+.B ENOMEM
+A message queue has to be created but the system has not enough memory for
+the new data structure.
+.TP
+.B ENOSPC
+A message queue has to be created but the system limit for the maximum
+number of message queues
+.RB ( MSGMNI )
+would be exceeded.
+.SH NOTES
+.B IPC_PRIVATE
+isn't a flag field but a
+.B key_t
+type.
+If this special value is used for
+.IR key ,
+the system call ignores everything but the lowest order 9 bits of
+.I msgflg
+and creates a new message queue (on success).
+.PP
+The following is a system limit on message queue resources affecting a
+.B msgget
+call:
+.TP 11
+.B MSGMNI
+System wide maximum number of message queues: policy
+dependent.
+.SH BUGS
+The name choice IPC_PRIVATE was perhaps unfortunate, IPC_NEW
+would more clearly show its function.
+.SH "CONFORMING TO"
+SVr4, SVID.
+Until version 2.3.20 Linux would return EIDRM for a
+.B msgget
+on a message queue scheduled for deletion.
+.SH "SEE ALSO"
+.BR msgctl (2),
+.BR msgrcv (2),
+.BR msgsnd (2),
+.BR ftok (3),
+.BR ipc (5),
+.BR capabilities (7)

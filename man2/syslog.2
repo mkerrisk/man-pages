@@ -1,0 +1,182 @@
+.\" Copyright (C) 1995 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Written 11 June 1995 by Andries Brouwer <aeb@cwi.nl>
+.TH SYSLOG 2  2001-11-25 "Linux 1.2.9" "Linux Programmer's Manual"
+.SH NAME
+syslog, klogctl \- read and/or clear kernel message ring buffer; set console_loglevel
+.SH SYNOPSIS
+.nf
+/* The glibc interface */
+.br
+.B "#include <sys/klog.h>"
+.sp
+.BI "int klogctl(int " type ", char *" bufp ", int " len );
+.sp
+/* The handcrafted system call */
+.br
+.B #include <unistd.h>
+.br
+.B #include <linux/unistd.h>
+.sp
+.B _syscall3(int, syslog, int, type, char *, bufp, int, len);
+.sp
+.BI "int syslog(int " type ", char *" bufp ", int " len );
+.fi
+.SH DESCRIPTION
+If you need the libc function
+.BR syslog() ,
+(that talks to
+.BR syslogd (8)),
+then look at
+.BR syslog (3).
+The system call of this name is about controlling the kernel
+.I printk()
+buffer, and the glibc version is called
+.BR klogctl() .
+
+The \fItype\fP argument determines the action taken by this function.
+
+Quoting from
+.IR kernel/printk.c :
+.nf
+/*
+ * Commands to sys_syslog:
+ *
+ *      0 -- Close the log.  Currently a NOP.
+ *      1 -- Open the log. Currently a NOP.
+ *      2 -- Read from the log.
+ *      3 -- Read up to the last 4k of messages in the ring buffer.
+ *      4 -- Read and clear last 4k of messages in the ring buffer
+ *      5 -- Clear ring buffer.
+ *      6 -- Disable printk's to console
+ *      7 -- Enable printk's to console
+ *      8 -- Set level of messages printed to console
+ *      9 -- Return number of unread characters in the log buffer
+ */
+.fi
+
+Only function 3 is allowed to non-root processes.
+(Function 9 was added in 2.4.10.)
+
+.B The kernel log buffer
+.br
+The kernel has a cyclic buffer of length LOG_BUF_LEN
+(4096, since 1.3.54: 8192, since 2.1.113: 16384; in recent kernels
+the size can be set at compile time) in which messages given as argument
+to the kernel function \fIprintk\fP() are stored
+(regardless of their loglevel).
+
+The call
+.B syslog
+.RI (2, buf , len )
+waits until this kernel log buffer is nonempty, and then reads
+at most \fIlen\fP bytes into the buffer \fIbuf\fP. It returns
+the number of bytes read. Bytes read from the log disappear from
+the log buffer: the information can only be read once.
+This is the function executed by the kernel when a user program
+reads
+.IR /proc/kmsg .
+
+The call
+.B syslog
+.RI (3, buf , len )
+will read the last \fIlen\fP bytes from the log buffer (nondestructively),
+but will not read more than was written into the buffer since the
+last `clear ring buffer' command (which does not clear the buffer at all).
+It returns the number of bytes read.
+
+The call
+.B syslog
+.RI (4, buf , len )
+does precisely the same, but also executes the `clear ring buffer' command.
+
+The call
+.B syslog
+.RI (5, dummy , idummy )
+only executes the `clear ring buffer' command.
+
+.B The loglevel
+.br
+The kernel routine \fIprintk\fP() will only print a message on the
+console, if it has a loglevel less than the value of the variable
+.I console_loglevel
+(initially DEFAULT_CONSOLE_LOGLEVEL (7), but set to 10 if the
+kernel commandline contains the word `debug', and to 15 in case
+of a kernel fault - the 10 and 15 are just silly, and equivalent to 8).
+This variable is set (to a value in the range 1-8) by the call
+.B syslog
+.RI (8, dummy , value ).
+The calls
+.B syslog
+.RI ( type , dummy , idummy )
+with \fItype\fP equal to 6 or 7, set it to 1 (kernel panics only)
+or 7 (all except debugging messages), respectively.
+
+Every text line in a message has its own loglevel. This level is
+DEFAULT_MESSAGE_LOGLEVEL - 1 (6) unless the line starts with <d>
+where \fId\fP is a digit in the range 1-7, in which case the level
+is \fId\fP. The conventional meaning of the loglevel is defined in
+.I <linux/kernel.h>
+as follows:
+
+.nf
+#define KERN_EMERG    "<0>"  /* system is unusable               */
+#define KERN_ALERT    "<1>"  /* action must be taken immediately */
+#define KERN_CRIT     "<2>"  /* critical conditions              */
+#define KERN_ERR      "<3>"  /* error conditions                 */
+#define KERN_WARNING  "<4>"  /* warning conditions               */
+#define KERN_NOTICE   "<5>"  /* normal but significant condition */
+#define KERN_INFO     "<6>"  /* informational                    */
+#define KERN_DEBUG    "<7>"  /* debug-level messages             */
+.fi
+
+.SH "RETURN VALUE"
+In case of error, \-1 is returned, and \fIerrno\fP is set. Otherwise,
+for \fItype\fP equal to 2, 3 or 4, \fBsyslog\fP() returns the number
+of bytes read, and otherwise 0.
+.SH ERRORS
+.TP
+.B EINVAL
+Bad parameters.
+.TP
+.B EPERM
+An attempt was made to change console_loglevel or clear the kernel
+message ring buffer by a process without root permissions.
+.TP
+.B ERESTARTSYS
+System call was interrupted by a signal - nothing was read.
+(This can be seen only during a trace.)
+.SH "CONFORMING TO"
+This system call is Linux specific and should not be used in programs
+intended to be portable.
+.SH NOTES
+From the very start people noted that it is unfortunate that
+kernel call and library routine of the same name are entirely
+different animals.
+In libc4 and libc5 the number of this call was defined by
+.BR SYS_klog .
+In glibc 2.0 the syscall is baptised
+.BR klogctl .
+
+.SH "SEE ALSO"
+.BR syslog (3)

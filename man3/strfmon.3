@@ -1,0 +1,142 @@
+.\" Copyright (c) 2000 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH STRFMON 3  2000-12-05 "Linux" "Linux Programmer's Manual"
+.SH NAME
+strfmon \- convert monetary value to a string
+.SH SYNOPSIS
+.nf
+.B #include <monetary.h>
+.sp
+.BI "ssize_t strfmon(char *" s ", size_t " max ", const char *" format ,
+.B "...);"
+.fi
+.SH DESCRIPTION
+The \fBstrfmon()\fP function formats the specified amounts
+according to the format specification \fIformat\fP and places the
+result in the character array \fIs\fP of size \fImax\fP.
+.PP
+Ordinary characters in \fIformat\fP are copied to \fIs\fP
+without conversion.  Conversion specifiers are introduced by a `%'
+character. Immediately following it there can be zero or more
+of the following flags:
+.TP
+.BI = f
+The single-byte character
+.I f
+is used as the numeric fill character (to be used with
+a left precision, see below).
+When not specified, the space character is used.
+.TP
+.B ^
+Do not use any grouping characters that might be defined
+for the current locale. By default, grouping is enabled.
+.TP
+.BR ( " or " +
+The ( flag indicates that negative amounts should be enclosed between
+parentheses. The + flag indicates that signs should be handled
+in the default way, that is, amounts are preceded by the locale's
+sign indication, e.g., nothing for positive, "-" for negative.
+.TP
+.BR !
+Omit the currency symbol.
+.TP
+.BR \-
+Left justify all fields. The default is right justification.
+.LP
+Next, there may be a field width: a decimal digit string specifying
+a minimum field width in bytes. The default is 0.
+A result smaller than this width is padded with spaces
+(on the left, unless the left-justify flag was given).
+.LP
+Next, there may be a left precision of the form "#" followed by
+a decimal digit string. If the number of digits left of the
+radix character is smaller than this, the representation is
+padded on the left with the numeric fill character.
+Grouping characters are not counted in this field width.
+.LP
+Next, there may be a right precision of the form "." followed by
+a decimal digit string. The amount being formatted is rounded to
+the specified number of digits prior to formatting.
+The default is specified in the
+.I frac_digits
+and
+.I int_frac_digits
+items of the current locale.
+If the right precision is 0, no radix character is printed.
+(The radix character here is determined by LC_MONETARY, and may
+differ from that specified by LC_NUMERIC.)
+.LP
+Finally, the conversion specification must be ended with a
+conversion character. The three conversion characters are
+.TP
+.B %
+(In this case the entire specification must be exactly "%%".)
+Put a `%' character in the result string.
+.TP
+.B i
+One argument of type double is converted using the locale's
+international currency format.
+.TP
+.B n
+One argument of type double is converted using the locale's
+national currency format.
+.SH "RETURN VALUE"
+The \fBstrfmon()\fP function returns the number of characters placed
+in the array \fIs\fP, not including the terminating NUL character,
+provided the string, including the terminating NUL, fits.
+Otherwise, it sets
+.I errno
+to E2BIG, returns \-1, and the contents of the array is undefined.
+.SH EXAMPLE
+The call
+.RS
+.nf
+strfmon(buf, sizeof(buf), "[%^=*#6n] [%=*#6i]",
+        1234.567, 1234.567);
+.fi
+.RE
+outputs
+.RS
+[ fl **1234,57] [ NLG  **1 234,57]
+.RE
+in the Dutch locale (with fl for "florijnen" and NLG for Netherlands Guilders).
+The grouping character is very ugly because it takes as much space
+as a digit, while it should not take more than half that,
+and will no doubt cause confusion.
+Surprisingly, the "fl" is preceded and followed by a space,
+and "NLG" is preceded by one and followed by two spaces.
+This may be a bug in the locale files. The Italian, Australian, Swiss
+and Portuguese locales yield
+.RS
+[ L. **1235] [ ITL  **1.235]
+.br
+[ $**1234.57] [ AUD **1,234.57]
+.br
+[Fr. **1234,57] [CHF  **1.234,57]
+.br
+[ **1234$57Esc] [ **1.234$57PTE ]
+.RE
+.SH "SEE ALSO"
+.BR setlocale (3),
+.BR sprintf (3),
+.BR locale (7)

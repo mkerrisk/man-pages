@@ -1,0 +1,515 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "XARGS" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" xargs 
+.SH NAME
+xargs \- construct argument lists and invoke utility
+.SH SYNOPSIS
+.LP
+\fBxargs\fP
+\fB[\fP\fB-t\fP\fB][\fP\fB-p\fP\fB]][\fP\fB-E\fP \fIeofstr\fP\fB][\fP\fB-I\fP
+\fIreplstr\fP\fB][\fP\fB-L\fP \fInumber\fP\fB][\fP\fB-n\fP \fInumber\fP
+\fB[\fP\fB-x\fP\fB]]
+.br
+\fP \fB\ \ \ \ \ \ \fP \fB[\fP\fB-s\fP \fIsize\fP\fB][\fP\fIutility\fP
+\fB[\fP\fIargument\fP\fB...\fP\fB]]\fP
+.SH DESCRIPTION
+.LP
+The \fIxargs\fP utility shall construct a command line consisting
+of the \fIutility\fP and \fIargument\fP operands specified
+followed by as many arguments read in sequence from standard input
+as fit in length and number constraints specified by the
+options. The \fIxargs\fP utility shall then invoke the constructed
+command line and wait for its completion. This sequence shall
+be repeated until one of the following occurs:
+.IP " *" 3
+An end-of-file condition is detected on standard input.
+.LP
+.IP " *" 3
+The logical end-of-file string (see the \fB-E\fP \fIeofstr\fP option)
+is found on standard input after double-quote
+processing, apostrophe processing, and backslash escape processing
+(see next paragraph).
+.LP
+.IP " *" 3
+An invocation of a constructed command line returns an exit status
+of 255.
+.LP
+.LP
+The application shall ensure that arguments in the standard input
+are separated by unquoted <blank>s, unescaped
+<blank>s, or <newline>s. A string of zero or more non-double-quote
+( \fB' )'\fP characters and non- <newline>s
+can be quoted by enclosing them in double-quotes. A string of zero
+or more non-apostrophe ( \fB'"\fP ) characters and non-
+<newline>s can be quoted by enclosing them in apostrophes. Any unquoted
+character can be escaped by preceding it with a
+backslash. The utility named by \fIutility\fP shall be executed one
+or more times until the end-of-file is reached or the logical
+end-of file string is found. The results are unspecified if the utility
+named by \fIutility\fP attempts to read from its standard
+input.
+.LP
+The generated command line length shall be the sum of the size in
+bytes of the utility name and each argument treated as
+strings, including a null byte terminator for each of these strings.
+The \fIxargs\fP utility shall limit the command line length
+such that when the command line is invoked, the combined argument
+and environment lists (see the \fIexec\fP family of functions in
+the System Interfaces volume of IEEE\ Std\ 1003.1-2001) shall not
+exceed {ARG_MAX}-2048 bytes. Within this constraint, if
+neither the \fB-n\fP nor the \fB-s\fP option is specified, the default
+command line length shall be at least {LINE_MAX}.
+.SH OPTIONS
+.LP
+The \fIxargs\fP utility shall conform to the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines.
+.LP
+The following options shall be supported:
+.TP 7
+\fB-E\ \fP \fIeofstr\fP
+Use \fIeofstr\fP as the logical end-of-file string. If \fB-E\fP is
+not specified, it is unspecified whether the logical
+end-of-file string is the underscore character ( \fB'_'\fP ) or the
+end-of-file string capability is disabled. When
+\fIeofstr\fP is the null string, the logical end-of-file string capability
+shall be disabled and underscore characters shall be
+taken literally.
+.TP 7
+\fB-I\ \fP \fIreplstr\fP
+Insert mode: \fIutility\fP is executed for each line from standard
+input, taking the entire line as a single argument, inserting
+it in \fIargument\fPs for each occurrence of \fIreplstr\fP. A maximum
+of five arguments in \fIargument\fPs can each contain one
+or more instances of \fIreplstr\fP. Any <blank>s at the beginning
+of each line shall be ignored. Constructed arguments
+cannot grow larger than 255 bytes. Option \fB-x\fP shall be forced
+on. 
+.TP 7
+\fB-L\ \fP \fInumber\fP
+The \fIutility\fP shall be executed for each non-empty \fInumber\fP
+lines of arguments from standard input. The last invocation
+of \fIutility\fP shall be with fewer lines of arguments if fewer than
+\fInumber\fP remain. A line is considered to end with the
+first <newline> unless the last character of the line is a <blank>;
+a trailing <blank> signals continuation to
+the next non-empty line, inclusive. The \fB-L\fP and \fB-n\fP options
+are mutually-exclusive; the last one specified shall take
+effect. 
+.TP 7
+\fB-n\ \fP \fInumber\fP
+Invoke \fIutility\fP using as many standard input arguments as possible,
+up to \fInumber\fP (a positive decimal integer)
+arguments maximum. Fewer arguments shall be used if: 
+.RS
+.IP " *" 3
+The command line length accumulated exceeds the size specified by
+the \fB-s\fP option (or {LINE_MAX} if there is no \fB-s\fP
+option).
+.LP
+.IP " *" 3
+The last iteration has fewer than \fInumber\fP, but not zero, operands
+remaining.
+.LP
+.RE
+.TP 7
+\fB-p\fP
+Prompt mode: the user is asked whether to execute \fIutility\fP at
+each invocation. Trace mode ( \fB-t\fP) is turned on to
+write the command instance to be executed, followed by a prompt to
+standard error. An affirmative response read from
+\fB/dev/tty\fP shall execute the command; otherwise, that particular
+invocation of \fIutility\fP shall be skipped.
+.TP 7
+\fB-s\ \fP \fIsize\fP
+Invoke \fIutility\fP using as many standard input arguments as possible
+yielding a command line length less than \fIsize\fP
+(a positive decimal integer) bytes. Fewer arguments shall be used
+if: 
+.RS
+.IP " *" 3
+The total number of arguments exceeds that specified by the \fB-n\fP
+option.
+.LP
+.IP " *" 3
+The total number of lines exceeds that specified by the \fB-L\fP option.
+.LP
+.IP " *" 3
+End-of-file is encountered on standard input before \fIsize\fP bytes
+are accumulated.
+.LP
+.RE
+.LP
+Values of \fIsize\fP up to at least {LINE_MAX} bytes shall be supported,
+provided that the constraints specified in the
+DESCRIPTION are met. It shall not be considered an error if a value
+larger than that supported by the implementation or exceeding
+the constraints specified in the DESCRIPTION is given; \fIxargs\fP
+shall use the largest value it supports within the
+constraints.
+.TP 7
+\fB-t\fP
+Enable trace mode. Each generated command line shall be written to
+standard error just prior to invocation.
+.TP 7
+\fB-x\fP
+Terminate if a command line containing \fInumber\fP arguments (see
+the \fB-n\fP option above)   \ or
+\fInumber\fP lines (see the \fB-L\fP option above)  will not fit
+in the implied or specified size (see the \fB-s\fP option above).
+.sp
+.SH OPERANDS
+.LP
+The following operands shall be supported:
+.TP 7
+\fIutility\fP
+The name of the utility to be invoked, found by search path using
+the \fIPATH\fP environment variable, described in the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 8, Environment
+Variables.
+If \fIutility\fP is omitted, the default shall be the \fIecho\fP utility.
+If the
+\fIutility\fP operand names any of the special built-in utilities
+in \fISpecial Built-In
+Utilities\fP , the results are undefined.
+.TP 7
+\fIargument\fP
+An initial option or operand for the invocation of \fIutility\fP.
+.sp
+.SH STDIN
+.LP
+The standard input shall be a text file. The results are unspecified
+if an end-of-file condition is detected immediately
+following an escaped <newline>.
+.SH INPUT FILES
+.LP
+The file \fB/dev/tty\fP shall be used to read responses required by
+the \fB-p\fP option.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIxargs\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_COLLATE\fP
+.sp
+Determine the locale for the behavior of ranges, equivalence classes,
+and multi-character collating elements used in the extended
+regular expression defined for the \fByesexpr\fP locale keyword in
+the \fILC_MESSAGES\fP category.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments and input files) and
+the behavior of character classes used in the extended regular
+expression defined for the \fByesexpr\fP locale keyword in the \fILC_MESSAGES\fP
+category.
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale for the processing of affirmative responses and
+that should be used to affect the format and contents of
+diagnostic messages written to standard error.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.TP 7
+\fIPATH\fP
+Determine the location of \fIutility\fP, as described in the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 8, Environment
+Variables.
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+Not used.
+.SH STDERR
+.LP
+The standard error shall be used for diagnostic messages and the \fB-t\fP
+and \fB-p\fP options. If the \fB-t\fP option is
+specified, the \fIutility\fP and its constructed argument list shall
+be written to standard error, as it will be invoked, prior to
+invocation. If \fB-p\fP is specified, a prompt of the following format
+shall be written (in the POSIX locale):
+.sp
+.RS
+.nf
+
+\fB"?..."
+\fP
+.fi
+.RE
+.LP
+at the end of the line of the output from \fB-t\fP.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ \ \ \ 0
+All invocations of \fIutility\fP returned exit status zero.
+.TP 7
+1-125
+A command line meeting the specified requirements could not be assembled,
+one or more of the invocations of \fIutility\fP
+returned a non-zero exit status, or some other error occurred.
+.TP 7
+\ \ 126
+The utility specified by \fIutility\fP was found but could not be
+invoked.
+.TP 7
+\ \ 127
+The utility specified by \fIutility\fP could not be found.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+If a command line meeting the specified requirements cannot be assembled,
+the utility cannot be invoked, an invocation of the
+utility is terminated by a signal, or an invocation of the utility
+exits with exit status 255, the \fIxargs\fP utility shall write
+a diagnostic message and exit without processing any remaining input.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+The 255 exit status allows a utility being used by \fIxargs\fP to
+tell \fIxargs\fP to terminate if it knows no further
+invocations using the current data stream will succeed. Thus, \fIutility\fP
+should explicitly \fIexit\fP with an appropriate value to avoid accidentally
+returning with 255.
+.LP
+Note that input is parsed as lines; <blank>s separate arguments. If
+\fIxargs\fP is used to bundle output of commands like
+\fIfind\fP \fIdir\fP \fB-print\fP or \fIls\fP into
+commands to be executed, unexpected results are likely if any filenames
+contain any <blank>s or <newline>s. This can be
+fixed by using \fIfind\fP to call a script that converts each file
+found into a quoted string
+that is then piped to \fIxargs\fP. Note that the quoting rules used
+by \fIxargs\fP are not the same as in the shell. They were
+not made consistent here because existing applications depend on the
+current rules and the shell syntax is not fully compatible
+with it. An easy rule that can be used to transform any string into
+a quoted form that \fIxargs\fP interprets correctly is to
+precede each character in the string with a backslash.
+.LP
+On implementations with a large value for {ARG_MAX}, \fIxargs\fP may
+produce command lines longer than {LINE_MAX}. For
+invocation of utilities, this is not a problem. If \fIxargs\fP is
+being used to create a text file, users should explicitly set
+the maximum command line length with the \fB-s\fP option.
+.LP
+The \fIcommand\fP, \fIenv\fP, \fInice\fP, \fInohup\fP, \fItime\fP,
+and \fIxargs\fP utilities have been specified to use exit code 127
+if an error occurs so
+that applications can distinguish "failure to find a utility" from
+"invoked utility exited with an error indication". The value
+127 was chosen because it is not commonly used for other meanings;
+most utilities use small values for "normal error conditions''
+and the values above 128 can be confused with termination due to receipt
+of a signal. The value 126 was chosen in a similar manner
+to indicate that the utility could be found, but not invoked. Some
+scripts produce meaningful error messages differentiating the
+126 and 127 cases. The distinction between exit codes 126 and 127
+is based on KornShell practice that uses 127 when all attempts to
+\fIexec\fP the utility fail with [ENOENT], and uses 126 when any attempt
+to \fIexec\fP the utility fails for any other
+reason.
+.SH EXAMPLES
+.IP " 1." 4
+The following command combines the output of the parenthesised commands
+onto one line, which is then written to the end-of-file
+\fBlog\fP:
+.sp
+.RS
+.nf
+
+\fB(logname; date; printf "%s\\n" "$0 $*") | xargs >>log
+\fP
+.fi
+.RE
+.LP
+.IP " 2." 4
+The following command invokes \fIdiff\fP with successive pairs of
+arguments originally
+typed as command line arguments (assuming there are no embedded <blank>s
+in the elements of the original argument list):
+.sp
+.RS
+.nf
+
+\fBprintf "%s\\n" "$*" | xargs -n 2 -x diff
+\fP
+.fi
+.RE
+.LP
+.IP " 3." 4
+In the following commands, the user is asked which files in the current
+directory are to be archived. The files are archived
+into \fBarch\fP; \fIa\fP, one at a time, or \fIb\fP, many at a time.
+.sp
+.RS
+.nf
+
+\fBa. ls | xargs -p -L 1 ar -r arch
+.sp
+
+b. ls | xargs -p -L 1 | xargs ar -r arch
+\fP
+.fi
+.RE
+.LP
+.IP " 4." 4
+The following executes with successive pairs of arguments originally
+typed as command line arguments:
+.sp
+.RS
+.nf
+
+\fBecho $* | xargs -n 2 diff
+\fP
+.fi
+.RE
+.LP
+.IP " 5." 4
+On XSI-conformant systems, the following moves all files from directory
+\fB$1\fP to directory \fB$2\fP, and echoes each move
+command just before doing it:
+.sp
+.RS
+.nf
+
+\fBls $1 | xargs -I {} -t mv $1/{} $2/{}
+\fP
+.fi
+.RE
+.LP
+.SH RATIONALE
+.LP
+The \fIxargs\fP utility was usually found only in System V-based systems;
+BSD systems included an \fIapply\fP utility that
+provided functionality similar to \fIxargs\fP \fB-n\fP \fInumber\fP.
+The SVID lists \fIxargs\fP as a software development
+extension. This volume of IEEE\ Std\ 1003.1-2001 does not share the
+view that it is used only for development, and
+therefore it is not optional.
+.LP
+The classic application of the \fIxargs\fP utility is in conjunction
+with the \fIfind\fP
+utility to reduce the number of processes launched by a simplistic
+use of the \fIfind\fP
+\fB-exec\fP combination. The \fIxargs\fP utility is also used to enforce
+an upper limit on memory required to launch a process.
+With this basis in mind, this volume of IEEE\ Std\ 1003.1-2001 selected
+only the minimal features required.
+.LP
+Although the 255 exit status is mostly an accident of historical implementations,
+it allows a utility being used by \fIxargs\fP
+to tell \fIxargs\fP to terminate if it knows no further invocations
+using the current data stream shall succeed. Any non-zero exit
+status from a utility falls into the 1-125 range when \fIxargs\fP
+exits. There is no statement of how the various non-zero utility
+exit status codes are accumulated by \fIxargs\fP. The value could
+be the addition of all codes, their highest value, the last one
+received, or a single value such as 1. Since no algorithm is arguably
+better than the others, and since many of the standard
+utilities say little more (portably) than "pass/fail", no new algorithm
+was invented.
+.LP
+Several other \fIxargs\fP options were withdrawn because simple alternatives
+already exist within this volume of
+IEEE\ Std\ 1003.1-2001. For example, the \fB-i\fP \fIreplstr\fP option
+can be just as efficiently performed using a shell
+\fBfor\fP loop. Since \fIxargs\fP calls an \fIexec\fP function with
+each input line, the \fB-i\fP option does not usually
+exploit the grouping capabilities of \fIxargs\fP.
+.LP
+The requirement that \fIxargs\fP never produces command lines such
+that invocation of \fIutility\fP is within 2048 bytes of
+hitting the POSIX \fIexec\fP {ARG_MAX} limitations is intended to
+guarantee that the invoked utility has room to modify its
+environment variables and command line arguments and still be able
+to invoke another utility. Note that the minimum {ARG_MAX}
+allowed by the System Interfaces volume of IEEE\ Std\ 1003.1-2001
+is 4096 bytes and the minimum value allowed by this
+volume of IEEE\ Std\ 1003.1-2001 is 2048 bytes; therefore, the 2048
+bytes difference seems reasonable. Note, however, that
+\fIxargs\fP may never be able to invoke a utility if the environment
+passed in to \fIxargs\fP comes close to using {ARG_MAX}
+bytes.
+.LP
+The version of \fIxargs\fP required by this volume of IEEE\ Std\ 1003.1-2001
+is required to wait for the completion of
+the invoked command before invoking another command. This was done
+because historical scripts using \fIxargs\fP assumed sequential
+execution. Implementations wanting to provide parallel operation of
+the invoked utilities are encouraged to add an option enabling
+parallel invocation, but should still wait for termination of all
+of the children before \fIxargs\fP terminates normally.
+.LP
+The \fB-e\fP option was omitted from the ISO\ POSIX-2:1993 standard
+in the belief that the \fIeofstr\fP option-argument
+was recognized only when it was on a line by itself and before quote
+and escape processing were performed, and that the logical
+end-of-file processing was only enabled if a \fB-e\fP option was specified.
+In that case, a simple \fIsed\fP script could be used to duplicate
+the \fB-e\fP functionality. Further investigation
+revealed that:
+.IP " *" 3
+The logical end-of-file string was checked for after quote and escape
+processing, making a \fIsed\fP script that provided equivalent functionality
+much more difficult to write.
+.LP
+.IP " *" 3
+The default was to perform logical end-of-file processing with an
+underscore as the logical end-of-file string.
+.LP
+.LP
+To correct this misunderstanding, the \fB-E\fP \fIeofstr\fP option
+was adopted from the X/Open Portability Guide. Users should
+note that the description of the \fB-E\fP option matches historical
+documentation of the \fB-e\fP option (which was not adopted
+because it did not support the Utility Syntax Guidelines), by saying
+that if \fIeofstr\fP is the null string, logical end-of-file
+processing is disabled. Historical implementations of \fIxargs\fP
+actually did not disable logical end-of-file processing; they
+treated a null argument found in the input as a logical end-of-file
+string. (A null \fIstring\fP argument could be generated using
+single or double quotes ( \fB''\fP or \fB""\fP ). Since this behavior
+was not documented historically, it is considered to be
+a bug.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIShell Command Language\fP , \fIecho\fP , \fIfind\fP , the System
+Interfaces volume of IEEE\ Std\ 1003.1-2001, \fIexec\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

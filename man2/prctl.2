@@ -1,0 +1,127 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 1998 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Thu Nov 11 04:19:42 MET 1999, aeb: added PR_GET_PDEATHSIG
+.\" Modified 27 Jun 02, Michael Kerrisk
+.\" 	Added PR_SET_DUMPABLE, PR_GET_DUMPABLE, 
+.\"	PR_SET_KEEPCAPS, PR_GET_KEEPCAPS
+.\"
+.\" FIXME: The following (applicable only on IA-64) are not currently
+.\" described: PR_SET_UNALIGN, PR_GET_UNALIGN, PR_SET_FPEMU, PR_GET_FPEMU
+.\"
+.TH PRCTL 2 2002-06-27 "Linux 2.4.18" "Linux Programmer's Manual"
+.SH NAME
+prctl \- operations on a process
+.SH SYNOPSIS
+.B #include <sys/prctl.h>
+.sp
+.BI "int prctl(int " option ", unsigned long " arg2 ", unsigned long " arg3
+.BI ", unsigned long " arg4 ", unsigned long " arg5 );
+.SH DESCRIPTION
+.B prctl
+is called with a first argument describing what to do
+(with values defined in <\fIlinux/prctl.h\fP>), and further
+parameters with a significance depending on the first one.
+The first argument can be:
+.TP
+.B PR_SET_PDEATHSIG
+(since Linux 2.1.57)
+Set the parent process death signal
+of the current process to \fIarg2\fP (either a signal value
+in the range 1..maxsig, or 0 to clear).
+This is the signal that the current process will get when its
+parent dies. This value is cleared upon a fork().
+.TP
+.B PR_GET_PDEATHSIG
+(since Linux 2.3.15)
+Read the current value of the parent process death signal
+into the (int *) \fIarg2\fP.
+.TP
+.B PR_SET_DUMPABLE
+(Since Linux 2.4)
+Set the state of the flag determining whether core dumps are produced
+for this process upon delivery of a signal whose default behaviour is
+to produce a core dump.
+(Normally this flag is set for a process by default, but it is cleared
+when a set-UID or set-GID program is executed and also by various system
+calls that manipulate process UIDs and GIDs).
+.I arg2
+must be either 0 (process is not dumpable) or 1 (process is dumpable).
+.TP
+.B PR_GET_DUMPABLE
+(Since Linux 2.4)
+Return (as the function result) the current state of the calling
+process's dumpable flag.
+.TP
+.B PR_SET_KEEPCAPS
+Set the state of the process's "keep capabilities" flag,
+which determines whether the process's effective and permitted
+capability sets are cleared when a change is made to the process's user IDs
+such that all of the process's real, effective, and saved set user IDs
+become non-zero when at least one of them previously had the value 0.
+(By default, these credential sets are cleared).
+.I arg2
+must be either 0 (capabilities are cleared) or 1 (capabilities are kept).
+.TP
+.B PR_GET_KEEPCAPS
+Return (as the function result) the current state of the calling process's
+"keep capabilities" flag.
+.SH "RETURN VALUE"
+.B PR_GET_DUMPABLE
+and
+.B PR_GET_KEEPCAPS
+return 0 or 1 on success.
+All other
+.I option
+values return 0 on success.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EINVAL
+The value of
+.I option
+is not recognized, or it is
+.B PR_SET_PDEATHSIG
+and
+.I arg2
+is not zero or a signal number.
+.SH "CONFORMING TO"
+This call is Linux-specific.
+IRIX has a prctl system call (also introduced in Linux 2.1.44
+as irix_prctl on the MIPS architecture),
+with prototype
+.sp
+.BI "ptrdiff_t prctl(int " option ", int " arg2 ", int " arg3 );
+.sp
+and options to get the maximum number of processes per user,
+get the maximum number of processors the calling process can use,
+find out whether a specified process is currently blocked,
+get or set the maximum stack size, etc., etc.
+.SH AVAILABILITY
+The prctl() systemcall was introduced in Linux 2.1.57.
+There is no prctl() library call as yet.
+.SH "SEE ALSO"
+.BR signal (2)

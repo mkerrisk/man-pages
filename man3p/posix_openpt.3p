@@ -1,0 +1,151 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POSIX_OPENPT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" posix_openpt 
+.SH NAME
+posix_openpt \- open a pseudo-terminal device
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+#include <fcntl.h>
+.br
+.sp
+int posix_openpt(int\fP \fIoflag\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIposix_openpt\fP() function shall establish a connection between
+a master device for a pseudo-terminal and a file
+descriptor. The file descriptor is used by other I/O functions that
+refer to that pseudo-terminal.
+.LP
+The file status flags and file access modes of the open file description
+shall be set according to the value of
+\fIoflag\fP.
+.LP
+Values for \fIoflag\fP are constructed by a bitwise-inclusive OR of
+flags from the following list, defined in \fI<fcntl.h>\fP:
+.TP 7
+O_RDWR
+Open for reading and writing.
+.TP 7
+O_NOCTTY
+If set \fIposix_openpt\fP() shall not cause the terminal device to
+become the controlling terminal for the process.
+.sp
+.LP
+The behavior of other values for the \fIoflag\fP argument is unspecified.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIposix_openpt\fP() function shall
+open a master pseudo-terminal device and return a
+non-negative integer representing the lowest numbered unused file
+descriptor. Otherwise, -1 shall be returned and \fIerrno\fP set
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIposix_openpt\fP() function shall fail if:
+.TP 7
+.B EMFILE
+{OPEN_MAX} file descriptors are currently open in the calling process.
+.TP 7
+.B ENFILE
+The maximum allowable number of files is currently open in the system.
+.sp
+.LP
+The \fIposix_openpt\fP() function may fail if:
+.TP 7
+.B EINVAL
+The value of \fIoflag\fP is not valid.
+.TP 7
+.B EAGAIN
+Out of pseudo-terminal resources.
+.TP 7
+.B ENOSR
+Out of STREAMS resources. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Opening a Pseudo-Terminal and Returning the Name of the Slave
+Device and a File Descriptor
+.sp
+.RS
+.nf
+
+\fB#include <fcntl.h>
+#include <stdio.h>
+.sp
+
+int masterfd, slavefd;
+char *slavedevice;
+.sp
+
+masterfd = posix_openpt(O_RDWR|O_NOCTTY);
+.sp
+
+if (masterfd == -1
+    || grantpt (masterfd) == -1
+    || unlockpt (masterfd) == -1
+    || (slavedevice = ptsname (masterfd)) == NULL)
+    return -1;
+.sp
+
+printf("slave device is: %s\\n", slavedevice);
+.sp
+
+slavefd = open(slave, O_RDWR|O_NOCTTY);
+if (slavefd < 0)
+    return -1;
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+This function is a method for portably obtaining a file descriptor
+of a master terminal device for a pseudo-terminal. The \fIgrantpt\fP()
+and \fIptsname\fP() functions can be
+used to manipulate mode and ownership permissions, and to obtain the
+name of the slave device, respectively.
+.SH RATIONALE
+.LP
+The standard developers considered the matter of adding a special
+device for cloning master pseudo-terminals: the
+\fB/dev/ptmx\fP device. However, consensus could not be reached, and
+it was felt that adding a new function would permit other
+implementations. The \fIposix_openpt\fP() function is designed to
+complement the \fIgrantpt\fP(), \fIptsname\fP(), and \fIunlockpt\fP()
+functions.
+.LP
+On implementations supporting the \fB/dev/ptmx\fP clone device, opening
+the master device of a pseudo-terminal is simply:
+.sp
+.RS
+.nf
+
+\fBmfdp = open("/dev/ptmx", oflag );
+if (mfdp < 0)
+    return -1;
+\fP
+.fi
+.RE
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgrantpt\fP() , \fIopen\fP() , \fIptsname\fP() , \fIunlockpt\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<fcntl.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

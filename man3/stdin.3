@@ -1,0 +1,130 @@
+.\" From dholland@burgundy.eecs.harvard.edu Tue Mar 24 18:08:15 1998
+.\"
+.\" This man page was written in 1998 by David A. Holland
+.\" and placed in the Public Domain. Polished a bit by aeb.
+.\"
+.Dd March 24, 1998
+.Dt STDIN 3
+.Os "Linux 2.0"
+.Sh NAME
+.Nm stdin ,
+.Nm stdout ,
+.Nm stderr
+.Nd standard I/O streams
+.Sh SYNOPSIS
+.Fd #include <stdio.h>
+.Fd extern FILE *stdin;
+.Fd extern FILE *stdout;
+.Fd extern FILE *stderr;
+.Sh DESCRIPTION
+Under normal circumstances every Unix program has three streams opened
+for it when it starts up, one for input, one for output, and one for
+printing diagnostic or error messages. These are typically attached to
+the user's terminal (see
+.Xr tty 4 )
+but might instead refer to files or other devices, depending on what
+the parent process chose to set up. (See also the ``Redirection'' section of
+.Xr sh 1 .)
+.Pp
+The input stream is referred to as ``standard input''; the output stream is
+referred to as ``standard output''; and the error stream is referred to
+as ``standard error''. These terms are abbreviated to form the symbols
+used to refer to these files, namely
+.Nm stdin ,
+.Nm stdout ,
+and
+.Nm stderr .
+.Pp
+Each of these symbols is a
+.Xr stdio 3
+macro of type pointer to FILE, and can be used with functions like
+.Xr fprintf 3
+or
+.Xr fread 3 .
+.Pp
+Since FILEs are a buffering wrapper around Unix file descriptors, the
+same underlying files may also be accessed using the raw Unix file
+interface, that is, the functions like
+.Xr read 2
+and
+.Xr lseek 2 . 
+The integer file descriptors associated with the streams
+.Nm stdin ,
+.Nm stdout ,
+and
+.Nm stderr
+are 0, 1, and 2, respectively. The preprocessor symbols STDIN_FILENO,
+STDOUT_FILENO, and STDERR_FILENO are defined with these values in 
+<unistd.h>.
+.Pp
+Note that mixing use of FILEs and raw file descriptors can produce
+unexpected results and should generally be avoided.
+(For the masochistic among you: POSIX.1, section 8.2.3, describes
+in detail how this interaction is supposed to work.)
+A general rule is that file descriptors are handled in the kernel,
+while stdio is just a library. This means for example, that after an
+exec, the child inherits all open file descriptors, but all old streams
+have become inaccessible. 
+.Pp
+Since the symbols
+.Nm stdin ,
+.Nm stdout ,
+and
+.Nm stderr
+are specified to be macros, assigning to them is non-portable.
+The standard streams can be made to refer to different files
+with help of the library function
+.Xr freopen 3 ,
+specially introduced to make it possible to reassign
+.Nm stdin ,
+.Nm stdout ,
+and
+.Nm stderr .
+The standard streams are closed by a call to
+.Xr exit 3
+and by normal program termination.
+.Sh SEE ALSO
+.Xr sh 1 ,
+.Xr csh 1 ,
+.Xr open 2 ,
+.Xr fopen 3 ,
+.Xr stdio 3
+.Sh CONSIDERATIONS
+The stream
+.Nm stderr
+is unbuffered. The stream
+.Nm stdout
+is line-buffered when it points to a terminal. Partial lines will not
+appear until
+.Xr fflush 3
+or
+.Xr exit 3
+is called, or a newline is printed. This can produce unexpected
+results, especially with debugging output.
+The buffering mode of the standard streams (or any other stream)
+can be changed using the
+.Xr setbuf 3
+or
+.Xr setvbuf 3
+call.
+Note that in case
+.Nm stdin
+is associated with a terminal, there may also be input buffering
+in the terminal driver, entirely unrelated to stdio buffering.
+(Indeed, normally terminal input is line buffered in the kernel.)
+This kernel input handling can be modified using calls like
+.Xr tcsetattr 3 ;
+see also
+.Xr stty 1 ,
+and
+.Xr termios 3 .
+.Sh "CONFORMING TO"
+The
+.Nm stdin ,
+.Nm stdout ,
+and
+.Nm stderr
+macros conform to
+.St -ansiC ,
+and this standard also stipulates that these three
+streams shall be open at program startup.

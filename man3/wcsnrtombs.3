@@ -1,0 +1,76 @@
+.\" Copyright (c) Bruno Haible <haible@clisp.cons.org>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" References consulted:
+.\"   GNU glibc-2 source code and manual
+.\"   Dinkumware C library reference http://www.dinkumware.com/
+.\"   OpenGroup's Single Unix specification http://www.UNIX-systems.org/online.html
+.\"
+.TH WCSNRTOMBS 3  1999-07-25 "GNU" "Linux Programmer's Manual"
+.SH NAME
+wcsnrtombs \- convert a wide character string to a multibyte string
+.SH SYNOPSIS
+.nf
+.B #include <wchar.h>
+.sp
+.BI "size_t wcsnrtombs(char *" dest ", const wchar_t **" src ", size_t " nwc ,
+.BI "                   size_t " len ", mbstate_t *" ps );
+.fi
+.SH DESCRIPTION
+The \fBwcsnrtombs\fP function is like the \fBwcsrtombs\fP function, except that
+the number of wide characters to be converted, starting at \fI*src\fP, is
+limited to \fInwc\fP.
+.PP
+If \fIdest\fP is not a NULL pointer, the \fBwcsnrtombs\fP function converts
+at most \fInwc\fP wide characters from
+the wide-character string \fI*src\fP to a multibyte string starting at
+\fIdest\fP. At most \fIlen\fP bytes are written to \fIdest\fP. The shift state
+\fI*ps\fP is updated. The conversion is effectively performed by repeatedly
+calling wcrtomb(\fIdest\fP,\fI*src\fP,\fIps\fP), as long as this call succeeds,
+and then incrementing \fIdest\fP by the number of bytes written and \fI*src\fP
+by one. The conversion can stop for three reasons:
+.PP
+1. A wide character has been encountered that can not be represented as a
+multibyte sequence (according to the current locale). In this case \fI*src\fP
+is left pointing to the invalid wide character, (size_t)(-1) is returned,
+and \fBerrno\fP is set to \fBEILSEQ\fP.
+.PP
+2. \fInwc\fP wide characters have been converted without encountering a L'\\0',
+or the length limit forces a stop. In this case \fI*src\fP is left pointing
+to the next wide character to be converted, and the number of bytes written
+to \fIdest\fP is returned.
+.PP
+3. The wide-character string has been completely converted, including the
+terminating L'\\0' (which has the side effect of bringing back \fI*ps\fP
+to the initial state). In this case \fI*src\fP is set to NULL, and the number
+of bytes written to \fIdest\fP, excluding the terminating '\\0' byte, is
+returned.
+.PP
+If \fIdest\fP is NULL, \fIlen\fP is ignored, and the conversion proceeds as
+above, except that the converted bytes are not written out to memory, and that
+no destination length limit exists.
+.PP
+In both of the above cases, if \fIps\fP is a NULL pointer, a static anonymous
+state only known to the wcsnrtombs function is used instead.
+.PP
+The programmer must ensure that there is room for at least \fIlen\fP bytes
+at \fIdest\fP.
+.SH "RETURN VALUE"
+The \fBwcsnrtombs\fP function returns the number of bytes that make up the
+converted part of multibyte sequence, not including the terminating null byte.
+If a wide character was encountered which could not be converted, (size_t)(-1)
+is returned, and \fBerrno\fP set to \fBEILSEQ\fP.
+.SH "CONFORMING TO"
+This function is a GNU extension.
+.SH "SEE ALSO"
+.BR iconv (3),
+.BR wcsrtombs (3)
+.SH NOTES
+The behaviour of \fBwcsnrtombs\fP depends on the LC_CTYPE category of the
+current locale.
+.PP
+Passing NULL as \fIps\fP is not multi-thread safe.

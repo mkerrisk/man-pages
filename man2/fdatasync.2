@@ -1,0 +1,93 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
+.\" Copyright (C) 1996 Markus Kuhn.
+.\"
+.\" [This version merged from two independently written pages - aeb]
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" 1996-04-12  Andries Brouwer <aeb@cwi.nl>
+.\" 1996-04-13  Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"
+.TH FDATASYNC 2 1996-04-13 "Linux 1.3.86" "Linux Programmer's Manual"
+.SH NAME
+fdatasync \- synchronize a file's in-core data with that on disk
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.BI "int fdatasync(int " fd );
+.SH DESCRIPTION
+.B fdatasync
+flushes all data buffers of a file to disk (before the system
+call returns).  It resembles
+.B fsync
+but is not required to update the metadata such as access time.
+
+Applications that access databases or log files often write a tiny
+data fragment (e.g., one line in a log file) and then call
+.B fsync
+immediately in order to ensure that the written data is physically
+stored on the harddisk. Unfortunately,
+.B fsync
+will always initiate two write operations: one for the newly written
+data and another one in order to update the modification time stored
+in the inode. If the modification time is not a part of the transaction
+concept
+.B fdatasync
+can be used to avoid unnecessary inode disk write operations.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor open for writing.
+.TP
+.B EIO
+An error occurred during synchronization.
+.TP
+.BR EROFS ", " EINVAL
+.I fd
+is bound to a special file which does not support synchronization.
+.SH BUGS
+Currently (Linux 2.2)
+.B fdatasync
+is equivalent to
+.BR fsync .
+.SH AVAILABILITY
+On POSIX systems on which
+.B fdatasync
+is available,
+.B _POSIX_SYNCHRONIZED_IO
+is defined in <unistd.h> to a value greater than 0. (See also
+.BR sysconf (3).)
+.\" POSIX 1003.1-2001: It shall be defined to -1 or 0 or 200112L.
+.\" -1: unavailable, 0: ask using sysconf().
+.\" glibc defines them to 1.
+.SH "CONFORMING TO"
+POSIX1b (formerly POSIX.4)
+.SH "SEE ALSO"
+.BR fsync (2)
+.br
+B.O. Gallmeister, POSIX.4, O'Reilly, pp. 220-223 and 343.

@@ -1,0 +1,199 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "ENDUTXENT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" endutxent 
+.SH NAME
+endutxent, getutxent, getutxid, getutxline, pututxline, setutxent
+\- user accounting database functions
+.SH SYNOPSIS
+.LP
+\fB#include <utmpx.h>
+.br
+.sp
+void endutxent(void);
+.br
+struct utmpx *getutxent(void);
+.br
+struct utmpx *getutxid(const struct utmpx *\fP\fIid\fP\fB);
+.br
+struct utmpx *getutxline(const struct utmpx *\fP\fIline\fP\fB);
+.br
+struct utmpx *pututxline(const struct utmpx *\fP\fIutmpx\fP\fB);
+.br
+void setutxent(void); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions shall provide access to the user accounting database.
+.LP
+The \fIgetutxent\fP() function shall read the next entry from the
+user accounting database. If the database is not already
+open, it shall open it. If it reaches the end of the database, it
+shall fail.
+.LP
+The \fIgetutxid\fP() function shall search forward from the current
+point in the database. If the \fIut_type\fP value of the
+\fButmpx\fP structure pointed to by \fIid\fP is BOOT_TIME, OLD_TIME,
+or NEW_TIME, then it shall stop when it finds an entry with
+a matching \fIut_type\fP value. If the \fIut_type\fP value is INIT_PROCESS,
+LOGIN_PROCESS, USER_PROCESS, or DEAD_PROCESS, then it
+shall stop when it finds an entry whose type is one of these four
+and whose \fIut_id\fP member matches the \fIut_id\fP member of
+the \fButmpx\fP structure pointed to by \fIid\fP. If the end of the
+database is reached without a match, \fIgetutxid\fP() shall
+fail.
+.LP
+The \fIgetutxline\fP() function shall search forward from the current
+point in the database until it finds an entry of the type
+LOGIN_PROCESS or USER_PROCESS which also has a \fIut_line\fP value
+matching that in the \fButmpx\fP structure pointed to by
+\fIline\fP. If the end of the database is reached without a match,
+\fIgetutxline\fP() shall fail.
+.LP
+The \fIgetutxid\fP() or \fIgetutxline\fP() function may cache data.
+For this reason, to use \fIgetutxline\fP() to search for
+multiple occurrences, the application shall zero out the static data
+after each success, or \fIgetutxline\fP() may return a
+pointer to the same \fButmpx\fP structure.
+.LP
+There is one exception to the rule about clearing the structure before
+further reads are done. The implicit read done by
+\fIpututxline\fP() (if it finds that it is not already at the correct
+place in the user accounting database) shall not modify the
+static structure returned by \fIgetutxent\fP(), \fIgetutxid\fP(),
+or \fIgetutxline\fP(), if the application has modified this
+structure and passed the pointer back to \fIpututxline\fP().
+.LP
+For all entries that match a request, the \fIut_type\fP member indicates
+the type of the entry. Other members of the entry
+shall contain meaningful data based on the value of the \fIut_type\fP
+member as follows:
+.TS C
+center; l lw(40).
+\fBut_type Member\fP	T{
+.na
+\fBOther Members with Meaningful Data\fP
+.ad
+T}
+EMPTY	T{
+.na
+No others
+.ad
+T}
+BOOT_TIME	T{
+.na
+\fIut_tv\fP
+.ad
+T}
+OLD_TIME	T{
+.na
+\fIut_tv\fP
+.ad
+T}
+NEW_TIME	T{
+.na
+\fIut_tv\fP
+.ad
+T}
+USER_PROCESS	T{
+.na
+\fIut_id\fP, \fIut_user\fP (login name of the user), \fIut_line\fP, \fIut_pid\fP, \fIut_tv\fP
+.ad
+T}
+INIT_PROCESS	T{
+.na
+\fIut_id\fP, \fIut_pid\fP, \fIut_tv\fP
+.ad
+T}
+LOGIN_PROCESS	T{
+.na
+\fIut_id\fP, \fIut_user\fP (implementation-defined name of the login process), \fIut_pid\fP, \fIut_tv\fP
+.ad
+T}
+DEAD_PROCESS	T{
+.na
+\fIut_id\fP, \fIut_pid\fP, \fIut_tv\fP
+.ad
+T}
+.TE
+.LP
+An implementation that provides extended security controls may impose
+implementation-defined restrictions on accessing the user
+accounting database. In particular, the system may deny the existence
+of some or all of the user accounting database entries
+associated with users other than the caller.
+.LP
+If the process has appropriate privileges, the \fIpututxline\fP()
+function shall write out the structure into the user
+accounting database. It shall use \fIgetutxid\fP() to search for a
+record that satisfies the request. If this search succeeds,
+then the entry shall be replaced. Otherwise, a new entry shall be
+made at the end of the user accounting database.
+.LP
+The \fIendutxent\fP() function shall close the user accounting database.
+.LP
+The \fIsetutxent\fP() function shall reset the input to the beginning
+of the database. This should be done before each search
+for a new entry if it is desired that the entire database be examined.
+.LP
+These functions need not be reentrant. A function that is not required
+to be reentrant is not required to be thread-safe.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIgetutxent\fP(), \fIgetutxid\fP(), and
+\fIgetutxline\fP() shall return a pointer to a
+\fButmpx\fP structure containing a copy of the requested entry in
+the user accounting database. Otherwise, a null pointer shall be
+returned.
+.LP
+The return value may point to a static area which is overwritten by
+a subsequent call to \fIgetutxid\fP() or
+\fIgetutxline\fP().
+.LP
+Upon successful completion, \fIpututxline\fP() shall return a pointer
+to a \fButmpx\fP structure containing a copy of the
+entry added to the user accounting database. Otherwise, a null pointer
+shall be returned.
+.LP
+The \fIendutxent\fP() and \fIsetutxent\fP() functions shall not return
+a value.
+.SH ERRORS
+.LP
+No errors are defined for the \fIendutxent\fP(), \fIgetutxent\fP(),
+\fIgetutxid\fP(), \fIgetutxline\fP(), and
+\fIsetutxent\fP() functions.
+.LP
+The \fIpututxline\fP() function may fail if:
+.TP 7
+.B EPERM
+The process does not have appropriate privileges.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The sizes of the arrays in the structure can be found using the \fIsizeof\fP
+operator.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+The Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<utmpx.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,202 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "LINK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" link 
+.SH NAME
+link \- link to a file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int link(const char *\fP\fIpath1\fP\fB, const char *\fP\fIpath2\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIlink\fP() function shall create a new link (directory entry)
+for the existing file, \fIpath1\fP.
+.LP
+The \fIpath1\fP argument points to a pathname naming an existing file.
+The \fIpath2\fP argument points to a pathname naming
+the new directory entry to be created. The \fIlink\fP() function shall
+atomically create a new link for the existing file and the
+link count of the file shall be incremented by one.
+.LP
+If \fIpath1\fP names a directory, \fIlink\fP() shall fail unless the
+process has appropriate privileges and the implementation
+supports using \fIlink\fP() on directories.
+.LP
+Upon successful completion, \fIlink\fP() shall mark for update the
+\fIst_ctime\fP field of the file. Also, the \fIst_ctime\fP
+and \fIst_mtime\fP fields of the directory that contains the new entry
+shall be marked for update.
+.LP
+If \fIlink\fP() fails, no link shall be created and the link count
+of the file shall remain unchanged.
+.LP
+The implementation may require that the calling process has permission
+to access the existing file.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIlink\fP() function shall fail if:
+.TP 7
+.B EACCES
+A component of either path prefix denies search permission, or the
+requested link requires writing in a directory that denies
+write permission, or the calling process does not have permission
+to access the existing file and this is required by the
+implementation.
+.TP 7
+.B EEXIST
+The \fIpath2\fP argument resolves to an existing file or refers to
+a symbolic link.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath1\fP or \fIpath2\fP argument.
+.TP 7
+.B EMLINK
+The number of links to the file named by \fIpath1\fP would exceed
+{LINK_MAX}.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath1\fP or \fIpath2\fP argument exceeds {PATH_MAX}
+or a pathname component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of either path prefix does not exist; the file named by
+\fIpath1\fP does not exist; or \fIpath1\fP or
+\fIpath2\fP points to an empty string.
+.TP 7
+.B ENOSPC
+The directory to contain the link cannot be extended.
+.TP 7
+.B ENOTDIR
+A component of either path prefix is not a directory.
+.TP 7
+.B EPERM
+The file named by \fIpath1\fP is a directory and either the calling
+process does not have appropriate privileges or the
+implementation prohibits using \fIlink\fP() on directories.
+.TP 7
+.B EROFS
+The requested link requires writing in a directory on a read-only
+file system.
+.TP 7
+.B EXDEV
+The link named by \fIpath2\fP and the file named by \fIpath1\fP are
+on different file systems and the implementation does not
+support links between file systems.
+.TP 7
+.B EXDEV
+\fIpath1\fP refers to a named STREAM. 
+.sp
+.LP
+The \fIlink\fP() function may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath1\fP or \fIpath2\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath1\fP
+or \fIpath2\fP argument, the length of the
+substituted pathname string exceeded {PATH_MAX}.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Creating a Link to a File
+.LP
+The following example shows how to create a link to a file named \fB/home/cnd/mod1\fP
+by creating a new directory entry named
+\fB/modules/pass1\fP.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+char *path1 = "/home/cnd/mod1";
+char *path2 = "/modules/pass1";
+int   status;
+\&...
+status = link (path1, path2);
+\fP
+.fi
+.RE
+.SS Creating a Link to a File Within a Program
+.LP
+In the following program example, the \fIlink\fP() function links
+the \fB/etc/passwd\fP file (defined as \fBPASSWDFILE\fP) to
+a file named \fB/etc/opasswd\fP (defined as \fBSAVEFILE\fP), which
+is used to save the current password file. Then, after
+removing the current password file (defined as \fBPASSWDFILE\fP),
+the new password file is saved as the current password file
+using the \fIlink\fP() function again.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+#define PASSWDFILE "/etc/passwd"
+#define SAVEFILE "/etc/opasswd"
+\&...
+/* Save current password file */
+link (PASSWDFILE, SAVEFILE);
+.sp
+
+/* Remove current password file. */
+unlink (PASSWDFILE);
+.sp
+
+/* Save new password file as current password file. */
+link (LOCKFILE,PASSWDFILE);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Some implementations do allow links between file systems.
+.SH RATIONALE
+.LP
+Linking to a directory is restricted to the superuser in most historical
+implementations because this capability may produce
+loops in the file hierarchy or otherwise corrupt the file system.
+This volume of IEEE\ Std\ 1003.1-2001 continues that
+philosophy by prohibiting \fIlink\fP() and \fIunlink\fP() from doing
+this. Other functions
+could do it if the implementor designed such an extension.
+.LP
+Some historical implementations allow linking of files on different
+file systems. Wording was added to explicitly allow this
+optional behavior.
+.LP
+The exception for cross-file system links is intended to apply only
+to links that are programmatically indistinguishable from
+"hard" links.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIsymlink\fP() , \fIunlink\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

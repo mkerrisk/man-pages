@@ -1,0 +1,210 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt;
+.\"                          1993,1995 Ian Jackson.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Sat Jul 24 00:35:52 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified Thu Jun  4 12:21:13 1998 by Andries Brouwer <aeb@cwi.nl>
+.\"
+.TH RENAME 2 1998-06-04 "Linux 2.0" "Linux Programmer's Manual"
+.SH NAME
+rename \- change the name or location of a file
+.SH SYNOPSIS
+.B #include <stdio.h>
+.sp
+.BI "int rename(const char *" oldpath ", const char *" newpath );
+.SH DESCRIPTION
+.B rename
+renames a file, moving it between directories if required.
+
+Any other hard links to the file (as created using
+.BR link (2))
+are unaffected.
+
+If
+.I newpath
+already exists it will be atomically replaced (subject to
+a few conditions - see ERRORS below), so that there is
+no point at which another process attempting to access
+.I newpath
+will find it missing.
+
+If
+.I newpath
+exists but the operation fails for some reason
+.B rename
+guarantees to leave an instance of
+.I newpath
+in place.
+
+However, when overwriting there will probably be a window in which
+both
+.I oldpath
+and
+.I newpath
+refer to the file being renamed.
+
+If
+.I oldpath
+refers to a symbolic link the link is renamed; if
+.I newpath
+refers to a symbolic link the link will be overwritten.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EACCES
+Write permission is denied for the directory containing
+.I oldpath
+or
+.IR newpath ,
+or, search permission is denied for one of the directories
+in the path prefix of
+.I oldpath
+or
+.IR newpath ,
+or
+.I oldpath
+is a directory and does not allow write permission (needed to update
+the
+.B ..
+entry).
+(See also
+.BR path_resolution (2).)
+.TP
+.B EBUSY
+The rename fails because
+.IR oldpath " or " newpath
+is a directory that is in use by some process (perhaps as
+current working directory, or as root directory, or because
+it was open for reading) or is in use by the system
+(for example as mount point), while the system considers
+this an error.
+(Note that there is no requirement to return EBUSY in such
+cases - there is nothing wrong with doing the rename anyway -
+but it is allowed to return EBUSY if the system cannot otherwise
+handle such situations.)
+.TP
+.B EFAULT
+.IR oldpath " or " newpath " points outside your accessible address space."
+.TP
+.B EINVAL
+The new pathname contained a path prefix of the old, or, more generally,
+an attempt was made to make a directory a subdirectory of itself.
+.TP
+.B EISDIR
+.I newpath
+is an existing directory, but
+.I oldpath
+is not a directory.
+.TP
+.B ELOOP
+Too many symbolic links were encountered in resolving
+.IR oldpath " or " newpath .
+.TP
+.B EMLINK
+.I oldpath
+already has the maximum number of links to it, or
+it was a directory and the directory containing
+.I newpath
+has the maximum number of links.
+.TP
+.B ENAMETOOLONG
+.IR oldpath " or " newpath " was too long."
+.TP
+.B ENOENT
+A directory component in
+.I oldpath " or " newpath
+does not exist or is a dangling symbolic link.
+.TP
+.B ENOMEM
+Insufficient kernel memory was available.
+.TP
+.B ENOSPC
+The device containing the file has no room for the new directory
+entry.
+.TP
+.B ENOTDIR
+A component used as a directory in
+.IR oldpath " or " newpath
+is not, in fact, a directory.
+Or,
+.I oldpath
+is a directory, and
+.I newpath
+exists but is not a directory.
+.TP
+.BR ENOTEMPTY " or " EEXIST
+.IR newpath
+is a non-empty directory, i.e., contains entries other than "." and "..".
+.TP
+.BR EPERM " or " EACCES
+The directory containing
+.I oldpath
+has the sticky bit
+.RB ( S_ISVTX )
+set and the process's effective user ID is neither
+the user ID of the file to be deleted nor that of the directory
+containing it, and the process is not privileged
+(Linux: does not have the
+.B CAP_FOWNER
+capability);
+or
+.I newpath
+is an existing file and the directory containing it has the sticky bit set
+and the process's effective user ID is neither the user ID of the file
+to be replaced nor that of the directory containing it,
+and the process is not privileged
+(Linux: does not have the
+.B CAP_FOWNER
+capability);
+or the filesystem containing
+.IR pathname
+does not support renaming of the type requested.
+.TP
+.B EROFS
+The file is on a read-only filesystem.
+.TP
+.B EXDEV
+.IR oldpath " and " newpath
+are not on the same filesystem.
+.SH "CONFORMING TO"
+POSIX, 4.3BSD, ANSI C
+.SH BUGS
+On NFS filesystems, you can not assume that if the operation
+failed the file was not renamed.  If the server does the rename operation
+and then crashes, the retransmitted RPC which will be processed when the
+server is up again causes a failure.  The application is expected to
+deal with this.  See
+.BR link (2)
+for a similar problem.
+.SH "SEE ALSO"
+.BR mv (1),
+.BR chmod (2),
+.BR link (2),
+.BR path_resolution (2),
+.BR symlink (2),
+.BR unlink (2)

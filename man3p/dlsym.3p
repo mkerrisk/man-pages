@@ -1,0 +1,148 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "DLSYM" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" dlsym 
+.SH NAME
+dlsym \- obtain the address of a symbol from a dlopen object
+.SH SYNOPSIS
+.LP
+\fB#include <dlfcn.h>
+.br
+.sp
+void *dlsym(void *restrict\fP \fIhandle\fP\fB, const char *restrict\fP
+\fIname\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIdlsym\fP() function shall obtain the address of a symbol defined
+within an object made accessible through a \fIdlopen\fP() call. The
+\fIhandle\fP argument is the value returned from a call to \fIdlopen\fP()
+(and which has not since been released via a call to \fIdlclose\fP()),
+and \fIname\fP is the symbol's name as a character string.
+.LP
+The \fIdlsym\fP() function shall search for the named symbol in all
+objects loaded automatically as a result of loading the
+object referenced by \fIhandle\fP (see \fIdlopen\fP() ). Load ordering
+is used in \fIdlsym\fP()
+operations upon the global symbol object. The symbol resolution algorithm
+used shall be dependency order as described in \fIdlopen\fP() .
+.LP
+The RTLD_DEFAULT and RTLD_NEXT flags are reserved for future use.
+.SH RETURN VALUE
+.LP
+If \fIhandle\fP does not refer to a valid object opened by \fIdlopen\fP(),
+or if the
+named symbol cannot be found within any of the objects associated
+with \fIhandle\fP, \fIdlsym\fP() shall return NULL. More
+detailed diagnostic information shall be available through \fIdlerror\fP()
+\&.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following example shows how \fIdlopen\fP() and \fIdlsym\fP() can
+be used to access
+either function or data objects. For simplicity, error checking has
+been omitted.
+.sp
+.RS
+.nf
+
+\fBvoid    *handle;
+int     *iptr, (*fptr)(int);
+.sp
+
+/* open the needed object */
+handle = dlopen("/usr/home/me/libfoo.so", RTLD_LOCAL | RTLD_LAZY);
+.sp
+
+/* find the address of function and data objects */
+*(void **)(&fptr) = dlsym(handle, "my_function");
+iptr = (int *)dlsym(handle, "my_object");
+.sp
+
+/* invoke function, passing value of integer as a parameter */
+(*fptr)(*iptr);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Special purpose values for \fIhandle\fP are reserved for future use.
+These values and their meanings are:
+.TP 7
+RTLD_DEFAULT
+The symbol lookup happens in the normal global scope; that is, a search
+for a symbol using this handle would find the same
+definition as a direct use of this symbol in the program code.
+.TP 7
+RTLD_NEXT
+Specifies the next object after this one that defines \fIname\fP.
+\fIThis one\fP refers to the object containing the
+invocation of \fIdlsym\fP(). The \fInext\fP object is the one found
+upon the application of a load order symbol resolution
+algorithm (see \fIdlopen\fP() ). The next object is either one of
+global scope (because it was
+introduced as part of the original process image or because it was
+added with a \fIdlopen\fP() operation including the RTLD_GLOBAL flag),
+or is an object that was included in the
+same \fIdlopen\fP() operation that loaded this one. 
+.LP
+The RTLD_NEXT flag is useful to navigate an intentionally created
+hierarchy of multiply-defined symbols created through
+\fIinterposition\fP. For example, if a program wished to create an
+implementation of \fImalloc\fP() that embedded some statistics gathering
+about memory allocations, such an
+implementation could use the real \fImalloc\fP() definition to perform
+the memory
+allocation-and itself only embed the necessary logic to implement
+the statistics gathering function.
+.sp
+.SH RATIONALE
+.LP
+The ISO\ C standard does not require that pointers to functions can
+be cast back and forth to pointers to data. Indeed, the
+ISO\ C standard does not require that an object of type \fBvoid *\fP
+can hold a pointer to a function. Implementations
+supporting the XSI extension, however, do require that an object of
+type \fBvoid *\fP can hold a pointer to a function. The result
+of converting a pointer to a function into a pointer to another data
+type (except \fBvoid *\fP) is still undefined, however. Note
+that compilers conforming to the ISO\ C standard are required to generate
+a warning if a conversion from a \fBvoid *\fP
+pointer to a function pointer is attempted as in:
+.sp
+.RS
+.nf
+
+\fBfptr = (int (*)(int))dlsym(handle, "my_function");
+\fP
+.fi
+.RE
+.LP
+Due to the problem noted here, a future version may either add a new
+function to return function pointers, or the current
+interface may be deprecated in favor of two new functions: one that
+returns data pointers and the other that returns function
+pointers.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIdlclose\fP() , \fIdlerror\fP() , \fIdlopen\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<dlfcn.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

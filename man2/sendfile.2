@@ -1,0 +1,117 @@
+.\" This man page is Copyright (C) 1998 Pawel Krawczyk.
+.\" Permission is granted to distribute possibly modified copies
+.\" of this page provided the header is included verbatim,
+.\" and in case of nontrivial modification author and date
+.\" of the modification is added to the header.
+.\" $Id: sendfile.2,v 1.5 1999/05/18 11:54:11 freitag Exp $
+.\" 2000-11-19 bert hubert <ahu@ds9a.nl>: in_fd cannot be socket
+.TH SENDFILE 2 1998-12-01 "Linux Man Page" "Linux Programmer's Manual" 
+.SH NAME
+sendfile \- transfer data between file descriptors
+.SH SYNOPSIS
+.B #include <sys/sendfile.h>
+.sp
+.BI "ssize_t sendfile(int" " out_fd" ", int" " in_fd" ", off_t *" offset ", size_t" " count" );
+.\" The below is too ugly. Comments about glibc versions belong
+.\" in the notes, not in the header.
+.\"
+.\" .B #include <features.h>
+.\" .br
+.\" .B #if (__GLIBC__==2 && __GLIBC_MINOR__>=1) || __GLIBC__>2 
+.\" .br
+.\" .B #include <sys/sendfile.h>
+.\" .br
+.\" #else
+.\" .br
+.\" .B #include <sys/types.h>
+.\" .br
+.\" .B /* No system prototype before glibc 2.1. */ 
+.\" .br
+.\" .BI "ssize_t sendfile(int" " out_fd" ", int" " in_fd" ", off_t *" offset ", size_t" " count" )
+.\" .br
+.\" .B #endif
+.\"
+.SH DESCRIPTION
+This call copies data between one file descriptor and another.
+Either or both of these file descriptors may refer to a socket (but see below).
+.I in_fd
+should be a file descriptor opened for reading and
+.I out_fd
+should be a descriptor opened for writing.
+.I offset
+is a pointer to a variable holding the input file pointer position from
+which
+.BR sendfile ()
+will start reading data.  When 
+.BR sendfile ()
+returns, this variable
+will be set to the offset of the byte following the last byte that was read.
+.I count
+is the number of bytes to copy between file descriptors.
+
+Because this copying is done within the kernel,
+.BR sendfile ()
+does not need to spend time transferring data
+to and from user space.
+
+.SH NOTES
+Sendfile does not modify the current file pointer of 
+.IR in_fd ,
+but does for
+.IR out_fd .
+
+If you plan to use sendfile for sending files to a TCP socket, but need
+to send some header data in front of the file contents, please see
+the 
+.B TCP_CORK 
+option in
+.BR tcp (7)
+to minimize the number of packets and to tune performance.
+
+Presently the descriptor from which data is read cannot
+correspond to a socket, it must correspond to a file
+which supports mmap()-like operations.
+
+.SH "RETURN VALUE"
+If the transfer was successful, the number of bytes written to
+.I out_fd
+is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+
+.SH ERRORS
+.TP
+.B EAGAIN
+Non-blocking I/O has been selected using
+.B O_NONBLOCK
+and the write would block.
+.TP
+.B EBADF
+The input file was not opened for reading or the output file
+was not opened for writing.
+.TP
+.B EFAULT
+Bad address.
+.TP
+.B EINVAL
+Descriptor is not valid or locked.
+.TP
+.B EIO
+Unspecified error while reading from
+.IR in_fd .
+.TP
+.B ENOMEM
+Insufficient memory to read from
+.IR in_fd .
+.SH VERSIONS
+.B sendfile
+is a new feature in Linux 2.2.
+The include file <sys/sendfile.h> is present since glibc2.1.
+
+Other Unixes often implement 
+.B sendfile 
+with different semantics and prototypes. It should
+not be used in portable programs.
+.SH "SEE ALSO"
+.BR open (2),
+.BR socket (2)

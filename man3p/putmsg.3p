@@ -1,0 +1,257 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PUTMSG" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" putmsg 
+.SH NAME
+putmsg, putpmsg \- send a message on a STREAM (\fBSTREAMS\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <stropts.h>
+.br
+.sp
+int putmsg(int\fP \fIfildes\fP\fB, const struct strbuf *\fP\fIctlptr\fP\fB,
+.br
+\ \ \ \ \ \  const struct strbuf *\fP\fIdataptr\fP\fB, int\fP \fIflags\fP\fB);
+.br
+int putpmsg(int\fP \fIfildes\fP\fB, const struct strbuf *\fP\fIctlptr\fP\fB,
+.br
+\ \ \ \ \ \  const struct strbuf *\fP\fIdataptr\fP\fB, int\fP \fIband\fP\fB,
+int\fP
+\fIflags\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIputmsg\fP() function shall create a message from a process
+buffer(s) and send the message to a STREAMS file. The message
+may contain either a data part, a control part, or both. The data
+and control parts are distinguished by placement in separate
+buffers, as described below. The semantics of each part are defined
+by the STREAMS module that receives the message.
+.LP
+The \fIputpmsg\fP() function is equivalent to \fIputmsg\fP(), except
+that the process can send messages in different priority
+bands. Except where noted, all requirements on \fIputmsg\fP() also
+pertain to \fIputpmsg\fP().
+.LP
+The \fIfildes\fP argument specifies a file descriptor referencing
+an open STREAM. The \fIctlptr\fP and \fIdataptr\fP
+arguments each point to a \fBstrbuf\fP structure.
+.LP
+The \fIctlptr\fP argument points to the structure describing the control
+part, if any, to be included in the message. The
+\fIbuf\fP member in the \fBstrbuf\fP structure points to the buffer
+where the control information resides, and the \fIlen\fP
+member indicates the number of bytes to be sent. The \fImaxlen\fP
+member is not used by \fIputmsg\fP(). In a similar manner, the
+argument \fIdataptr\fP specifies the data, if any, to be included
+in the message. The \fIflags\fP argument indicates what type of
+message should be sent and is described further below.
+.LP
+To send the data part of a message, the application shall ensure that
+\fIdataptr\fP is not a null pointer and the \fIlen\fP
+member of \fIdataptr\fP is 0 or greater. To send the control part
+of a message, the application shall ensure that the
+corresponding values are set for \fIctlptr\fP. No data (control) part
+shall be sent if either \fIdataptr\fP( \fIctlptr\fP) is a
+null pointer or the \fIlen\fP member of \fIdataptr\fP( \fIctlptr\fP)
+is set to -1.
+.LP
+For \fIputmsg\fP(), if a control part is specified and \fIflags\fP
+is set to RS_HIPRI, a high priority message shall be sent.
+If no control part is specified, and \fIflags\fP is set to RS_HIPRI,
+\fIputmsg\fP() shall fail and set \fIerrno\fP to [EINVAL].
+If \fIflags\fP is set to 0, a normal message (priority band equal
+to 0) shall be sent. If a control part and data part are not
+specified and \fIflags\fP is set to 0, no message shall be sent and
+0 shall be returned.
+.LP
+For \fIputpmsg\fP(), the flags are different. The \fIflags\fP argument
+is a bitmask with the following mutually-exclusive
+flags defined: MSG_HIPRI and MSG_BAND. If \fIflags\fP is set to 0,
+\fIputpmsg\fP() shall fail and set \fIerrno\fP to [EINVAL].
+If a control part is specified and \fIflags\fP is set to MSG_HIPRI
+and \fIband\fP is set to 0, a high-priority message shall be
+sent. If \fIflags\fP is set to MSG_HIPRI and either no control part
+is specified or \fIband\fP is set to a non-zero value,
+\fIputpmsg\fP() shall fail and set \fIerrno\fP to [EINVAL]. If \fIflags\fP
+is set to MSG_BAND, then a message shall be sent in
+the priority band specified by \fIband\fP. If a control part and data
+part are not specified and \fIflags\fP is set to MSG_BAND,
+no message shall be sent and 0 shall be returned.
+.LP
+The \fIputmsg\fP() function shall block if the STREAM write queue
+is full due to internal flow control conditions, with the
+following exceptions:
+.IP " *" 3
+For high-priority messages, \fIputmsg\fP() shall not block on this
+condition and continues processing the message.
+.LP
+.IP " *" 3
+For other messages, \fIputmsg\fP() shall not block but shall fail
+when the write queue is full and O_NONBLOCK is set.
+.LP
+.LP
+The \fIputmsg\fP() function shall also block, unless prevented by
+lack of internal resources, while waiting for the
+availability of message blocks in the STREAM, regardless of priority
+or whether O_NONBLOCK has been specified. No partial message
+shall be sent.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIputmsg\fP() and \fIputpmsg\fP() shall
+return 0; otherwise, they shall return -1 and set
+\fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIputmsg\fP() and \fIputpmsg\fP() functions shall fail if:
+.TP 7
+.B EAGAIN
+A non-priority message was specified, the O_NONBLOCK flag is set,
+and the STREAM write queue is full due to internal flow
+control conditions; or buffers could not be allocated for the message
+that was to be created.
+.TP 7
+.B EBADF
+\fIfildes\fP is not a valid file descriptor open for writing.
+.TP 7
+.B EINTR
+A signal was caught during \fIputmsg\fP().
+.TP 7
+.B EINVAL
+An undefined value is specified in \fIflags\fP, or \fIflags\fP is
+set to RS_HIPRI or MSG_HIPRI and no control part is
+supplied, or the STREAM or multiplexer referenced by \fIfildes\fP
+is linked (directly or indirectly) downstream from a
+multiplexer, or \fIflags\fP is set to MSG_HIPRI and \fIband\fP is
+non-zero (for \fIputpmsg\fP() only).
+.TP 7
+.B ENOSR
+Buffers could not be allocated for the message that was to be created
+due to insufficient STREAMS memory resources.
+.TP 7
+.B ENOSTR
+A STREAM is not associated with \fIfildes\fP.
+.TP 7
+.B ENXIO
+A hangup condition was generated downstream for the specified STREAM.
+.TP 7
+.B EPIPE \fRor\fP EIO
+The \fIfildes\fP argument refers to a STREAMS-based pipe and the other
+end of the pipe is closed. A SIGPIPE signal is
+generated for the calling thread.
+.TP 7
+.B ERANGE
+The size of the data part of the message does not fall within the
+range specified by the maximum and minimum packet sizes of
+the topmost STREAM module. This value is also returned if the control
+part of the message is larger than the maximum configured
+size of the control part of a message, or if the data part of a message
+is larger than the maximum configured size of the data part
+of a message.
+.sp
+.LP
+In addition, \fIputmsg\fP() and \fIputpmsg\fP() shall fail if the
+STREAM head had processed an asynchronous error before the
+call. In this case, the value of \fIerrno\fP does not reflect the
+result of \fIputmsg\fP() or \fIputpmsg\fP(), but reflects the
+prior error.
+.br
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Sending a High-Priority Message
+.LP
+The value of \fIfd\fP is assumed to refer to an open STREAMS file.
+This call to \fIputmsg\fP() does the following:
+.IP " 1." 4
+Creates a high-priority message with a control part and a data part,
+using the buffers pointed to by \fIctrlbuf\fP and
+\fIdatabuf\fP, respectively.
+.LP
+.IP " 2." 4
+Sends the message to the STREAMS file identified by \fIfd\fP.
+.LP
+.sp
+.RS
+.nf
+
+\fB#include <stropts.h>
+#include <string.h>
+\&...
+int fd;
+char *ctrlbuf = "This is the control part";
+char *databuf = "This is the data part";
+struct strbuf ctrl;
+struct strbuf data;
+int ret;
+.sp
+
+ctrl.buf = ctrlbuf;
+ctrl.len = strlen(ctrlbuf);
+.sp
+
+data.buf = databuf;
+data.len = strlen(databuf);
+.sp
+
+ret = putmsg(fd, &ctrl, &data, MSG_HIPRI);
+\fP
+.fi
+.RE
+.SS Using putpmsg()
+.LP
+This example has the same effect as the previous example. In this
+example, however, the \fIputpmsg\fP() function creates and
+sends the message to the STREAMS file.
+.sp
+.RS
+.nf
+
+\fB#include <stropts.h>
+#include <string.h>
+\&...
+int fd;
+char *ctrlbuf = "This is the control part";
+char *databuf = "This is the data part";
+struct strbuf ctrl;
+struct strbuf data;
+int ret;
+.sp
+
+ctrl.buf = ctrlbuf;
+ctrl.len = strlen(ctrlbuf);
+.sp
+
+data.buf = databuf;
+data.len = strlen(databuf);
+.sp
+
+ret = putpmsg(fd, &ctrl, &data, 0, MSG_HIPRI);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISTREAMS\fP , \fIgetmsg\fP() , \fIpoll\fP() , \fIread\fP() , \fIwrite\fP()
+, the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<stropts.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

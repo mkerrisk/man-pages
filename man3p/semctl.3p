@@ -1,0 +1,227 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SEMCTL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" semctl 
+.SH NAME
+semctl \- XSI semaphore control operations
+.SH SYNOPSIS
+.LP
+\fB#include\ <sys/sem.h>
+.br
+.sp
+int semctl(int\fP \fIsemid\fP\fB, int\fP \fIsemnum\fP\fB, int\fP \fIcmd\fP\fB,
+\&...); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsemctl\fP() function operates on XSI semaphores (see the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Section 4.15, Semaphore).
+It is unspecified whether this function interoperates
+with the realtime interprocess communication facilities defined in
+\fIRealtime\fP .
+.LP
+The \fIsemctl\fP() function provides a variety of semaphore control
+operations as specified by \fIcmd\fP. The fourth argument
+is optional and depends upon the operation requested. If required,
+it is of type \fBunion semun\fP, which the application shall
+explicitly declare:
+.sp
+.RS
+.nf
+
+\fBunion semun {
+    int val;
+    struct semid_ds *buf;
+    unsigned short  *array;
+} arg;
+\fP
+.fi
+.RE
+.LP
+The following semaphore control operations as specified by \fIcmd\fP
+are executed with respect to the semaphore specified by
+\fIsemid\fP and \fIsemnum\fP. The level of permission required for
+each operation is shown with each command; see \fIXSI Interprocess
+Communication\fP . The symbolic names for the values of \fIcmd\fP
+are
+defined in the \fI<sys/sem.h>\fP header:
+.TP 7
+GETVAL
+Return the value of \fIsemval\fP; see \fI<sys/sem.h>\fP. Requires
+read
+permission.
+.TP 7
+SETVAL
+Set the value of \fIsemval\fP to \fIarg.val\fP, where \fIarg\fP is
+the value of the fourth argument to \fIsemctl\fP(). When
+this command is successfully executed, the \fIsemadj\fP value corresponding
+to the specified semaphore in all processes is
+cleared. Requires alter permission; see \fIXSI Interprocess Communication\fP
+\&.
+.TP 7
+GETPID
+Return the value of \fIsempid\fP. Requires read permission.
+.TP 7
+GETNCNT
+Return the value of \fIsemncnt\fP. Requires read permission.
+.TP 7
+GETZCNT
+Return the value of \fIsemzcnt\fP. Requires read permission.
+.sp
+.LP
+The following values of \fIcmd\fP operate on each \fIsemval\fP in
+the set of semaphores:
+.TP 7
+GETALL
+Return the value of \fIsemval\fP for each semaphore in the semaphore
+set and place into the array pointed to by
+\fIarg.array\fP, where \fIarg\fP is the fourth argument to \fIsemctl\fP().
+Requires read permission.
+.TP 7
+SETALL
+Set the value of \fIsemval\fP for each semaphore in the semaphore
+set according to the array pointed to by \fIarg.array\fP,
+where \fIarg\fP is the fourth argument to \fIsemctl\fP(). When this
+command is successfully executed, the \fIsemadj\fP values
+corresponding to each specified semaphore in all processes are cleared.
+Requires alter permission.
+.sp
+.LP
+The following values of \fIcmd\fP are also available:
+.TP 7
+IPC_STAT
+Place the current value of each member of the \fBsemid_ds\fP data
+structure associated with \fIsemid\fP into the structure
+pointed to by \fIarg.buf\fP, where \fIarg\fP is the fourth argument
+to \fIsemctl\fP(). The contents of this structure are
+defined in \fI<sys/sem.h>\fP. Requires read permission.
+.TP 7
+IPC_SET
+Set the value of the following members of the \fBsemid_ds\fP data
+structure associated with \fIsemid\fP to the corresponding
+value found in the structure pointed to by \fIarg.buf\fP, where \fIarg\fP
+is the fourth argument to \fIsemctl\fP(): 
+.sp
+.RS
+.nf
+
+\fBsem_perm.uid
+sem_perm.gid
+sem_perm.mode
+\fP
+.fi
+.RE
+.LP
+The mode bits specified in \fIIPC General Description\fP are copied
+into the
+corresponding bits of the \fIsem_perm.mode\fP associated with \fIsemid\fP.
+The stored values of any other bits are
+unspecified.
+.LP
+This command can only be executed by a process that has an effective
+user ID equal to either that of a process with appropriate
+privileges or to the value of \fIsem_perm.cuid\fP or \fIsem_perm.uid\fP
+in the \fBsemid_ds\fP data structure associated with
+\fIsemid\fP.
+.TP 7
+IPC_RMID
+Remove the semaphore identifier specified by \fIsemid\fP from the
+system and destroy the set of semaphores and \fBsemid_ds\fP
+data structure associated with it. This command can only be executed
+by a process that has an effective user ID equal to either
+that of a process with appropriate privileges or to the value of \fIsem_perm.cuid\fP
+or \fIsem_perm.uid\fP in the \fBsemid_ds\fP
+data structure associated with \fIsemid\fP.
+.sp
+.SH RETURN VALUE
+.LP
+If successful, the value returned by \fIsemctl\fP() depends on \fIcmd\fP
+as follows:
+.TP 7
+GETVAL
+The value of \fIsemval\fP.
+.TP 7
+GETPID
+The value of \fIsempid\fP.
+.TP 7
+GETNCNT
+The value of \fIsemncnt\fP.
+.TP 7
+GETZCNT
+The value of \fIsemzcnt\fP.
+.TP 7
+All others
+0.
+.sp
+.LP
+Otherwise, \fIsemctl\fP() shall return -1 and set \fIerrno\fP to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIsemctl\fP() function shall fail if:
+.TP 7
+.B EACCES
+Operation permission is denied to the calling process; see \fIXSI
+Interprocess
+Communication\fP .
+.TP 7
+.B EINVAL
+The value of \fIsemid\fP is not a valid semaphore identifier, or the
+value of \fIsemnum\fP is less than 0 or greater than or
+equal to \fIsem_nsems\fP, or the value of \fIcmd\fP is not a valid
+command.
+.TP 7
+.B EPERM
+The argument \fIcmd\fP is equal to IPC_RMID or IPC_SET and the effective
+user ID of the calling process is not equal to that
+of a process with appropriate privileges and it is not equal to the
+value of \fIsem_perm.cuid\fP or \fIsem_perm.uid\fP in the
+data structure associated with \fIsemid\fP.
+.TP 7
+.B ERANGE
+The argument \fIcmd\fP is equal to SETVAL or SETALL and the value
+to which \fIsemval\fP is to be set is greater than the
+system-imposed maximum.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The fourth parameter in the SYNOPSIS section is now specified as \fB"..."\fP
+in order to avoid a clash with the ISO\ C
+standard when referring to the union \fIsemun\fP (as defined in Issue
+3) and for backwards-compatibility.
+.LP
+The POSIX Realtime Extension defines alternative interfaces for interprocess
+communication. Application developers who need to
+use IPC should design their applications so that modules using the
+IPC routines described in \fIXSI Interprocess Communication\fP can
+be easily modified to use the alternative
+interfaces.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIXSI Interprocess Communication\fP , \fIRealtime\fP , \fIsemget\fP()
+, \fIsemop\fP() , \fIsem_close\fP() , \fIsem_destroy\fP() , \fIsem_getvalue\fP()
+, \fIsem_init\fP() , \fIsem_open\fP() , \fIsem_post\fP() , \fIsem_unlink\fP()
+, \fIsem_wait\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<sys/sem.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

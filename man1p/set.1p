@@ -1,0 +1,592 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SET" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" set 
+.SH NAME
+set \- set or unset options and positional parameters
+.SH SYNOPSIS
+.LP
+\fBset\fP \fB[\fP\fB-abCefmnuvx\fP\fB][\fP\fB-h\fP\fB][\fP\fB-o\fP
+\fIoption\fP\fB][\fP\fIargument\fP\fB...\fP\fB]\fP\fB
+.br
+.sp
+set\fP \fB[\fP\fB+abCefmnuvx\fP\fB][\fP\fB+h\fP\fB][\fP\fB+o\fP
+\fIoption\fP\fB][\fP\fIargument\fP\fB...]\fP\fB
+.br
+.sp
+set --\fP \fB[\fP\fIargument\fP\fB...\fP\fB]\fP\fB
+.br
+.sp
+set -o
+.br
+.sp
+set +o
+.br
+\fP
+.SH DESCRIPTION
+.LP
+If no \fIoption\fPs or \fIargument\fPs are specified, \fIset\fP shall
+write the names and values of all shell variables in
+the collation sequence of the current locale. Each \fIname\fP shall
+start on a separate line, using the format:
+.sp
+.RS
+.nf
+
+\fB"%s=%s\\n", <\fP\fIname\fP\fB>, <\fP\fIvalue\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The \fIvalue\fP string shall be written with appropriate quoting;
+see the description of shell quoting in \fIQuoting\fP . The output
+shall be suitable for reinput to the shell, setting or resetting,
+as
+far as possible, the variables that are currently set; read-only variables
+cannot be reset.
+.LP
+When options are specified, they shall set or unset attributes of
+the shell, as described below. When \fIargument\fPs are
+specified, they cause positional parameters to be set or unset, as
+described below. Setting or unsetting attributes and positional
+parameters are not necessarily related actions, but they can be combined
+in a single invocation of \fIset\fP.
+.LP
+The \fIset\fP special built-in shall support the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines
+except that options can be specified with
+either a leading hyphen (meaning enable the option) or plus sign (meaning
+disable it) unless otherwise specified.
+.LP
+Implementations shall support the options in the following list in
+both their hyphen and plus-sign forms. These options can also
+be specified as options to \fIsh\fP.
+.TP 7
+\fB-a\fP
+When this option is on, the \fIexport\fP attribute shall be set for
+each variable to which an assignment is performed; see the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, Section 4.21, Variable
+Assignment. If the assignment precedes a utility name in a command,
+the \fIexport\fP attribute shall not persist in the
+current execution environment after the utility completes, with the
+exception that preceding one of the special built-in utilities
+causes the \fIexport\fP attribute to persist after the built-in has
+completed. If the assignment does not precede a utility name
+in the command, or if the assignment is a result of the operation
+of the \fIgetopts\fP or
+\fIread\fP utilities, the \fIexport\fP attribute shall persist until
+the variable is
+unset.
+.TP 7
+\fB-b\fP
+This option shall be supported if the implementation supports the
+User Portability Utilities option. It shall cause the shell
+to notify the user asynchronously of background job completions. The
+following message is written to standard error: 
+.sp
+.RS
+.nf
+
+\fB"[%d]%c %s%s\\n", <\fP\fIjob-number\fP\fB>, <\fP\fIcurrent\fP\fB>, <status>, <job-name>
+\fP
+.fi
+.RE
+.LP
+where the fields shall be as follows:
+.TP 7
+<\fIcurrent\fP>
+.RS
+The character \fB'+'\fP identifies the job that would be used as a
+default for the \fIfg\fP or \fIbg\fP utilities; this job can also
+be specified
+using the \fIjob_id\fP \fB"%+"\fP or \fB"%%"\fP . The character \fB'-'\fP
+identifies the job that would become the
+default if the current default job were to exit; this job can also
+be specified using the \fIjob_id\fP \fB"%-"\fP . For other
+jobs, this field is a <space>. At most one job can be identified with
+\fB'+'\fP and at most one job can be identified with
+\fB'-'\fP . If there is any suspended job, then the current job shall
+be a suspended job. If there are at least two suspended
+jobs, then the previous job also shall be a suspended job.
+.RE
+.TP 7
+<\fIjob-number\fP>
+.RS
+A number that can be used to identify the process group to the \fIwait\fP,
+\fIfg\fP, \fIbg\fP, and \fIkill\fP utilities. Using these utilities,
+the job can be identified by prefixing the job number
+with \fB'%'\fP .
+.RE
+.TP 7
+<\fIstatus\fP>
+.RS
+Unspecified.
+.RE
+.TP 7
+<\fIjob-name\fP>
+.RS
+Unspecified.
+.RE
+.sp
+.LP
+When the shell notifies the user a job has been completed, it may
+remove the job's process ID from the list of those known in
+the current shell execution environment; see \fIAsynchronous Lists\fP
+\&. Asynchronous
+notification shall not be enabled by default.
+.TP 7
+\fB-C\fP
+(Uppercase C.) Prevent existing files from being overwritten by the
+shell's \fB'>'\fP redirection operator (see \fIRedirecting Output\fP
+); the \fB">|"\fP redirection operator shall override this
+\fInoclobber\fP option for an individual file.
+.TP 7
+\fB-e\fP
+When this option is on, if a simple command fails for any of the reasons
+listed in \fIConsequences of Shell Errors\fP or returns an exit status
+value >0, and is not part of
+the compound list following a \fBwhile\fP, \fBuntil\fP, or \fBif\fP
+keyword, and is not a part of an AND or OR list, and is not
+a pipeline preceded by the \fB!\fP reserved word, then the shell shall
+immediately exit.
+.TP 7
+\fB-f\fP
+The shell shall disable pathname expansion.
+.TP 7
+\fB-h\fP
+Locate and remember utilities invoked by functions as those functions
+are defined (the utilities are normally located when the
+function is executed). 
+.TP 7
+\fB-m\fP
+This option shall be supported if the implementation supports the
+User Portability Utilities option. All jobs shall be run in
+their own process groups. Immediately before the shell issues a prompt
+after completion of the background job, a message reporting
+the exit status of the background job shall be written to standard
+error. If a foreground job stops, the shell shall write a
+message to standard error to that effect, formatted as described by
+the \fIjobs\fP utility.
+In addition, if a job changes status other than exiting (for example,
+if it stops for input or output or is stopped by a SIGSTOP
+signal), the shell shall write a similar message immediately prior
+to writing the next prompt. This option is enabled by default
+for interactive shells.
+.TP 7
+\fB-n\fP
+The shell shall read commands but does not execute them; this can
+be used to check for shell script syntax errors. An
+interactive shell may ignore this option.
+.TP 7
+\fB-o\fP
+Write the current settings of the options to standard output in an
+unspecified format.
+.TP 7
+\fB+o\fP
+Write the current option settings to standard output in a format that
+is suitable for reinput to the shell as commands that
+achieve the same options settings.
+.TP 7
+\fB-o\ \fP \fIoption\fP
+.sp
+This option is supported if the system supports the User Portability
+Utilities option. It shall set various options, many of which
+shall be equivalent to the single option letters. The following values
+of \fIoption\fP shall be supported: 
+.TP 7
+\fIallexport\fP
+.RS
+Equivalent to \fB-a\fP.
+.RE
+.TP 7
+\fIerrexit\fP
+.RS
+Equivalent to \fB-e\fP.
+.RE
+.TP 7
+\fIignoreeof\fP
+.RS
+Prevent an interactive shell from exiting on end-of-file. This setting
+prevents accidental logouts when <control>-D is
+entered. A user shall explicitly \fIexit\fP to leave the interactive
+shell.
+.RE
+.TP 7
+\fImonitor\fP
+.RS
+Equivalent to \fB-m\fP. This option is supported if the system supports
+the User Portability Utilities option.
+.RE
+.TP 7
+\fInoclobber\fP
+.RS
+Equivalent to \fB-C\fP (uppercase C).
+.RE
+.TP 7
+\fInoglob\fP
+.RS
+Equivalent to \fB-f\fP.
+.RE
+.TP 7
+\fInoexec\fP
+.RS
+Equivalent to \fB-n\fP.
+.RE
+.TP 7
+\fInolog\fP
+.RS
+Prevent the entry of function definitions into the command history;
+see \fICommand History List\fP
+\&.
+.RE
+.TP 7
+\fInotify\fP
+.RS
+Equivalent to \fB-b\fP.
+.RE
+.TP 7
+\fInounset\fP
+.RS
+Equivalent to \fB-u\fP.
+.RE
+.TP 7
+\fIverbose\fP
+.RS
+Equivalent to \fB-v\fP.
+.RE
+.TP 7
+\fIvi\fP
+.RS
+Allow shell command line editing using the built-in \fIvi\fP editor.
+Enabling \fIvi\fP mode shall disable any other command line editing
+mode provided as an implementation
+extension. 
+.LP
+It need not be possible to set \fIvi\fP mode on for certain block-mode
+terminals.
+.RE
+.TP 7
+\fIxtrace\fP
+.RS
+Equivalent to \fB-x\fP.
+.RE
+.sp
+.TP 7
+\fB-u\fP
+The shell shall write a message to standard error when it tries to
+expand a variable that is not set and immediately exit. An
+interactive shell shall not exit.
+.TP 7
+\fB-v\fP
+The shell shall write its input to standard error as it is read.
+.TP 7
+\fB-x\fP
+The shell shall write to standard error a trace for each command after
+it expands the command and before it executes it. It is
+unspecified whether the command that turns tracing off is traced.
+.sp
+.LP
+The default for all these options shall be off (unset) unless stated
+otherwise in the description of the option or unless the
+shell was invoked with them on; see \fIsh\fP.
+.LP
+The remaining arguments shall be assigned in order to the positional
+parameters. The special parameter \fB'#'\fP shall be set
+to reflect the number of positional parameters. All positional parameters
+shall be unset before any new values are assigned.
+.LP
+The special argument \fB"--"\fP immediately following the \fIset\fP
+command name can be used to delimit the arguments if the
+first argument begins with \fB'+'\fP or \fB'-'\fP , or to prevent
+inadvertent listing of all shell variables when there are
+no arguments. The command \fIset\fP \fB--\fP without \fIargument\fP
+shall unset all positional parameters and set the special
+parameter \fB'#'\fP to zero.
+.SH OPTIONS
+.LP
+See the DESCRIPTION.
+.SH OPERANDS
+.LP
+See the DESCRIPTION.
+.SH STDIN
+.LP
+Not used.
+.SH INPUT FILES
+.LP
+None.
+.SH ENVIRONMENT VARIABLES
+.LP
+None.
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+See the DESCRIPTION.
+.SH STDERR
+.LP
+The standard error shall be used only for diagnostic messages.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+Zero.
+.SH CONSEQUENCES OF ERRORS
+.LP
+Default.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+None.
+.SH EXAMPLES
+.LP
+Write out all variables and their values:
+.sp
+.RS
+.nf
+
+\fBset
+\fP
+.fi
+.RE
+.LP
+Set $1, $2, and $3 and set \fB"$#"\fP to 3:
+.sp
+.RS
+.nf
+
+\fBset c a b
+\fP
+.fi
+.RE
+.LP
+Turn on the \fB-x\fP and \fB-v\fP options:
+.sp
+.RS
+.nf
+
+\fBset -xv
+\fP
+.fi
+.RE
+.LP
+Unset all positional parameters:
+.sp
+.RS
+.nf
+
+\fBset --
+\fP
+.fi
+.RE
+.LP
+Set $1 to the value of \fIx\fP, even if it begins with \fB'-'\fP or
+\fB'+'\fP :
+.sp
+.RS
+.nf
+
+\fBset -- "$x"
+\fP
+.fi
+.RE
+.LP
+Set the positional parameters to the expansion of \fIx\fP, even if
+\fIx\fP expands with a leading \fB'-'\fP or \fB'+'\fP
+:
+.sp
+.RS
+.nf
+
+\fBset -- $x
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+The \fIset\fP -- form is listed specifically in the SYNOPSIS even
+though this usage is implied by the Utility Syntax
+Guidelines. The explanation of this feature removes any ambiguity
+about whether the \fIset\fP -- form might be misinterpreted as
+being equivalent to \fIset\fP without any options or arguments. The
+functionality of this form has been adopted from the
+KornShell. In System V, \fIset\fP -- only unsets parameters if there
+is at least one argument; the only way to unset all
+parameters is to use \fIshift\fP. Using the KornShell version should
+not affect System V
+scripts because there should be no reason to issue it without arguments
+deliberately; if it were issued as, for example:
+.sp
+.RS
+.nf
+
+\fBset -- "$@"
+\fP
+.fi
+.RE
+.LP
+and there were in fact no arguments resulting from \fB"$@"\fP , unsetting
+the parameters would have no result.
+.LP
+The \fIset\fP + form in early proposals was omitted as being an unnecessary
+duplication of \fIset\fP alone and not widespread
+historical practice.
+.LP
+The \fInoclobber\fP option was changed to allow \fIset\fP \fB-C\fP
+as well as the \fIset\fP \fB-o\fP \fInoclobber\fP
+option. The single-letter version was added so that the historical
+\fB"$-"\fP paradigm would not be broken; see \fISpecial Parameters\fP
+\&.
+.LP
+The \fB-h\fP flag is related to command name hashing and is only required
+on XSI-conformant systems.
+.LP
+The following \fIset\fP flags were omitted intentionally with the
+following rationale:
+.TP 7
+\fB-k\fP
+The \fB-k\fP flag was originally added by the author of the Bourne
+shell to make it easier for users of pre-release versions
+of the shell. In early versions of the Bourne shell the construct
+\fIset\fP \fIname\fP= \fIvalue\fP had to be used to assign
+values to shell variables. The problem with \fB-k\fP is that the behavior
+affects parsing, virtually precluding writing any
+compilers. To explain the behavior of \fB-k\fP, it is necessary to
+describe the parsing algorithm, which is
+implementation-defined. For example: 
+.sp
+.RS
+.nf
+
+\fBset -k; echo\fP \fIname\fP\fB=\fP\fIvalue\fP
+.fi
+.RE
+.LP
+and:
+.sp
+.RS
+.nf
+
+\fBset -k
+echo\fP \fIname\fP\fB=\fP\fIvalue\fP
+.fi
+.RE
+.LP
+behave differently. The interaction with functions is even more complex.
+What is more, the \fB-k\fP flag is never needed, since
+the command line could have been reordered.
+.TP 7
+\fB-t\fP
+The \fB-t\fP flag is hard to specify and almost never used. The only
+known use could be done with here-documents. Moreover,
+the behavior with \fIksh\fP and \fIsh\fP differs. The
+reference page says that it exits after reading and executing one
+command. What is one command? If the input is \fIdate\fP;
+\fIdate\fP, \fIsh\fP executes both \fIdate\fP commands
+while \fIksh\fP does only the first.
+.sp
+.LP
+Consideration was given to rewriting \fIset\fP to simplify its confusing
+syntax. A specific suggestion was that the \fIunset\fP utility should
+be used to unset options instead of using the non- \fIgetopt\fP()
+-able + \fIoption\fP syntax. However, the conclusion was reached that
+the
+historical practice of using + \fIoption\fP was satisfactory and that
+there was no compelling reason to modify such widespread
+historical practice.
+.LP
+The \fB-o\fP option was adopted from the KornShell to address user
+needs. In addition to its generally friendly interface,
+\fB-o\fP is needed to provide the \fIvi\fP command line editing mode,
+for which historical
+practice yields no single-letter option name. (Although it might have
+been possible to invent such a letter, it was recognized that
+other editing modes would be developed and \fB-o\fP provides ample
+name space for describing such extensions.)
+.LP
+Historical implementations are inconsistent in the format used for
+\fB-o\fP option status reporting. The \fB+o\fP format
+without an option-argument was added to allow portable access to the
+options that can be saved and then later restored using, for
+instance, a dot script.
+.LP
+Historically, \fIsh\fP did trace the command \fIset\fP \fB+x\fP, but
+\fIksh\fP did not.
+.LP
+The \fIignoreeof\fP setting prevents accidental logouts when the end-of-file
+character (typically <control>-D) is
+entered. A user shall explicitly \fIexit\fP to leave the interactive
+shell.
+.LP
+The \fIset\fP \fB-m\fP option was added to apply only to the UPE because
+it applies primarily to interactive use, not shell
+script applications.
+.LP
+The ability to do asynchronous notification became available in the
+1988 version of the KornShell. To have it occur, the user
+had to issue the command:
+.sp
+.RS
+.nf
+
+\fBtrap "jobs -n" CLD
+\fP
+.fi
+.RE
+.LP
+The C shell provides two different levels of an asynchronous notification
+capability. The environment variable \fInotify\fP is
+analogous to what is done in \fIset\fP \fB-b\fP or \fIset\fP \fB-o\fP
+\fInotify\fP. When set, it notifies the user immediately
+of background job completions. When unset, this capability is turned
+off.
+.LP
+The other notification ability comes through the built-in utility
+\fInotify\fP. The
+syntax is:
+.sp
+.RS
+.nf
+
+\fBnotify\fP \fB[\fP\fB%job ...\fP \fB]\fP
+.fi
+.RE
+.LP
+By issuing \fInotify\fP with no operands, it causes the C shell to
+notify the user
+asynchronously when the state of the current job changes. If given
+operands, \fInotify\fP
+asynchronously informs the user of changes in the states of the specified
+jobs.
+.LP
+To add asynchronous notification to the POSIX shell, neither the KornShell
+extensions to \fItrap\fP, nor the C shell \fInotify\fP environment
+variable
+seemed appropriate ( \fInotify\fP is not a proper POSIX environment
+variable name).
+.LP
+The \fIset\fP \fB-b\fP option was selected as a compromise.
+.LP
+The \fInotify\fP built-in was considered to have more functionality
+than was required
+for simple asynchronous notification.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISpecial Built-In Utilities\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

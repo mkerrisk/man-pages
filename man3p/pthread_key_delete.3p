@@ -1,0 +1,117 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_KEY_DELETE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_key_delete 
+.SH NAME
+pthread_key_delete \- thread-specific data key deletion
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_key_delete(pthread_key_t\fP \fIkey\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_key_delete\fP() function shall delete a thread-specific
+data key previously returned by \fIpthread_key_create\fP(). The thread-specific
+data values associated with \fIkey\fP
+need not be NULL at the time \fIpthread_key_delete\fP() is called.
+It is the responsibility of the application to free any
+application storage or perform any cleanup actions for data structures
+related to the deleted key or associated thread-specific
+data in any threads; this cleanup can be done either before or after
+\fIpthread_key_delete\fP() is called. Any attempt to use
+\fIkey\fP following the call to \fIpthread_key_delete\fP() results
+in undefined behavior.
+.LP
+The \fIpthread_key_delete\fP() function shall be callable from within
+destructor functions. No destructor functions shall be
+invoked by \fIpthread_key_delete\fP(). Any destructor function that
+may have been associated with \fIkey\fP shall no longer be
+called upon thread exit.
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_key_delete\fP() function shall return
+zero; otherwise, an error number shall be returned to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIpthread_key_delete\fP() function may fail if:
+.TP 7
+.B EINVAL
+The \fIkey\fP value is invalid.
+.sp
+.LP
+The \fIpthread_key_delete\fP() function shall not return an error
+code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+A thread-specific data key deletion function has been included in
+order to allow the resources associated with an unused
+thread-specific data key to be freed. Unused thread-specific data
+keys can arise, among other scenarios, when a dynamically loaded
+module that allocated a key is unloaded.
+.LP
+Conforming applications are responsible for performing any cleanup
+actions needed for data structures associated with the key to
+be deleted, including data referenced by thread-specific data values.
+No such cleanup is done by \fIpthread_key_delete\fP(). In
+particular, destructor functions are not called. There are several
+reasons for this division of responsibility:
+.IP " 1." 4
+The associated destructor functions used to free thread-specific data
+at thread exit time are only guaranteed to work correctly
+when called in the thread that allocated the thread-specific data.
+(Destructors themselves may utilize thread-specific data.) Thus,
+they cannot be used to free thread-specific data in other threads
+at key deletion time. Attempting to have them called by other
+threads at key deletion time would require other threads to be asynchronously
+interrupted. But since interrupted threads could be
+in an arbitrary state, including holding locks necessary for the destructor
+to run, this approach would fail. In general, there is
+no safe mechanism whereby an implementation could free thread-specific
+data at key deletion time.
+.LP
+.IP " 2." 4
+Even if there were a means of safely freeing thread-specific data
+associated with keys to be deleted, doing so would require
+that implementations be able to enumerate the threads with non-NULL
+data and potentially keep them from creating more
+thread-specific data while the key deletion is occurring. This special
+case could cause extra synchronization in the normal case,
+which would otherwise be unnecessary.
+.LP
+.LP
+For an application to know that it is safe to delete a key, it has
+to know that all the threads that might potentially ever use
+the key do not attempt to use it again. For example, it could know
+this if all the client threads have called a cleanup procedure
+declaring that they are through with the module that is being shut
+down, perhaps by setting a reference count to zero.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_key_create\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

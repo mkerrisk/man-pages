@@ -1,0 +1,318 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PSELECT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pselect 
+.SH NAME
+pselect, select \- synchronous I/O multiplexing
+.SH SYNOPSIS
+.LP
+\fB#include <sys/select.h>
+.br
+.sp
+int pselect(int\fP \fInfds\fP\fB, fd_set *restrict\fP \fIreadfds\fP\fB,
+.br
+\ \ \ \ \ \  fd_set *restrict\fP \fIwritefds\fP\fB, fd_set *restrict\fP
+\fIerrorfds\fP\fB,
+.br
+\ \ \ \ \ \  const struct timespec *restrict\fP \fItimeout\fP\fB,
+.br
+\ \ \ \ \ \  const sigset_t *restrict\fP \fIsigmask\fP\fB);
+.br
+int select(int\fP \fInfds\fP\fB, fd_set *restrict\fP \fIreadfds\fP\fB,
+.br
+\ \ \ \ \ \  fd_set *restrict\fP \fIwritefds\fP\fB, fd_set *restrict\fP
+\fIerrorfds\fP\fB,
+.br
+\ \ \ \ \ \  struct timeval *restrict\fP \fItimeout\fP\fB);
+.br
+void FD_CLR(int\fP \fIfd\fP\fB, fd_set *\fP\fIfdset\fP\fB);
+.br
+int FD_ISSET(int\fP \fIfd\fP\fB, fd_set *\fP\fIfdset\fP\fB);
+.br
+void FD_SET(int\fP \fIfd\fP\fB, fd_set *\fP\fIfdset\fP\fB);
+.br
+void FD_ZERO(fd_set *\fP\fIfdset\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpselect\fP() function shall examine the file descriptor sets
+whose addresses are passed in the \fIreadfds\fP,
+\fIwritefds\fP, and \fIerrorfds\fP parameters to see whether some
+of their descriptors are ready for reading, are ready for
+writing, or have an exceptional condition pending, respectively.
+.LP
+The \fIselect\fP() function shall be equivalent to the \fIpselect\fP()
+function, except as follows:
+.IP " *" 3
+For the \fIselect\fP() function, the timeout period is given in seconds
+and microseconds in an argument of type \fBstruct
+timeval\fP, whereas for the \fIpselect\fP() function the timeout period
+is given in seconds and nanoseconds in an argument of
+type \fBstruct timespec\fP.
+.LP
+.IP " *" 3
+The \fIselect\fP() function has no \fIsigmask\fP argument; it shall
+behave as \fIpselect\fP() does when \fIsigmask\fP is a
+null pointer.
+.LP
+.IP " *" 3
+Upon successful completion, the \fIselect\fP() function may modify
+the object pointed to by the \fItimeout\fP argument.
+.LP
+.LP
+The \fIpselect\fP() and \fIselect\fP() functions shall support regular
+files, terminal and pseudo-terminal devices,  
+\ STREAMS-based files,  FIFOs, pipes, and sockets. The behavior
+of \fIpselect\fP() and \fIselect\fP() on file descriptors that refer
+to other types of file is unspecified.
+.LP
+The \fInfds\fP argument specifies the range of descriptors to be tested.
+The first \fInfds\fP descriptors shall be checked in
+each set; that is, the descriptors from zero through \fInfds\fP-1
+in the descriptor sets shall be examined.
+.LP
+If the \fIreadfds\fP argument is not a null pointer, it points to
+an object of type \fBfd_set\fP that on input specifies the
+file descriptors to be checked for being ready to read, and on output
+indicates which file descriptors are ready to read.
+.LP
+If the \fIwritefds\fP argument is not a null pointer, it points to
+an object of type \fBfd_set\fP that on input specifies the
+file descriptors to be checked for being ready to write, and on output
+indicates which file descriptors are ready to write.
+.LP
+If the \fIerrorfds\fP argument is not a null pointer, it points to
+an object of type \fBfd_set\fP that on input specifies the
+file descriptors to be checked for error conditions pending, and on
+output indicates which file descriptors have error conditions
+pending.
+.LP
+Upon successful completion, the \fIpselect\fP() or \fIselect\fP()
+function shall modify the objects pointed to by the
+\fIreadfds\fP, \fIwritefds\fP, and \fIerrorfds\fP arguments to indicate
+which file descriptors are ready for reading, ready for
+writing, or have an error condition pending, respectively, and shall
+return the total number of ready descriptors in all the output
+sets. For each file descriptor less than \fInfds\fP, the corresponding
+bit shall be set on successful completion if it was set on
+input and the associated condition is true for that file descriptor.
+.LP
+If none of the selected descriptors are ready for the requested operation,
+the \fIpselect\fP() or \fIselect\fP() function
+shall block until at least one of the requested operations becomes
+ready, until the \fItimeout\fP occurs, or until interrupted by
+a signal. The \fItimeout\fP parameter controls how long the \fIpselect\fP()
+or \fIselect\fP() function shall take before timing
+out. If the \fItimeout\fP parameter is not a null pointer, it specifies
+a maximum interval to wait for the selection to complete.
+If the specified time interval expires without any requested operation
+becoming ready, the function shall return. If the
+\fItimeout\fP parameter is a null pointer, then the call to \fIpselect\fP()
+or \fIselect\fP() shall block indefinitely until at
+least one descriptor meets the specified criteria. To effect a poll,
+the \fItimeout\fP parameter should not be a null pointer, and
+should point to a zero-valued \fBtimespec\fP structure.
+.LP
+The use of a timeout does not affect any pending timers set up by
+\fIalarm\fP(), \fIualarm\fP(), or \fIsetitimer\fP().
+.LP
+Implementations may place limitations on the maximum timeout interval
+supported. All implementations shall support a maximum
+timeout interval of at least 31 days. If the \fItimeout\fP argument
+specifies a timeout interval greater than the
+implementation-defined maximum value, the maximum value shall be used
+as the actual timeout value. Implementations may also place
+limitations on the granularity of timeout intervals. If the requested
+timeout interval requires a finer granularity than the
+implementation supports, the actual timeout interval shall be rounded
+up to the next supported value.
+.LP
+If \fIsigmask\fP is not a null pointer, then the \fIpselect\fP() function
+shall replace the signal mask of the process by the
+set of signals pointed to by \fIsigmask\fP before examining the descriptors,
+and shall restore the signal mask of the process
+before returning.
+.LP
+A descriptor shall be considered ready for reading when a call to
+an input function with O_NONBLOCK clear would not block,
+whether or not the function would transfer data successfully. (The
+function might return data, an end-of-file indication, or an
+error other than one indicating that it is blocked, and in each of
+these cases the descriptor shall be considered ready for
+reading.)
+.LP
+A descriptor shall be considered ready for writing when a call to
+an output function with O_NONBLOCK clear would not block,
+whether or not the function would transfer data successfully.
+.LP
+If a socket has a pending error, it shall be considered to have an
+exceptional condition pending. Otherwise, what constitutes an
+exceptional condition is file type-specific. For a file descriptor
+for use with a socket, it is protocol-specific except as noted
+below. For other file types it is implementation-defined. If the operation
+is meaningless for a particular file type,
+\fIpselect\fP() or \fIselect\fP() shall indicate that the descriptor
+is ready for read or write operations, and shall indicate
+that the descriptor has no exceptional condition pending.
+.LP
+If a descriptor refers to a socket, the implied input function is
+the \fIrecvmsg\fP()
+function with parameters requesting normal and ancillary data, such
+that the presence of either type shall cause the socket to be
+marked as readable. The presence of out-of-band data shall be checked
+if the socket option SO_OOBINLINE has been enabled, as
+out-of-band data is enqueued with normal data. If the socket is currently
+listening, then it shall be marked as readable if an
+incoming connection request has been received, and a call to the \fIaccept\fP()
+function
+shall complete without blocking.
+.LP
+If a descriptor refers to a socket, the implied output function is
+the \fIsendmsg\fP()
+function supplying an amount of normal data equal to the current value
+of the SO_SNDLOWAT option for the socket. If a non-blocking
+call to the \fIconnect\fP() function has been made for a socket, and
+the connection
+attempt has either succeeded or failed leaving a pending error, the
+socket shall be marked as writable.
+.LP
+A socket shall be considered to have an exceptional condition pending
+if a receive operation with O_NONBLOCK clear for the open
+file description and with the MSG_OOB flag set would return out-of-band
+data without blocking. (It is protocol-specific whether the
+MSG_OOB flag would be used to read out-of-band data.) A socket shall
+also be considered to have an exceptional condition pending if
+an out-of-band data mark is present in the receive queue. Other circumstances
+under which a socket may be considered to have an
+exceptional condition pending are protocol-specific and implementation-defined.
+.LP
+If the \fIreadfds\fP, \fIwritefds\fP, and \fIerrorfds\fP arguments
+are all null pointers and the \fItimeout\fP argument is
+not a null pointer, the \fIpselect\fP() or \fIselect\fP() function
+shall block for the time specified, or until interrupted by a
+signal. If the \fIreadfds\fP, \fIwritefds\fP, and \fIerrorfds\fP arguments
+are all null pointers and the \fItimeout\fP argument
+is a null pointer, the \fIpselect\fP() or \fIselect\fP() function
+shall block until interrupted by a signal.
+.LP
+File descriptors associated with regular files shall always select
+true for ready to read, ready to write, and error
+conditions.
+.LP
+On failure, the objects pointed to by the \fIreadfds\fP, \fIwritefds\fP,
+and \fIerrorfds\fP arguments shall not be modified.
+If the timeout interval expires without the specified condition being
+true for any of the specified file descriptors, the objects
+pointed to by the \fIreadfds\fP, \fIwritefds\fP, and \fIerrorfds\fP
+arguments shall have all bits set to 0.
+.LP
+File descriptor masks of type \fBfd_set\fP can be initialized and
+tested with \fIFD_CLR\fP(), \fIFD_ISSET\fP(),
+\fIFD_SET\fP(), and \fIFD_ZERO\fP(). It is unspecified whether each
+of these is a macro or a function. If a macro definition is
+suppressed in order to access an actual function, or a program defines
+an external identifier with any of these names, the behavior
+is undefined.
+.LP
+\fIFD_CLR\fP(\fIfd\fP, \fIfdsetp\fP) shall remove the file descriptor
+\fIfd\fP from the set pointed to by \fIfdsetp\fP. If
+\fIfd\fP is not a member of this set, there shall be no effect on
+the set, nor will an error be returned.
+.LP
+\fIFD_ISSET\fP(\fIfd\fP, \fIfdsetp\fP) shall evaluate to non-zero
+if the file descriptor \fIfd\fP is a member of the set
+pointed to by \fIfdsetp\fP, and shall evaluate to zero otherwise.
+.LP
+\fIFD_SET\fP(\fIfd\fP, \fIfdsetp\fP) shall add the file descriptor
+\fIfd\fP to the set pointed to by \fIfdsetp\fP. If the
+file descriptor \fIfd\fP is already in this set, there shall be no
+effect on the set, nor will an error be returned.
+.LP
+\fIFD_ZERO\fP(\fIfdsetp\fP) shall initialize the descriptor set pointed
+to by \fIfdsetp\fP to the null set. No error is
+returned if the set is not empty at the time \fIFD_ZERO\fP() is invoked.
+.LP
+The behavior of these macros is undefined if the \fIfd\fP argument
+is less than 0 or greater than or equal to FD_SETSIZE, or if
+\fIfd\fP is not a valid file descriptor, or if any of the arguments
+are expressions with side effects.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIpselect\fP() and \fIselect\fP()
+functions shall return the total number of bits set in the
+bit masks. Otherwise, -1 shall be returned, and \fIerrno\fP shall
+be set to indicate the error.
+.LP
+\fIFD_CLR\fP(), \fIFD_SET\fP(), and \fIFD_ZERO\fP() do not return
+a value. \fIFD_ISSET\fP() shall return a non-zero value if
+the bit for the file descriptor \fIfd\fP is set in the file descriptor
+set pointed to by \fIfdset\fP, and 0 otherwise.
+.SH ERRORS
+.LP
+Under the following conditions, \fIpselect\fP() and \fIselect\fP()
+shall fail and set \fIerrno\fP to:
+.TP 7
+.B EBADF
+One or more of the file descriptor sets specified a file descriptor
+that is not a valid open file descriptor.
+.TP 7
+.B EINTR
+The function was interrupted before any of the selected events occurred
+and before the timeout interval expired. 
+.LP
+If SA_RESTART has been set for the interrupting signal, it is implementation-defined
+whether the function restarts or returns with
+[EINTR]. 
+.TP 7
+.B EINVAL
+An invalid timeout interval was specified.
+.TP 7
+.B EINVAL
+The \fInfds\fP argument is less than 0 or greater than FD_SETSIZE.
+.TP 7
+.B EINVAL
+One of the specified file descriptors refers to a STREAM or multiplexer
+that is linked (directly or indirectly) downstream from a
+multiplexer. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+In previous versions of the Single UNIX Specification, the \fIselect\fP()
+function was defined in the \fI<sys/time.h>\fP header. This is now
+changed to \fI<sys/select.h>\fP. The rationale for this change was
+as follows: the introduction of
+the \fIpselect\fP() function included the \fI<sys/select.h>\fP header
+and the
+\fI<sys/select.h>\fP header defines all the related definitions for
+the
+\fIpselect\fP() and \fIselect\fP() functions. Backwards-compatibility
+to existing XSI implementations is handled by allowing \fI<sys/time.h>\fP
+to include \fI<sys/select.h>\fP.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIaccept\fP() , \fIalarm\fP() , \fIconnect\fP() , \fIfcntl\fP() ,
+\fIpoll\fP() , \fIread\fP() , \fIrecvmsg\fP() , \fIsendmsg\fP() ,
+\fIsetitimer\fP() , \fIualarm\fP() , \fIwrite\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/select.h>\fP,
+\fI<sys/time.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

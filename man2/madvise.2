@@ -1,0 +1,154 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2001 David Gómez <davidge@jazzfree.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Based on comments from mm/filemap.c. Last modified on 10-06-2001
+.\" Modified, 25 Feb 2002, Michael Kerrisk, <mtk16@ext.canterbury.ac.nz>
+.\"	Added notes on MADV_DONTNEED
+.\"
+.TH MADVISE 2 2001-06-10 "Linux 2.4.5" "Linux Programmer's Manual"
+.SH NAME
+madvise \- give advice about use of memory
+.SH SYNOPSIS
+.br
+.B #include <sys/mman.h>
+.sp
+.BI "int madvise(void *" start ", size_t " length ", int " advice );
+.SH DESCRIPTION
+The
+.B madvise
+system call advises the kernel about how to handle paging input/output in
+the address range beginning at address
+.I start
+and with size
+.I length
+bytes. It allows an application to tell the kernel how it expects to use
+some mapped or shared memory areas, so that the kernel can choose
+appropriate read-ahead and caching techniques.
+This call does not influence the semantics of the application 
+(except in the case of
+.BR MADV_DONTNEED ),
+but
+may influence its performance. The kernel is free to ignore the advice.
+.LP
+The advice is indicated in the 
+.I advice
+parameter which can be
+.TP
+.B MADV_NORMAL
+No special treatment. This is the default.
+.TP
+.B MADV_RANDOM
+Expect page references in random order.
+(Hence, read ahead may be less useful than normally.)
+.TP
+.B MADV_SEQUENTIAL
+Expect page references in sequential order.
+(Hence, pages in the given range can be aggressively read ahead,
+and may be freed soon after they are accessed.)
+.TP
+.B MADV_WILLNEED
+Expect access in the near future.
+(Hence, it might be a good idea to read some pages ahead.)
+.TP
+.B MADV_DONTNEED
+Do not expect access in the near future.
+(For the time being, the application is finished with the given range,
+so the kernel can free resources associated with it.)
+Subsequent accesses of pages in this range will succeed, but will result
+either in re-loading of the memory contents from the underlying mapped file
+(see \fBmmap\fP) or zero-fill-on-demand pages for mappings
+without an underlying file.
+.SH "RETURN VALUE"
+On success 
+.B madvise
+returns zero. On error, it returns \-1 and
+.I errno
+is set appropiately.
+.SH ERRORS
+.TP
+.B EAGAIN
+A kernel resource was temporarily unavailable.
+.TP
+.B EBADF
+The map exists, but the area maps something that isn't a file.
+.TP
+.B EINVAL
+The value 
+.IR len
+is negative,
+.\" .I len
+.\" is zero,
+.I start
+is not page-aligned,
+.I advice 
+is not a valid value, or the application is attempting
+to release locked or shared pages (with MADV_DONTNEED).
+.TP
+.B EIO
+(for MADV_WILLNEED) Paging in this area would exceed the process's
+maximum resident set size.
+.TP
+.B ENOMEM
+(for MADV_WILLNEED) Not enough memory - paging in failed.
+.TP
+.B ENOMEM
+Addresses in the specified range are not currently
+mapped, or are outside the address space of the process.
+.SH "LINUX NOTES"
+.LP
+The current Linux implementation (2.4.0) views this system call
+more as a command than as advice and hence may return an error
+when it cannot do what it usually would do in response to this
+advice. (See the ERRORS description above.)
+This is nonstandard behaviour.
+.LP
+The Linux implementation requires that the address
+.I start
+be page-aligned, and allows
+.I length
+to be zero. If there are some parts of the specified address range
+that are not mapped, the Linux version of
+.B madvise
+ignores them and applies the call to the rest (but returns 
+.B ENOMEM
+from the system call, as it should).
+.SH HISTORY
+The
+.B madvise
+function first appeared in 4.4BSD.
+.SH "CONFORMING TO"
+POSIX.1b (POSIX.4).
+POSIX 1003.1-2001 describes
+.B posix_madvise
+with constants POSIX_MADV_NORMAL, etc.,
+with a behaviour close to that described here. There is a similar
+.I posix_fadvise
+for file access.
+.SH "SEE ALSO"
+.BR getrlimit (2),
+.BR mincore (2),
+.BR mmap (2),
+.BR mprotect (2),
+.BR msync (2),
+.BR munmap (2)

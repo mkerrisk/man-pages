@@ -1,0 +1,193 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETNAMEINFO" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getnameinfo 
+.SH NAME
+getnameinfo \- get name information
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+#include <netdb.h>
+.br
+.sp
+int getnameinfo(const struct sockaddr *restrict\fP \fIsa\fP\fB, socklen_t\fP
+\fIsalen\fP\fB,
+.br
+\ \ \ \ \ \  char *restrict\fP \fInode\fP\fB, socklen_t\fP \fInodelen\fP\fB,
+char *restrict\fP
+\fIservice\fP\fB,
+.br
+\ \ \ \ \ \  socklen_t\fP \fIservicelen\fP\fB, int\fP \fIflags\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetnameinfo\fP() function shall translate a socket address
+to a node name and service location, all of which are defined
+as in \fIgetaddrinfo\fP() .
+.LP
+The \fIsa\fP argument points to a socket address structure to be translated.
+.LP
+If the socket address structure contains an IPv4-mapped IPv6 address
+or an IPv4-compatible IPv6 address, the implementation shall
+extract the embedded IPv4 address and lookup the node name for that
+IPv4 address.  
+.TP 7
+\fBNote:\fP
+The IPv6 unspecified address ( \fB"::"\fP ) and the IPv6 loopback
+address ( \fB"::1"\fP ) are not IPv4-compatible
+addresses. If the address is the IPv6 unspecified address ( \fB"::"\fP
+), a lookup is not performed, and the [EAI_NONAME] error
+is returned.
+.sp
+.LP
+If the \fInode\fP argument is non-NULL and the \fInodelen\fP argument
+is non-zero, then the \fInode\fP argument points to a
+buffer able to contain up to \fInodelen\fP characters that receives
+the node name as a null-terminated string. If the \fInode\fP
+argument is NULL or the \fInodelen\fP argument is zero, the node name
+shall not be returned. If the node's name cannot be located,
+the numeric form of the address contained in the socket address structure
+pointed to by the \fIsa\fP argument is returned instead
+of its name.
+.LP
+If the \fIservice\fP argument is non-NULL and the \fIservicelen\fP
+argument is non-zero, then the \fIservice\fP argument
+points to a buffer able to contain up to \fIservicelen\fP bytes that
+receives the service name as a null-terminated string. If the
+\fIservice\fP argument is NULL or the \fIservicelen\fP argument is
+zero, the service name shall not be returned. If the service's
+name cannot be located, the numeric form of the service address (for
+example, its port number) shall be returned instead of its
+name.
+.LP
+The \fIflags\fP argument is a flag that changes the default actions
+of the function. By default the fully-qualified domain name
+(FQDN) for the host shall be returned, but:
+.IP " *" 3
+If the flag bit NI_NOFQDN is set, only the node name portion of the
+FQDN shall be returned for local hosts.
+.LP
+.IP " *" 3
+If the flag bit NI_NUMERICHOST is set, the numeric form of the address
+contained in the socket address structure pointed to by
+the \fIsa\fP argument shall be returned instead of its name, under
+all circumstances.
+.LP
+.IP " *" 3
+If the flag bit NI_NAMEREQD is set, an error shall be returned if
+the host's name cannot be located.
+.LP
+.IP " *" 3
+If the flag bit NI_NUMERICSERV is set, the numeric form of the service
+address shall be returned (for example, its port number)
+instead of its name, under all circumstances.
+.LP
+.IP " *" 3
+If the flag bit NI_NUMERICSCOPE is set, the numeric form of the scope
+identifier shall be returned (for example, interface
+index) instead of its name. This flag shall be ignored if the \fIsa\fP
+argument is not an IPv6 address.
+.LP
+.IP " *" 3
+If the flag bit NI_DGRAM is set, this indicates that the service is
+a datagram service (SOCK_DGRAM). The default behavior shall
+assume that the service is a stream service (SOCK_STREAM).
+.LP
+.TP 7
+\fBNotes:\fP
+.RS
+.IP " 1." 4
+The two NI_NUMERICxxx flags are required to support the \fB-n\fP flag
+that many commands provide.
+.LP
+.IP " 2." 4
+The NI_DGRAM flag is required for the few AF_INET and AF_INET6 port
+numbers (for example, [512,514]) that represent different
+services for UDP and TCP.
+.LP
+.RE
+.sp
+.LP
+The \fIgetnameinfo\fP() function shall be thread-safe.
+.SH RETURN VALUE
+.LP
+A zero return value for \fIgetnameinfo\fP() indicates successful completion;
+a non-zero return value indicates failure. The
+possible values for the failures are listed in the ERRORS section.
+.LP
+Upon successful completion, \fIgetnameinfo\fP() shall return the \fInode\fP
+and \fIservice\fP names, if requested, in the
+buffers provided. The returned names are always null-terminated strings.
+.SH ERRORS
+.LP
+The \fIgetnameinfo\fP() function shall fail and return the corresponding
+value if:
+.TP 7
+.B EAI_AGAIN
+The name could not be resolved at this time. Future attempts may succeed.
+.TP 7
+.B EAI_BADFLAGS
+.sp
+The \fIflags\fP had an invalid value.
+.TP 7
+.B EAI_FAIL
+A non-recoverable error occurred.
+.TP 7
+.B EAI_FAMILY
+The address family was not recognized or the address length was invalid
+for the specified family.
+.TP 7
+.B EAI_MEMORY
+There was a memory allocation failure.
+.TP 7
+.B EAI_NONAME
+The name does not resolve for the supplied parameters. 
+.LP
+NI_NAMEREQD is set and the host's name cannot be located, or both
+\fInodename\fP and \fIservname\fP were null.
+.TP 7
+.B EAI_OVERFLOW
+.sp
+An argument buffer overflowed. The buffer pointed to by the \fInode\fP
+argument or the \fIservice\fP argument was too small.
+.TP 7
+.B EAI_SYSTEM
+A system error occurred. The error code can be found in \fIerrno\fP.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If the returned values are to be used as part of any further name
+resolution (for example, passed to \fIgetaddrinfo\fP()), applications
+should provide buffers large enough to store any result
+possible on the system.
+.LP
+Given the IPv4-mapped IPv6 address \fB"::ffff:1.2.3.4"\fP , the implementation
+performs a lookup as if the socket address
+structure contains the IPv4 address \fB"1.2.3.4"\fP .
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgai_strerror\fP() , \fIgetaddrinfo\fP() , \fIgetservbyname\fP()
+, \fIinet_ntop\fP() , \fIsocket\fP() , the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, \fI<netdb.h>\fP, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

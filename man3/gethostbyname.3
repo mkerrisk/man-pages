@@ -1,0 +1,328 @@
+.\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References consulted:
+.\"     Linux libc source code
+.\"     Lewine's _POSIX Programmer's Guide_ (O'Reilly & Associates, 1991)
+.\"     386BSD man pages
+.\" Modified 1993-05-22, David Metcalfe
+.\" Modified 1993-07-25, Rik Faith (faith@cs.unc.edu)
+.\" Modified 1997-02-16, Andries Brouwer (aeb@cwi.nl)
+.\" Modified 1998-12-21, Andries Brouwer (aeb@cwi.nl)
+.\" Modified 2000-08-12, Andries Brouwer (aeb@cwi.nl)
+.\" Modified 2001-05-19, Andries Brouwer (aeb@cwi.nl)
+.\" Modified 2002-08-05, Michael Kerrisk
+.\" Modified 2004-10-31, Andries Brouwer
+.\"
+.TH GETHOSTBYNAME 3 2004-10-31 "" "Linux Programmer's Manual"
+.SH NAME
+gethostbyname, gethostbyaddr, sethostent, gethostend, endhostent,
+herror, hstrerror \- get network host entry
+.SH SYNOPSIS
+.nf
+.B #include <netdb.h>
+.B extern int h_errno;
+.sp
+.BI "struct hostent *gethostbyname(const char *" name );
+.sp
+.BR "#include <sys/socket.h>" "       /* for AF_INET */"
+.BI "struct hostent *"
+.br
+.BI "gethostbyaddr(const void *" addr ", int " len ", int " type );
+.sp
+.BI "void sethostent(int " stayopen );
+.sp
+.B void endhostent(void);
+.sp
+.BI "void herror(const char *" s );
+.sp
+.BI "const char *hstrerror(int " err );
+.sp 2
+/* SYSV/POSIX extension */
+.br
+.B struct hostent *gethostent(void);
+.sp 2
+/* GNU extensions */
+.br
+.BI "struct hostent *gethostbyname2(const char *" name ", int " af );
+.sp
+.BI "int gethostent_r("
+.BI "  struct hostent *" ret ", char *" buf ", size_t " buflen ,
+.BI "  struct hostent **" result ", int *" h_errnop );
+.sp
+.BI "int gethostbyname_r(const char *" name ,
+.BI "  struct hostent *" ret ", char *" buf ", size_t " buflen ,
+.BI "  struct hostent **" result ", int *" h_errnop );
+.sp
+.BI "int gethostbyname2_r(const char *" name ", int " af,
+.BI "  struct hostent *" ret ", char *" buf ", size_t " buflen ,
+.BI "  struct hostent **" result ", int *" h_errnop );
+.fi
+.SH DESCRIPTION
+The
+.BR gethostbyname ()
+function returns a structure of type
+.I hostent
+for the given host
+.IR name .
+Here
+.I name
+is either a host name, or an IPv4 address in standard dot notation,
+or an IPv6 address in colon (and possibly dot) notation.
+(See RFC 1884 for the description of IPv6 addresses.)
+If
+.I name
+is an IPv4 or IPv6 address, no lookup is performed and
+.BR gethostbyname ()
+simply copies
+.I name
+into the
+.I h_name
+field and its
+.I struct in_addr
+equivalent into the
+.I h_addr_list[0]
+field of the returned
+.I hostent
+structure.
+If
+.I name
+doesn't end in a dot and the environment variable
+.B HOSTALIASES
+is set, the alias file pointed to by
+.B HOSTALIASES
+will first be searched for
+.I name
+(see
+.BR hostname (7)
+for the file format).
+The current domain and its parents are searched unless \fIname\fP
+ends in a dot.
+.PP
+The \fBgethostbyaddr()\fP function returns a structure of type \fIhostent\fP
+for the given host address \fIaddr\fP of length \fIlen\fP and address type
+\fItype\fP.  Valid address types are
+.B AF_INET
+and
+.BR AF_INET6 .
+The host address argument is a pointer to a struct of a type depending
+on the address type, for example a \fBstruct in_addr *\fP (probably
+obtained via a call to \fIinet_addr()\fP) for address type AF_INET.
+.PP
+The \fBsethostent()\fP function specifies, if \fIstayopen\fP is true (1), 
+that a connected TCP socket should be used for the name server queries and 
+that the connection should remain open during successive queries.  Otherwise, 
+name server queries will use UDP datagrams.
+.PP
+The \fBendhostent()\fP function ends the use of a TCP connection for name
+server queries.
+.PP
+The (obsolete) \fBherror()\fP function prints the error message associated
+with the current value of \fIh_errno\fP on stderr.
+.PP
+The (obsolete) \fBhstrerror()\fP function takes an error number
+(typically \fIh_errno\fP) and returns the corresponding message string.
+.PP
+The domain name queries carried out by \fBgethostbyname()\fP and
+\fBgethostbyaddr()\fP use a combination of any or all of the name server
+.BR named (8),
+a broken out line from \fI/etc/hosts\fP, and the Network
+Information Service (NIS or YP), depending upon the contents of the
+\fIorder\fP line in
+.IR /etc/host.conf .
+(See
+.BR resolv+ (8)).
+The default action is to query
+.BR named (8),
+followed by
+.IR /etc/hosts .
+.PP
+The \fIhostent\fP structure is defined in \fI<netdb.h>\fP as follows:
+.sp
+.RS
+.nf
+.ne 7
+.ta 8n 16n 32n
+struct hostent {
+	char	*h_name;		/* official name of host */
+	char	**h_aliases;		/* alias list */
+	int	h_addrtype;		/* host address type */
+	int	h_length;		/* length of address */
+	char	**h_addr_list;		/* list of addresses */
+}
+#define h_addr	h_addr_list[0]		/* for backward compatibility */
+.ta
+.fi
+.RE
+.PP
+The members of the \fIhostent\fP structure are:
+.TP
+.I h_name
+The official name of the host.
+.TP
+.I h_aliases
+A zero-terminated array of alternative names for the host.
+.TP
+.I h_addrtype
+The type of address; always
+.B AF_INET
+or
+.B AF_INET6
+at present.
+.TP
+.I h_length
+The length of the address in bytes.
+.TP
+.I h_addr_list
+A zero-terminated array of network addresses for the host in network byte
+order.
+.TP
+.I h_addr
+The first address in \fIh_addr_list\fP for backward compatibility.
+.SH "RETURN VALUE"
+The
+.BR gethostbyname ()
+and
+.BR gethostbyaddr()
+functions return the
+.I hostent
+structure or a NULL pointer if an error occurs.  On error, the
+.I h_errno
+variable holds an error number.
+When non-NULL, the return value may point at static data, see the notes below.
+.SH ERRORS
+The variable \fIh_errno\fP can have the following values:
+.TP
+.B HOST_NOT_FOUND
+The specified host is unknown.
+.TP
+.BR NO_ADDRESS " or " NO_DATA
+The requested name is valid but does not have an IP address.
+.TP
+.B NO_RECOVERY
+A non-recoverable name server error occurred.
+.TP
+.B TRY_AGAIN
+A temporary error occurred on an authoritative name server.  Try again
+later.
+.SH FILES
+.TP
+.I /etc/host.conf
+resolver configuration file
+.TP
+.I /etc/hosts
+host database file
+.SH "CONFORMING TO"
+BSD 4.3.
+.SH "SYSV/POSIX EXTENSION"
+POSIX requires the
+.BR gethostent ()
+call, that should return the next entry in the host data base.
+When using DNS/BIND this does not make much sense, but it may
+be reasonable if the host data base is a file that can be read
+line by line. On many systems a routine of this name reads
+from the file
+.IR /etc/hosts .
+.\" e.g. Linux, FreeBSD, Unixware, HP-UX
+It may be available only when the library was built without DNS support.
+.\" e.g. FreeBSD, AIX
+The glibc version will ignore ipv6 entries. This function is not reentrant,
+and glibc adds a reentrant version
+.BR gethostent_r ().
+.SH "GNU EXTENSIONS"
+Glibc2 also has a
+.B gethostbyname2()
+that works like
+.BR gethostbyname() ,
+but permits to specify the address family to which the address must belong.
+.LP
+Glibc2 also has reentrant versions
+.B gethostbyname_r()
+and
+.BR gethostbyname2_r() .
+These return 0 on success and nonzero on error. The result of the call
+is now stored in the struct with address
+.IR ret .
+After the call,
+.RI * result
+will be NULL on error or point to the result on success.
+Auxiliary data is stored in the buffer
+.I buf
+of length
+.IR buflen .
+(If the buffer is too small, these functions will return
+.BR ERANGE .)
+No global variable
+.I h_errno
+is modified, but the address of a variable in which to store error numbers
+is passed in
+.IR h_errnop .
+.SH NOTES
+The functions
+.BR gethostbyname ()
+and
+.BR gethostbyaddr ()
+may return pointers to static data, which may be overwritten by
+later calls. Copying the
+.I struct hostent
+does not suffice, since it contains pointers - a deep copy is required.
+.LP
+The SUS-v2 standard is buggy and declares the
+.I len
+parameter of
+.B gethostbyaddr()
+to be of type
+.IR size_t .
+(That is wrong, because it has to be
+.IR int ,
+and
+.I size_t
+is not. POSIX 1003.1-2001 makes it
+.IR socklen_t ,
+which is OK.)
+.LP
+The BSD prototype for
+.B gethostbyaddr()
+uses
+.I const char *
+for the first argument.
+.LP
+POSIX 1003.1-2001 marks
+.B gethostbyaddr()
+and
+.B gethostbyname()
+obsolescent. See
+.BR getaddrinfo (3),
+.BR getnameinfo (3),
+.BR gai_strerror (3).
+.SH "SEE ALSO"
+.BR getaddrinfo (3),
+.BR getipnodebyaddr (3),
+.BR getipnodebyname (3),
+.BR getnameinfo (3),
+.BR inet_ntop (3),
+.BR inet_pton (3),
+.BR resolver (3),
+.BR hosts (5),
+.BR hostname (7),
+.BR named (8),
+.BR resolv+ (8)

@@ -1,0 +1,226 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "STAT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" stat 
+.SH NAME
+stat \- get file status
+.SH SYNOPSIS
+.LP
+\fB#include <sys/stat.h>
+.br
+.sp
+int stat(const char *restrict\fP \fIpath\fP\fB, struct stat *restrict\fP
+\fIbuf\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIstat\fP() function shall obtain information about the named
+file and write it to the area pointed to by the \fIbuf\fP
+argument. The \fIpath\fP argument points to a pathname naming a file.
+Read, write, or execute permission of the named file is not
+required. An implementation that provides additional or alternate
+file access control mechanisms may, under implementation-defined
+conditions, cause \fIstat\fP() to fail. In particular, the system
+may deny the existence of the file specified by \fIpath\fP.
+.LP
+If the named file is a symbolic link, the \fIstat\fP() function shall
+continue pathname resolution using the contents of the
+symbolic link, and shall return information pertaining to the resulting
+file if the file exists.
+.LP
+The \fIbuf\fP argument is a pointer to a \fBstat\fP structure, as
+defined in the \fI<sys/stat.h>\fP header, into which information is
+placed concerning the file.
+.LP
+The \fIstat\fP() function shall update any time-related fields (as
+described in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 4.7, File Times Update), before writing
+into the \fBstat\fP structure.
+.LP
+Unless otherwise specified, the structure members \fIst_mode\fP, \fIst_ino\fP,
+\fIst_dev\fP, \fIst_uid\fP, \fIst_gid\fP,
+\fIst_atime\fP, \fIst_ctime\fP, and \fIst_mtime\fP shall have meaningful
+values for all file types defined in this volume of
+IEEE\ Std\ 1003.1-2001. The value of the member \fIst_nlink\fP shall
+be set to the number of links to the file.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIstat\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied for a component of the path prefix.
+.TP 7
+.B EIO
+An error occurred while reading from the file system.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B EOVERFLOW
+The file size in bytes or the number of blocks allocated to the file
+or the file serial number cannot be represented correctly
+in the structure pointed to by \fIbuf\fP.
+.sp
+.LP
+The \fIstat\fP() function may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.TP 7
+.B EOVERFLOW
+A value to be stored would overflow one of the members of the \fBstat\fP
+structure.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Obtaining File Status Information
+.LP
+The following example shows how to obtain file status information
+for a file named \fB/home/cnd/mod1\fP. The structure variable
+\fIbuffer\fP is defined for the \fBstat\fP structure.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+.sp
+
+struct stat buffer;
+int         status;
+\&...
+status = stat("/home/cnd/mod1", &buffer);
+\fP
+.fi
+.RE
+.SS Getting Directory Information
+.LP
+The following example fragment gets status information for each entry
+in a directory. The call to the \fIstat\fP() function
+stores file information in the \fBstat\fP structure pointed to by
+\fIstatbuf\fP. The lines that follow the \fIstat\fP() call
+format the fields in the \fBstat\fP structure for presentation to
+the user of the program.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <pwd.h>
+#include <grp.h>
+#include <time.h>
+#include <locale.h>
+#include <langinfo.h>
+#include <stdio.h>
+#include <stdint.h>
+.sp
+
+struct dirent  *dp;
+struct stat     statbuf;
+struct passwd  *pwd;
+struct group   *grp;
+struct tm      *tm;
+char            datestring[256];
+\&...
+/* Loop through directory entries. */
+while ((dp = readdir(dir)) != NULL) {
+.sp
+
+    /* Get entry's information. */
+    if (stat(dp->d_name, &statbuf) == -1)
+        continue;
+.sp
+
+    /* Print out type, permissions, and number of links. */
+    printf("%10.10s", sperm (statbuf.st_mode));
+    printf("%4d", statbuf.st_nlink);
+.sp
+
+    /* Print out owner's name if it is found using getpwuid(). */
+    if ((pwd = getpwuid(statbuf.st_uid)) != NULL)
+        printf(" %-8.8s", pwd->pw_name);
+    else
+        printf(" %-8d", statbuf.st_uid);
+.sp
+
+    /* Print out group name if it is found using getgrgid(). */
+    if ((grp = getgrgid(statbuf.st_gid)) != NULL)
+        printf(" %-8.8s", grp->gr_name);
+    else
+        printf(" %-8d", statbuf.st_gid);
+.sp
+
+    /* Print size of file. */
+    printf(" %9jd", (intmax_t)statbuf.st_size);
+.sp
+
+    tm = localtime(&statbuf.st_mtime);
+.sp
+
+    /* Get localized date string. */
+    strftime(datestring, sizeof(datestring), nl_langinfo(D_T_FMT), tm);
+.sp
+
+    printf(" %s %s\\n", datestring, dp->d_name);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The intent of the paragraph describing "additional or alternate file
+access control mechanisms" is to allow a secure
+implementation where a process with a label that does not dominate
+the file's label cannot perform a \fIstat\fP() function. This
+is not related to read permission; a process with a label that dominates
+the file's label does not need read permission. An
+implementation that supports write-up operations could fail \fIfstat\fP()
+function calls
+even though it has a valid file descriptor open for writing.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfstat\fP() , \fIlstat\fP() , \fIreadlink\fP() , \fIsymlink\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/stat.h>\fP, \fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

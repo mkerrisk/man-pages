@@ -1,0 +1,161 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified by Michael Haardt <michael@moria.de>
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-06-10 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified 2004-06-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 2004-10-10 by Andries Brouwer <aeb@cwi.nl>
+.\"
+.TH UTIME 2 2004-10-10 "Linux 2.6.8" "Linux Programmer's Manual"
+.SH NAME
+utime, utimes \- change access and/or modification times of an inode
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.br
+.B #include <utime.h>
+.sp
+.BI "int utime(const char *" filename ", const struct utimbuf *" buf );
+.sp 2
+.B #include <sys/time.h>
+.sp
+.BI "int utimes(const char *" filename ", const struct timeval " tv [2]);
+.fi
+.SH DESCRIPTION
+.B utime
+changes the access and modification times of the inode specified by
+.I filename
+to the
+.IR actime " and " modtime
+fields of 
+.I buf
+respectively.
+
+If
+.I buf
+is NULL, then the access and modification times of the file are set
+to the current time.
+
+Changing time stamps is permitted when: either
+the process has appropriate privileges (Linux: has the
+.B CAP_FOWNER
+capability), or the effective user ID equals the user ID
+of the file, or
+.I buf
+must is NULL and the process has write permission to the file.
+
+The
+.I utimbuf
+structure is:
+
+.RS
+.nf
+struct utimbuf {
+        time_t actime;  /* access time */
+        time_t modtime; /* modification time */
+};
+.fi
+.RE
+
+The function
+.B utime
+allows specification of time stamps with a resolution of 1 second.
+The function
+.B utimes
+is similar, but allows a resolution of 1 microsecond.
+Here
+.IR tv [0]
+refers to access time, and
+.IR tv [1]
+to modification time.
+
+The
+.I timeval
+structure is:
+
+.RS
+.nf
+struct timeval {
+        long    tv_sec;         /* seconds */
+        long    tv_usec;        /* microseconds */
+};
+.fi
+.RE
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EACCES
+Search permission is denied for one of the directories in
+the path prefix of
+.I path
+(see also
+.BR path_resolution (2)),
+or
+.I buf
+is NULL and the process does not have permission to change the time stamps
+(see above).
+.TP
+.B ENOENT
+.I filename
+does not exist.
+.TP
+.B EPERM
+.I buf
+is not NULL and the process does not have permission to change the time stamps.
+.TP
+.B EROFS
+.I path
+resides on a read-only file system.
+.SH NOTES
+Linux does not allow changing the time stamps on an immutable file,
+or setting the time stamps to something other than the current time
+on an append-only file.
+
+In libc4 and libc5,
+.B utimes
+is just a wrapper for
+.B utime
+and hence does not allow a subsecond resolution.
+
+POSIX calls
+.B utimes
+legacy.
+.SH BUGS
+Linux is not careful to distinguish between the EACCES and EPERM error returns.
+On the other hand, POSIX 1003.1-2003 is buggy in its error description for
+.BR utimes .
+.SH "CONFORMING TO"
+.BR utime :
+SVr4, SVID, POSIX.  SVr4 documents additional error conditions EFAULT,
+EINTR, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOLINK, ENOTDIR.
+.br
+.BR utimes :
+BSD 4.3
+.SH "SEE ALSO"
+.BR chattr (1),
+.BR stat (2)

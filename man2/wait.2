@@ -1,0 +1,265 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\"
+.\" Modified Sat Jul 24 13:30:06 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified Sun Aug 21 17:42:42 1994 by Rik Faith <faith@cs.unc.edu>
+.\"          (Thanks to Koen Holtman <koen@win.tue.nl>)
+.\" Modified Wed May 17 15:54:12 1995 by Rik Faith <faith@cs.unc.edu>
+.\"           To remove *'s from status in macros (Thanks to Michael Shields).
+.\" Modified as suggested by Nick Duffek <nsd@bbc.com>, aeb, 960426
+.\" Modified Mon Jun 23 14:09:52 1997 by aeb - add EINTR.
+.\" Modified Thu Nov 26 02:12:45 1998 by aeb - add SIGCHLD stuff.
+.\" Modified Mon Jul 24 21:37:38 2000 by David A. Wheeler
+.\"          <dwheeler@dwheeler.com> - noted thread issues.
+.\" Modified 26 Jun 01 by Michael Kerrisk
+.\"          Added __WCLONE, __WALL, and __WNOTHREAD descriptions
+.\" Modified 2001-09-25, aeb
+.\" Modified 26 Jun 01 by Michael Kerrisk, <mtk16@ext.canterbury.ac.nz>
+.\"	Updated notes on setting disposition of SIGCHLD to SIG_IGN
+.\"
+.TH WAIT 2  2000-07-24 "Linux" "Linux Programmer's Manual"
+.SH NAME
+wait, waitpid \- wait for process termination
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <sys/wait.h>
+.sp
+.BI "pid_t wait(int *" "status" );
+.br
+.BI "pid_t waitpid(pid_t " pid ", int *" status ", int " options );
+.SH DESCRIPTION
+The
+.B wait
+function suspends execution of the current process until a child has
+exited, or until a signal is delivered whose action is to terminate
+the current process or to call a signal handling function.  If a child
+has already exited by the time of the call (a so\-called "zombie"
+process), the function returns immediately.  Any system resources used
+by the child are freed.
+
+The
+.B waitpid
+function suspends execution of the current process until a
+child as specified by the
+.I pid
+argument has exited, or until a signal is delivered whose action is to
+terminate the current process or to call a signal handling function.
+If a child as requested by
+.I pid
+has already exited by the time of the call (a so\-called "zombie"
+process), the function returns immediately.  Any system resources used
+by the child are freed.
+
+The value of
+.I pid
+can be one of:
+.IP "< \-1"
+which means to wait for any child process whose process group ID is
+equal to the absolute value of
+.IR pid .
+.IP \-1
+which means to wait for any child process; this is the same
+behaviour which
+.B wait
+exhibits.
+.IP 0
+which means to wait for any child process whose process group ID is
+equal to that of the calling process.
+.IP "> 0"
+which means to wait for the child whose process ID is equal to the
+value of
+.IR pid .
+.PP
+The value of
+.I options
+is an OR of zero or more of the following constants:
+.TP
+.B WNOHANG
+which means to return immediately if no child has exited.
+.TP
+.B WUNTRACED
+which means to also return for children which are stopped
+(but not traced), and whose status has not been reported.
+Status for traced children which are stopped is provided
+also without this option.
+.PP
+(For Linux-only options, see below.)
+.PP
+If
+.I status
+is not
+.BR NULL ,
+.B wait
+or
+.B waitpid
+store status information in the location pointed to by
+.IR status .
+
+This status can be evaluated with the following macros (these macros take
+the stat buffer (an \fBint\fR) as an argument \(em not a pointer to the
+buffer!):
+.TP
+.BI WIFEXITED( status )
+returns true if the child terminated normally, that is,
+by calling exit() or _exit(), or by returning from main().
+.TP
+.BI WEXITSTATUS( status )
+evaluates to the least significant eight bits of the return code of
+the child which terminated, which may have been set as the argument to
+a call to exit() or _exit() or as the argument for a return statement
+in the main program.  This macro can only be evaluated if
+.B WIFEXITED
+returned true.
+.TP
+.BI WIFSIGNALED( status )
+returns true if the child process terminated because of a signal
+which was not caught.
+.TP
+.BI WTERMSIG( status )
+returns the number of the signal that caused the child process to
+terminate. This macro can only be evaluated if
+.B WIFSIGNALED
+returned non\-zero.
+.TP
+.BI WIFSTOPPED( status )
+returns true if the child process which caused the return is currently
+stopped; this is only possible if the call was done using
+.BR WUNTRACED
+or when the child is being traced (see
+.BR ptrace (2)).
+.TP
+.BI WSTOPSIG( status )
+returns the number of the signal which caused the child to stop.  This
+macro can only be evaluated if
+.B WIFSTOPPED
+returned non\-zero.
+.LP
+Some versions of Unix (e.g. Linux, Solaris, but not AIX, SunOS)
+also define a macro
+.BI WCOREDUMP( status )
+to test whether the child process dumped core. Only use this
+enclosed in #ifdef WCOREDUMP ... #endif.
+.SH "RETURN VALUE"
+The process ID of the child which exited, or zero if
+.B WNOHANG
+was used and no child was available, or \-1 on error (in which case
+.I errno
+is set to an appropriate value).
+.SH ERRORS
+.TP
+.BR ECHILD " (for " wait )
+The calling process does not have any unwaited-for children.
+.TP
+.BR ECHILD " (for " waitpid )
+The process specified in
+.I pid
+does not exist or is not a child of the calling process.
+(This can happen for one's own child if the action for SIGCHLD
+is set to SIG_IGN. See also the LINUX NOTES section about threads.)
+.TP
+.B EINTR
+.B WNOHANG
+was not set and an unblocked signal or a
+.B SIGCHLD
+was caught.
+.TP
+.B EINVAL
+The
+.I options
+argument was invalid.
+.SH NOTES
+The Single Unix Specification describes a flag SA_NOCLDWAIT (not supported
+under Linux) such that if either this flag is set, or the action for
+SIGCHLD is set to SIG_IGN
+then children that exit do not become zombies and a call to
+.BR wait ()
+or
+.BR waitpid ()
+will block until all children have exited, and then fail with
+.I errno
+set to ECHILD.
+.LP
+The original POSIX standard left the behaviour of setting SIGCHLD to
+SIG_IGN unspecified.
+Later standards, including SUSv2 and POSIX 1003.1-2001 specify the
+behaviour just described as an XSI-compliance option.
+Linux does not conform to the second of the two points just described:
+if a
+.BR wait "() or " waitpid ()
+call is made while SIGCHLD is being ignored,
+the call behaves just as though SIGCHLD were not being igored, that is,
+the call blocks until the next child terminates and then returns the
+PID and status of that child.
+.SH "LINUX NOTES"
+In the Linux kernel, a kernel-scheduled thread is not a distinct
+construct from a process. Instead, a thread is simply a process
+that is created using the Linux-unique
+.BR clone (2)
+system call; other routines such as the portable
+.BR pthread_create (3)
+call are implemented using
+.BR clone (2).
+Before Linux 2.4, a thread was just a special case of a process,
+and as a consequence one thread could not wait on the children
+of another thread, even when the latter belongs to the same thread group.
+However, POSIX prescribes such functionality, and since Linux 2.4
+a thread can, and by default will, wait on children of other threads
+in the same thread group.
+.LP
+The following Linux-specific
+.I options
+are for use with children created using
+.BR clone (2).
+.TP
+.B __WCLONE
+.\" since 0.99pl10
+Wait for "clone" children only.  If omitted then wait
+for "non-clone" children only.  (A "clone" child is one
+which delivers no signal, or a signal other than
+.B SIGCHLD
+to its parent upon termination.)
+This option is ignored if
+.B __WALL
+is also specified.
+.TP
+.B __WALL
+.\" since patch-2.3.48
+(Since Linux 2.4) Wait for all children, regardless of
+type ("clone" or "non-clone").
+.TP
+.B __WNOTHREAD
+.\" since patch-2.4.0-test8
+(Since Linux 2.4) Do not wait for children of other threads in
+the same thread group. This was the default before Linux 2.4.
+.SH "CONFORMING TO"
+SVr4, POSIX.1
+.SH "SEE ALSO"
+.BR clone (2),
+.BR ptrace (2),
+.BR signal (2),
+.BR wait4 (2),
+.BR pthread_create (3),
+.BR signal (7)

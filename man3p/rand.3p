@@ -1,0 +1,181 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "RAND" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" rand 
+.SH NAME
+rand, rand_r, srand \- pseudo-random number generator
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+.sp
+int rand(void);
+.br
+\fP
+.LP
+\fBint rand_r(unsigned *\fP\fIseed\fP\fB); \fP
+\fB
+.br
+void srand(unsigned\fP \fIseed\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIrand\fP() function shall compute a sequence of pseudo-random
+integers in the range [0, {RAND_MAX}]   \ with a
+period of at least 2**32. 
+.LP
+The
+\fIrand\fP() function need not be reentrant. A function that is not
+required to be reentrant is not required to be thread-safe.
+.LP
+The \fIrand_r\fP() function shall compute a sequence of pseudo-random
+integers in the range [0, {RAND_MAX}]. (The value of the
+{RAND_MAX} macro shall be at least 32767.)
+.LP
+If \fIrand_r\fP() is called with the same initial value for the object
+pointed to by \fIseed\fP and that object is not
+modified between successive returns and calls to \fIrand_r\fP(), the
+same sequence shall be generated. 
+.LP
+The \fIsrand\fP() function uses the argument as a seed for a new sequence
+of pseudo-random numbers to be returned by subsequent
+calls to \fIrand\fP(). If \fIsrand\fP() is then called with the same
+seed value, the sequence of pseudo-random numbers shall be
+repeated. If \fIrand\fP() is called before any calls to \fIsrand\fP()
+are made, the same sequence shall be generated as when
+\fIsrand\fP() is first called with a seed value of 1.
+.LP
+The implementation shall behave as if no function defined in this
+volume of IEEE\ Std\ 1003.1-2001 calls \fIrand\fP()
+or \fIsrand\fP().
+.SH RETURN VALUE
+.LP
+The \fIrand\fP() function shall return the next pseudo-random number
+in the sequence.
+.LP
+The \fIrand_r\fP() function shall return a pseudo-random integer.
+.LP
+The \fIsrand\fP() function shall not return a value.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Generating a Pseudo-Random Number Sequence
+.LP
+The following example demonstrates how to generate a sequence of pseudo-random
+numbers.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <stdlib.h>
+\&...
+    long count, i;
+    char *keystr;
+    int elementlen, len;
+    char c;
+\&...
+/* Initial random number generator. */
+    srand(1);
+.sp
+
+    /* Create keys using only lowercase characters */
+    len = 0;
+    for (i=0; i<count; i++) {
+        while (len < elementlen) {
+            c = (char) (rand() % 128);
+            if (islower(c))
+                keystr[len++] = c;
+        }
+.sp
+
+        keystr[len] = '\\0';
+        printf("%s Element%0*ld\\n", keystr, elementlen, i);
+        len = 0;
+    }
+\fP
+.fi
+.RE
+.SS Generating the Same Sequence on Different Machines
+.LP
+The following code defines a pair of functions that could be incorporated
+into applications wishing to ensure that the same
+sequence of numbers is generated across different machines.
+.sp
+.RS
+.nf
+
+\fBstatic unsigned long next = 1;
+int myrand(void)  /* RAND_MAX assumed to be 32767. */
+{
+    next = next * 1103515245 + 12345;
+    return((unsigned)(next/65536) % 32768);
+}
+.sp
+
+void mysrand(unsigned seed)
+{
+    next = seed;
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIdrand48\fP() function provides a much more elaborate random
+number
+generator.
+.LP
+The limitations on the amount of state that can be carried between
+one function call and another mean the \fIrand_r\fP()
+function can never be implemented in a way which satisfies all of
+the requirements on a pseudo-random number generator. Therefore
+this function should be avoided whenever non-trivial requirements
+(including safety) have to be fulfilled.
+.SH RATIONALE
+.LP
+The ISO\ C standard \fIrand\fP() and \fIsrand\fP() functions allow
+per-process pseudo-random streams shared by all
+threads. Those two functions need not change, but there has to be
+mutual-exclusion that prevents interference between two threads
+concurrently accessing the random number generator.
+.LP
+With regard to \fIrand\fP(), there are two different behaviors that
+may be wanted in a multi-threaded program:
+.IP " 1." 4
+A single per-process sequence of pseudo-random numbers that is shared
+by all threads that call \fIrand\fP()
+.LP
+.IP " 2." 4
+A different sequence of pseudo-random numbers for each thread that
+calls \fIrand\fP()
+.LP
+.LP
+This is provided by the modified thread-safe function based on whether
+the seed value is global to the entire process or local
+to each thread.
+.LP
+This does not address the known deficiencies of the \fIrand\fP() function
+implementations, which have been approached by
+maintaining more state. In effect, this specifies new thread-safe
+forms of a deficient function.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIdrand48\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<stdlib.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

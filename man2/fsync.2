@@ -1,0 +1,104 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright 1993 Rickard E. Faith (faith@cs.unc.edu)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 21 Aug 1994 by Michael Chastain <mec@shell.portal.com>:
+.\"   Removed note about old libc (pre-4.5.26) translating to 'sync'.
+.\" Modified 15 Apr 1995 by Michael Chastain <mec@shell.portal.com>:
+.\"   Added `see also' section.
+.\" Modified 13 Apr 1996 by Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"   Added remarks about fdatasync.
+.\" Modified 31 Jan 1997 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 18 Apr 2001 by Andi Kleen
+.\"   Fix description to describe what it really does; add a few caveats.
+.\"
+.TH FSYNC 2 2001-04-18 "Linux 1.3.85" "Linux Programmer's Manual"
+.SH NAME
+fsync, fdatasync \- synchronize a file's complete in-core state with that on disk
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.BI "int fsync(int " fd );
+.sp
+.BI "int fdatasync(int " fd );
+.SH DESCRIPTION
+.B fsync
+copies all in-core parts of a file to disk, and waits until the
+device reports that all parts are on stable storage.
+It also updates metadata stat information. It does not necessarily ensure
+that the entry in the directory containing the file has also reached disk.
+For that an explicit
+.B fsync
+on the file descriptor of the directory is also needed.
+
+.B fdatasync
+does the same as
+.B fsync
+but only flushes user data, not the meta data like the mtime or atime.
+
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor open for writing.
+.TP
+.B EIO
+An error occurred during synchronization.
+.TP
+.BR EROFS ", " EINVAL
+.I fd
+is bound to a special file which does not support synchronization.
+.SH NOTES
+In case the hard disk has write cache enabled,
+the data may not really be on permanent storage when
+.BR fsync / fdatasync
+return.
+.\" See
+.\" .BR hdparm (8)
+.\" for how to disable that cache for IDE disks.
+.LP
+When an ext2 file system is mounted with the
+.I sync
+option, directory entries are also implicitly synced by
+.BR fsync .
+.LP
+On kernels before 2.4,
+.B fsync
+on big files can be inefficient.
+An alternative might be to use the
+.I O_SYNC
+flag to
+.BR open (2).
+.SH "CONFORMING TO"
+POSIX.1b (formerly POSIX.4) 
+.SH "SEE ALSO"
+.BR bdflush (2),
+.BR open (2),
+.BR sync (2)
+.BR mount (8),
+.BR sync (8),
+.BR update (8)

@@ -1,0 +1,585 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "WRITE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" write 
+.SH NAME
+pwrite, write \- write on a file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+\fP
+.LP
+\fBssize_t pwrite(int\fP \fIfildes\fP\fB, const void *\fP\fIbuf\fP\fB,
+size_t\fP
+\fInbyte\fP\fB,
+.br
+\ \ \ \ \ \  off_t offset); \fP
+\fB
+.br
+ssize_t write(int\fP \fIfildes\fP\fB, const void *\fP\fIbuf\fP\fB,
+size_t\fP \fInbyte\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIwrite\fP() function shall attempt to write \fInbyte\fP bytes
+from the buffer pointed to by \fIbuf\fP to the file
+associated with the open file descriptor, \fIfildes\fP.
+.LP
+Before any action described below is taken, and if \fInbyte\fP is
+zero and the file is a regular file, the \fIwrite\fP()
+function may detect and return errors as described below. In the absence
+of errors, or if error detection is not performed, the
+\fIwrite\fP() function shall return zero and have no other results.
+If \fInbyte\fP is zero and the file is not a regular file,
+the results are unspecified.
+.LP
+On a regular file or other file capable of seeking, the actual writing
+of data shall proceed from the position in the file
+indicated by the file offset associated with \fIfildes\fP. Before
+successful return from \fIwrite\fP(), the file offset shall be
+incremented by the number of bytes actually written. On a regular
+file, if this incremented file offset is greater than the length
+of the file, the length of the file shall be set to this file offset.
+.LP
+On a file not capable of seeking, writing shall always take place
+starting at the current position. The value of a file offset
+associated with such a device is undefined.
+.LP
+If the O_APPEND flag of the file status flags is set, the file offset
+shall be set to the end of the file prior to each write
+and no intervening file modification operation shall occur between
+changing the file offset and the write operation.
+.LP
+If a \fIwrite\fP() requests that more bytes be written than there
+is room for (for example,   \ the process'
+file size limit or  the physical end of a medium), only as many
+bytes as there is room for shall be written. For example, suppose
+there is space for 20 bytes more in a file before reaching a
+limit. A write of 512 bytes will return 20. The next write of a non-zero
+number of bytes would give a failure return (except as
+noted below).
+.LP
+If the request would cause the file size to exceed the soft file size
+limit for the process and there is no room for any bytes to
+be written, the request shall fail and the implementation shall generate
+the SIGXFSZ signal for the thread. 
+.LP
+If \fIwrite\fP() is interrupted by a signal before it writes any data,
+it shall return -1 with \fIerrno\fP set to [EINTR].
+.LP
+If \fIwrite\fP() is interrupted by a signal after it successfully
+writes some data, it shall return the number of bytes
+written.
+.LP
+If the value of \fInbyte\fP is greater than {SSIZE_MAX}, the result
+is implementation-defined.
+.LP
+After a \fIwrite\fP() to a regular file has successfully returned:
+.IP " *" 3
+Any successful \fIread\fP() from each byte position in the file that
+was modified by that
+write shall return the data specified by the \fIwrite\fP() for that
+position until such byte positions are again modified.
+.LP
+.IP " *" 3
+Any subsequent successful \fIwrite\fP() to the same byte position
+in the file shall overwrite that file data.
+.LP
+.LP
+Write requests to a pipe or FIFO shall be handled in the same way
+as a regular file with the following exceptions:
+.IP " *" 3
+There is no file offset associated with a pipe, hence each write request
+shall append to the end of the pipe.
+.LP
+.IP " *" 3
+Write requests of {PIPE_BUF} bytes or less shall not be interleaved
+with data from other processes doing writes on the same
+pipe. Writes of greater than {PIPE_BUF} bytes may have data interleaved,
+on arbitrary boundaries, with writes by other processes,
+whether or not the O_NONBLOCK flag of the file status flags is set.
+.LP
+.IP " *" 3
+If the O_NONBLOCK flag is clear, a write request may cause the thread
+to block, but on normal completion it shall return
+\fInbyte\fP.
+.LP
+.IP " *" 3
+If the O_NONBLOCK flag is set, \fIwrite\fP() requests shall be handled
+differently, in the following ways:
+.RS
+.IP " *" 3
+The \fIwrite\fP() function shall not block the thread.
+.LP
+.IP " *" 3
+A write request for {PIPE_BUF} or fewer bytes shall have the following
+effect: if there is sufficient space available in the
+pipe, \fIwrite\fP() shall transfer all the data and return the number
+of bytes requested. Otherwise, \fIwrite\fP() shall transfer
+no data and return -1 with \fIerrno\fP set to [EAGAIN].
+.LP
+.IP " *" 3
+A write request for more than {PIPE_BUF} bytes shall cause one of
+the following:
+.RS
+.IP " *" 3
+When at least one byte can be written, transfer what it can and return
+the number of bytes written. When all data previously
+written to the pipe is read, it shall transfer at least {PIPE_BUF}
+bytes.
+.LP
+.IP " *" 3
+When no data can be written, transfer no data, and return -1 with
+\fIerrno\fP set to [EAGAIN].
+.LP
+.RE
+.LP
+.RE
+.LP
+.LP
+When attempting to write to a file descriptor (other than a pipe or
+FIFO) that supports non-blocking writes and cannot accept
+the data immediately:
+.IP " *" 3
+If the O_NONBLOCK flag is clear, \fIwrite\fP() shall block the calling
+thread until the data can be accepted.
+.LP
+.IP " *" 3
+If the O_NONBLOCK flag is set, \fIwrite\fP() shall not block the thread.
+If some data can be written without blocking the
+thread, \fIwrite\fP() shall write what it can and return the number
+of bytes written. Otherwise, it shall return -1 and set
+\fIerrno\fP to [EAGAIN].
+.LP
+.LP
+Upon successful completion, where \fInbyte\fP is greater than 0, \fIwrite\fP()
+shall mark for update the \fIst_ctime\fP and
+\fIst_mtime\fP fields of the file, and if the file is a regular file,
+the S_ISUID and S_ISGID bits of the file mode may be
+cleared.
+.LP
+For regular files, no data transfer shall occur past the offset maximum
+established in the open file description associated with
+\fIfildes\fP.
+.LP
+If \fIfildes\fP refers to a socket, \fIwrite\fP() shall be equivalent
+to \fIsend\fP()
+with no flags set.
+.LP
+If the O_DSYNC bit has been set, write I/O operations on the file
+descriptor shall complete as defined by synchronized I/O data
+integrity completion.
+.LP
+If the O_SYNC bit has been set, write I/O operations on the file descriptor
+shall complete as defined by synchronized I/O file
+integrity completion. 
+.LP
+If \fIfildes\fP refers to a shared memory object, the result of the
+\fIwrite\fP() function is unspecified. 
+.LP
+If \fIfildes\fP refers to a typed memory object, the result of the
+\fIwrite\fP() function is unspecified. 
+.LP
+If \fIfildes\fP refers to a STREAM, the operation of \fIwrite\fP()
+shall be determined by the values of the minimum and maximum
+\fInbyte\fP range (packet size) accepted by the STREAM. These values
+are determined by the topmost STREAM module. If \fInbyte\fP
+falls within the packet size range, \fInbyte\fP bytes shall be written.
+If \fInbyte\fP does not fall within the range and the
+minimum packet size value is 0, \fIwrite\fP() shall break the buffer
+into maximum packet size segments prior to sending the data
+downstream (the last segment may contain less than the maximum packet
+size). If \fInbyte\fP does not fall within the range and the
+minimum value is non-zero, \fIwrite\fP() shall fail with \fIerrno\fP
+set to [ERANGE]. Writing a zero-length buffer ( \fInbyte\fP
+is 0) to a STREAMS device sends 0 bytes with 0 returned. However,
+writing a zero-length buffer to a STREAMS-based pipe or FIFO
+sends no message and 0 is returned. The process may issue I_SWROPT
+\fIioctl\fP() to enable
+zero-length messages to be sent across the pipe or FIFO.
+.LP
+When writing to a STREAM, data messages are created with a priority
+band of 0. When writing to a STREAM that is not a pipe or
+FIFO:
+.IP " *" 3
+If O_NONBLOCK is clear, and the STREAM cannot accept data (the STREAM
+write queue is full due to internal flow control
+conditions), \fIwrite\fP() shall block until data can be accepted.
+.LP
+.IP " *" 3
+If O_NONBLOCK is set and the STREAM cannot accept data, \fIwrite\fP()
+shall return -1 and set \fIerrno\fP to [EAGAIN].
+.LP
+.IP " *" 3
+If O_NONBLOCK is set and part of the buffer has been written while
+a condition in which the STREAM cannot accept additional data
+occurs, \fIwrite\fP() shall terminate and return the number of bytes
+written.
+.LP
+.LP
+In addition, \fIwrite\fP() shall fail if the STREAM head has processed
+an asynchronous error before the call. In this case, the
+value of \fIerrno\fP does not reflect the result of \fIwrite\fP(),
+but reflects the prior error. 
+.LP
+The \fIpwrite\fP() function shall be equivalent to \fIwrite\fP(),
+except that it writes into a given position without changing
+the file pointer. The first three arguments to \fIpwrite\fP() are
+the same as \fIwrite\fP() with the addition of a fourth
+argument offset for the desired position inside the file. 
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIwrite\fP()   \ and \fIpwrite\fP() 
+shall return the number of bytes actually written to the file associated
+with \fIfildes\fP. This number
+shall never be greater than \fInbyte\fP. Otherwise, -1 shall be returned
+and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIwrite\fP() and   \fIpwrite\fP()  functions shall fail
+if:
+.TP 7
+.B EAGAIN
+The O_NONBLOCK flag is set for the file descriptor and the thread
+would be delayed in the \fIwrite\fP() operation.
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid file descriptor open for
+writing.
+.TP 7
+.B EFBIG
+An attempt was made to write a file that exceeds the implementation-defined
+maximum file size   \ or the
+process' file size limit,  \ and there was no room for any bytes
+to be written.
+.TP 7
+.B EFBIG
+The file is a regular file, \fInbyte\fP is greater than 0, and the
+starting position is greater than or equal to the offset
+maximum established in the open file description associated with \fIfildes\fP.
+.TP 7
+.B EINTR
+The write operation was terminated due to the receipt of a signal,
+and no data was transferred.
+.TP 7
+.B EIO
+The process is a member of a background process group attempting to
+write to its controlling terminal, TOSTOP is set, the
+process is neither ignoring nor blocking SIGTTOU, and the process
+group of the process is orphaned. This error may also be returned
+under implementation-defined conditions.
+.TP 7
+.B ENOSPC
+There was no free space remaining on the device containing the file.
+.TP 7
+.B EPIPE
+An attempt is made to write to a pipe or FIFO that is not open for
+reading by any process, or that only has one end open. A
+SIGPIPE signal shall also be sent to the thread.
+.TP 7
+.B ERANGE
+The transfer request size was outside the range supported by the STREAMS
+file associated with \fIfildes\fP. 
+.sp
+.LP
+The \fIwrite\fP() function shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP EWOULDBLOCK
+.sp
+The file descriptor is for a socket, is marked O_NONBLOCK, and write
+would block.
+.TP 7
+.B ECONNRESET
+A write was attempted on a socket that is not connected.
+.TP 7
+.B EPIPE
+A write was attempted on a socket that is shut down for writing, or
+is no longer connected. In the latter case, if the socket
+is of type SOCK_STREAM, the SIGPIPE signal is generated to the calling
+process.
+.sp
+.LP
+The \fIwrite\fP() and   \fIpwrite\fP()  functions may fail
+if:
+.TP 7
+.B EINVAL
+The STREAM or multiplexer referenced by \fIfildes\fP is linked (directly
+or indirectly) downstream from a multiplexer. 
+.TP 7
+.B EIO
+A physical I/O error has occurred.
+.TP 7
+.B ENOBUFS
+Insufficient resources were available in the system to perform the
+operation.
+.TP 7
+.B ENXIO
+A request was made of a nonexistent device, or the request was outside
+the capabilities of the device.
+.TP 7
+.B ENXIO
+A hangup occurred on the STREAM being written to. 
+.sp
+.LP
+A
+write to a STREAMS file may fail if an error message has been received
+at the STREAM head. In this case, \fIerrno\fP is set to the
+value included in the error message. 
+.LP
+The \fIwrite\fP() function may fail if:
+.TP 7
+.B EACCES
+A write was attempted on a socket and the calling process does not
+have appropriate privileges.
+.TP 7
+.B ENETDOWN
+A write was attempted on a socket and the local network interface
+used to reach the destination is down.
+.TP 7
+.B ENETUNREACH
+.sp
+A write was attempted on a socket and no route to the network is present.
+.sp
+.LP
+The \fIpwrite\fP() function shall fail and the file pointer remain
+unchanged if: 
+.TP 7
+.B EINVAL
+The \fIoffset\fP argument is invalid. The value is negative. 
+.TP 7
+.B ESPIPE
+\fIfildes\fP is associated with a pipe or FIFO. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Writing from a Buffer
+.LP
+The following example writes data from the buffer pointed to by \fIbuf\fP
+to the file associated with the file descriptor
+\fIfd\fP.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <string.h>
+\&...
+char buf[20];
+size_t nbytes;
+ssize_t bytes_written;
+int fd;
+\&...
+strcpy(buf, "This is a test\\n");
+nbytes = strlen(buf);
+.sp
+
+bytes_written = write(fd, buf, nbytes);
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+See also the RATIONALE section in \fIread\fP() .
+.LP
+An attempt to write to a pipe or FIFO has several major characteristics:
+.IP " *" 3
+\fIAtomic/non-atomic\fP: A write is atomic if the whole amount written
+in one operation is not interleaved with data from any
+other process. This is useful when there are multiple writers sending
+data to a single reader. Applications need to know how large
+a write request can be expected to be performed atomically. This maximum
+is called {PIPE_BUF}. This volume of
+IEEE\ Std\ 1003.1-2001 does not say whether write requests for more
+than {PIPE_BUF} bytes are atomic, but requires that
+writes of {PIPE_BUF} or fewer bytes shall be atomic.
+.LP
+.IP " *" 3
+\fIBlocking/immediate\fP: Blocking is only possible with O_NONBLOCK
+clear. If there is enough space for all the data requested
+to be written immediately, the implementation should do so. Otherwise,
+the process may block; that is, pause until enough space is
+available for writing. The effective size of a pipe or FIFO (the maximum
+amount that can be written in one operation without
+blocking) may vary dynamically, depending on the implementation, so
+it is not possible to specify a fixed value for it.
+.LP
+.IP " *" 3
+\fIComplete/partial/deferred\fP: A write request:
+.sp
+.RS
+.nf
+
+\fBint fildes;
+size_t nbyte;
+ssize_t ret;
+char *buf;
+.sp
+
+ret = write(fildes, buf, nbyte);
+\fP
+.fi
+.RE
+.LP
+may return:
+.TP 7
+Complete
+.RS
+\fIret\fP=\fInbyte\fP
+.RE
+.TP 7
+Partial
+.RS
+\fIret\fP<\fInbyte\fP 
+.LP
+This shall never happen if \fInbyte\fP<= {PIPE_BUF}. If it does happen
+(with \fInbyte\fP> {PIPE_BUF}), this volume of
+IEEE\ Std\ 1003.1-2001 does not guarantee atomicity, even if \fIret\fP<=
+{PIPE_BUF}, because atomicity is guaranteed
+according to the amount \fIrequested\fP, not the amount \fIwritten\fP.
+.RE
+.TP 7
+Deferred:
+.RS
+\fIret\fP=-1, \fIerrno\fP=[EAGAIN] 
+.LP
+This error indicates that a later request may succeed. It does not
+indicate that it \fIshall\fP succeed, even if
+\fInbyte\fP<= {PIPE_BUF}, because if no process reads from the pipe
+or FIFO, the write never succeeds. An application could
+usefully count the number of times [EAGAIN] is caused by a particular
+value of \fInbyte\fP> {PIPE_BUF} and perhaps do later
+writes with a smaller value, on the assumption that the effective
+size of the pipe may have decreased.
+.RE
+.sp
+.LP
+Partial and deferred writes are only possible with O_NONBLOCK set.
+.LP
+.LP
+The relations of these properties are shown in the following tables:
+.TS C
+center;c2 s2 s2 s.
+\fBWrite to a Pipe or FIFO with O_NONBLOCK \fIclear\fP\fP
+.T&
+l l l l.
+\fBImmediately Writable:\fP	\fBNone\fP	\fBSome\fP	\fInbyte\fP
+\fInbyte\fP<={PIPE_BUF}	Atomic blocking	Atomic blocking	Atomic immediate
+\ 	\fInbyte\fP	\fInbyte\fP	\fInbyte\fP
+\fInbyte\fP>{PIPE_BUF}	Blocking \fInbyte\fP	Blocking \fInbyte\fP	Blocking \fInbyte\fP
+.TE
+.LP
+If the O_NONBLOCK flag is clear, a write request shall block if the
+amount writable immediately is less than that requested. If
+the flag is set (by \fIfcntl\fP()), a write request shall never block.
+.TS C
+center;c2 s2 s2 s.
+\fBWrite to a Pipe or FIFO with O_NONBLOCK \fIset\fP\fP
+.T&
+l l l l.
+\fBImmediately Writable:\fP	\fBNone\fP	\fBSome\fP	\fInbyte\fP
+\fInbyte\fP<={PIPE_BUF}	-1, [EAGAIN]	-1, [EAGAIN]	Atomic \fInbyte\fP
+\fInbyte\fP>{PIPE_BUF}	-1, [EAGAIN]	<\fInbyte\fP or -1,	<=\fInbyte\fP or -1,
+\ 	\ 	[EAGAIN]	[EAGAIN]
+.TE
+.LP
+There is no exception regarding partial writes when O_NONBLOCK is
+set. With the exception of writing to an empty pipe, this
+volume of IEEE\ Std\ 1003.1-2001 does not specify exactly when a partial
+write is performed since that would require
+specifying internal details of the implementation. Every application
+should be prepared to handle partial writes when O_NONBLOCK is
+set and the requested amount is greater than {PIPE_BUF}, just as every
+application should be prepared to handle partial writes on
+other kinds of file descriptors.
+.LP
+The intent of forcing writing at least one byte if any can be written
+is to assure that each write makes progress if there is
+any room in the pipe. If the pipe is empty, {PIPE_BUF} bytes must
+be written; if not, at least some progress must have been
+made.
+.LP
+Where this volume of IEEE\ Std\ 1003.1-2001 requires -1 to be returned
+and \fIerrno\fP set to [EAGAIN], most historical
+implementations return zero (with the O_NDELAY flag set, which is
+the historical predecessor of O_NONBLOCK, but is not itself in
+this volume of IEEE\ Std\ 1003.1-2001). The error indications in this
+volume of IEEE\ Std\ 1003.1-2001 were chosen
+so that an application can distinguish these cases from end-of-file.
+While \fIwrite\fP() cannot receive an indication of
+end-of-file, \fIread\fP() can, and the two functions have similar
+return values. Also, some
+existing systems (for example, Eighth Edition) permit a write of zero
+bytes to mean that the reader should get an end-of-file
+indication; for those systems, a return value of zero from \fIwrite\fP()
+indicates a successful write of an end-of-file
+indication.
+.LP
+Implementations are allowed, but not required, to perform error checking
+for \fIwrite\fP() requests of zero bytes.
+.LP
+The concept of a {PIPE_MAX} limit (indicating the maximum number of
+bytes that can be written to a pipe in a single operation)
+was considered, but rejected, because this concept would unnecessarily
+limit application writing.
+.LP
+See also the discussion of O_NONBLOCK in \fIread\fP() .
+.LP
+Writes can be serialized with respect to other reads and writes. If
+a \fIread\fP() of file
+data can be proven (by any means) to occur after a \fIwrite\fP() of
+the data, it must reflect that \fIwrite\fP(), even if the
+calls are made by different processes. A similar requirement applies
+to multiple write operations to the same file position. This
+is needed to guarantee the propagation of data from \fIwrite\fP()
+calls to subsequent \fIread\fP() calls. This requirement is particularly
+significant for networked file systems, where
+some caching schemes violate these semantics.
+.LP
+Note that this is specified in terms of \fIread\fP() and \fIwrite\fP().
+The XSI
+extensions \fIreadv\fP() and \fIwritev\fP() also
+obey these semantics. A new "high-performance" write analog that did
+not follow these serialization requirements would also be
+permitted by this wording. This volume of IEEE\ Std\ 1003.1-2001 is
+also silent about any effects of application-level
+caching (such as that done by \fIstdio\fP).
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 does not specify the value of
+the file offset after an error is returned; there
+are too many cases. For programming errors, such as [EBADF], the concept
+is meaningless since no file is involved. For errors that
+are detected immediately, such as [EAGAIN], clearly the pointer should
+not change. After an interrupt or hardware error, however,
+an updated value would be very useful and is the behavior of many
+implementations.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 does not specify behavior of
+concurrent writes to a file from multiple processes.
+Applications should use some form of concurrency control.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIchmod\fP() , \fIcreat\fP() , \fIdup\fP() , \fIfcntl\fP() , \fIgetrlimit\fP()
+, \fIlseek\fP() ,
+\fIopen\fP() , \fIpipe\fP() , \fIulimit\fP() , \fIwritev\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<limits.h>\fP,
+\fI<stropts.h>\fP, \fI<sys/uio.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,292 @@
+.\" Copyright (c) 1983, 1990, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1996-10-21 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1998-2000 by Andi Kleen to match Linux 2.2 reality
+.\" Modified 2002-04-23 by Roger Luethi <rl@hellgate.ch>
+.\" Modified 2004-06-17 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH ACCEPT 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+accept \- accept a connection on a socket
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <sys/socket.h>
+.sp
+.BI "int accept(int " s ", struct sockaddr *" addr ", socklen_t *" addrlen );
+.SH DESCRIPTION
+
+The
+.B accept
+function is used with connection-based socket types
+.RB ( SOCK_STREAM ,
+.B SOCK_SEQPACKET
+and
+.BR SOCK_RDM ).
+It extracts the first connection request on the queue of pending
+connections, creates a new connected socket with mostly the same properties as
+.IR s ,
+and allocates a new file descriptor for the socket, which is returned.
+The newly created socket is no longer in the listening state.
+The original socket
+.I s
+is unaffected by this call. Note that any per file descriptor flags 
+(everything that can be set with the 
+.B F_SETFL
+fcntl, like non blocking or async state) are not inherited across
+an
+.IR accept .
+.PP
+The argument
+.I s
+is a socket that has been created with
+.BR socket (2),
+bound to a local address with
+.BR bind (2),
+and is listening for connections after a
+.BR listen (2).
+
+The argument
+.I addr
+is a pointer to a sockaddr structure. This structure is filled in
+with the address of the connecting entity,
+as known to the communications layer.  The exact format of the
+address passed in the
+.I addr
+parameter is determined by the socket's family (see
+.BR socket (2) 
+and the respective protocol man pages).
+The
+.I addrlen
+argument is a value-result parameter: it should initially contain the
+size of the structure pointed to by
+.IR addr ;
+on return it will contain the actual length (in bytes) of the address
+returned. When 
+.I addr
+is NULL nothing is filled in.
+.PP
+If no pending
+connections are present on the queue, and the socket is not marked as
+non-blocking,
+.B accept
+blocks the caller until a connection is present.  If the socket is marked
+non-blocking and no pending connections are present on the queue,
+.B accept
+returns EAGAIN. 
+.PP
+In order to be notified of incoming connections on a socket, you can use
+.BR select (2)
+or
+.BR poll (2).
+A readable event will be delivered when a new connection is attempted and you
+may then call
+.B accept
+to get a socket for that connection.  Alternatively, you can set the socket
+to deliver
+.B SIGIO
+when activity occurs on a socket; see
+.BR socket (7)
+for details.
+.PP
+For certain protocols which require an explicit confirmation,
+such as
+DECNet,
+.B accept
+can be thought of as merely dequeuing the next connection request and not
+implying confirmation.  Confirmation can be implied by
+a normal read or write on the new file descriptor, and rejection can be
+implied by closing the new socket. Currently only 
+DECNet 
+has these semantics on Linux. 
+.SH NOTES
+There may not always be a connection waiting after a
+.B SIGIO
+is delivered or
+.BR select (2)
+or
+.BR poll (2)
+return a readability event because the connection might have been
+removed by an asynchronous network error or another thread before
+.B accept
+is called.
+If this happens then the call will block waiting for the next
+connection to arrive.
+To ensure that
+.B accept
+never blocks, the passed socket
+.I s
+needs to have the
+.B O_NONBLOCK
+flag set (see
+.BR socket (7)).
+.SH "RETURN VALUE"
+The call returns \-1 on error.  If it succeeds, it returns a non-negative
+integer that is a descriptor for the accepted socket.
+.SH "ERROR HANDLING"
+Linux 
+.B accept 
+passes already-pending network errors on the new socket 
+as an error code from 
+.BR accept . 
+This behaviour differs from other BSD socket
+implementations. For reliable operation the application should detect
+the network errors defined for the protocol after 
+.B accept 
+and treat
+them like 
+.BR EAGAIN
+by retrying. In case of TCP/IP these are
+.BR ENETDOWN ,
+.BR EPROTO ,
+.BR ENOPROTOOPT ,
+.BR EHOSTDOWN ,
+.BR ENONET ,
+.BR EHOSTUNREACH ,
+.BR EOPNOTSUPP ,
+and
+.BR ENETUNREACH .
+.SH ERRORS
+.B accept
+shall fail if:
+.TP
+.BR EAGAIN " or " EWOULDBLOCK
+The socket is marked non-blocking and no connections are
+present to be accepted.
+.TP
+.B EBADF
+The descriptor is invalid.
+.TP
+.B ECONNABORTED
+A connection has been aborted.
+.TP
+.B EINTR
+The system call was interrupted by a signal that was caught
+before a valid connection arrived. 
+.TP
+.B EINVAL
+Socket is not listening for connections.
+.TP
+.B EMFILE
+The per-process limit of open file descriptors has been reached.
+.TP
+.B ENFILE
+The system limit on the total number of open files has been reached.
+.TP
+.B ENOTSOCK
+The descriptor references a file, not a socket.
+.TP
+.B EOPNOTSUPP
+The referenced socket is not of type
+.BR SOCK_STREAM . 
+.PP
+.B accept
+may fail if:
+.TP
+.B EFAULT
+The
+.I addr
+parameter is not in a writable part of the user address space.
+.TP
+.B ENOBUFS, ENOMEM
+Not enough free memory.  
+This often means that the memory allocation is limited by the socket buffer
+limits, not by the system memory.
+.TP
+.B EPROTO
+Protocol error.
+.PP
+Linux
+.B accept
+may fail if:
+.TP
+.B EPERM
+Firewall rules forbid connection.
+.PP
+In addition, network errors for the new socket and as defined
+for the protocol may be returned. Various Linux kernels can
+return other errors such as
+.BR ENOSR ,
+.BR ESOCKTNOSUPPORT ,
+.BR EPROTONOSUPPORT ,
+.BR ETIMEDOUT .
+The value
+.B ERESTARTSYS
+may be seen during a trace.
+.SH "CONFORMING TO"
+SVr4, 4.4BSD (the
+.B accept
+function first appeared in BSD 4.2).
+The BSD man page documents five possible error returns
+(EBADF, ENOTSOCK, EOPNOTSUPP, EWOULDBLOCK, EFAULT).
+SUSv3 documents errors EAGAIN, EBADF, ECONNABORTED, EINTR, EINVAL, EMFILE,
+ENFILE, ENOBUFS, ENOMEM, ENOTSOCK, EOPNOTSUPP, EPROTO, EWOULDBLOCK. In
+addition, SUSv2 documents EFAULT and ENOSR.
+.LP
+Linux accept does _not_ inherit socket flags like
+.BR O_NONBLOCK .
+This behaviour differs from other BSD socket implementations.
+Portable programs should not rely on this behaviour and always set
+all required flags on the socket returned from accept.
+.SH NOTE
+The third argument of
+.B accept
+was originally declared as an `int *' (and is that under libc4 and libc5
+and on many other systems like BSD 4.*, SunOS 4, SGI); a POSIX 1003.1g draft
+standard wanted to change it into a `size_t *', and that is what it is
+for SunOS 5.
+Later POSIX drafts have `socklen_t *', and so do the Single Unix Specification
+and glibc2.
+Quoting Linus Torvalds:
+
+.\" .I fails: only italicizes a single line
+"_Any_ sane library _must_ have "socklen_t" be the same size
+as int.  Anything else breaks any BSD socket layer stuff.
+POSIX initially _did_ make it a size_t, and I (and hopefully others, but
+obviously not too many) complained to them very loudly indeed.  Making
+it a size_t is completely broken, exactly because size_t very seldom is
+the same size as "int" on 64-bit architectures, for example.  And it
+_has_ to be the same size as "int" because that's what the BSD socket
+interface is. 
+Anyway, the POSIX people eventually got a clue, and created "socklen_t". 
+They shouldn't have touched it in the first place, but once they did
+they felt it had to have a named type for some unfathomable reason
+(probably somebody didn't like losing face over having done the original
+stupid thing, so they silently just renamed their blunder)."
+
+.SH "SEE ALSO"
+.BR bind (2),
+.BR connect (2),
+.BR listen (2),
+.BR select (2),
+.BR socket (2)

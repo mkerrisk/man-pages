@@ -1,0 +1,531 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FSCANF" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" fscanf 
+.SH NAME
+fscanf, scanf, sscanf \- convert formatted input
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+int fscanf(FILE *restrict\fP \fIstream\fP\fB, const char *restrict\fP
+\fIformat\fP\fB, ... );
+.br
+int scanf(const char *restrict\fP \fIformat\fP\fB, ... );
+.br
+int sscanf(const char *restrict\fP \fIs\fP\fB, const char *restrict\fP
+\fIformat\fP\fB, ... );
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIfscanf\fP() function shall read from the named input \fIstream\fP.
+The \fIscanf\fP() function shall read from the
+standard input stream \fIstdin\fP. The \fIsscanf\fP() function shall
+read from the string \fIs\fP. Each function reads bytes,
+interprets them according to a format, and stores the results in its
+arguments. Each expects, as arguments, a control string
+\fIformat\fP described below, and a set of \fIpointer\fP arguments
+indicating where the converted input should be stored. The
+result is undefined if there are insufficient arguments for the format.
+If the format is exhausted while arguments remain, the
+excess arguments shall be evaluated but otherwise ignored.
+.LP
+Conversions can be applied to the \fIn\fPth argument after the \fIformat\fP
+in the argument list, rather than to the next unused
+argument. In this case, the conversion specifier character \fB%\fP
+(see below) is replaced by the sequence
+\fB"%\fP\fIn\fP\fB$"\fP, where \fIn\fP is a decimal integer in the
+range [1,{NL_ARGMAX}]. This feature provides for the
+definition of format strings that select arguments in an order appropriate
+to specific languages. In format strings containing the
+\fB"%\fP\fIn\fP\fB$"\fP form of conversion specifications, it is unspecified
+whether numbered arguments in the argument list
+can be referenced from the format string more than once.
+.LP
+The \fIformat\fP can contain either form of a conversion specification-that
+is, \fB%\fP or
+\fB"%\fP\fIn\fP\fB$"\fP-but the two forms cannot be mixed within a
+single \fIformat\fP string. The only exception to this
+is that \fB%%\fP or \fB%*\fP can be mixed with the \fB"%\fP\fIn\fP\fB$"\fP
+form. When numbered argument specifications
+are used, specifying the \fIN\fPth argument requires that all the
+leading arguments, from the first to the ( \fIN\fP-1)th, are
+pointers. 
+.LP
+The
+\fIfscanf\fP() function in all its forms shall allow detection of
+a language-dependent radix character in the input string. The
+radix character is defined in the program's locale (category \fILC_NUMERIC
+).\fP In the POSIX locale, or in a locale where the
+radix character is not defined, the radix character shall default
+to a period ( \fB'.'\fP ). 
+.LP
+The format is a character string, beginning and ending in its initial
+shift state, if any, composed of zero or more directives.
+Each directive is composed of one of the following: one or more white-space
+characters ( <space>s, <tab>s,
+<newline>s, <vertical-tab>s, or <form-feed>s); an ordinary character
+(neither \fB'%'\fP nor a white-space
+character); or a conversion specification. Each conversion specification
+is introduced by the character \fB'%'\fP   \ or the
+character sequence \fB"%\fP\fIn\fP\fB$"\fP,  \ after
+which the following appear in sequence:
+.IP " *" 3
+An optional assignment-suppressing character \fB'*'\fP .
+.LP
+.IP " *" 3
+An optional non-zero decimal integer that specifies the maximum field
+width.
+.LP
+.IP " *" 3
+An option length modifier that specifies the size of the receiving
+object.
+.LP
+.IP " *" 3
+A \fIconversion specifier\fP character that specifies the type of
+conversion to be applied. The valid conversion specifiers are
+described below.
+.LP
+.LP
+The \fIfscanf\fP() functions shall execute each directive of the format
+in turn. If a directive fails, as detailed below, the
+function shall return. Failures are described as input failures (due
+to the unavailability of input bytes) or matching failures
+(due to inappropriate input).
+.LP
+A directive composed of one or more white-space characters shall be
+executed by reading input until no more valid input can be
+read, or up to the first byte which is not a white-space character,
+which remains unread.
+.LP
+A directive that is an ordinary character shall be executed as follows:
+the next byte shall be read from the input and compared
+with the byte that comprises the directive; if the comparison shows
+that they are not equivalent, the directive shall fail, and the
+differing and subsequent bytes shall remain unread. Similarly, if
+end-of-file, an encoding error, or a read error prevents a
+character from being read, the directive shall fail.
+.LP
+A directive that is a conversion specification defines a set of matching
+input sequences, as described below for each conversion
+character. A conversion specification shall be executed in the following
+steps.
+.LP
+Input white-space characters (as specified by \fIisspace\fP() ) shall
+be skipped, unless the
+conversion specification includes a \fB[\fP , \fBc\fP , \fBC\fP ,
+or \fBn\fP conversion specifier.
+.LP
+An item shall be read from the input, unless the conversion specification
+includes an \fBn\fP conversion specifier. An input
+item shall be defined as the longest sequence of input bytes (up to
+any specified maximum field width, which may be measured in
+characters or bytes dependent on the conversion specifier) which is
+an initial subsequence of a matching sequence. The first byte,
+if any, after the input item shall remain unread. If the length of
+the input item is 0, the execution of the conversion
+specification shall fail; this condition is a matching failure, unless
+end-of-file, an encoding error, or a read error prevented
+input from the stream, in which case it is an input failure.
+.LP
+Except in the case of a \fB%\fP conversion specifier, the input item
+(or, in the case of a \fB%n\fP conversion
+specification, the count of input bytes) shall be converted to a type
+appropriate to the conversion character. If the input item is
+not a matching sequence, the execution of the conversion specification
+fails; this condition is a matching failure. Unless
+assignment suppression was indicated by a \fB'*'\fP , the result of
+the conversion shall be placed in the object pointed to by
+the first argument following the \fIformat\fP argument that has not
+already received a conversion result if the conversion
+specification is introduced by \fB%\fP ,   \ or in the \fIn\fPth argument
+if introduced by the character
+sequence \fB"%\fP\fIn\fP\fB$"\fP.  If this object does not
+have an appropriate type, or if the result of the conversion cannot
+be represented in the space provided, the behavior is
+undefined.
+.LP
+The length modifiers and their meanings are:
+.TP 7
+\fBhh\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBsigned
+char\fP or \fBunsigned char\fP.
+.TP 7
+\fBh\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBshort\fP
+or \fBunsigned short\fP.
+.TP 7
+\fBl\fP\ (ell)
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBlong\fP
+or \fBunsigned long\fP; that a following \fBa\fP ,
+\fBA\fP , \fBe\fP , \fBE\fP , \fBf\fP , \fBF\fP , \fBg\fP , or \fBG\fP
+conversion specifier applies to an
+argument with type pointer to \fBdouble\fP; or that a following \fBc\fP
+, \fBs\fP , or \fB[\fP conversion specifier
+applies to an argument with type pointer to \fBwchar_t\fP.
+.TP 7
+\fBll\fP\ (ell-ell)
+.sp
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP conversion
+specifier applies to an argument with type pointer to \fBlong long\fP
+or \fBunsigned long long\fP.
+.TP 7
+\fBj\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBintmax_t\fP
+or \fBuintmax_t\fP.
+.TP 7
+\fBz\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBsize_t\fP
+or the corresponding signed integer type.
+.TP 7
+\fBt\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , \fBX\fP , or \fBn\fP
+conversion specifier applies to an argument with type pointer to \fBptrdiff_t\fP
+or the corresponding \fBunsigned\fP type.
+.TP 7
+\fBL\fP
+Specifies that a following \fBa\fP , \fBA\fP , \fBe\fP , \fBE\fP ,
+\fBf\fP , \fBF\fP , \fBg\fP , or
+\fBG\fP conversion specifier applies to an argument with type pointer
+to \fBlong double\fP.
+.sp
+.LP
+If a length modifier appears with any conversion specifier other than
+as specified above, the behavior is undefined.
+.LP
+The following conversion specifiers are valid:
+.TP 7
+\fBd\fP
+Matches an optionally signed decimal integer, whose format is the
+same as expected for the subject sequence of \fIstrtol\fP() with the
+value 10 for the \fIbase\fP argument. In the absence of a size modifier,
+the application shall ensure that the corresponding argument is a
+pointer to \fBint\fP.
+.TP 7
+\fBi\fP
+Matches an optionally signed integer, whose format is the same as
+expected for the subject sequence of \fIstrtol\fP() with 0 for the
+\fIbase\fP argument. In the absence of a size modifier, the
+application shall ensure that the corresponding argument is a pointer
+to \fBint\fP.
+.TP 7
+\fBo\fP
+Matches an optionally signed octal integer, whose format is the same
+as expected for the subject sequence of \fIstrtoul\fP() with the value
+8 for the \fIbase\fP argument. In the absence of a size modifier,
+the application shall ensure that the corresponding argument is a
+pointer to \fBunsigned\fP.
+.TP 7
+\fBu\fP
+Matches an optionally signed decimal integer, whose format is the
+same as expected for the subject sequence of \fIstrtoul\fP() with
+the value 10 for the \fIbase\fP argument. In the absence of a size
+modifier,
+the application shall ensure that the corresponding argument is a
+pointer to \fBunsigned\fP.
+.TP 7
+\fBx\fP
+Matches an optionally signed hexadecimal integer, whose format is
+the same as expected for the subject sequence of \fIstrtoul\fP() with
+the value 16 for the \fIbase\fP argument. In the absence of a size
+modifier,
+the application shall ensure that the corresponding argument is a
+pointer to \fBunsigned\fP.
+.TP 7
+\fBa\fP,\ \fBe\fP,\ \fBf\fP,\ \fBg\fP
+.sp
+Matches an optionally signed floating-point number, infinity, or NaN,
+whose format is the same as expected for the subject sequence
+of \fIstrtod\fP(). In the absence of a size modifier, the application
+shall ensure that the
+corresponding argument is a pointer to \fBfloat\fP. 
+.LP
+If the \fIfprintf\fP() family of functions generates character string
+representations
+for infinity and NaN (a symbolic entity encoded in floating-point
+format) to support IEEE\ Std\ 754-1985, the
+\fIfscanf\fP() family of functions shall recognize them as input.
+.TP 7
+\fBs\fP
+Matches a sequence of bytes that are not white-space characters. The
+application shall ensure that the corresponding argument
+is a pointer to the initial byte of an array of \fBchar\fP, \fBsigned
+char\fP, or \fBunsigned char\fP large enough to accept the
+sequence and a terminating null character code, which shall be added
+automatically. 
+.LP
+If an \fBl\fP (ell) qualifier is present, the input is a sequence
+of characters that begins in the initial shift state. Each
+character shall be converted to a wide character as if by a call to
+the \fImbrtowc\fP()
+function, with the conversion state described by an \fBmbstate_t\fP
+object initialized to zero before the first character is
+converted. The application shall ensure that the corresponding argument
+is a pointer to an array of \fBwchar_t\fP large enough to
+accept the sequence and the terminating null wide character, which
+shall be added automatically.
+.TP 7
+\fB[\fP
+Matches a non-empty sequence of bytes from a set of expected bytes
+(the \fIscanset\fP). The normal skip over white-space
+characters shall be suppressed in this case. The application shall
+ensure that the corresponding argument is a pointer to the
+initial byte of an array of \fBchar\fP, \fBsigned char\fP, or \fBunsigned
+char\fP large enough to accept the sequence and a
+terminating null byte, which shall be added automatically. 
+.LP
+If an \fBl\fP (ell) qualifier is present, the input is a sequence
+of characters that begins in the initial shift state. Each
+character in the sequence shall be converted to a wide character as
+if by a call to the \fImbrtowc\fP() function, with the conversion
+state described by an \fBmbstate_t\fP object
+initialized to zero before the first character is converted. The application
+shall ensure that the corresponding argument is a
+pointer to an array of \fBwchar_t\fP large enough to accept the sequence
+and the terminating null wide character, which shall be
+added automatically.
+.LP
+The conversion specification includes all subsequent bytes in the
+\fIformat\fP string up to and including the matching right
+square bracket ( \fB']'\fP ). The bytes between the square brackets
+(the \fIscanlist\fP) comprise the scanset, unless the byte
+after the left square bracket is a circumflex ( \fB'^'\fP ), in which
+case the scanset contains all bytes that do not appear in
+the scanlist between the circumflex and the right square bracket.
+If the conversion specification begins with \fB"[]"\fP or
+\fB"[^]"\fP , the right square bracket is included in the scanlist
+and the next right square bracket is the matching right
+square bracket that ends the conversion specification; otherwise,
+the first right square bracket is the one that ends the
+conversion specification. If a \fB'-'\fP is in the scanlist and is
+not the first character, nor the second where the first
+character is a \fB'^'\fP , nor the last character, the behavior is
+implementation-defined.
+.TP 7
+\fBc\fP
+Matches a sequence of bytes of the number specified by the field width
+(1 if no field width is present in the conversion
+specification). The application shall ensure that the corresponding
+argument is a pointer to the initial byte of an array of
+\fBchar\fP, \fBsigned char\fP, or \fBunsigned char\fP large enough
+to accept the sequence. No null byte is added. The normal
+skip over white-space characters shall be suppressed in this case.
+.LP
+If an \fBl\fP (ell) qualifier is present, the input shall be a sequence
+of characters that begins in the initial shift state.
+Each character in the sequence is converted to a wide character as
+if by a call to the \fImbrtowc\fP() function, with the conversion
+state described by an \fBmbstate_t\fP object
+initialized to zero before the first character is converted. The application
+shall ensure that the corresponding argument is a
+pointer to an array of \fBwchar_t\fP large enough to accept the resulting
+sequence of wide characters. No null wide character is
+added.
+.TP 7
+\fBp\fP
+Matches an implementation-defined set of sequences, which shall be
+the same as the set of sequences that is produced by the
+\fB%p\fP conversion specification of the corresponding \fIfprintf\fP()
+functions. The
+application shall ensure that the corresponding argument is a pointer
+to a pointer to \fBvoid\fP. The interpretation of the input
+item is implementation-defined. If the input item is a value converted
+earlier during the same program execution, the pointer that
+results shall compare equal to that value; otherwise, the behavior
+of the \fB%p\fP conversion specification is undefined.
+.TP 7
+\fBn\fP
+No input is consumed. The application shall ensure that the corresponding
+argument is a pointer to the integer into which shall
+be written the number of bytes read from the input so far by this
+call to the \fIfscanf\fP() functions. Execution of a \fB%n\fP
+conversion specification shall not increment the assignment count
+returned at the completion of execution of the function. No
+argument shall be converted, but one shall be consumed. If the conversion
+specification includes an assignment-suppressing
+character or a field width, the behavior is undefined.
+.TP 7
+\fBC\fP
+Equivalent to \fBlc\fP . 
+.TP 7
+\fBS\fP
+Equivalent to \fBls\fP . 
+.TP 7
+\fB%\fP
+Matches a single \fB'%'\fP character; no conversion or assignment
+occurs. The complete conversion specification shall be
+\fB%%\fP .
+.sp
+.LP
+If a conversion specification is invalid, the behavior is undefined.
+.LP
+The conversion specifiers \fBA\fP , \fBE\fP , \fBF\fP , \fBG\fP ,
+and \fBX\fP are also valid and shall be
+equivalent to \fBa\fP , \fBe\fP , \fBf\fP , \fBg\fP , and \fBx\fP
+, respectively.
+.LP
+If end-of-file is encountered during input, conversion shall be terminated.
+If end-of-file occurs before any bytes matching the
+current conversion specification (except for \fB%n\fP ) have been
+read (other than leading white-space characters, where
+permitted), execution of the current conversion specification shall
+terminate with an input failure. Otherwise, unless execution of
+the current conversion specification is terminated with a matching
+failure, execution of the following conversion specification (if
+any) shall be terminated with an input failure.
+.LP
+Reaching the end of the string in \fIsscanf\fP() shall be equivalent
+to encountering end-of-file for \fIfscanf\fP().
+.LP
+If conversion terminates on a conflicting input, the offending input
+is left unread in the input. Any trailing white space
+(including <newline>s) shall be left unread unless matched by a conversion
+specification. The success of literal matches and
+suppressed assignments is only directly determinable via the \fB%n\fP
+conversion specification.
+.LP
+The
+\fIfscanf\fP() and \fIscanf\fP() functions may mark the \fIst_atime\fP
+field of the file associated with \fIstream\fP for
+update. The \fIst_atime\fP field shall be marked for update by the
+first successful execution of \fIfgetc\fP(), \fIfgets\fP(), \fIfread\fP(),
+\fIgetc\fP(), \fIgetchar\fP(), \fIgets\fP(), \fIfscanf\fP(), or
+\fIfscanf\fP() using \fIstream\fP that returns data not supplied by
+a prior call to \fIungetc\fP(). 
+.SH RETURN VALUE
+.LP
+Upon successful completion, these functions shall return the number
+of successfully matched and assigned input items; this
+number can be zero in the event of an early matching failure. If the
+input ends before the first matching failure or conversion,
+EOF shall be returned. If a read error occurs, the error indicator
+for the stream is set, EOF shall be returned,   \ and
+\fIerrno\fP shall be set to indicate the error. 
+.SH ERRORS
+.LP
+For the conditions under which the \fIfscanf\fP() functions fail and
+may fail, refer to \fIfgetc\fP()
+or \fIfgetwc\fP() .
+.LP
+In addition, \fIfscanf\fP() may fail if:
+.TP 7
+.B EILSEQ
+Input byte sequence does not form a valid character. 
+.TP 7
+.B EINVAL
+There are insufficient arguments. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The call:
+.sp
+.RS
+.nf
+
+\fBint i, n; float x; char name[50];
+n = scanf("%d%f%s", &i, &x, name);
+\fP
+.fi
+.RE
+.LP
+with the input line:
+.sp
+.RS
+.nf
+
+\fB25 54.32E-1 Hamster
+\fP
+.fi
+.RE
+.LP
+assigns to \fIn\fP the value 3, to \fIi\fP the value 25, to \fIx\fP
+the value 5.432, and \fIname\fP contains the string
+\fB"Hamster"\fP .
+.LP
+The call:
+.sp
+.RS
+.nf
+
+\fBint i; float x; char name[50];
+(void) scanf("%2d%f%*d %[0123456789]", &i, &x, name);
+\fP
+.fi
+.RE
+.LP
+with input:
+.sp
+.RS
+.nf
+
+\fB56789 0123 56a72
+\fP
+.fi
+.RE
+.LP
+assigns 56 to \fIi\fP, 789.0 to \fIx\fP, skips 0123, and places the
+string \fB"56\\0"\fP in \fIname\fP. The next call to \fIgetchar\fP()
+shall return the character \fB'a'\fP .
+.SS Reading Data into an Array
+.LP
+The following call uses \fIfscanf\fP() to read three floating-point
+numbers from standard input into the \fIinput\fP
+array.
+.sp
+.RS
+.nf
+
+\fBfloat input[3]; fscanf (stdin, "%f %f %f", input, input+1, input+2);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+If the application calling \fIfscanf\fP() has any objects of type
+\fBwint_t\fP or \fBwchar_t\fP, it must also include the \fI<wchar.h>\fP
+header to have these objects defined.
+.SH RATIONALE
+.LP
+This function is aligned with the ISO/IEC\ 9899:1999 standard, and
+in doing so a few "obvious" things were not included.
+Specifically, the set of characters allowed in a scanset is limited
+to single-byte characters. In other similar places, multi-byte
+characters have been permitted, but for alignment with the ISO/IEC\ 9899:1999
+standard, it has not been done here. Applications
+needing this could use the corresponding wide-character functions
+to achieve the desired results.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetc\fP() , \fIprintf\fP() , \fIsetlocale\fP() , \fIstrtod\fP()
+, \fIstrtol\fP() ,
+\fIstrtoul\fP() , \fIwcrtomb\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 7, Locale, \fI<langinfo.h>\fP, \fI<stdio.h>\fP,
+\fI<wchar.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

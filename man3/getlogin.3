@@ -1,0 +1,135 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright 1995  James R. Van Zandt <jrv@vanzandt.mv.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Changed Tue Sep 19 01:49:29 1995, aeb: moved from man2 to man3
+.\"  added ref to /etc/utmp, added BUGS section, etc.
+.\" modified 2003 Walter Harms, aeb - added getlogin_r, note on stdin use
+.TH GETLOGIN 3 2003-08-24 "Linux 2.4" "Linux Programmer's Manual"
+.SH NAME
+getlogin, getlogin_r, cuserid \- get user name
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.B "char *getlogin(void);"
+.br
+.BI "int getlogin_r(char *" buf ", size_t " bufsize );
+.sp
+.B #include <stdio.h>
+.sp
+.BI "char *cuserid(char *" string );
+.SH DESCRIPTION
+\fBgetlogin\fP returns a pointer to a string containing the name of
+the user logged in on the controlling terminal of the process, or a
+null pointer if this information cannot be determined.  The string is
+statically allocated and might be overwritten on subsequent calls to
+this function or to \fBcuserid\fP.
+.PP
+\fBgetlogin_r\fP returns this same user name in the array
+.I buf
+of size
+.IR bufsize .
+.PP
+\fBcuserid\fP returns a pointer to a string containing a user name
+associated with the effective user ID of the process.  If \fIstring\fP
+is not a null pointer, it should be an array that can hold at least
+\fBL_cuserid\fP characters; the string is returned in this array.
+Otherwise, a pointer to a string in a static area is returned. This
+string is statically allocated and might be overwritten on subsequent
+calls to this function or to \fBgetlogin\fP.
+.PP
+The macro \fBL_cuserid\fP is an integer constant that indicates how
+long an array you might need to store a user name.  \fBL_cuserid\fP is
+declared in \fBstdio.h\fP.
+.PP
+These functions let your program identify positively the user who is
+running (\fBcuserid\fP) or the user who logged in this session
+(\fBgetlogin\fP).  (These can differ when setuid programs are
+involved.)
+.PP
+For most purposes, it is more useful to use the environment variable
+\fBLOGNAME\fP to find out who the user is.  This is more flexible
+precisely because the user can set \fBLOGNAME\fP arbitrarily.
+.SH "RETURN VALUE"
+\fBgetlogin\fP returns a pointer to the user name when successful,
+and NULL on failure.
+\fBgetlogin_r\fP returns 0 when successful, and nonzero on failure.
+.SH ERRORS
+POSIX specifies
+.TP
+.B EMFILE
+The calling process already has the maximum allowed number of open files.
+.TP
+.B ENFILE
+The system already has the maximum allowed number of open files.
+.TP
+.B ENXIO
+The calling process has no controlling tty.
+.TP
+.B ERANGE
+(getlogin_r)
+The length of the user name, including final NUL, is larger than
+.IR bufsize .
+.LP
+Linux/glibc also has
+.TP
+.B ENOENT
+There was no corresponding entry in the utmp-file.
+.TP
+.B ENOMEM
+Insufficient memory to allocate passwd structure.
+.SH FILES
+.nf
+\fI/etc/passwd\fP	password database file
+.br
+\fI/var/run/utmp\fP	(traditionally \fI/etc/utmp\fP;
+			some libc versions used \fI/var/adm/utmp\fP)
+.fi
+.SH "CONFORMING TO"
+POSIX.1.  System V has a \fBcuserid\fP function which uses the real
+user ID rather than the effective user ID. The \fBcuserid\fP function
+was included in the 1988 version of POSIX, but removed from the 1990 version.
+.LP
+OpenBSD has \fBgetlogin\fP and \fBsetlogin\fP, and a username
+associated with a session, even if it has no controlling tty.
+.SH BUGS
+Unfortunately, it is often rather easy to fool getlogin().
+Sometimes it does not work at all, because some program messed up
+the utmp file. Often, it gives only the first 8 characters of
+the login name. The user currently logged in on the controlling tty
+of our program need not be the user who started it.
+Avoid getlogin() for security-related purposes.
+.LP
+Note that glibc does not follow the POSIX spec and uses stdin
+instead of
+.IR /dev/tty .
+A bug. (Other recent systems, like SunOS 5.8 and HPUX 11.11 and FreeBSD 4.8
+all return the login name also when stdin is redirected.)
+.LP
+Nobody knows precisely what cuserid() does - avoid it in portable programs -
+avoid it altogether - use getpwuid(geteuid()) instead, if that is
+what you meant.
+DO NOT USE cuserid().
+.SH "SEE ALSO"
+.BR geteuid (2),
+.BR getuid (2)

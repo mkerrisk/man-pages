@@ -1,0 +1,351 @@
+'\" t
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\" Parts Copyright (c) 1995 Nicolai Langfeldt (janl@ifi.uio.no), 1/1/95
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified by Michael Haardt <michael@moria.de>
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-05-18 by Todd Larason <jtl@molehill.org>
+.\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1995-01-09 by Richard Kettlewell <richard@greenend.org.uk>
+.\" Modified 1998-05-13 by Michael Haardt <michael@cantor.informatik.rwth-aachen.de>
+.\" Modified 1999-07-06 by aeb & Albert Cahalan
+.\" Modified 2000-01-07 by aeb
+.\" Modified 2004-06-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" 
+.TH STAT 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+stat, fstat, lstat \- get file status
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <sys/stat.h>
+.br
+.B #include <unistd.h>
+.sp
+.BI "int stat(const char *" file_name ", struct stat *" buf );
+.br
+.BI "int fstat(int " filedes ", struct stat *" buf );
+.br
+.BI "int lstat(const char *" file_name ", struct stat *" buf );
+.SH DESCRIPTION
+.PP
+These functions return information about the specified file.  You do
+not need any access rights to the file to get this information but you
+need search rights to all directories named in the path leading to the
+file.
+.PP
+.B stat
+stats the file pointed to by 
+.I file_name
+and fills in
+.IR buf .
+
+.B lstat
+is identical to
+.BR stat ,
+except in the case of a symbolic link, where the link itself is stat-ed,
+not the file that it refers to.
+
+.B fstat
+is identical to
+.BR stat ,
+only the open file pointed to by 
+.I filedes
+(as returned by
+.BR open (2))
+is stat-ed in place of 
+.IR file_name .
+
+.PP
+They all return a
+.I stat
+structure, which contains the following fields:
+.PP
+.RS
+.nf
+struct stat {
+    dev_t         st_dev;      /* device */
+    ino_t         st_ino;      /* inode */
+    mode_t        st_mode;     /* protection */
+    nlink_t       st_nlink;    /* number of hard links */
+    uid_t         st_uid;      /* user ID of owner */
+    gid_t         st_gid;      /* group ID of owner */
+    dev_t         st_rdev;     /* device type (if inode device) */
+    off_t         st_size;     /* total size, in bytes */
+    blksize_t     st_blksize;  /* blocksize for filesystem I/O */
+    blkcnt_t      st_blocks;   /* number of blocks allocated */
+    time_t        st_atime;    /* time of last access */
+    time_t        st_mtime;    /* time of last modification */
+    time_t        st_ctime;    /* time of last status change */
+};
+.fi
+.RE
+.PP
+The value
+.I st_size
+gives the size of the file (if it is a regular file or a symlink)
+in bytes. The size of a symlink is the length of the pathname
+it contains, without trailing NUL.
+
+The value
+.I st_blocks
+gives the size of the file in 512-byte blocks.
+(This may be smaller than
+.IR st_size /512
+e.g. when the file has holes.)
+The value
+.IR st_blksize
+gives the "preferred" blocksize for efficient file system I/O.
+(Writing to a file in smaller chunks may cause
+an inefficient read-modify-rewrite.)
+.PP
+Not all of the Linux filesystems implement all of the time fields.
+Some file system types allow mounting in such a way that file
+accesses do not cause an update of the
+.I st_atime
+field. (See `noatime' in
+.BR mount (8).)
+
+The field
+.I st_atime
+is changed by file accesses, e.g. by
+.BR execve (2),
+.BR mknod (2),
+.BR pipe (2),
+.BR utime (2)
+and
+.BR read (2)
+(of more than zero bytes). Other routines, like
+.BR mmap (2),
+may or may not update
+.IR st_atime .
+
+The field
+.I st_mtime
+is changed by file modifications, e.g. by
+.BR mknod (2),
+.BR truncate (2),
+.BR utime (2)
+and
+.BR write (2)
+(of more than zero bytes).
+Moreover,
+.I st_mtime
+of a directory is changed by the creation or deletion of files
+in that directory.
+The
+.I st_mtime
+field is
+.I not
+changed for changes in owner, group, hard link count, or mode.
+
+The field
+.I st_ctime
+is changed by writing or by setting inode information
+(i.e., owner, group, link count, mode, etc.).
+.PP
+The following POSIX macros are defined to check the file type:
+.RS
+.TP 1.2i
+S_ISREG(m)
+is it a regular file?
+.TP
+S_ISDIR(m)
+directory?
+.TP
+S_ISCHR(m)
+character device?
+.TP
+S_ISBLK(m)
+block device?
+.TP
+S_ISFIFO(m)
+fifo?
+.TP
+S_ISLNK(m)
+symbolic link? (Not in POSIX.1-1996.)
+.TP
+S_ISSOCK(m)
+socket? (Not in POSIX.1-1996.)
+.RE
+.PP
+The following flags are defined for the
+.I st_mode
+field:
+.P
+.TS
+l l l.
+S_IFMT	0170000	bitmask for the file type bitfields
+S_IFSOCK	0140000	socket
+S_IFLNK	0120000	symbolic link
+S_IFREG	0100000	regular file
+S_IFBLK	0060000	block device
+S_IFDIR	0040000	directory
+S_IFCHR	0020000	character device
+S_IFIFO	0010000	fifo
+S_ISUID	0004000	set UID bit
+S_ISGID	0002000	set GID bit (see below)
+S_ISVTX	0001000	sticky bit (see below)
+S_IRWXU	00700	mask for file owner permissions
+S_IRUSR	00400	owner has read permission
+S_IWUSR	00200	owner has write permission
+S_IXUSR	00100	owner has execute permission
+S_IRWXG	00070	mask for group permissions
+S_IRGRP	00040	group has read permission
+S_IWGRP	00020	group has write permission
+S_IXGRP	00010	group has execute permission
+S_IRWXO	00007	mask for permissions for others (not in group)
+S_IROTH	00004	others have read permission
+S_IWOTH	00002	others have write permisson
+S_IXOTH	00001	others have execute permission
+.TE
+.P
+The set GID bit (S_ISGID) has several special uses:
+For a directory it indicates that BSD semantics is to be used
+for that directory: files created there inherit their group ID from
+the directory, not from the effective group ID of the creating process,
+and directories created there will also get the S_ISGID bit set.
+For a file that does not have the group execution bit (S_IXGRP) set,
+it indicates mandatory file/record locking.
+.P
+The `sticky' bit (S_ISVTX) on a directory means that a file
+in that directory can be renamed or deleted only by the owner
+of the file, by the owner of the directory, and by a privileged
+process.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EACCES
+Search permission is denied for one of the directories
+in the path prefix of
+.IR file_name .
+(See also
+.BR path_resolution (2).)
+.TP
+.B EBADF
+.I filedes
+is bad.
+.TP
+.B EFAULT
+Bad address.
+.TP
+.B ELOOP
+Too many symbolic links encountered while traversing the path.
+.TP
+.B ENAMETOOLONG
+File name too long.
+.TP
+.B ENOENT
+A component of the path
+.I file_name
+does not exist, or the path is an empty string.
+.TP
+.B ENOMEM
+Out of memory (i.e. kernel memory).
+.TP
+.B ENOTDIR
+A component of the path is not a directory.
+.SH "CONFORMING TO"
+The
+.B stat
+and
+.B fstat
+calls conform to SVr4, SVID, POSIX, X/OPEN, BSD 4.3.  The
+.B lstat
+call conforms to 4.3BSD and SVr4.
+SVr4 documents additional
+.B fstat
+error conditions EINTR, ENOLINK, and EOVERFLOW.  SVr4
+documents additional
+.B stat
+and
+.B lstat
+error conditions EINTR, EMULTIHOP, ENOLINK, and EOVERFLOW.
+Use of the
+.I st_blocks
+and
+.I st_blksize
+fields may be less portable. (They were introduced in BSD.
+Are not specified by POSIX. The interpretation differs between
+systems, and possibly on a single system when NFS mounts are involved.)
+.LP
+POSIX does not describe the S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK,
+S_IFDIR, S_IFCHR, S_IFIFO, S_ISVTX bits, but instead demands the use of
+the macros S_ISDIR(), etc. The S_ISLNK and S_ISSOCK macros are not in
+POSIX.1-1996, but both will be in the next POSIX standard;
+the former is from SVID 4v2, the latter from SUSv2.
+.LP
+Unix V7 (and later systems) had S_IREAD, S_IWRITE, S_IEXEC, where POSIX
+prescribes the synonyms S_IRUSR, S_IWUSR, S_IXUSR.
+.SH "OTHER SYSTEMS"
+Values that have been (or are) in use on various systems:
+.P
+.TS
+l l l l l.
+hex	name	ls	octal	description
+f000	S_IFMT		170000	mask for file type
+0000			000000	SCO out-of-service inode, BSD unknown type
+				SVID-v2 and XPG2 have both 0 and 0100000 for ordinary file
+1000	S_IFIFO	p|	010000	fifo (named pipe)
+2000	S_IFCHR	c	020000	character special (V7)
+3000	S_IFMPC		030000	multiplexed character special (V7)
+4000	S_IFDIR	d/	040000	directory (V7)
+5000	S_IFNAM		050000	XENIX named special file
+				with two subtypes, distinguished by st_rdev values 1, 2:
+0001	S_INSEM	s	000001	XENIX semaphore subtype of IFNAM
+0002	S_INSHD	m	000002	XENIX shared data subtype of IFNAM
+6000	S_IFBLK	b	060000	block special (V7)
+7000	S_IFMPB		070000	multiplexed block special (V7)
+8000	S_IFREG	-	100000	regular (V7)
+9000	S_IFCMP		110000	VxFS compressed
+9000	S_IFNWK	n	110000	network special (HP-UX)
+a000	S_IFLNK	l@	120000	symbolic link (BSD)
+b000	S_IFSHAD		130000	Solaris shadow inode for ACL (not seen by userspace)
+c000	S_IFSOCK	s=	140000	socket (BSD; also "S_IFSOC" on VxFS)
+d000	S_IFDOOR	D>	150000	Solaris door
+e000	S_IFWHT	w%	160000	BSD whiteout (not used for inode)
+
+0200	S_ISVTX		001000	`sticky bit': save swapped text even after use (V7)
+				reserved (SVID-v2)
+				On non-directories: don't cache this file (SunOS)
+				On directories: restricted deletion flag (SVID-v4.2)
+0400	S_ISGID		002000	set group ID on execution (V7)
+				for directories: use BSD semantics for propagation of gid
+0400	S_ENFMT		002000	SysV file locking enforcement (shared w/ S_ISGID)
+0800	S_ISUID		004000	set user ID on execution (V7)
+0800	S_CDF		004000	directory is a context dependent file (HP-UX)
+.TE
+
+A sticky command appeared in Version 32V AT&T UNIX.
+
+.SH "SEE ALSO"
+.BR chmod (2),
+.BR chown (2),
+.BR readlink (2),
+.BR utime (2),
+.BR capabilities (7)

@@ -1,0 +1,189 @@
+.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" and 1999 by Bruno Haible (haible@clisp.cons.org)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\" Modified Sat Jul 24 18:20:12 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified Tue Jul 15 16:49:10 1997 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Sun Jul  4 14:52:16 1999 by Bruno Haible (haible@clisp.cons.org)
+.\" Modified Tue Aug 24 17:11:01 1999 by Andries Brouwer (aeb@cwi.nl)
+.\" Modified Tue Feb  6 03:31:55 2001 by Andries Brouwer (aeb@cwi.nl)
+.\"
+.TH SETLOCALE 3  1999-07-04 "GNU" "Linux Programmer's Manual"
+.SH NAME
+setlocale \- set the current locale
+.SH SYNOPSIS
+.nf
+.B #include <locale.h>
+.sp
+.BI "char *setlocale(int " category ", const char *" locale );
+.fi
+.SH DESCRIPTION
+The 
+.B setlocale()
+function is used to set or query the program's current locale.
+.PP
+If
+.I locale
+is not
+.BR NULL ,
+the program's current locale is modified according to the arguments.
+The argument
+.I category
+determines which parts of the program's current locale should be modified.
+.TP
+.B LC_ALL
+for all of the locale.
+.TP
+.B LC_COLLATE
+for regular expression matching (it determines the meaning
+of range expressions and equivalence classes) and string collation.
+.TP
+.B LC_CTYPE
+for regular expression matching, character classification, conversion,
+case-sensitive comparison, and wide character functions.
+.TP
+.B LC_MESSAGES
+for localizable natural-language messages.
+.TP
+.B LC_MONETARY
+for monetary formatting.
+.TP
+.B LC_NUMERIC
+for number formatting (such as the decimal point and the thousands separator).
+.TP
+.B LC_TIME
+for time and date formatting.
+.PP
+The argument
+.I locale
+is a pointer to a character string containing the
+required setting of
+.IR category .
+Such a string is either a well-known constant like "C" or "da_DK"
+(see below), or an opaque string that was returned by another call of
+.BR setlocale .
+.PP
+If
+.I locale
+is
+.BR """""" ,
+each part of the locale that should be modified is set according to the
+environment variables. The details are implementation dependent.
+For glibc, first
+.\" [This is false on my system - must check which library versions do this]
+.\" if
+.\" .I category
+.\" is LC_MESSAGES, the environment variable LANGUAGE is inspected,
+.\" then
+(regardless of
+.IR category ),
+the environment variable LC_ALL is inspected,
+next the environment variable with the same name as the category
+(LC_COLLATE, LC_CTYPE, LC_MESSAGES, LC_MONETARY, LC_NUMERIC, LC_TIME)
+and finally the environment variable LANG.
+The first existing environment variable is used.
+If its value is not a valid locale specification, the locale
+is unchanged, and
+.B setlocale
+returns NULL.
+.\" The environment variable LANGUAGE may contain several, colon-separated,
+.\" locale names.
+.PP
+The locale
+.B """C"""
+or
+.B """POSIX"""
+is a portable locale; its LC_CTYPE part corresponds to the 7-bit ASCII
+character set.
+.PP
+A locale name is typically of the form
+.IR language "[_" territory "][." codeset "][@" modifier "],"
+where
+.I language
+is an ISO 639 language code,
+.I territory
+is an ISO 3166 country code, and
+.I codeset
+is a character set or encoding identifier like
+.B "ISO-8859-1"
+or
+.BR "UTF-8" .
+For a list of all supported locales, try "locale -a", cf.\&
+.BR locale (1).
+.PP
+If
+.I locale
+is
+.BR NULL ,
+the current locale is only queried, not modified.
+.PP
+On startup of the main program, the portable
+.B """C"""
+locale is selected as default.
+A program may be made portable to all locales by calling
+.B setlocale(LC_ALL, """""")
+after program  initialization, by using the values returned
+from a
+.B localeconv()
+call
+for locale \- dependent information, by using the multi-byte and wide
+character functions for text processing if
+.BR "MB_CUR_MAX > 1" ,
+and by using
+.BR strcoll() ", " wcscoll()
+or 
+.BR strxfrm() ", " wcsxfrm()
+to compare strings.
+.SH "RETURN VALUE"
+A successful call to
+.B setlocale()
+returns an opaque string that corresponds to the locale set.
+This string may be allocated in static storage.
+The string returned is such that a subsequent call with that string
+and its associated category will restore that part of the process's
+locale. The return value is
+.B NULL
+if the request cannot be honored.
+.SH "CONFORMING TO"
+ANSI C, POSIX.1
+.SH NOTES
+Linux (that is, GNU libc) supports the portable locales
+.BR """C""" " and " """POSIX""" .
+In the good old days there used to be support for
+the European Latin-1 
+.B """ISO-8859-1"""
+locale (e.g. in libc-4.5.21 and libc-4.6.27), and the Russian
+.B """KOI-8"""
+(more precisely, "koi-8r") locale (e.g. in libc-4.6.27),
+so that having an environment variable LC_CTYPE=ISO-8859-1
+sufficed to make isprint() return the right answer.
+These days non-English speaking Europeans have to work a bit harder,
+and must install actual locale files.
+.SH "SEE ALSO"
+.BR locale (1),
+.BR localedef (1),
+.BR isalpha (3),
+.BR localeconv (3),
+.BR strcoll (3),
+.BR strftime (3),
+.BR charsets (4),
+.BR locale (7)

@@ -1,0 +1,196 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "MSGSND" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" msgsnd 
+.SH NAME
+msgsnd \- XSI message send operation
+.SH SYNOPSIS
+.LP
+\fB#include <sys/msg.h>
+.br
+.sp
+int msgsnd(int\fP \fImsqid\fP\fB, const void *\fP\fImsgp\fP\fB, size_t\fP
+\fImsgsz\fP\fB, int\fP \fImsgflg\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fImsgsnd\fP() function operates on XSI message queues (see the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+Section 3.224, Message Queue). It is unspecified whether this function
+interoperates with the realtime interprocess communication facilities
+defined in \fIRealtime\fP .
+.LP
+The \fImsgsnd\fP() function shall send a message to the queue associated
+with the message queue identifier specified by
+\fImsqid\fP.
+.LP
+The application shall ensure that the argument \fImsgp\fP points to
+a user-defined buffer that contains first a field of type
+\fBlong\fP specifying the type of the message, and then a data portion
+that holds the data bytes of the message. The structure
+below is an example of what this user-defined buffer might look like:
+.sp
+.RS
+.nf
+
+\fBstruct mymsg {
+    long   mtype;       /* Message type. */
+    char   mtext[1];    /* Message text. */
+}
+\fP
+.fi
+.RE
+.LP
+The structure member \fImtype\fP is a non-zero positive type \fBlong\fP
+that can be used by the receiving process for message
+selection.
+.LP
+The structure member \fImtext\fP is any text of length \fImsgsz\fP
+bytes. The argument \fImsgsz\fP can range from 0 to a
+system-imposed maximum.
+.LP
+The argument \fImsgflg\fP specifies the action to be taken if one
+or more of the following is true:
+.IP " *" 3
+The number of bytes already on the queue is equal to \fBmsg_qbytes\fP;
+see \fI<sys/msg.h>\fP.
+.LP
+.IP " *" 3
+The total number of messages on all queues system-wide is equal to
+the system-imposed limit.
+.LP
+.LP
+These actions are as follows:
+.IP " *" 3
+If (\fImsgflg\fP & IPC_NOWAIT) is non-zero, the message shall not
+be sent and the calling thread shall return
+immediately.
+.LP
+.IP " *" 3
+If (\fImsgflg\fP & IPC_NOWAIT) is 0, the calling thread shall suspend
+execution until one of the following occurs:
+.RS
+.IP " *" 3
+The condition responsible for the suspension no longer exists, in
+which case the message is sent.
+.LP
+.IP " *" 3
+The message queue identifier \fImsqid\fP is removed from the system;
+when this occurs, \fIerrno\fP shall be set equal to
+[EIDRM] and -1 shall be returned.
+.LP
+.IP " *" 3
+The calling thread receives a signal that is to be caught; in this
+case the message is not sent and the calling thread resumes
+execution in the manner prescribed in \fIsigaction\fP() .
+.LP
+.RE
+.LP
+.LP
+Upon successful completion, the following actions are taken with respect
+to the data structure associated with \fImsqid\fP; see
+\fI<sys/msg.h>\fP:
+.IP " *" 3
+\fBmsg_qnum\fP shall be incremented by 1.
+.LP
+.IP " *" 3
+\fBmsg_lspid\fP shall be set equal to the process ID of the calling
+process.
+.LP
+.IP " *" 3
+\fBmsg_stime\fP shall be set equal to the current time.
+.LP
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fImsgsnd\fP() shall return 0; otherwise,
+no message shall be sent, \fImsgsnd\fP() shall return
+-1, and \fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fImsgsnd\fP() function shall fail if:
+.TP 7
+.B EACCES
+Operation permission is denied to the calling process; see \fIXSI
+Interprocess
+Communication\fP .
+.TP 7
+.B EAGAIN
+The message cannot be sent for one of the reasons cited above and
+(\fImsgflg\fP & IPC_NOWAIT) is non-zero.
+.TP 7
+.B EIDRM
+The message queue identifier \fImsqid\fP is removed from the system.
+.TP 7
+.B EINTR
+The \fImsgsnd\fP() function was interrupted by a signal.
+.TP 7
+.B EINVAL
+The value of \fImsqid\fP is not a valid message queue identifier,
+or the value of \fImtype\fP is less than 1; or the value of
+\fImsgsz\fP is less than 0 or greater than the system-imposed limit.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Sending a Message
+.LP
+The following example sends a message to the queue identified by the
+\fImsqid\fP argument (assuming that value has previously
+been set). This call specifies that an error should be reported if
+no message is available. The message size is calculated directly
+using the \fIsizeof\fP operator.
+.sp
+.RS
+.nf
+
+\fB#include <sys/msg.h>
+\&...
+int result;
+int msqid;
+struct message {
+    long type;
+    char text[20];
+} msg;
+.sp
+
+msg.type = 1;
+strcpy(msg.text, "This is message 1");
+\&...
+result = msgsnd(msqid, (void *) &msg, sizeof(msg.text), IPC_NOWAIT);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The POSIX Realtime Extension defines alternative interfaces for interprocess
+communication (IPC). Application developers who
+need to use IPC should design their applications so that modules using
+the IPC routines described in \fIXSI Interprocess Communication\fP
+can be easily modified to use the alternative
+interfaces.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIXSI Interprocess Communication\fP , \fIRealtime\fP , \fImq_close\fP()
+, \fImq_getattr\fP() , \fImq_notify\fP() , \fImq_open\fP() , \fImq_receive\fP()
+, \fImq_send\fP() , \fImq_setattr\fP() , \fImq_unlink\fP() , \fImsgctl\fP()
+, \fImsgget\fP() ,
+\fImsgrcv\fP() , \fIsigaction\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/msg.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,174 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "CHOWN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" chown 
+.SH NAME
+chown \- change owner and group of a file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int chown(const char *\fP\fIpath\fP\fB, uid_t\fP \fIowner\fP\fB, gid_t\fP
+\fIgroup\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIchown\fP() function shall change the user and group ownership
+of a file.
+.LP
+The \fIpath\fP argument points to a pathname naming a file. The user
+ID and group ID of the named file shall be set to the
+numeric values contained in \fIowner\fP and \fIgroup\fP, respectively.
+.LP
+Only processes with an effective user ID equal to the user ID of the
+file or with appropriate privileges may change the
+ownership of a file. If _POSIX_CHOWN_RESTRICTED is in effect for \fIpath\fP:
+.IP " *" 3
+Changing the user ID is restricted to processes with appropriate privileges.
+.LP
+.IP " *" 3
+Changing the group ID is permitted to a process with an effective
+user ID equal to the user ID of the file, but without
+appropriate privileges, if and only if \fIowner\fP is equal to the
+file's user ID or ( \fBuid_t\fP)-1 and \fIgroup\fP is equal
+either to the calling process' effective group ID or to one of its
+supplementary group IDs.
+.LP
+.LP
+If the specified file is a regular file, one or more of the S_IXUSR,
+S_IXGRP, or S_IXOTH bits of the file mode are set, and the
+process does not have appropriate privileges, the set-user-ID (S_ISUID)
+and set-group-ID (S_ISGID) bits of the file mode shall be
+cleared upon successful return from \fIchown\fP(). If the specified
+file is a regular file, one or more of the S_IXUSR, S_IXGRP,
+or S_IXOTH bits of the file mode are set, and the process has appropriate
+privileges, it is implementation-defined whether the
+set-user-ID and set-group-ID bits are altered. If the \fIchown\fP()
+function is successfully invoked on a file that is not a
+regular file and one or more of the S_IXUSR, S_IXGRP, or S_IXOTH bits
+of the file mode are set, the set-user-ID and set-group-ID
+bits may be cleared.
+.LP
+If \fIowner\fP or \fIgroup\fP is specified as ( \fBuid_t\fP)-1 or
+( \fBgid_t\fP)-1, respectively, the corresponding ID of
+the file shall not be changed. If both owner and group are -1, the
+times need not be updated.
+.LP
+Upon successful completion, \fIchown\fP() shall mark for update the
+\fIst_ctime\fP field of the file.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned; otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error. If
+-1 is returned, no changes are made in the user ID and group ID of
+the file.
+.SH ERRORS
+.LP
+The \fIchown\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied on a component of the path prefix.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B EPERM
+The effective user ID does not match the owner of the file, or the
+calling process does not have appropriate privileges and
+_POSIX_CHOWN_RESTRICTED indicates that such privilege is required.
+.TP 7
+.B EROFS
+The named file resides on a read-only file system.
+.sp
+.LP
+The \fIchown\fP() function may fail if:
+.TP 7
+.B EIO
+An I/O error occurred while reading or writing to the file system.
+.TP 7
+.B EINTR
+The \fIchown\fP() function was interrupted by a signal which was caught.
+.TP 7
+.B EINVAL
+The owner or group ID supplied is not a value supported by the implementation.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Although \fIchown\fP() can be used on some implementations by the
+file owner to change the owner and group to any desired
+values, the only portable use of this function is to change the group
+of a file to the effective GID of the calling process or to a
+member of its group set.
+.SH RATIONALE
+.LP
+System III and System V allow a user to give away files; that is,
+the owner of a file may change its user ID to anything. This
+is a serious problem for implementations that are intended to meet
+government security regulations. Version 7 and 4.3 BSD permit
+only the superuser to change the user ID of a file. Some government
+agencies (usually not ones concerned directly with security)
+find this limitation too confining. This volume of IEEE\ Std\ 1003.1-2001
+uses \fImay\fP to permit secure implementations
+while not disallowing System V.
+.LP
+System III and System V allow the owner of a file to change the group
+ID to anything. Version 7 permits only the superuser to
+change the group ID of a file. 4.3 BSD permits the owner to change
+the group ID of a file to its effective group ID or to any of
+the groups in the list of supplementary group IDs, but to no others.
+.LP
+The POSIX.1-1990 standard requires that the \fIchown\fP() function
+invoked by a non-appropriate privileged process clear the
+S_ISGID and the S_ISUID bits for regular files, and permits them to
+be cleared for other types of files. This is so that changes in
+accessibility do not accidentally cause files to become security holes.
+Unfortunately, requiring these bits to be cleared on
+non-executable data files also clears the mandatory file locking bit
+(shared with S_ISGID), which is an extension on many
+implementations (it first appeared in System V). These bits should
+only be required to be cleared on regular files that have one or
+more of their execute bits set.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIchmod\fP() , \fIpathconf\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/types.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

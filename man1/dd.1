@@ -1,0 +1,220 @@
+.\" Copyright Andries Brouwer, Ragnar Hojland Espinosa and A. Wik, 1998.
+.\"
+.\" This file may be copied under the conditions described
+.\" in the LDP GENERAL PUBLIC LICENSE, Version 1, September 1998
+.\" that should have been distributed together with this file.
+.\"
+.TH DD 1 1998-11 "GNU fileutils 4.0"
+.SH NAME
+dd \- convert and copy a file
+.SH SYNOPSIS
+.B dd
+.B [\-\-help] [\-\-version]
+.BI [if= file ]
+.BI [of= file ]
+.BI [ibs= bytes ]
+.BI [obs= bytes ]
+.BI [bs= bytes ]
+.BI [cbs= bytes ]
+.BI [skip= blocks ]
+.BI [seek= blocks ]
+.BI [count= blocks ]
+.B "[conv={ascii, ebcdic, ibm, block, unblock, lcase, ucase, swab, noerror, notrunc, sync}]"
+.SH DESCRIPTION
+.B dd
+copies a file (from standard input to standard output, by
+default) using specific input and output blocksizes,
+while optionally performing conversions on it.
+.PP
+It reads the input one block at a time, using the specified input
+block size (the default is 512 bytes).
+If the
+.BI bs= bytes
+option was given, and no conversion other than
+.BR sync ", " noerror ", or " notrunc
+was specified, it writes the amount of data read (which could be smaller
+than what was requested) in a separate output block. This output block
+has precisely the same length as was read unless the
+.B sync
+conversion was specified, in which case the data is padded with NULs
+(or spaces, see below).
+.PP
+Otherwise, the input, read one block at a time, is processed
+and the resulting output is collected and written in blocks
+of the specified output block size. The final output block
+may be shorter.
+.PP
+The numeric-valued options below (bytes and blocks) can be followed
+by a multiplier: `k'=1024, `b'=512, `w'=2, `c'=1
+(`w' and `c' are GNU extensions; `w' should never be used -
+it means 2 in System V and 4 in 4.2BSD).
+Two or more of such numeric expressions can be multiplied
+by putting `x' in between.
+The GNU fileutils-4.0 version also allows the following multiplicative suffixes
+in the specification of blocksizes (in bs=, cbs=, ibs=, obs=):
+M=1048576, G=1073741824, and so on for T, P, E, Z, Y.
+A `D' suffix makes them decimal:
+kD=1000, MD=1000000, GD=1000000000, etc.
+(Note that for ls, df, du the size of M etc. is determined by environment
+variables, but for dd it is fixed.)
+.SH OPTIONS
+.TP
+.BI "if=" file
+Read from
+.I file
+instead of standard input.
+.TP
+.BI "of=" file
+Write to
+.I file
+instead of standard output.  Unless
+.B conv=notrunc
+is given,
+.B dd
+truncates
+.I file
+to zero bytes (or the size specified with
+.BR seek= ")."
+.TP
+.BI "ibs=" bytes
+Read
+.I bytes
+bytes at a time. The default is 512.
+.TP
+.BI "obs=" bytes
+Write
+.I bytes
+bytes at a time. The default is 512.
+.TP
+.BI "bs=" bytes
+Both read and write
+.I bytes
+bytes at a time.  This overrides
+.B ibs
+and
+.BR obs .
+(And setting
+.B bs
+is not equivalent with setting both
+.B ibs
+and
+.B obs
+to this same value, at least when no conversion other than
+.BR sync ,
+.B noerror
+and
+.B notrunc
+is specified, since it stipulates that each input block
+shall be copied to the output as a single block
+without aggregating short blocks.)
+.TP
+.BI "cbs=" bytes
+Specify the conversion block size for
+.B block
+and
+.BR unblock .
+.TP
+.BI "skip=" blocks
+Skip
+.I blocks
+.BR ibs -byte
+blocks in the input file before copying.
+.TP
+.BI "seek=" blocks
+Skip
+.I blocks
+.BR obs -byte
+blocks in the output file before copying.
+.TP
+.BI "count=" blocks
+Copy
+.I blocks
+.BR ibs -byte
+blocks from the input file, instead of everything
+until the end of the file.
+.TP
+.BI "conv=" CONVERSION "[," CONVERSION "]..."
+Convert the file as specified by the
+.I CONVERSION
+argument(s).  (No spaces around any comma(s).)
+.RS
+.PP
+Conversions:
+.PP
+.TP
+.B ascii
+Convert EBCDIC to ASCII.
+.TP
+.B ebcdic
+Convert ASCII to EBCDIC.
+.TP
+.B ibm
+Convert ASCII to alternate EBCDIC.
+.TP
+.B block
+For each line in the input, output
+.B cbs
+bytes, replacing the input newline with a space and padding
+with spaces as necessary.
+.TP
+.B unblock
+Replace trailing spaces in each
+.BR cbs -sized
+input block with a newline.
+.TP
+.B lcase
+Change uppercase letters to lowercase.
+.TP
+.B ucase
+Change lowercase letters to uppercase.
+.TP
+.B swab
+Swap every pair of input bytes.
+If an odd number of bytes are read the last byte
+is simply copied (since there is nothing to swap it with).
+[POSIX 1003.2b, PASC interpretations 1003.2 #3 and #4]
+.TP
+.B noerror
+Continue after read errors.
+.TP
+.B notrunc
+Do not truncate the output file.
+.TP
+.B sync
+Pad every input block to size of
+.B ibs
+with trailing zero bytes.
+.RE
+.SH "GNU STANDARD OPTIONS"
+.TP
+.B "\-\-help"
+Print a usage message on standard output and exit successfully.
+.TP
+.B "\-\-version"
+Print version information on standard output, then exit successfully.
+.TP
+.B "\-\-"
+Terminate option list.
+.SH ENVIRONMENT
+The variables LANG, LC_ALL, LC_CTYPE and LC_MESSAGES have the
+usual meaning.
+.SH "CONFORMING TO"
+POSIX 1003.2
+.SH EXAMPLE
+Often a tape drive will not accept arbitrarily sized blocks, and
+.B dd
+would get an I/O error for the last fragment of data that does not
+fill an entire block. Use `dd if=myfile of=/dev/mytape conv=sync'
+to get everything on tape. Of course, reading it back will now
+produce a slightly larger file, with nulls added at the end.
+.SH BUGS
+Commands like `dd if=myfile of=/dev/fd0 bs=1k seek=172' fail
+on some systems because
+.B dd
+tries to truncate the output file, but truncation of a block device
+is not possible. In such cases, add the `conv=notrunc' option.
+.SH NOTES
+This page describes
+.B dd
+as found in the fileutils-4.0 package;
+other versions may differ slightly.

@@ -1,0 +1,175 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "TIMER_GETOVERRUN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" timer_getoverrun 
+.SH NAME
+timer_getoverrun, timer_gettime, timer_settime \- per-process timers
+(\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <time.h>
+.br
+.sp
+int timer_getoverrun(timer_t\fP \fItimerid\fP\fB);
+.br
+int timer_gettime(timer_t\fP \fItimerid\fP\fB, struct itimerspec *\fP\fIvalue\fP\fB);
+.br
+int timer_settime(timer_t\fP \fItimerid\fP\fB, int\fP \fIflags\fP\fB,
+.br
+\ \ \ \ \ \  const struct itimerspec *restrict\fP \fIvalue\fP\fB,
+.br
+\ \ \ \ \ \  struct itimerspec *restrict\fP \fIovalue\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fItimer_gettime\fP() function shall store the amount of time
+until the specified timer, \fItimerid\fP, expires and the
+reload value of the timer into the space pointed to by the \fIvalue\fP
+argument. The \fIit_value\fP member of this structure
+shall contain the amount of time before the timer expires, or zero
+if the timer is disarmed. This value is returned as the interval
+until timer expiration, even if the timer was armed with absolute
+time. The \fIit_interval\fP member of \fIvalue\fP shall contain
+the reload value last set by \fItimer_settime\fP().
+.LP
+The \fItimer_settime\fP() function shall set the time until the next
+expiration of the timer specified by \fItimerid\fP from
+the \fIit_value\fP member of the \fIvalue\fP argument and arm the
+timer if the \fIit_value\fP member of \fIvalue\fP is
+non-zero. If the specified timer was already armed when \fItimer_settime\fP()
+is called, this call shall reset the time until next
+expiration to the \fIvalue\fP specified. If the \fIit_value\fP member
+of \fIvalue\fP is zero, the timer shall be disarmed. The
+effect of disarming or resetting a timer with pending expiration notifications
+is unspecified.
+.LP
+If the flag TIMER_ABSTIME is not set in the argument \fIflags\fP,
+\fItimer_settime\fP() shall behave as if the time until next
+expiration is set to be equal to the interval specified by the \fIit_value\fP
+member of \fIvalue\fP. That is, the timer shall
+expire in \fIit_value\fP nanoseconds from when the call is made. If
+the flag TIMER_ABSTIME is set in the argument \fIflags\fP,
+\fItimer_settime\fP() shall behave as if the time until next expiration
+is set to be equal to the difference between the absolute
+time specified by the \fIit_value\fP member of \fIvalue\fP and the
+current value of the clock associated with \fItimerid\fP.
+That is, the timer shall expire when the clock reaches the value specified
+by the \fIit_value\fP member of \fIvalue\fP. If the
+specified time has already passed, the function shall succeed and
+the expiration notification shall be made.
+.LP
+The reload value of the timer shall be set to the value specified
+by the \fIit_interval\fP member of \fIvalue\fP. When a timer
+is armed with a non-zero \fIit_interval\fP, a periodic (or repetitive)
+timer is specified.
+.LP
+Time values that are between two consecutive non-negative integer
+multiples of the resolution of the specified timer shall be
+rounded up to the larger multiple of the resolution. Quantization
+error shall not cause the timer to expire earlier than the
+rounded time value.
+.LP
+If the argument \fIovalue\fP is not NULL, the \fItimer_settime\fP()
+function shall store, in the location referenced by
+\fIovalue\fP, a value representing the previous amount of time before
+the timer would have expired, or zero if the timer was
+disarmed, together with the previous timer reload value. Timers shall
+not expire before their scheduled time.
+.LP
+Only a single signal shall be queued to the process for a given timer
+at any point in time. When a timer for which a signal is
+still pending expires, no signal shall be queued, and a timer overrun
+shall occur.   \ When a timer
+expiration signal is delivered to or accepted by a process, if the
+implementation supports the Realtime Signals Extension, the
+\fItimer_getoverrun\fP() function shall return the timer expiration
+overrun count for the specified timer. The overrun count
+returned contains the number of extra timer expirations that occurred
+between the time the signal was generated (queued) and when
+it was delivered or accepted, up to but not including an implementation-defined
+maximum of {DELAYTIMER_MAX}. If the number of such
+extra expirations is greater than or equal to {DELAYTIMER_MAX}, then
+the overrun count shall be set to {DELAYTIMER_MAX}. The value
+returned by \fItimer_getoverrun\fP() shall apply to the most recent
+expiration signal delivery or acceptance for the timer.  If no expiration
+signal has been delivered for the timer, or if the
+Realtime Signals Extension is not supported, the return value of \fItimer_getoverrun\fP()
+is unspecified.
+.SH RETURN VALUE
+.LP
+If the \fItimer_getoverrun\fP() function succeeds, it shall return
+the timer expiration overrun count as explained above.
+.LP
+If the \fItimer_gettime\fP() or \fItimer_settime\fP() functions succeed,
+a value of 0 shall be returned.
+.LP
+If an error occurs for any of these functions, the value -1 shall
+be returned, and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fItimer_getoverrun\fP(), \fItimer_gettime\fP(), and \fItimer_settime\fP()
+functions shall fail if:
+.TP 7
+.B EINVAL
+The \fItimerid\fP argument does not correspond to an ID returned by
+\fItimer_create\fP() but not yet deleted by \fItimer_delete\fP().
+.sp
+.LP
+The \fItimer_settime\fP() function shall fail if:
+.TP 7
+.B EINVAL
+A \fIvalue\fP structure specified a nanosecond value less than zero
+or greater than or equal to 1000 million, and the
+\fIit_value\fP member of that structure did not specify zero seconds
+and nanoseconds.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+Practical clocks tick at a finite rate, with rates of 100 hertz and
+1000 hertz being common. The inverse of this tick rate is
+the clock resolution, also called the clock granularity, which in
+either case is expressed as a time duration, being 10
+milliseconds and 1 millisecond respectively for these common rates.
+The granularity of practical clocks implies that if one reads a
+given clock twice in rapid succession, one may get the same time value
+twice; and that timers must wait for the next clock tick
+after the theoretical expiration time, to ensure that a timer never
+returns too soon. Note also that the granularity of the clock
+may be significantly coarser than the resolution of the data format
+used to set and get time and interval values. Also note that
+some implementations may choose to adjust time and/or interval values
+to exactly match the ticks of the underlying clock.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 defines functions that allow
+an application to determine the
+implementation-supported resolution for the clocks and requires an
+implementation to document the resolution supported for timers
+and \fInanosleep\fP() if they differ from the supported clock resolution.
+This is more
+of a procurement issue than a runtime application issue.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclock_getres\fP() , \fItimer_create\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<time.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

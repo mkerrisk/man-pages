@@ -1,0 +1,588 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "DD" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" dd 
+.SH NAME
+dd \- convert and copy a file
+.SH SYNOPSIS
+.LP
+\fBdd\fP \fB[\fP\fIoperand\fP \fB...\fP\fB]\fP
+.SH DESCRIPTION
+.LP
+The \fIdd\fP utility shall copy the specified input file to the specified
+output file with possible conversions using specific
+input and output block sizes. It shall read the input one block at
+a time, using the specified input block size; it shall then
+process the block of data actually returned, which could be smaller
+than the requested block size. It shall apply any conversions
+that have been specified and write the resulting data to the output
+in blocks of the specified output block size. If the \fBbs\fP=
+\fIexpr\fP operand is specified and no conversions other than \fBsync\fP,
+\fBnoerror\fP, or \fBnotrunc\fP are requested, the
+data returned from each input block shall be written as a separate
+output block; if the read returns less than a full block and the
+\fBsync\fP conversion is not specified, the resulting output block
+shall be the same size as the input block. If the \fBbs\fP=
+\fIexpr\fP operand is not specified, or a conversion other than \fBsync\fP,
+\fBnoerror\fP, or \fBnotrunc\fP is requested, the
+input shall be processed and collected into full-sized output blocks
+until the end of the input is reached.
+.LP
+The processing order shall be as follows:
+.IP " 1." 4
+An input block is read.
+.LP
+.IP " 2." 4
+If the input block is shorter than the specified input block size
+and the \fBsync\fP conversion is specified, null bytes shall
+be appended to the input data up to the specified size. (If either
+\fBblock\fP or \fBunblock\fP is also specified, <space>s
+shall be appended instead of null bytes.) The remaining conversions
+and output shall include the pad characters as if they had been
+read from the input.
+.LP
+.IP " 3." 4
+If the \fBbs\fP= \fIexpr\fP operand is specified and no conversion
+other than \fBsync\fP or \fBnoerror\fP is requested, the
+resulting data shall be written to the output as a single block, and
+the remaining steps are omitted.
+.LP
+.IP " 4." 4
+If the \fBswab\fP conversion is specified, each pair of input data
+bytes shall be swapped. If there is an odd number of bytes
+in the input block, the last byte in the input record shall not be
+swapped.
+.LP
+.IP " 5." 4
+Any remaining conversions ( \fBblock\fP, \fBunblock\fP, \fBlcase\fP,
+and \fBucase\fP) shall be performed. These conversions
+shall operate on the input data independently of the input blocking;
+an input or output fixed-length record may span block
+boundaries.
+.LP
+.IP " 6." 4
+The data resulting from input or conversion or both shall be aggregated
+into output blocks of the specified size. After the end
+of input is reached, any remaining output shall be written as a block
+without padding if \fBconv\fP= \fBsync\fP is not specified;
+thus, the final output block may be shorter than the output block
+size.
+.LP
+.SH OPTIONS
+.LP
+None.
+.SH OPERANDS
+.LP
+All of the operands shall be processed before any input is read. The
+following operands shall be supported:
+.TP 7
+\fBif\fP=\fIfile\fP
+Specify the input pathname; the default is standard input.
+.TP 7
+\fBof\fP=\fIfile\fP
+Specify the output pathname; the default is standard output. If the
+\fBseek\fP= \fIexpr\fP conversion is not also specified,
+the output file shall be truncated before the copy begins if an explicit
+\fBof\fP= \fIfile\fP operand is specified, unless
+\fBconv\fP= \fBnotrunc\fP is specified. If \fBseek\fP= \fIexpr\fP
+is specified, but \fBconv\fP= \fBnotrunc\fP is not, the
+effect of the copy shall be to preserve the blocks in the output file
+over which \fIdd\fP seeks, but no other portion of the
+output file shall be preserved. (If the size of the seek plus the
+size of the input file is less than the previous size of the
+output file, the output file shall be shortened by the copy.)
+.TP 7
+\fBibs\fP=\fIexpr\fP
+Specify the input block size, in bytes, by \fIexpr\fP (default is
+512).
+.TP 7
+\fBobs\fP=\fIexpr\fP
+Specify the output block size, in bytes, by \fIexpr\fP (default is
+512).
+.TP 7
+\fBbs\fP=\fIexpr\fP
+Set both input and output block sizes to \fIexpr\fP bytes, superseding
+\fBibs\fP= and \fBobs\fP=. If no conversion other
+than \fBsync\fP, \fBnoerror\fP, and \fBnotrunc\fP is specified, each
+input block shall be copied to the output as a single block
+without aggregating short blocks.
+.TP 7
+\fBcbs\fP=\fIexpr\fP
+Specify the conversion block size for \fBblock\fP and \fBunblock\fP
+in bytes by \fIexpr\fP (default is zero). If \fBcbs\fP=
+is omitted or given a value of zero, using \fBblock\fP or \fBunblock\fP
+produces unspecified results. 
+.LP
+The application shall ensure that this operand is also specified if
+the \fBconv\fP= operand is specified with a value of
+\fBascii\fP, \fBebcdic\fP, or \fBibm\fP. For a \fBconv\fP= operand
+with an \fBascii\fP value, the input is handled as
+described for the \fBunblock\fP value, except that characters are
+converted to ASCII before any trailing <space>s are
+deleted. For \fBconv\fP= operands with \fBebcdic\fP or \fBibm\fP values,
+the input is handled as described for the \fBblock\fP
+value except that the characters are converted to EBCDIC or IBM EBCDIC,
+respectively, after any trailing <space>s are added.
+.TP 7
+\fBskip\fP=\fIn\fP
+Skip \fIn\fP input blocks (using the specified input block size) before
+starting to copy. On seekable files, the
+implementation shall read the blocks or seek past them; on non-seekable
+files, the blocks shall be read and the data shall be
+discarded.
+.TP 7
+\fBseek\fP=\fIn\fP
+Skip \fIn\fP blocks (using the specified output block size) from the
+beginning of the output file before copying. On
+non-seekable files, existing blocks shall be read and space from the
+current end-of-file to the specified offset, if any, filled
+with null bytes; on seekable files, the implementation shall seek
+to the specified offset or read the blocks as described for
+non-seekable files.
+.TP 7
+\fBcount\fP=\fIn\fP
+Copy only \fIn\fP input blocks.
+.TP 7
+\fBconv\fP=\fIvalue\fP\fB[\fP,\fIvalue\fP\ ...\fB]\fP
+.sp
+Where \fIvalue\fPs are comma-separated symbols from the following
+list: 
+.TP 7
+\fBascii\fP
+.RS
+Convert EBCDIC to ASCII; see ASCII to EBCDIC Conversion . 
+.RE
+.TP 7
+\fBebcdic\fP
+.RS
+Convert ASCII to EBCDIC; see ASCII to EBCDIC Conversion . 
+.RE
+.TP 7
+\fBibm\fP
+.RS
+Convert ASCII to a different EBCDIC set; see ASCII to IBM EBCDIC Conversion
+\&.
+.RE
+.sp
+.LP
+The \fBascii\fP, \fBebcdic\fP, and \fBibm\fP values are mutually-exclusive.
+.TP 7
+\fBblock\fP
+.RS
+Treat the input as a sequence of <newline>-terminated or end-of-file-terminated
+variable-length records independent of
+the input block boundaries. Each record shall be converted to a record
+with a fixed length specified by the conversion block size.
+Any <newline> shall be removed from the input line; <space>s shall
+be appended to lines that are shorter than their
+conversion block size to fill the block. Lines that are longer than
+the conversion block size shall be truncated to the largest
+number of characters that fit into that size; the number of truncated
+lines shall be reported (see the STDERR section). 
+.LP
+The \fBblock\fP and \fBunblock\fP values are mutually-exclusive.
+.RE
+.TP 7
+\fBunblock\fP
+.RS
+Convert fixed-length records to variable length. Read a number of
+bytes equal to the conversion block size (or the number of
+bytes remaining in the input, if less than the conversion block size),
+delete all trailing <space>s, and append a
+<newline>.
+.RE
+.TP 7
+\fBlcase\fP
+.RS
+Map uppercase characters specified by the \fILC_CTYPE\fP keyword \fBtolower\fP
+to the corresponding lowercase character.
+Characters for which no mapping is specified shall not be modified
+by this conversion. 
+.LP
+The \fBlcase\fP and \fBucase\fP symbols are mutually-exclusive.
+.RE
+.TP 7
+\fBucase\fP
+.RS
+Map lowercase characters specified by the \fILC_CTYPE\fP keyword \fBtoupper\fP
+to the corresponding uppercase character.
+Characters for which no mapping is specified shall not be modified
+by this conversion.
+.RE
+.TP 7
+\fBswab\fP
+.RS
+Swap every pair of input bytes.
+.RE
+.TP 7
+\fBnoerror\fP
+.RS
+Do not stop processing on an input error. When an input error occurs,
+a diagnostic message shall be written on standard error,
+followed by the current input and output block counts in the same
+format as used at completion (see the STDERR section). If the
+\fBsync\fP conversion is specified, the missing input shall be replaced
+with null bytes and processed normally; otherwise, the
+input block shall be omitted from the output.
+.RE
+.TP 7
+\fBnotrunc\fP
+.RS
+Do not truncate the output file. Preserve blocks in the output file
+not explicitly written by this invocation of the \fIdd\fP
+utility. (See also the preceding \fBof\fP= \fIfile\fP operand.)
+.RE
+.TP 7
+\fBsync\fP
+.RS
+Pad every input block to the size of the \fBibs\fP= buffer, appending
+null bytes. (If either \fBblock\fP or \fBunblock\fP is
+also specified, append <space>s, rather than null bytes.)
+.RE
+.sp
+.sp
+.LP
+The behavior is unspecified if operands other than \fBconv\fP= are
+specified more than once.
+.LP
+For the \fBbs\fP=, \fBcbs\fP=, \fBibs\fP=, and \fBobs\fP= operands,
+the application shall supply an expression specifying a
+size in bytes. The expression, \fIexpr\fP, can be:
+.IP " 1." 4
+A positive decimal number
+.LP
+.IP " 2." 4
+A positive decimal number followed by \fIk\fP, specifying multiplication
+by 1024
+.LP
+.IP " 3." 4
+A positive decimal number followed by \fIb\fP, specifying multiplication
+by 512
+.LP
+.IP " 4." 4
+Two or more positive decimal numbers (with or without \fIk\fP or \fIb\fP)
+separated by \fIx\fP, specifying the product of the
+indicated values
+.LP
+.LP
+All of the operands are processed before any input is read.
+.LP
+The following two tables display the octal number character values
+used for the \fBascii\fP and \fBebcdic\fP conversions (first
+table) and for the \fBibm\fP conversion (second table). In both tables,
+the ASCII values are the row and column headers and the
+EBCDIC values are found at their intersections. For example, ASCII
+0012 (LF) is the second row, third column, yielding 0045 in
+EBCDIC. The inverted tables (for EBCDIC to ASCII conversion) are not
+shown, but are in one-to-one correspondence with these tables.
+The differences between the two tables are highlighted by small boxes
+drawn around five entries. 
+.br
+.sp
+.ce 1
+\fBTable: ASCII to EBCDIC Conversion\fP
+.sp
+.sp
+.ce 1
+\fBTable: ASCII to IBM EBCDIC Conversion\fP
+.SH STDIN
+.LP
+If no \fBif\fP= operand is specified, the standard input shall be
+used. See the INPUT FILES section.
+.SH INPUT FILES
+.LP
+The input file can be any file type.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIdd\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments and input files), the
+classification of characters as uppercase or lowercase, and the
+mapping of characters from one case to the other.
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale that should be used to affect the format and
+contents of diagnostic messages written to standard error and
+informative messages written to standard output.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+For SIGINT, the \fIdd\fP utility shall interrupt its current processing,
+write status information to standard error, and exit
+as though terminated by SIGINT. It shall take the standard action
+for all other signals; see the ASYNCHRONOUS EVENTS section in \fIUtility
+Description Defaults\fP .
+.SH STDOUT
+.LP
+If no \fBof\fP= operand is specified, the standard output shall be
+used. The nature of the output depends on the operands
+selected.
+.SH STDERR
+.LP
+On completion, \fIdd\fP shall write the number of input and output
+blocks to standard error. In the POSIX locale the following
+formats shall be used:
+.sp
+.RS
+.nf
+
+\fB"%u+%u records in\\n", <\fP\fInumber of whole input blocks\fP\fB>,
+    <\fP\fInumber of partial input blocks\fP\fB>
+.sp
+
+"%u+%u records out\\n", <\fP\fInumber of whole output blocks\fP\fB>,
+    <\fP\fInumber of partial output blocks\fP\fB>
+\fP
+.fi
+.RE
+.LP
+A partial input block is one for which \fIread\fP() returned less
+than the input block
+size. A partial output block is one that was written with fewer bytes
+than specified by the output block size.
+.LP
+In addition, when there is at least one truncated block, the number
+of truncated blocks shall be written to standard error. In
+the POSIX locale, the format shall be:
+.sp
+.RS
+.nf
+
+\fB"%u truncated %s\\n", <\fP\fInumber of truncated blocks\fP\fB>, "record" (if
+    <\fP\fInumber of truncated blocks\fP\fB> is one) "records" (otherwise)
+\fP
+.fi
+.RE
+.LP
+Diagnostic messages may also be written to standard error.
+.SH OUTPUT FILES
+.LP
+If the \fBof\fP= operand is used, the output shall be the same as
+described in the STDOUT section.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ 0
+The input file was copied successfully.
+.TP 7
+>0
+An error occurred.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+If an input error is detected and the \fBnoerror\fP conversion has
+not been specified, any partial output block shall be
+written to the output file, a diagnostic message shall be written,
+and the copy operation shall be discontinued. If some other
+error is detected, a diagnostic message shall be written and the copy
+operation shall be discontinued.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+The input and output block size can be specified to take advantage
+of raw physical I/O.
+.LP
+There are many different versions of the EBCDIC codesets. The ASCII
+and EBCDIC conversions specified for the \fIdd\fP utility
+perform conversions for the version specified by the tables.
+.SH EXAMPLES
+.LP
+The following command:
+.sp
+.RS
+.nf
+
+\fBdd if=/dev/rmt0h  of=/dev/rmt1h
+\fP
+.fi
+.RE
+.LP
+copies from tape drive 0 to tape drive 1, using a common historical
+device naming convention.
+.LP
+The following command:
+.sp
+.RS
+.nf
+
+\fBdd ibs=10  skip=1
+\fP
+.fi
+.RE
+.LP
+strips the first 10 bytes from standard input.
+.LP
+This example reads an EBCDIC tape blocked ten 80-byte EBCDIC card
+images per block into the ASCII file \fBx\fP:
+.sp
+.RS
+.nf
+
+\fBdd if=/dev/tape of=x ibs=800 cbs=80 conv=ascii,lcase
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+The OPTIONS section is listed as "None" because there are no options
+recognized by historical \fIdd\fP utilities. Certainly,
+many of the operands could have been designed to use the Utility Syntax
+Guidelines, which would have resulted in the classic
+hyphenated option letters. In this version of this volume of IEEE\ Std\ 1003.1-2001,
+\fIdd\fP retains its curious JCL-like
+syntax due to the large number of applications that depend on the
+historical implementation.
+.LP
+A suggested implementation technique for \fBconv\fP= \fBnoerror\fP,
+\fBsync\fP is to zero (or <space>-fill, if
+\fBblock\fPing or \fBunblock\fPing) the input buffer before each read
+and to write the contents of the input buffer to the output
+even after an error. In this manner, any data transferred to the input
+buffer before the error was detected is preserved. Another
+point is that a failed read on a regular file or a disk generally
+does not increment the file offset, and \fIdd\fP must then seek
+past the block on which the error occurred; otherwise, the input error
+occurs repetitively. When the input is a magnetic tape,
+however, the tape normally has passed the block containing the error
+when the error is reported, and thus no seek is necessary.
+.LP
+The default \fBibs\fP= and \fBobs\fP= sizes are specified as 512 bytes
+because there are historical (largely portable) scripts
+that assume these values. If they were left unspecified, unusual results
+could occur if an implementation chose an odd block
+size.
+.LP
+Historical implementations of \fIdd\fP used \fIcreat\fP() when processing
+\fBof\fP=
+\fIfile\fP. This makes the \fBseek\fP= operand unusable except on
+special files. The \fBconv\fP= \fBnotrunc\fP feature was
+added because more recent BSD-based implementations use \fIopen\fP()
+(without O_TRUNC)
+instead of \fIcreat\fP(), but they fail to delete output file contents
+after the data
+copied.
+.LP
+The \fIw\fP multiplier (historically meaning \fIword\fP), is used
+in System V to mean 2 and in 4.2 BSD to mean 4. Since
+\fIword\fP is inherently non-portable, its use is not supported by
+this volume of IEEE\ Std\ 1003.1-2001.
+.LP
+Standard EBCDIC does not have the characters \fB'['\fP and \fB']'\fP
+\&. The values used in the table are taken from a
+common print train that does contain them. Other than those characters,
+the print train values are not filled in, but appear to
+provide some of the motivation for the historical choice of translations
+reflected here.
+.LP
+The Standard EBCDIC table provides a 1:1 translation for all 256 bytes.
+.LP
+The IBM EBCDIC table does not provide such a translation. The marked
+cells in the tables differ in such a way that:
+.IP " 1." 4
+EBCDIC 0112 ( \fB'cent'\fP ) and 0152 (broken pipe) do not appear
+in the table.
+.LP
+.IP " 2." 4
+EBCDIC 0137 ( \fB'not'\fP ) translates to/from ASCII 0236 ( \fB'^'\fP
+). In the standard table, EBCDIC 0232 (no graphic)
+is used.
+.LP
+.IP " 3." 4
+EBCDIC 0241 ( \fB'~'\fP ) translates to/from ASCII 0176 ( \fB'~'\fP
+). In the standard table, EBCDIC 0137 (
+\fB'not'\fP ) is used.
+.LP
+.IP " 4." 4
+0255 ( \fB'['\fP ) and 0275 ( \fB']'\fP ) appear twice, once in the
+same place as for the standard table and once in place
+of 0112 ( \fB'cent'\fP ) and 0241 ( \fB'~'\fP ).
+.LP
+.LP
+In net result:
+EBCDIC 0275 ( \fB']'\fP ) displaced EBCDIC 0241 ( \fB'~'\fP ) in cell
+0345. 
+.LP
+\ \ \ \ That displaced EBCDIC 0137 ( \fB'not'\fP ) in cell 0176.
+.LP
+\ \ \ \ That displaced EBCDIC 0232 (no graphic) in cell 0136.
+.LP
+\ \ \ \ That replaced EBCDIC 0152 (broken pipe) in cell 0313.
+.LP
+EBCDIC 0255 ( \fB'['\fP ) replaced EBCDIC 0112 ( \fB'cent'\fP ).
+.LP
+This translation, however, reflects historical practice that (ASCII)
+\fB'~'\fP and \fB'not'\fP were often mapped to
+each other, as were \fB'['\fP and \fB'cent'\fP ; and \fB']'\fP and
+(EBCDIC) \fB'~'\fP .
+.LP
+The \fBcbs\fP operand is required if any of the \fBascii\fP, \fBebcdic\fP,
+or \fBibm\fP operands are specified. For the
+\fBascii\fP operand, the input is handled as described for the \fBunblock\fP
+operand except that characters are converted to
+ASCII before the trailing <space>s are deleted. For the \fBebcdic\fP
+and \fBibm\fP operands, the input is handled as
+described for the \fBblock\fP operand except that the characters are
+converted to EBCDIC or IBM EBCDIC after the trailing
+<space>s are added.
+.LP
+The \fBblock\fP and \fBunblock\fP keywords are from historical BSD
+practice.
+.LP
+The consistent use of the word \fBrecord\fP in standard error messages
+matches most historical practice. An earlier version of
+System V used \fBblock\fP, but this has been updated in more recent
+releases.
+.LP
+Early proposals only allowed two numbers separated by \fBx\fP to be
+used in a product when specifying \fBbs\fP=, \fBcbs\fP=,
+\fBibs\fP=, and \fBobs\fP= sizes. This was changed to reflect the
+historical practice of allowing multiple numbers in the product
+as provided by Version 7 and all releases of System V and BSD.
+.LP
+A change to the \fBswab\fP conversion is required to match historical
+practice and is the result of IEEE PASC Interpretations
+1003.2 #03 and #04, submitted for the ISO\ POSIX-2:1993 standard.
+.LP
+A change to the handling of SIGINT is required to match historical
+practice and is the result of IEEE PASC Interpretation 1003.2
+#06 submitted for the ISO\ POSIX-2:1993 standard.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIUtility Description Defaults\fP , \fIsed\fP , \fItr\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,159 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SLEEP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sleep 
+.SH NAME
+sleep \- suspend execution for an interval of time
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+unsigned sleep(unsigned\fP \fIseconds\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsleep\fP() function shall cause the calling thread to be suspended
+from execution until either the number of realtime
+seconds specified by the argument \fIseconds\fP has elapsed or a signal
+is delivered to the calling thread and its action is to
+invoke a signal-catching function or to terminate the process. The
+suspension time may be longer than requested due to the
+scheduling of other activity by the system.
+.LP
+If a SIGALRM signal is generated for the calling process during execution
+of \fIsleep\fP() and if the SIGALRM signal is being
+ignored or blocked from delivery, it is unspecified whether \fIsleep\fP()
+returns when the SIGALRM signal is scheduled. If the
+signal is being blocked, it is also unspecified whether it remains
+pending after \fIsleep\fP() returns or it is discarded.
+.LP
+If a SIGALRM signal is generated for the calling process during execution
+of \fIsleep\fP(), except as a result of a prior call
+to \fIalarm\fP(), and if the SIGALRM signal is not being ignored or
+blocked from delivery,
+it is unspecified whether that signal has any effect other than causing
+\fIsleep\fP() to return.
+.LP
+If a signal-catching function interrupts \fIsleep\fP() and examines
+or changes either the time a SIGALRM is scheduled to be
+generated, the action associated with the SIGALRM signal, or whether
+the SIGALRM signal is blocked from delivery, the results are
+unspecified.
+.LP
+If a signal-catching function interrupts \fIsleep\fP() and calls \fIsiglongjmp\fP()
+or \fIlongjmp\fP() to restore an environment saved prior to the \fIsleep\fP()
+call, the
+action associated with the SIGALRM signal and the time at which a
+SIGALRM signal is scheduled to be generated are unspecified. It
+is also unspecified whether the SIGALRM signal is blocked, unless
+the process' signal mask is restored as part of the
+environment.
+.LP
+Interactions between \fIsleep\fP() and any of \fIsetitimer\fP(), \fIualarm\fP(),
+or \fIusleep\fP() are unspecified. 
+.SH RETURN VALUE
+.LP
+If \fIsleep\fP() returns because the requested time has elapsed, the
+value returned shall be 0. If \fIsleep\fP() returns due
+to delivery of a signal, the return value shall be the "unslept" amount
+(the requested time minus the time actually slept) in
+seconds.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+There are two general approaches to the implementation of the \fIsleep\fP()
+function. One is to use the \fIalarm\fP() function to schedule a SIGALRM
+signal and then suspend the process waiting for that
+signal. The other is to implement an independent facility. This volume
+of IEEE\ Std\ 1003.1-2001 permits either
+approach.
+.LP
+In order to comply with the requirement that no primitive shall change
+a process attribute unless explicitly described by this
+volume of IEEE\ Std\ 1003.1-2001, an implementation using SIGALRM
+must carefully take into account any SIGALRM signal
+scheduled by previous \fIalarm\fP() calls, the action previously established
+for SIGALRM,
+and whether SIGALRM was blocked. If a SIGALRM has been scheduled before
+the \fIsleep\fP() would ordinarily complete, the
+\fIsleep\fP() must be shortened to that time and a SIGALRM generated
+(possibly simulated by direct invocation of the
+signal-catching function) before \fIsleep\fP() returns. If a SIGALRM
+has been scheduled after the \fIsleep\fP() would ordinarily
+complete, it must be rescheduled for the same time before \fIsleep\fP()
+returns. The action and blocking for SIGALRM must be saved
+and restored.
+.LP
+Historical implementations often implement the SIGALRM-based version
+using \fIalarm\fP()
+and \fIpause\fP(). One such implementation is prone to infinite hangups,
+as described in \fIpause\fP() . Another such implementation uses the
+C-language \fIsetjmp\fP() and \fIlongjmp\fP() functions to avoid that
+window. That implementation introduces a different problem: when the
+SIGALRM signal interrupts a signal-catching function installed
+by the user to catch a different signal, the \fIlongjmp\fP() aborts
+that signal-catching
+function. An implementation based on \fIsigprocmask\fP(), \fIalarm\fP(),
+and \fIsigsuspend\fP() can avoid these
+problems.
+.LP
+Despite all reasonable care, there are several very subtle, but detectable
+and unavoidable, differences between the two types of
+implementations. These are the cases mentioned in this volume of IEEE\ Std\ 1003.1-2001
+where some other activity relating
+to SIGALRM takes place, and the results are stated to be unspecified.
+All of these cases are sufficiently unusual as not to be of
+concern to most applications.
+.LP
+See also the discussion of the term \fIrealtime\fP in \fIalarm\fP()
+\&.
+.LP
+Since \fIsleep\fP() can be implemented using \fIalarm\fP(), the discussion
+about alarms
+occurring early under \fIalarm\fP() applies to \fIsleep\fP() as well.
+.LP
+Application writers should note that the type of the argument \fIseconds\fP
+and the return value of \fIsleep\fP() is
+\fBunsigned\fP. That means that a Strictly Conforming POSIX System
+Interfaces Application cannot pass a value greater than the
+minimum guaranteed value for {UINT_MAX}, which the ISO\ C standard
+sets as 65535, and any application passing a larger value is
+restricting its portability. A different type was considered, but
+historical implementations, including those with a 16-bit
+\fBint\fP type, consistently use either \fBunsigned\fP or \fBint\fP.
+.LP
+Scheduling delays may cause the process to return from the \fIsleep\fP()
+function significantly after the requested time. In
+such cases, the return value should be set to zero, since the formula
+(requested time minus the time actually spent) yields a
+negative number and \fIsleep\fP() returns an \fBunsigned\fP.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIgetitimer\fP() , \fInanosleep\fP() , \fIpause\fP()
+, \fIsigaction\fP()
+, \fIsigsetjmp\fP() , \fIualarm\fP() , \fIusleep\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

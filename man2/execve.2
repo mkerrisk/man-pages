@@ -1,0 +1,215 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified by Michael Haardt <michael@moria.de>
+.\" Modified 1993-07-21 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1994-08-21 by Michael Chastain <mec@shell.portal.com>:
+.\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1999-11-12 by Urs Thuermann <urs@isnogud.escape.de>
+.\" Modified 2004-06-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz
+.\"
+.TH EXECVE 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+execve \- execute program
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.BI "int execve(const char *" filename ", char *const " argv
+.BI "[], char *const " envp []);
+.SH DESCRIPTION
+\fBexecve()\fP executes the program pointed to by \fIfilename\fP.
+\fIfilename\fP must be either a binary executable, or a script
+starting with a line of the form "\fB#! \fIinterpreter \fR[arg]".
+In the latter case, the interpreter must be a valid pathname for an
+executable which is not itself a script, which will be invoked as
+\fBinterpreter\fR [arg] \fIfilename\fR.
+
+\fIargv\fP is an array of argument strings passed to the new program.
+\fIenvp\fP is an array of strings, conventionally of the form
+\fBkey=value\fR, which are passed as environment to the new
+program.  Both \fIargv\fP and \fIenvp\fP must be terminated by a null
+pointer.  The argument vector and environment can be accessed by the
+called program's main function, when it is defined as \fBint main(int
+argc, char *argv[], char *envp[])\fR.
+
+\fBexecve()\fP does not return on success, and the text, data, bss, and
+stack of the calling process are overwritten by that of the program
+loaded.  The program invoked inherits the calling process's PID, and any
+open file descriptors that are not set to close on exec.  Signals pending
+on the calling process are cleared.  Any signals set to be caught by
+the calling process are reset to their default behaviour.
+The SIGCHLD signal (when set to SIG_IGN) may or may not be reset to SIG_DFL.
+
+If the current program is being ptraced, a \fBSIGTRAP\fP is sent to it
+after a successful \fBexecve()\fP.
+
+If the set-uid bit is set on the program file pointed to by
+\fIfilename\fP the effective user ID of the calling process is changed
+to that of the owner of the program file.  Similarly, when the set-gid
+bit of the program file is set the effective group ID of the calling
+process is set to the group of the program file.
+
+If the executable is an a.out dynamically-linked binary executable containing
+shared-library stubs, the Linux dynamic linker
+.BR ld.so (8)
+is called at the start of execution to bring needed shared libraries into core
+and link the executable with them.
+
+If the executable is a dynamically-linked ELF executable, the
+interpreter named in the PT_INTERP segment is used to load the needed
+shared libraries.  This interpreter is typically
+\fI/lib/ld-linux.so.1\fR for binaries linked with the Linux libc
+version 5, or \fI/lib/ld-linux.so.2\fR for binaries linked with the
+GNU libc version 2.
+.SH "RETURN VALUE"
+On success, \fBexecve()\fP does not return, on error \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B E2BIG
+The argument list is too big.
+.TP
+.B EACCES
+Search permission is denied on a component of the path prefix of
+.I filename
+or the name of a script interpreter.
+(See also
+.BR path_resolution (2).)
+.TP
+.B EACCES
+The file or a script interpreter is not a regular file.
+.TP
+.B EACCES
+Execute permission is denied for the file or a script or ELF interpreter.
+.TP
+.B EACCES
+The file system is mounted
+.IR noexec .
+.TP
+.B EFAULT
+.I filename
+points outside your accessible address space.
+.TP
+.B EINVAL
+An ELF executable had more than one PT_INTERP segment (i.e., tried to
+name more than one interpreter).
+.TP
+.B EIO
+An I/O error occurred.
+.TP
+.B EISDIR
+An ELF interpreter was a directory.
+.TP
+.B ELIBBAD
+An ELF interpreter was not in a recognised format.
+.TP
+.B ELOOP
+Too many symbolic links were encountered in resolving
+.I filename
+or the name of a script or ELF interpreter.
+.TP
+.B EMFILE
+The process has the maximum number of files open.
+.TP
+.B ENAMETOOLONG
+.I filename
+is too long.
+.TP
+.B ENFILE
+The system limit on the total number of open files has been reached.
+.TP
+.B ENOENT
+The file 
+.I filename
+or a script or ELF interpreter does not exist, or a shared library
+needed for file or interpreter cannot be found.
+.TP
+.B ENOEXEC
+An executable is not in a recognised format, is for the wrong
+architecture, or has some other format error that means it cannot be
+executed.
+.TP
+.B ENOMEM
+Insufficient kernel memory was available.
+.TP
+.B ENOTDIR
+A component of the path prefix of
+.I filename
+or a script or ELF interpreter is not a directory.
+.TP
+.B EPERM
+The file system is mounted
+.IR nosuid ,
+the user is not the superuser, and the file has an SUID or SGID bit set.
+.TP
+.B EPERM
+The process is being traced, the user is not the superuser and the
+file has an SUID or SGID bit set.
+.TP
+.B ETXTBSY
+Executable was open for writing by one or more processes.
+.SH "CONFORMING TO"
+SVr4, SVID, X/OPEN, BSD 4.3.  POSIX does not document the #!  behavior
+but is otherwise compatible.  SVr4 documents additional error
+conditions EAGAIN, EINTR, ELIBACC, ENOLINK, EMULTIHOP; POSIX does not
+document ETXTBSY, EPERM, EFAULT, ELOOP, EIO, ENFILE, EMFILE, EINVAL,
+EISDIR or ELIBBAD error conditions.
+.SH NOTES
+SUID and SGID processes can not be \fBptrace()\fPd.
+
+Linux ignores the SUID and SGID bits on scripts.
+
+The result of mounting a filesystem
+.I nosuid
+vary between Linux kernel versions:
+some will refuse execution of SUID/SGID executables when this would
+give the user powers she did not have already (and return EPERM),
+some will just ignore the SUID/SGID bits and exec successfully.
+
+A maximum line length of 127 characters is allowed for the first line in
+a #! executable shell script. 
+.\" .SH BUGS
+.\" Some Linux versions have failed to check permissions on ELF
+.\" interpreters.  This is a security hole, because it allows users to
+.\" open any file, such as a rewinding tape device, for reading.  Some
+.\" Linux versions have also had other security holes in \fBexecve()\fP,
+.\" that could be exploited for denial of service by a suitably crafted
+.\" ELF binary. There are no known problems with 2.0.34 or 2.2.15.
+
+.SH HISTORICAL
+With Unix V6 the argument list of an exec call was ended by 0,
+while the argument list of
+.I main
+was ended by \-1. Thus, this
+argument list was not directly usable in a further exec call.
+Since Unix V7 both are NULL.
+
+.SH "SEE ALSO"
+.BR chmod (2),
+.BR fork (2),
+.BR path_resolution (2),
+.BR execl (3),
+.BR environ (5),
+.BR ld.so (8)

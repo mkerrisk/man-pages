@@ -1,0 +1,346 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 2000-03-25 by Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" Modified 2001-10-04 by John Levon <moz@compsoc.man.ac.uk>
+.\" Modified 2003-02-02 by Andi Kleen <ak@muc.de>
+.\" Modified 2003-05-21 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	MAP_LOCKED works from 2.5.37
+.\" Modified 2004-06-17 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 2004-09-11 by aeb
+.\"
+.TH MMAP 2 2004-09-11 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+mmap, munmap \- map or unmap files or devices into memory
+.SH SYNOPSIS
+.B #include <sys/mman.h>
+.sp
+.BI "void * mmap(void *" start ", size_t " length ", int " prot
+.BI ", int " flags ", int " fd ", off_t " offset );
+.sp
+.BI "int munmap(void *" start ", size_t " length );
+.SH DESCRIPTION
+The
+.B mmap
+function asks to map
+.I length
+bytes starting at offset
+.I offset
+from the file (or other object) specified by the file descriptor
+.I fd
+into memory, preferably at address
+.IR start .
+This latter address is a hint only, and is usually specified as 0.
+The actual place where the object is mapped is returned by
+.BR mmap ,
+and is never 0.
+.LP
+The
+.I prot
+argument describes the desired memory protection (and must not
+conflict with the open mode of the file). It is either
+.B PROT_NONE
+or is the bitwise OR of one or more of the other PROT_* flags.
+.TP 1.1i
+.B PROT_EXEC
+Pages may be executed.
+.TP
+.B PROT_READ
+Pages may be read.
+.TP
+.B PROT_WRITE
+Pages may be written.
+.TP
+.B PROT_NONE
+Pages may not be accessed.
+.LP
+The
+.I flags
+parameter specifies the type of the mapped object, mapping options and
+whether modifications made to the mapped copy of the page are private to
+the process or are to be shared with other references.  It has bits
+.TP 1.1i
+.B MAP_FIXED
+Do not select a different address than the one specified.
+If the specified address cannot be used,
+.B mmap
+will fail.  If MAP_FIXED is specified,
+.I start
+must be a multiple of the pagesize.  Use of this option is discouraged.
+.TP
+.B MAP_SHARED
+Share this mapping with all other processes that map this object.
+Storing to the region is equivalent to writing to the file.
+The file may not actually be updated until
+.BR msync (2)
+or
+.BR munmap (2)
+are called.
+.TP
+.B MAP_PRIVATE
+Create a private copy-on-write mapping.
+Stores to the region do not affect the original file.
+It is unspecified whether changes made to the file after the
+.B mmap
+call are visible in the mapped region.
+.LP
+You must specify exactly one of MAP_SHARED and MAP_PRIVATE.
+.LP
+The above three flags are described in POSIX.1b (formerly POSIX.4) and SUSv2.
+Linux also knows about the following non-standard flags:
+.TP
+.B MAP_DENYWRITE
+This flag is ignored.
+.\" Introduced in 1.1.36, removed in 1.3.24.
+(Long ago, it signalled that attempts to write to the underlying file
+should fail with ETXTBUSY. But this was a source of denial-of-service attacks.)
+.TP
+.B MAP_EXECUTABLE
+This flag is ignored.
+.\" Introduced in 1.1.38, removed in 1.3.24. Flag tested in proc_follow_link.
+.\" (Long ago, it signalled that the underlying file is an executable.
+.\" However, that information was not really used anywhere.)
+.\" Linus talked about DOS related to MAP_EXECUTABLE, but he was thinking of
+.\" MAP_DENYWRITE?
+.TP
+.B MAP_NORESERVE
+(Used together with MAP_PRIVATE.) Do not reserve swap space pages for
+this mapping. When swap space is reserved, one has the guarantee
+that it is possible to modify this private copy-on-write region.
+When it is not reserved one might get SIGSEGV upon a write
+when no memory is available.
+.TP
+.BR MAP_LOCKED " (since Linux 2.5.37)"
+Lock the pages of the mapped region into memory in the manner of
+.BR mlock() .
+This flag is ignored in older kernels.
+.\" If set, the mapped pages will not be swapped out.
+.TP
+.B MAP_GROWSDOWN
+Used for stacks. Indicates to the kernel VM system that the mapping
+should extend downwards in memory.
+.TP
+.B MAP_ANONYMOUS
+The mapping is not backed by any file; the
+.I fd
+and
+.I offset
+arguments are ignored.  This flag in conjunction with MAP_SHARED
+is implemented since Linux 2.4.
+.TP
+.B MAP_ANON
+Alias for MAP_ANONYMOUS. Deprecated.
+.TP
+.B MAP_FILE
+Compatibility flag. Ignored.
+.TP
+.B MAP_32BIT
+Put the mapping into the first 2GB of the process address space.
+Ignored when
+.I MAP_FIXED
+is set. This flag is currently only supported on x86-64 for 64bit programs.
+.TP
+.BR MAP_POPULATE " (since Linux 2.5.46)"
+Populate (prefault) pagetables.
+.TP
+.BR MAP_NONBLOCK " (since Linux 2.5.46)"
+Do not block on IO.
+.LP
+Some systems document the additional flags MAP_AUTOGROW, MAP_AUTORESRV,
+MAP_COPY, and MAP_LOCAL.
+.LP
+.I fd
+should be a valid file descriptor, unless MAP_ANONYMOUS is set,
+in which case the argument is ignored.
+.LP
+.I offset
+should be a multiple of the page size as returned by
+.BR getpagesize (2).
+.LP
+Memory mapped by
+.B mmap
+is preserved across
+.BR fork (2),
+with the same attributes.
+.LP
+A file is mapped in multiples of the page size. For a file that is not
+a multiple of the page size, the remaining memory is zeroed when mapped,
+and writes to that region are not written out to the file. The effect of
+changing the size of the underlying file of a mapping on the pages that
+correspond to added or removed regions of the file is unspecified.
+
+The
+.B munmap
+system call deletes the mappings for the specified address range, and
+causes further references to addresses within the range to generate
+invalid memory references.  The region is also automatically unmapped
+when the process is terminated.  On the other hand, closing the file
+descriptor does not unmap the region.
+.LP
+The address
+.I start
+must be a multiple of the page size. All pages containing a part
+of the indicated range are unmapped, and subsequent references
+to these pages will generate SIGSEGV. It is not an error if the
+indicated range does not contain any mapped pages.
+
+For file-backed mappings, the
+.B st_atime
+field for the mapped file may be updated at any time between the
+.B mmap()
+and the corresponding unmapping; the first reference to a mapped
+page will update the field if it has not been already.
+.LP
+The
+.B st_ctime
+and
+.B st_mtime
+field for a file mapped with PROT_WRITE and MAP_SHARED will be updated after
+a write to the mapped region, and before a subsequent
+.I msync()
+with the MS_SYNC or MS_ASYNC flag, if one occurs.
+.SH "RETURN VALUE"
+On success,
+.B mmap
+returns a pointer to the mapped area.
+On error, the value
+.B MAP_FAILED
+(that is, (void *) \-1) is returned, and
+.I errno
+is set appropriately.
+On success,
+.B munmap
+returns 0, on failure \-1, and
+.I errno
+is set (probably to EINVAL).
+.SH NOTES
+It is architecture dependent whether
+.I PROT_READ
+includes
+.I PROT_EXEC
+or not. Portable programs should always set
+.I PROT_EXEC
+if they intend to execute code in the new mapping.
+.SH ERRORS
+.TP
+.B EACCES
+A file descriptor refers to a non-regular file.
+Or MAP_PRIVATE was requested, but
+.I fd
+is not open for reading.
+Or MAP_SHARED was requested and PROT_WRITE is set, but
+.I fd
+is not open in read/write (O_RDWR) mode.
+Or PROT_WRITE is set, but the file is append-only.
+.TP
+.B EAGAIN
+The file has been locked, or too much memory has been locked.
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor (and MAP_ANONYMOUS was not set).
+.TP
+.B EINVAL
+We don't like
+.I start
+or
+.I length
+or
+.IR offset .
+(E.g., they are too large, or not aligned on a PAGESIZE boundary.)
+.\" jbl - not sure this actually happens ? see generic_file_mmap
+.TP
+.B ENFILE
+.\" This is for shared anonymous segments
+.\" [2.6.7] shmem_zero_setup()-->shmem_file_setup()-->get_empty_filp()
+The system limit on the total number of open files has been reached.
+.\" .TP
+.\" .B ENOEXEC
+.\" A file could not be mapped for reading.
+.TP
+.B ENODEV
+The underlying filesystem of the specified file does not support
+memory mapping.
+.TP
+.B ENOMEM
+No memory is available, or the process's maximum number of mappings would
+have been exceeded.
+.TP
+.B EPERM
+The
+.I prot
+argument asks for
+.B PROT_EXEC
+but the mapped area belongs to a file on a filesystem that
+was mounted no-exec.
+.\" (Since 2.4.25 / 2.6.0.)
+.TP
+.B ETXTBSY
+MAP_DENYWRITE was set but the object specified by
+.I fd
+is open for writing.
+.LP
+Use of a mapped region can result in these signals:
+.TP
+.B SIGSEGV
+Attempted write into a region specified to mmap as read-only.
+.TP
+.B SIGBUS
+Attempted access to a portion of the buffer that does not correspond
+to the file (for example, beyond the end of the file, including the
+case where another process has truncated the file).
+.SH AVAILABILITY
+On POSIX systems on which
+.BR mmap ,
+.B msync
+and
+.B munmap
+are available,
+.B _POSIX_MAPPED_FILES
+is defined in <unistd.h> to a value greater than 0. (See also
+.BR sysconf (3).)
+.\" POSIX 1003.1-2001: It shall be defined to -1 or 0 or 200112L.
+.\" -1: unavailable, 0: ask using sysconf().
+.\" glibc defines it to 1.
+.SH "CONFORMING TO"
+SVr4, POSIX.1b (formerly POSIX.4), 4.4BSD, SUSv2.
+SVr4 documents additional error codes ENXIO and ENODEV.
+SUSv2 documents additional error codes EMFILE and EOVERFLOW.
+.SH BUGS
+On Linux there are no guarantees like those suggested above
+under MAP_NORESERVE. By default, any process can be killed
+at any moment when the system runs out of memory.
+.SH "SEE ALSO"
+.BR getpagesize (2),
+.BR mlock (2),
+.BR mmap2 (2),
+.BR mremap (2),
+.BR msync (2),
+.BR shm_open (2)
+.br
+B.O. Gallmeister, POSIX.4, O'Reilly, pp. 128-129 and 389-391.
+.\"
+.\" Repeat after me: private read-only mappings are 100% equivalent to
+.\" shared read-only mappings. No ifs, buts, or maybes. -- Linus

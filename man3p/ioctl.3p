@@ -1,0 +1,1058 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "IOCTL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" ioctl 
+.SH NAME
+ioctl \- control a STREAMS device (\fBSTREAMS\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <stropts.h>
+.br
+.sp
+int ioctl(int\fP \fIfildes\fP\fB, int\fP \fIrequest\fP\fB, ... /*
+arg */); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIioctl\fP() function shall perform a variety of control functions
+on STREAMS devices. For non-STREAMS devices, the
+functions performed by this call are unspecified. The \fIrequest\fP
+argument and an optional third argument (with varying type)
+shall be passed to and interpreted by the appropriate part of the
+STREAM associated with \fIfildes\fP.
+.LP
+The \fIfildes\fP argument is an open file descriptor that refers to
+a device.
+.LP
+The \fIrequest\fP argument selects the control function to be performed
+and shall depend on the STREAMS device being
+addressed.
+.LP
+The \fIarg\fP argument represents additional information that is needed
+by this specific STREAMS device to perform the
+requested function. The type of \fIarg\fP depends upon the particular
+control request, but it shall be either an integer or a
+pointer to a device-specific data structure.
+.LP
+The \fIioctl\fP() commands applicable to STREAMS, their arguments,
+and error conditions that apply to each individual command
+are described below.
+.LP
+The following \fIioctl\fP() commands, with error values indicated,
+are applicable to all STREAMS files:
+.TP 7
+I_PUSH
+Pushes the module whose name is pointed to by \fIarg\fP onto the top
+of the current STREAM, just below the STREAM head. It
+then calls the \fIopen\fP() function of the newly-pushed module. 
+.LP
+The \fIioctl\fP() function with the I_PUSH command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Invalid module name.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Open function of new module failed.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.sp
+.TP 7
+I_POP
+Removes the module just below the STREAM head of the STREAM pointed
+to by \fIfildes\fP. The \fIarg\fP argument should be 0 in
+an I_POP request. 
+.LP
+The \fIioctl\fP() function with the I_POP command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+No module present in the STREAM.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.sp
+.TP 7
+I_LOOK
+Retrieves the name of the module just below the STREAM head of the
+STREAM pointed to by \fIfildes\fP, and places it in a
+character string pointed to by \fIarg\fP. The buffer pointed to by
+\fIarg\fP should be at least FMNAMESZ+1 bytes long, where
+FMNAMESZ is defined in \fI<stropts.h>\fP. 
+.LP
+The \fIioctl\fP() function with the I_LOOK command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+No module present in the STREAM.
+.RE
+.sp
+.TP 7
+I_FLUSH
+Flushes read and/or write queues, depending on the value of \fIarg\fP.
+Valid \fIarg\fP values are: 
+.TP 7
+FLUSHR
+.RS
+Flush all read queues.
+.RE
+.TP 7
+FLUSHW
+.RS
+Flush all write queues.
+.RE
+.TP 7
+FLUSHRW
+.RS
+Flush all read and all write queues.
+.RE
+.sp
+.LP
+The \fIioctl\fP() function with the I_FLUSH command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Invalid \fIarg\fP value.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate buffers for flush message.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.sp
+.TP 7
+I_FLUSHBAND
+Flushes a particular band of messages. The \fIarg\fP argument points
+to a \fBbandinfo\fP structure. The \fIbi_flag\fP member
+may be one of FLUSHR, FLUSHW, or FLUSHRW as described above. The \fIbi_pri\fP
+member determines the priority band to be
+flushed.
+.TP 7
+I_SETSIG
+Requests that the STREAMS implementation send the SIGPOLL signal to
+the calling process when a particular event has occurred on
+the STREAM associated with \fIfildes\fP. I_SETSIG supports an asynchronous
+processing capability in STREAMS. The value of
+\fIarg\fP is a bitmask that specifies the events for which the process
+should be signaled. It is the bitwise-inclusive OR of any
+combination of the following constants: 
+.TP 7
+S_RDNORM
+.RS
+A normal (priority band set to 0) message has arrived at the head
+of a STREAM head read queue. A signal shall be generated even
+if the message is of zero length.
+.RE
+.TP 7
+S_RDBAND
+.RS
+A message with a non-zero priority band has arrived at the head of
+a STREAM head read queue. A signal shall be generated even
+if the message is of zero length.
+.RE
+.TP 7
+S_INPUT
+.RS
+A message, other than a high-priority message, has arrived at the
+head of a STREAM head read queue. A signal shall be generated
+even if the message is of zero length.
+.RE
+.TP 7
+S_HIPRI
+.RS
+A high-priority message is present on a STREAM head read queue. A
+signal shall be generated even if the message is of zero
+length.
+.RE
+.TP 7
+S_OUTPUT
+.RS
+The write queue for normal data (priority band 0) just below the STREAM
+head is no longer full. This notifies the process that
+there is room on the queue for sending (or writing) normal data downstream.
+.RE
+.TP 7
+S_WRNORM
+.RS
+Equivalent to S_OUTPUT.
+.RE
+.TP 7
+S_WRBAND
+.RS
+The write queue for a non-zero priority band just below the STREAM
+head is no longer full. This notifies the process that there
+is room on the queue for sending (or writing) priority data downstream.
+.RE
+.TP 7
+S_MSG
+.RS
+A STREAMS signal message that contains the SIGPOLL signal has reached
+the front of the STREAM head read queue.
+.RE
+.TP 7
+S_ERROR
+.RS
+Notification of an error condition has reached the STREAM head.
+.RE
+.TP 7
+S_HANGUP
+.RS
+Notification of a hangup has reached the STREAM head.
+.RE
+.TP 7
+S_BANDURG
+.RS
+When used in conjunction with S_RDBAND, SIGURG is generated instead
+of SIGPOLL when a priority message reaches the front of the
+STREAM head read queue.
+.RE
+.sp
+.LP
+If \fIarg\fP is 0, the calling process shall be unregistered and shall
+not receive further SIGPOLL signals for the stream
+associated with \fIfildes\fP.
+.LP
+Processes that wish to receive SIGPOLL signals shall ensure that they
+explicitly register to receive them using I_SETSIG. If
+several processes register to receive this signal for the same event
+on the same STREAM, each process shall be signaled when the
+event occurs.
+.LP
+The \fIioctl\fP() function with the I_SETSIG command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+The value of \fIarg\fP is invalid.
+.RE
+.TP 7
+.B EINVAL
+.RS
+The value of \fIarg\fP is 0 and the calling process is not registered
+to receive the SIGPOLL signal.
+.RE
+.TP 7
+.B EAGAIN
+.RS
+There were insufficient resources to store the signal request.
+.RE
+.sp
+.TP 7
+I_GETSIG
+Returns the events for which the calling process is currently registered
+to be sent a SIGPOLL signal. The events are returned
+as a bitmask in an \fBint\fP pointed to by \fIarg\fP, where the events
+are those specified in the description of I_SETSIG above. 
+.LP
+The \fIioctl\fP() function with the I_GETSIG command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Process is not registered to receive the SIGPOLL signal.
+.RE
+.sp
+.TP 7
+I_FIND
+Compares the names of all modules currently present in the STREAM
+to the name pointed to by \fIarg\fP, and returns 1 if the
+named module is present in the STREAM, or returns 0 if the named module
+is not present. 
+.LP
+The \fIioctl\fP() function with the I_FIND command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+\fIarg\fP does not contain a valid module name.
+.RE
+.sp
+.TP 7
+I_PEEK
+Retrieves the information in the first message on the STREAM head
+read queue without taking the message off the queue. It is
+analogous to \fIgetmsg\fP() except that this command does not remove
+the message from the
+queue. The \fIarg\fP argument points to a \fBstrpeek\fP structure.
+.LP
+The application shall ensure that the \fImaxlen\fP member in the \fBctlbuf\fP
+and \fBdatabuf strbuf\fP structures is set to
+the number of bytes of control information and/or data information,
+respectively, to retrieve. The \fIflags\fP member may be
+marked RS_HIPRI or 0, as described by \fIgetmsg\fP(). If the process
+sets \fIflags\fP to
+RS_HIPRI, for example, I_PEEK shall only look for a high-priority
+message on the STREAM head read queue.
+.LP
+I_PEEK returns 1 if a message was retrieved, and returns 0 if no message
+was found on the STREAM head read queue, or if the
+RS_HIPRI flag was set in \fIflags\fP and a high-priority message was
+not present on the STREAM head read queue. It does not wait
+for a message to arrive. On return, \fBctlbuf\fP specifies information
+in the control buffer, \fBdatabuf\fP specifies information
+in the data buffer, and \fIflags\fP contains the value RS_HIPRI or
+0.
+.TP 7
+I_SRDOPT
+Sets the read mode using the value of the argument \fIarg\fP. Read
+modes are described in \fIread\fP() . Valid \fIarg\fP flags are: 
+.TP 7
+RNORM
+.RS
+Byte-stream mode, the default.
+.RE
+.TP 7
+RMSGD
+.RS
+Message-discard mode.
+.RE
+.TP 7
+RMSGN
+.RS
+Message-nondiscard mode.
+.RE
+.sp
+.LP
+The bitwise-inclusive OR of RMSGD and RMSGN shall return [EINVAL].
+The bitwise-inclusive OR of RNORM and either RMSGD or RMSGN
+shall result in the other flag overriding RNORM which is the default.
+.LP
+In addition, treatment of control messages by the STREAM head may
+be changed by setting any of the following flags in
+\fIarg\fP:
+.TP 7
+RPROTNORM
+.RS
+Fail \fIread\fP() with [EBADMSG] if a message containing a control
+part is at the front
+of the STREAM head read queue.
+.RE
+.TP 7
+RPROTDAT
+.RS
+Deliver the control part of a message as data when a process issues
+a \fIread\fP().
+.RE
+.TP 7
+RPROTDIS
+.RS
+Discard the control part of a message, delivering any data portion,
+when a process issues a \fIread\fP().
+.RE
+.sp
+.LP
+The \fIioctl\fP() function with the I_SRDOPT command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+The \fIarg\fP argument is not valid.
+.RE
+.sp
+.TP 7
+I_GRDOPT
+Returns the current read mode setting, as described above, in an \fBint\fP
+pointed to by the argument \fIarg\fP. Read modes
+are described in \fIread\fP() .
+.TP 7
+I_NREAD
+Counts the number of data bytes in the data part of the first message
+on the STREAM head read queue and places this value in
+the \fBint\fP pointed to by \fIarg\fP. The return value for the command
+shall be the number of messages on the STREAM head read
+queue. For example, if 0 is returned in \fIarg\fP, but the \fIioctl\fP()
+return value is greater than 0, this indicates that a
+zero-length message is next on the queue.
+.TP 7
+I_FDINSERT
+Creates a message from specified buffer(s), adds information about
+another STREAM, and sends the message downstream. The
+message contains a control part and an optional data part. The data
+and control parts to be sent are distinguished by placement in
+separate buffers, as described below. The \fIarg\fP argument points
+to a \fBstrfdinsert\fP structure. 
+.LP
+The application shall ensure that the \fIlen\fP member in the \fBctlbuf
+strbuf\fP structure is set to the size of a
+\fBt_uscalar_t\fP plus the number of bytes of control information
+to be sent with the message. The \fIfildes\fP member specifies
+the file descriptor of the other STREAM, and the \fIoffset\fP member,
+which must be suitably aligned for use as a
+\fBt_uscalar_t\fP, specifies the offset from the start of the control
+buffer where I_FDINSERT shall store a \fBt_uscalar_t\fP
+whose interpretation is specific to the STREAM end. The application
+shall ensure that the \fIlen\fP member in the \fBdatabuf
+strbuf\fP structure is set to the number of bytes of data information
+to be sent with the message, or to 0 if no data part is to
+be sent.
+.LP
+The \fIflags\fP member specifies the type of message to be created.
+A normal message is created if \fIflags\fP is set to 0,
+and a high-priority message is created if \fIflags\fP is set to RS_HIPRI.
+For non-priority messages, I_FDINSERT shall block if the
+STREAM write queue is full due to internal flow control conditions.
+For priority messages, I_FDINSERT does not block on this
+condition. For non-priority messages, I_FDINSERT does not block when
+the write queue is full and O_NONBLOCK is set. Instead, it
+fails and sets \fIerrno\fP to [EAGAIN].
+.LP
+I_FDINSERT also blocks, unless prevented by lack of internal resources,
+waiting for the availability of message blocks in the
+STREAM, regardless of priority or whether O_NONBLOCK has been specified.
+No partial message is sent.
+.LP
+The \fIioctl\fP() function with the I_FDINSERT command shall fail
+if:
+.TP 7
+.B EAGAIN
+.RS
+A non-priority message is specified, the O_NONBLOCK flag is set, and
+the STREAM write queue is full due to internal flow
+control conditions.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Buffers cannot be allocated for the message that is to be created.
+.RE
+.TP 7
+.B EINVAL
+.RS
+One of the following: 
+.RS
+.IP " *" 3
+The \fIfildes\fP member of the \fBstrfdinsert\fP structure is not
+a valid, open STREAM file descriptor.
+.LP
+.IP " *" 3
+The size of a \fBt_uscalar_t\fP plus \fIoffset\fP is greater than
+the \fIlen\fP member for the buffer specified through
+\fBctlbuf\fP.
+.LP
+.IP " *" 3
+The \fIoffset\fP member does not specify a properly-aligned location
+in the data buffer.
+.LP
+.IP " *" 3
+An undefined value is stored in \fIflags\fP.
+.LP
+.RE
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on the STREAM identified by either the \fIfildes\fP
+argument or the \fIfildes\fP member of the
+\fBstrfdinsert\fP structure.
+.RE
+.TP 7
+.B ERANGE
+.RS
+The \fIlen\fP member for the buffer specified through \fBdatabuf\fP
+does not fall within the range specified by the maximum
+and minimum packet sizes of the topmost STREAM module; or the \fIlen\fP
+member for the buffer specified through \fBdatabuf\fP is
+larger than the maximum configured size of the data part of a message;
+or the \fIlen\fP member for the buffer specified through
+\fBctlbuf\fP is larger than the maximum configured size of the control
+part of a message.
+.RE
+.sp
+.TP 7
+I_STR
+Constructs an internal STREAMS \fIioctl\fP() message from the data
+pointed to by \fIarg\fP, and sends that message
+downstream. 
+.LP
+This mechanism is provided to send \fIioctl\fP() requests to downstream
+modules and drivers. It allows information to be sent
+with \fIioctl\fP(), and returns to the process any information sent
+upstream by the downstream recipient. I_STR shall block until
+the system responds with either a positive or negative acknowledgement
+message, or until the request times out after some period of
+time. If the request times out, it shall fail with \fIerrno\fP set
+to [ETIME].
+.LP
+At most, one I_STR can be active on a STREAM. Further I_STR calls
+shall block until the active I_STR completes at the STREAM
+head. The default timeout interval for these requests is 15 seconds.
+The O_NONBLOCK flag has no effect on this call.
+.LP
+To send requests downstream, the application shall ensure that \fIarg\fP
+points to a \fBstrioctl\fP structure.
+.LP
+The \fIic_cmd\fP member is the internal \fIioctl\fP() command intended
+for a downstream module or driver and \fIic_timout\fP
+is the number of seconds (-1=infinite, 0=use implementation-defined
+timeout interval, >0=as specified) an I_STR request shall
+wait for acknowledgement before timing out. \fIic_len\fP is the number
+of bytes in the data argument, and \fIic_dp\fP is a
+pointer to the data argument. The \fIic_len\fP member has two uses:
+on input, it contains the length of the data argument passed
+in, and on return from the command, it contains the number of bytes
+being returned to the process (the buffer pointed to by
+\fIic_dp\fP should be large enough to contain the maximum amount of
+data that any module or the driver in the STREAM can
+return).
+.LP
+The STREAM head shall convert the information pointed to by the \fBstrioctl\fP
+structure to an internal \fIioctl\fP() command
+message and send it downstream.
+.LP
+The \fIioctl\fP() function with the I_STR command shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate buffers for the \fIioctl\fP() message.
+.RE
+.TP 7
+.B EINVAL
+.RS
+The \fIic_len\fP member is less than 0 or larger than the maximum
+configured size of the data part of a message, or
+\fIic_timout\fP is less than -1.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.TP 7
+.B ETIME
+.RS
+A downstream \fIioctl\fP() timed out before acknowledgement was received.
+.RE
+.sp
+.LP
+An I_STR can also fail while waiting for an acknowledgement if a message
+indicating an error or a hangup is received at the
+STREAM head. In addition, an error code can be returned in the positive
+or negative acknowledgement message, in the event the
+\fIioctl\fP() command sent downstream fails. For these cases, I_STR
+shall fail with \fIerrno\fP set to the value in the
+message.
+.TP 7
+I_SWROPT
+Sets the write mode using the value of the argument \fIarg\fP. Valid
+bit settings for \fIarg\fP are: 
+.TP 7
+SNDZERO
+.RS
+Send a zero-length message downstream when a \fIwrite\fP() of 0 bytes
+occurs. To not
+send a zero-length message when a \fIwrite\fP() of 0 bytes occurs,
+the application shall
+ensure that this bit is not set in \fIarg\fP (for example, \fIarg\fP
+would be set to 0).
+.RE
+.sp
+.LP
+The \fIioctl\fP() function with the I_SWROPT command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+\fIarg\fP is not the above value.
+.RE
+.sp
+.TP 7
+I_GWROPT
+Returns the current write mode setting, as described above, in the
+\fBint\fP that is pointed to by the argument
+\fIarg\fP.
+.TP 7
+I_SENDFD
+Creates a new reference to the open file description associated with
+the file descriptor \fIarg\fP, and writes a message on
+the STREAMS-based pipe \fIfildes\fP containing this reference, together
+with the user ID and group ID of the calling process. 
+.LP
+The \fIioctl\fP() function with the I_SENDFD command shall fail if:
+.TP 7
+.B EAGAIN
+.RS
+The sending STREAM is unable to allocate a message block to contain
+the file pointer; or the read queue of the receiving STREAM
+head is full and cannot accept the message sent by I_SENDFD.
+.RE
+.TP 7
+.B EBADF
+.RS
+The \fIarg\fP argument is not a valid, open file descriptor.
+.RE
+.TP 7
+.B EINVAL
+.RS
+The \fIfildes\fP argument is not connected to a STREAM pipe.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.sp
+.TP 7
+I_RECVFD
+Retrieves the reference to an open file description from a message
+written to a STREAMS-based pipe using the I_SENDFD command,
+and allocates a new file descriptor in the calling process that refers
+to this open file description. The \fIarg\fP argument is a
+pointer to a \fBstrrecvfd\fP data structure as defined in \fI<stropts.h>\fP.
+.LP
+The \fIfd\fP member is a file descriptor. The \fIuid\fP and \fIgid\fP
+members are the effective user ID and effective group
+ID, respectively, of the sending process.
+.LP
+If O_NONBLOCK is not set, I_RECVFD shall block until a message is
+present at the STREAM head. If O_NONBLOCK is set, I_RECVFD
+shall fail with \fIerrno\fP set to [EAGAIN] if no message is present
+at the STREAM head.
+.LP
+If the message at the STREAM head is a message sent by an I_SENDFD,
+a new file descriptor shall be allocated for the open file
+descriptor referenced in the message. The new file descriptor is placed
+in the \fIfd\fP member of the \fBstrrecvfd\fP structure
+pointed to by \fIarg\fP.
+.LP
+The \fIioctl\fP() function with the I_RECVFD command shall fail if:
+.TP 7
+.B EAGAIN
+.RS
+A message is not present at the STREAM head read queue and the O_NONBLOCK
+flag is set.
+.RE
+.TP 7
+.B EBADMSG
+.RS
+The message at the STREAM head read queue is not a message containing
+a passed file descriptor.
+.RE
+.TP 7
+.B EMFILE
+.RS
+The process has the maximum number of file descriptors currently open
+that it is allowed.
+.RE
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.sp
+.TP 7
+I_LIST
+Allows the process to list all the module names on the STREAM, up
+to and including the topmost driver name. If \fIarg\fP is a
+null pointer, the return value shall be the number of modules, including
+the driver, that are on the STREAM pointed to by
+\fIfildes\fP. This lets the process allocate enough space for the
+module names. Otherwise, it should point to a \fBstr_list\fP
+structure. 
+.LP
+The \fIsl_nmods\fP member indicates the number of entries the process
+has allocated in the array. Upon return, the
+\fIsl_modlist\fP member of the \fBstr_list\fP structure shall contain
+the list of module names, and the number of entries that
+have been filled into the \fIsl_modlist\fP array is found in the \fIsl_nmods\fP
+member (the number includes the number of modules
+including the driver). The return value from \fIioctl\fP() shall be
+0. The entries are filled in starting at the top of the STREAM
+and continuing downstream until either the end of the STREAM is reached,
+or the number of requested modules ( \fIsl_nmods\fP) is
+satisfied.
+.LP
+The \fIioctl\fP() function with the I_LIST command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+The \fIsl_nmods\fP member is less than 1.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate buffers.
+.RE
+.sp
+.TP 7
+I_ATMARK
+Allows the process to see if the message at the head of the STREAM
+head read queue is marked by some module downstream. The
+\fIarg\fP argument determines how the checking is done when there
+may be multiple marked messages on the STREAM head read queue.
+It may take on the following values: 
+.TP 7
+ANYMARK
+.RS
+Check if the message is marked.
+.RE
+.TP 7
+LASTMARK
+.RS
+Check if the message is the last one marked on the queue.
+.RE
+.sp
+.LP
+The bitwise-inclusive OR of the flags ANYMARK and LASTMARK is permitted.
+.LP
+The return value shall be 1 if the mark condition is satisfied; otherwise,
+the value shall be 0.
+.LP
+The \fIioctl\fP() function with the I_ATMARK command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Invalid \fIarg\fP value.
+.RE
+.sp
+.TP 7
+I_CKBAND
+Checks if the message of a given priority band exists on the STREAM
+head read queue. This shall return 1 if a message of the
+given priority exists, 0 if no such message exists, or -1 on error.
+\fIarg\fP should be of type \fBint\fP. 
+.LP
+The \fIioctl\fP() function with the I_CKBAND command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Invalid \fIarg\fP value.
+.RE
+.sp
+.TP 7
+I_GETBAND
+Returns the priority band of the first message on the STREAM head
+read queue in the integer referenced by \fIarg\fP. 
+.LP
+The \fIioctl\fP() function with the I_GETBAND command shall fail if:
+.TP 7
+.B ENODATA
+.RS
+No message on the STREAM head read queue.
+.RE
+.sp
+.TP 7
+I_CANPUT
+Checks if a certain band is writable. \fIarg\fP is set to the priority
+band in question. The return value shall be 0 if the
+band is flow-controlled, 1 if the band is writable, or -1 on error.
+.LP
+The \fIioctl\fP() function with the I_CANPUT command shall fail if:
+.TP 7
+.B EINVAL
+.RS
+Invalid \fIarg\fP value.
+.RE
+.sp
+.TP 7
+I_SETCLTIME
+This request allows the process to set the time the STREAM head shall
+delay when a STREAM is closing and there is data on the
+write queues. Before closing each module or driver, if there is data
+on its write queue, the STREAM head shall delay for the
+specified amount of time to allow the data to drain. If, after the
+delay, data is still present, it shall be flushed. The
+\fIarg\fP argument is a pointer to an integer specifying the number
+of milliseconds to delay, rounded up to the nearest valid
+value. If I_SETCLTIME is not performed on a STREAM, an implementation-defined
+default timeout interval is used. 
+.LP
+The \fIioctl\fP() function with the I_SETCLTIME command shall fail
+if:
+.TP 7
+.B EINVAL
+.RS
+Invalid \fIarg\fP value.
+.RE
+.sp
+.TP 7
+I_GETCLTIME
+Returns the close time delay in the integer pointed to by \fIarg\fP.
+.sp
+.SS Multiplexed STREAMS Configurations
+.LP
+The following commands are used for connecting and disconnecting multiplexed
+STREAMS configurations. These commands use an
+implementation-defined default timeout interval.
+.TP 7
+I_LINK
+Connects two STREAMs, where \fIfildes\fP is the file descriptor of
+the STREAM connected to the multiplexing driver, and
+\fIarg\fP is the file descriptor of the STREAM connected to another
+driver. The STREAM designated by \fIarg\fP is connected below
+the multiplexing driver. I_LINK requires the multiplexing driver to
+send an acknowledgement message to the STREAM head regarding
+the connection. This call shall return a multiplexer ID number (an
+identifier used to disconnect the multiplexer; see I_UNLINK) on
+success, and -1 on failure. 
+.LP
+The \fIioctl\fP() function with the I_LINK command shall fail if:
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.TP 7
+.B ETIME
+.RS
+Timeout before acknowledgement message was received at STREAM head.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate STREAMS storage to perform the I_LINK.
+.RE
+.TP 7
+.B EBADF
+.RS
+The \fIarg\fP argument is not a valid, open file descriptor.
+.RE
+.TP 7
+.B EINVAL
+.RS
+The \fIfildes\fP argument does not support multiplexing; or \fIarg\fP
+is not a STREAM or is already connected downstream from
+a multiplexer; or the specified I_LINK operation would connect the
+STREAM head in more than one place in the multiplexed
+STREAM.
+.RE
+.sp
+.LP
+An I_LINK can also fail while waiting for the multiplexing driver
+to acknowledge the request, if a message indicating an error
+or a hangup is received at the STREAM head of \fIfildes\fP. In addition,
+an error code can be returned in the positive or negative
+acknowledgement message. For these cases, I_LINK fails with \fIerrno\fP
+set to the value in the message.
+.TP 7
+I_UNLINK
+Disconnects the two STREAMs specified by \fIfildes\fP and \fIarg\fP.
+\fIfildes\fP is the file descriptor of the STREAM
+connected to the multiplexing driver. The \fIarg\fP argument is the
+multiplexer ID number that was returned by the I_LINK
+\fIioctl\fP() command when a STREAM was connected downstream from
+the multiplexing driver. If \fIarg\fP is MUXID_ALL, then all
+STREAMs that were connected to \fIfildes\fP shall be disconnected.
+As in I_LINK, this command requires acknowledgement. 
+.LP
+The \fIioctl\fP() function with the I_UNLINK command shall fail if:
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.TP 7
+.B ETIME
+.RS
+Timeout before acknowledgement message was received at STREAM head.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate buffers for the acknowledgement message.
+.RE
+.TP 7
+.B EINVAL
+.RS
+Invalid multiplexer ID number.
+.RE
+.sp
+.LP
+An I_UNLINK can also fail while waiting for the multiplexing driver
+to acknowledge the request if a message indicating an error
+or a hangup is received at the STREAM head of \fIfildes\fP. In addition,
+an error code can be returned in the positive or negative
+acknowledgement message. For these cases, I_UNLINK shall fail with
+\fIerrno\fP set to the value in the message.
+.TP 7
+I_PLINK
+Creates a \fIpersistent connection\fP between two STREAMs, where \fIfildes\fP
+is the file descriptor of the STREAM connected
+to the multiplexing driver, and \fIarg\fP is the file descriptor of
+the STREAM connected to another driver. This call shall create
+a persistent connection which can exist even if the file descriptor
+\fIfildes\fP associated with the upper STREAM to the
+multiplexing driver is closed. The STREAM designated by \fIarg\fP
+gets connected via a persistent connection below the
+multiplexing driver. I_PLINK requires the multiplexing driver to send
+an acknowledgement message to the STREAM head. This call
+shall return a multiplexer ID number (an identifier that may be used
+to disconnect the multiplexer; see I_PUNLINK) on success, and
+-1 on failure. 
+.LP
+The \fIioctl\fP() function with the I_PLINK command shall fail if:
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.TP 7
+.B ETIME
+.RS
+Timeout before acknowledgement message was received at STREAM head.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate STREAMS storage to perform the I_PLINK.
+.RE
+.TP 7
+.B EBADF
+.RS
+The \fIarg\fP argument is not a valid, open file descriptor.
+.RE
+.TP 7
+.B EINVAL
+.RS
+The \fIfildes\fP argument does not support multiplexing; or \fIarg\fP
+is not a STREAM or is already connected downstream from
+a multiplexer; or the specified I_PLINK operation would connect the
+STREAM head in more than one place in the multiplexed
+STREAM.
+.RE
+.sp
+.LP
+An I_PLINK can also fail while waiting for the multiplexing driver
+to acknowledge the request, if a message indicating an error
+or a hangup is received at the STREAM head of \fIfildes\fP. In addition,
+an error code can be returned in the positive or negative
+acknowledgement message. For these cases, I_PLINK shall fail with
+\fIerrno\fP set to the value in the message.
+.TP 7
+I_PUNLINK
+Disconnects the two STREAMs specified by \fIfildes\fP and \fIarg\fP
+from a persistent connection. The \fIfildes\fP argument
+is the file descriptor of the STREAM connected to the multiplexing
+driver. The \fIarg\fP argument is the multiplexer ID number
+that was returned by the I_PLINK \fIioctl\fP() command when a STREAM
+was connected downstream from the multiplexing driver. If
+\fIarg\fP is MUXID_ALL, then all STREAMs which are persistent connections
+to \fIfildes\fP shall be disconnected. As in I_PLINK,
+this command requires the multiplexing driver to acknowledge the request.
+.LP
+The \fIioctl\fP() function with the I_PUNLINK command shall fail if:
+.TP 7
+.B ENXIO
+.RS
+Hangup received on \fIfildes\fP.
+.RE
+.TP 7
+.B ETIME
+.RS
+Timeout before acknowledgement message was received at STREAM head.
+.RE
+.TP 7
+.B EAGAIN \fRor\fP ENOSR
+.RS
+.sp
+Unable to allocate buffers for the acknowledgement message.
+.RE
+.TP 7
+.B EINVAL
+.RS
+Invalid multiplexer ID number.
+.RE
+.sp
+.LP
+An I_PUNLINK can also fail while waiting for the multiplexing driver
+to acknowledge the request if a message indicating an error
+or a hangup is received at the STREAM head of \fIfildes\fP. In addition,
+an error code can be returned in the positive or negative
+acknowledgement message. For these cases, I_PUNLINK shall fail with
+\fIerrno\fP set to the value in the message.
+.sp
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIioctl\fP() shall return a value other
+than -1 that depends upon the STREAMS device control
+function. Otherwise, it shall return -1 and set \fIerrno\fP to indicate
+the error.
+.SH ERRORS
+.LP
+Under the following general conditions, \fIioctl\fP() shall fail if:
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor.
+.TP 7
+.B EINTR
+A signal was caught during the \fIioctl\fP() operation.
+.TP 7
+.B EINVAL
+The STREAM or multiplexer referenced by \fIfildes\fP is linked (directly
+or indirectly) downstream from a multiplexer.
+.sp
+.LP
+If an underlying device driver detects an error, then \fIioctl\fP()
+shall fail if:
+.TP 7
+.B EINVAL
+The \fIrequest\fP or \fIarg\fP argument is not valid for this device.
+.TP 7
+.B EIO
+Some physical I/O error has occurred.
+.TP 7
+.B ENOTTY
+The \fIfildes\fP argument is not associated with a STREAMS device
+that accepts control functions.
+.TP 7
+.B ENXIO
+The \fIrequest\fP and \fIarg\fP arguments are valid for this device
+driver, but the service requested cannot be performed on
+this particular sub-device.
+.TP 7
+.B ENODEV
+The \fIfildes\fP argument refers to a valid STREAMS device, but the
+corresponding device driver does not support the
+\fIioctl\fP() function.
+.sp
+.LP
+If a STREAM is connected downstream from a multiplexer, any \fIioctl\fP()
+command except I_UNLINK and I_PUNLINK shall set
+\fIerrno\fP to [EINVAL].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The implementation-defined timeout interval for STREAMS has historically
+been 15 seconds.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fISTREAMS\fP , \fIclose\fP() , \fIfcntl\fP() , \fIgetmsg\fP() , \fIopen\fP()
+, \fIpipe\fP() , \fIpoll\fP() , \fIputmsg\fP() , \fIread\fP() , \fIsigaction\fP()
+, \fIwrite\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<stropts.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,747 @@
+'\" t
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt, Ian Jackson;
+.\"                               1998 Jamie Lokier;
+.\"                               2002 Michael Kerrisk.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1993-07-24 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-09-26 by Andries Brouwer <aeb@cwi.nl>
+.\" and again on 960413 and 980804 and 981223.
+.\" Modified 1998-12-11 by Jamie Lokier <jamie@imbolc.ucc.ie>
+.\" Applied correction by Christian Ehrhardt - aeb, 990712
+.\" Modified 2002-04-23 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	Added note on F_SETFL and O_DIRECT
+.\"	Complete rewrite + expansion of material on file locking
+.\"	Incorporated description of F_NOTIFY, drawing on
+.\"		Stephen Rothwell's notes in Documentation/dnotify.txt.
+.\"	Added description of F_SETLEASE and F_GETLEASE
+.\" Corrected and polished, aeb, 020527.
+.\" Modified 2004-03-03 by Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Modified description of file leases: fixed some errors of detail
+.\"     Replaced the term "lease contestant" by "lease breaker"
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH FCNTL 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+fcntl \- manipulate file descriptor
+.SH SYNOPSIS
+.nf
+.B #include <unistd.h>
+.B #include <fcntl.h>
+.sp
+.BI "int fcntl(int " fd ", int " cmd );
+.BI "int fcntl(int " fd ", int " cmd ", long " arg );
+.BI "int fcntl(int " fd ", int " cmd ", struct flock *" lock );
+.fi
+.SH DESCRIPTION
+.B fcntl
+performs one of various miscellaneous operations on
+.IR fd .
+The operation in question is determined by
+.IR cmd .
+.SS "Handling close-on-exec"
+.TP
+.B F_DUPFD
+Find the lowest numbered available file descriptor
+greater than or equal to
+.I arg
+and make it be a copy of
+.IR fd .
+This is different form
+.BR dup2 (2)
+which uses exactly the descriptor specified.
+.sp
+The old and new descriptors may be used interchangeably. They share locks,
+file position pointers and flags; for example, if the file position is
+modified by using
+.B lseek
+on one of the descriptors, the position is also changed for the other.
+.sp
+The two descriptors do not share the close-on-exec flag, however.
+The close-on-exec flag of the copy is off, meaning that it will
+not be closed on exec.
+.sp
+On success, the new descriptor is returned.
+.TP
+.B F_GETFD
+Read the close-on-exec flag.  If the
+.B FD_CLOEXEC
+bit is 0, the file will remain open across
+.BR exec ,
+otherwise it will be closed.
+.TP
+.B F_SETFD
+Set the close-on-exec flag to the value specified by the
+.B FD_CLOEXEC
+bit of
+.IR arg .
+.SS "The file status flags"
+A file descriptor has certain associated flags, initialized by
+.BR open (2)
+.\" or
+.\" .BR creat (2),
+and possibly modified by
+.BR fcntl (2).
+The flags are shared between copies (made with
+.BR dup (2),
+.BR fork (2),
+etc.) of the same file descriptor.
+.sp
+The flags and their semantics are described in
+.BR open (2).
+.TP
+.B F_GETFL
+Read the file descriptor's flags.
+.TP
+.B F_SETFL
+Set the file status flags part of the descriptor's flags to the value
+specified by
+.IR arg .
+Remaining bits (access mode, file creation flags) in
+.I arg
+are ignored.
+On Linux this command can only change the O_APPEND, O_NONBLOCK, O_ASYNC,
+and O_DIRECT flags.
+.P
+.SS "Advisory locking"
+.BR F_GETLK ", " F_SETLK " and " F_SETLKW
+are used to acquire, release, and test for the existence of record
+locks (also known as file-segment or file-region locks).
+The third argument
+.I lock
+is a pointer to a structure that has at least the following fields
+(in unspecified order).
+.in +2n
+.nf
+.sp
+struct flock {
+    ...
+    short l_type;    /* Type of lock: F_RDLCK,
+                        F_WRLCK, F_UNLCK */
+    short l_whence;  /* How to interpret l_start:
+                        SEEK_SET, SEEK_CUR, SEEK_END */
+    off_t l_start;   /* Starting offset for lock */
+    off_t l_len;     /* Number of bytes to lock */
+    pid_t l_pid;     /* PID of process blocking our lock
+                        (F_GETLK only) */
+    ...
+};
+.fi
+.in -2n
+.P
+The
+.IR l_whence ", " l_start ", and " l_len
+fields of this structure specify the range of bytes we wish to lock.
+.I l_start
+is the starting offset for the lock, and is interpreted
+relative to either:
+the start of the file (if
+.I l_whence
+is
+.BR SEEK_SET );
+the current file offset (if
+.I l_whence
+is
+.BR SEEK_CUR );
+or the end of the file (if
+.I l_whence
+is
+.BR SEEK_END ).
+In the final two cases,
+.I l_start
+can be a negative number provided the
+offset does not lie before the start of the file.
+.I l_len
+is a non-negative integer (but see the NOTES below) specifying
+the number of bytes to be locked.
+Bytes past the end of the file may be locked,
+but not bytes before the start of the file.
+Specifying 0 for
+.I l_len
+has the special meaning: lock all bytes starting at the
+location specified by
+.IR l_whence " and " l_start
+through to the end of file, no matter how large the file grows.
+.P
+The
+.I l_type
+field can be used to place a read
+.RB ( F_RDLCK )
+or a write
+.RB ( F_WDLCK )
+lock on a file.
+Any number of processes may hold a read lock (shared lock)
+on a file region, but only one process may hold a write lock
+(exclusive lock). An exclusive lock excludes all other locks,
+both shared and exclusive.
+A single process can hold only one type of lock on a file region;
+if a new lock is applied to an already-locked region,
+then the existing lock is converted to the the new lock type.
+(Such conversions may involve splitting, shrinking, or coalescing with
+an existing lock if the byte range specified by the new lock does not
+precisely coincide with the range of the existing lock.)
+.TP
+.B F_SETLK
+Acquire a lock (when
+.I l_type
+is
+.B F_RDLCK
+or
+.BR F_WRLCK )
+or release a lock (when
+.I l_type
+is
+.BR F_UNLCK )
+on the bytes specified by the
+.IR l_whence ", " l_start ", and " l_len
+fields of
+.IR lock .
+If a conflicting lock is held by another process,
+this call returns \-1 and sets
+.I errno
+to
+.B EACCES
+or
+.BR EAGAIN .
+.TP
+.B F_SETLKW
+As for
+.BR F_SETLK ,
+but if a conflicting lock is held on the file, then wait for that
+lock to be released.
+If a signal is caught while waiting, then the call is interrupted
+and (after the signal handler has returned)
+returns immediately (with return value \-1 and
+.I errno
+set to
+.BR EINTR ).
+.TP
+.B F_GETLK
+On input to this call,
+.I lock
+describes a lock we would like to place on the file.
+If the lock could be placed,
+.BR fcntl ()
+does not actually place it, but returns
+.B F_UNLCK
+in the
+.I l_type
+field of
+.I lock
+and leaves the other fields of the structure unchanged.
+If one or more incompatible locks would prevent
+this lock being placed, then
+.BR fcntl ()
+returns details about one of these locks in the
+.IR l_type ", " l_whence ", " l_start ", and " l_len
+fields of
+.I lock
+and sets
+.I l_pid
+to be the PID of the process holding that lock.
+.P
+In order to place a read lock,
+.I fd
+must be open for reading.
+In order to place a write lock,
+.I fd
+must be open for writing.
+To place both types of lock, open a file read-write.
+.P
+As well as being removed by an explicit
+.BR F_UNLCK ,
+record locks are automatically released when the process
+terminates or if it closes
+.I any
+file descriptor referring to a file on which locks are held.
+.\" (Additional file descriptors referring to the same file
+.\" may have been obtained by calls to
+.\" .BR open "(2), " dup "(2), " dup2 "(2), or " fcntl (2).)
+This is bad: it means that a process can lose the locks on
+a file like
+.I /etc/passwd
+or
+.I /etc/mtab
+when for some reason a library function decides to open, read
+and close it.
+.P
+Record locks are not inherited by a child created via
+.BR fork (2),
+but are preserved across an
+.BR execve (2).
+.P
+Because of the buffering performed by the
+.BR stdio (3)
+library, the use of record locking with routines in that package
+should be avoided; use
+.BR read "(2) and " write (2)
+instead.
+.P
+.SS "Mandatory locking"
+(Non-POSIX.)
+The above record locks may be either advisory or mandatory,
+and are advisory by default.
+To make use of mandatory locks, mandatory locking must be enabled
+(using the "-o mand" option to
+.BR mount (8))
+for the file system containing the
+file to be locked and enabled on the file itself (by disabling
+group execute permission on the file and enabling the set-GID
+permission bit).
+
+Advisory locks are not enforced and are useful only between
+cooperating processes. Mandatory locks are enforced for all
+processes.
+.P
+.SS "Managing signals"
+.BR F_GETOWN ", " F_SETOWN ", " F_GETSIG " and " F_SETSIG
+are used to manage I/O availability signals:
+.TP
+.B F_GETOWN
+Get the process ID or process group currently receiving SIGIO
+and SIGURG signals for events on file descriptor
+.IR fd .
+Process groups are returned as negative values.
+.TP
+.B F_SETOWN
+Set the process ID or process group that will receive SIGIO
+and SIGURG signals for events on file descriptor
+.IR fd .
+Process groups are specified using negative values.
+.RB ( F_SETSIG
+can be used to specify a different signal instead of SIGIO).
+
+.\" From glibc.info:
+If you set the
+.B O_ASYNC
+status flag on a file descriptor (either by providing this flag with the
+.IR open (2)
+call, or by using the
+.B F_SETFL
+command of
+.BR fcntl ),
+a SIGIO signal is sent whenever input or output becomes possible
+on that file descriptor.
+.sp
+The process or process group to receive the signal can be selected by
+using the
+.B F_SETOWN
+command to the
+.B fcntl
+function.  If the file descriptor is a socket, this also selects
+the recipient of SIGURG signals that are delivered when out-of-band
+data arrives on that socket.  (SIGURG is sent in any situation where
+.BR select (2)
+would report the socket as having an "exceptional condition".)
+If the file descriptor corresponds to a terminal device, then SIGIO
+signals are sent to the foreground process group of the terminal.
+.TP
+.B F_GETSIG
+Get the signal sent when input or output becomes possible.  A value of
+zero means SIGIO is sent.  Any other value (including SIGIO) is the
+signal sent instead, and in this case additional info is available to
+the signal handler if installed with SA_SIGINFO.
+.TP
+.B F_SETSIG
+Sets the signal sent when input or output becomes possible.  A value of
+zero means to send the default SIGIO signal.  Any other value (including
+SIGIO) is the signal to send instead, and in this case additional info
+is available to the signal handler if installed with SA_SIGINFO.
+.sp
+By using F_SETSIG with a non-zero value, and setting SA_SIGINFO for the
+signal handler (see
+.BR sigaction (2)),
+extra information about I/O events is passed to
+the handler in a
+.I siginfo_t
+structure.
+If the
+.I si_code
+field indicates the source is SI_SIGIO, the
+.I si_fd
+field gives the file descriptor associated with the event.  Otherwise,
+there is no indication which file descriptors are pending, and you
+should use the usual mechanisms
+.RB ( select (2),
+.BR poll (2),
+.BR read (2)
+with
+.B O_NONBLOCK
+set etc.) to determine which file descriptors are available for I/O.
+.sp
+By selecting a POSIX.1b real time signal (value >= SIGRTMIN), multiple
+I/O events may be queued using the same signal numbers.  (Queuing is
+dependent on available memory).  Extra information is available
+if SA_SIGINFO is set for the signal handler, as above.
+.PP
+Using these mechanisms, a program can implement fully asynchronous I/O
+without using
+.BR select (2)
+or
+.BR poll (2)
+most of the time.
+.PP
+The use of
+.BR O_ASYNC ,
+.BR F_GETOWN ,
+.B F_SETOWN
+is specific to BSD and Linux.
+.B F_GETSIG
+and
+.B F_SETSIG
+are Linux-specific.  POSIX has asynchronous I/O and the
+.I aio_sigevent
+structure to achieve similar things; these are also available
+in Linux as part of the GNU C Library (Glibc).
+.P
+.SS Leases
+.B F_SETLEASE
+and
+.B F_GETLEASE
+(Linux 2.4 onwards) are used (respectively) to establish and
+retrieve the current setting of the calling process's lease on
+the file referred to by
+.IR fd .
+A file lease provides a mechanism whereby the process holding
+the lease (the "lease holder") is notified (via delivery of a signal)
+when another process (the "lease breaker") tries to
+.BR open (2)
+or
+.BR truncate (2)
+that file.
+.TP
+.B F_SETLEASE
+Set or remove a file lease according to which of the following
+values is specified in the integer
+.IR arg :
+
+.RS
+.TP
+.B F_RDLCK
+Take out a read lease.
+This will cause us to be notified when
+another process opens the file for writing or truncates it.
+.TP
+.B F_WRLCK
+Take out a write lease.
+This will cause us to be notified when
+another process opens the file (for reading or writing) or truncates it.
+A write lease may be placed on a file only if no other process
+currently has the file open.
+.TP
+.B F_UNLCK
+Remove our lease from the file.
+.RE
+.P
+A process may hold only one type of lease on a file.
+.P
+Leases may only be taken out on regular files.
+An unprivileged process may only take out a lease on a file whose
+UID matches the file system UID of the process.
+A process with the
+.B CAP_LEASE
+capability may take out leases on arbitrary files.
+.TP
+.B F_GETLEASE
+Indicates what type of lease we hold on the file
+referred to by
+.I fd
+by returning either
+.BR F_RDLCK ", " F_WRLCK ", or " F_UNLCK,
+indicating, respectively, that the calling process holds a
+read, a write, or no lease on the file.
+(The third argument to
+.BR fcntl ()
+is omitted.)
+.PP
+When a process (the "lease breaker") performs an
+.BR open ()
+or
+.BR truncate ()
+that conflicts with a lease established via
+.BR F_SETLEASE ,
+the system call is blocked by the kernel, unless the
+.B O_NONBLOCK
+flag was specified to
+.BR open (),
+in which case the system call will return with the error
+.BR EWOULDBLOCK .
+The kernel notifies the lease holder by sending it a signal
+(SIGIO by default).
+The lease holder should respond to receipt of this signal by doing
+whatever cleanup is required in preparation for the file to be
+accessed by another process (e.g., flushing cached buffers) and
+then either remove or downgrade its lease.
+A lease is removed by performing an
+.B F_SETLEASE
+command specifying
+.I arg
+as
+.BR F_UNLCK .
+If we currently hold a write lease on the file,
+and the lease breaker is opening the file for reading,
+then it is sufficient to downgrade the lease to a read lease.
+This is done by performing an
+.B F_SETLEASE
+command specifying
+.I arg
+as
+.BR F_RDLCK .
+
+If the lease holder fails to downgrade or remove the lease within
+the number of seconds specified in
+.I /proc/sys/fs/lease-break-time
+then the kernel forcibly removes or downgrades the lease holder's lease.
+
+Once the lease has been voluntarily or forcibly removed or downgraded,
+and assuming the lease breaker has not unblocked its system call,
+the kernel permits the lease breaker's system call to proceed.
+
+The default signal used to notify the lease holder is SIGIO,
+but this can be changed using the
+.B F_SETSIG
+command to
+.B fcntl ().
+If a
+.B F_SETSIG
+command is performed (even one specifying SIGIO), and the signal
+handler is established using SA_SIGINFO, then the handler will
+receive a
+.I siginfo_t
+sructure as its second argument, and the
+.I si_fd
+field of this argument will hold the descriptor of the leased file
+that has been accessed by another process.
+(This is useful if the caller holds leases against multiple files).
+.SS "File and directory change notification"
+.TP
+.B F_NOTIFY
+(Linux 2.4 onwards)
+Provide notification when the directory referred to by
+.I fd
+or any of the files that it contains is changed.
+The events to be notified are specified in
+.IR arg ,
+which is a bit mask specified by ORing together zero or more of
+the following bits:
+
+.TS
+l l
+----
+lB l.
+Bit	Description (event in directory)
+DN_ACCESS	A file was accessed (read, pread, readv)
+DN_MODIFY	A file was modified (write, pwrite,
+	writev, truncate, ftruncate)
+DN_CREATE	A file was created (open, creat, mknod,
+	mkdir, link, symlink, rename)
+DN_DELETE	A file was unlinked (unlink, rename to
+	another directory, rmdir)
+DN_RENAME	A file was renamed within this
+	directory (rename)
+DN_ATTRIB	The attributes of a file were changed
+	(chown, chmod, utime[s])
+.TE
+.sp
+(In order to obtain these definitions, the _GNU_SOURCE macro must be
+defined before including <fcntl.h>.)
+.sp
+Directory notifications are normally "one-shot", and the application
+must re-register to receive further notifications.
+Alternatively, if
+.B DN_MULTISHOT
+is included in
+.IR arg ,
+then notification will remain in effect until explicitly removed.
+
+.\" The following does seem a poor API-design choice...
+A series of
+.B F_NOTIFY
+requests is cumulative, with the events in
+.I arg
+being added to the set already monitored.
+To disable notification of all events, make an
+.B F_NOTIFY
+call specifying
+.I arg
+as 0.
+.sp
+Notification occurs via delivery of a signal.
+The default signal is SIGIO, but this can be changed using the
+.B F_SETSIG
+command to
+.BR fcntl ().
+In the latter case, the signal handler receives a
+.I siginfo_t
+structure as its second argument (if the handler was
+established using SA_SIGINFO) and the
+.I si_fd
+field of this structure contains the file descriptor which
+generated the notification (useful when establishing notification
+on multiple directories).
+.sp
+Especially when using
+.BR DN_MULTISHOT ,
+a POSIX.1b real time signal should be used for notication,
+so that multiple notifications can be queued.
+.SH "RETURN VALUE"
+For a successful call, the return value depends on the operation:
+.TP 0.9i
+.B F_DUPFD
+The new descriptor.
+.TP
+.B F_GETFD
+Value of flag.
+.TP
+.B F_GETFL
+Value of flags.
+.TP
+.B F_GETOWN
+Value of descriptor owner.
+.TP
+.B F_GETSIG
+Value of signal sent when read or write becomes possible, or zero
+for traditional SIGIO behaviour.
+.TP
+All other commands
+Zero.
+.PP
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.BR EACCES " or " EAGAIN
+Operation is prohibited by locks held by other processes.
+Or, operation is prohibited because the file has been memory-mapped by
+another process.
+.TP
+.B EBADF
+.I fd
+is not an open file descriptor, or the command was
+.B F_SETLK
+or
+.B F_SETLKW
+and the file descriptor open mode doesn't match with the
+type of lock requested.
+.TP
+.B EDEADLK
+It was detected that the specified
+.B F_SETLKW
+command would cause a deadlock.
+.TP
+.B EFAULT
+.I lock
+is outside your accessible address space.
+.TP
+.B EINTR
+For
+.BR F_SETLKW ,
+the command was interrupted by a signal.
+For
+.BR F_GETLK " and " F_SETLK ,
+the command was interrupted by a signal before the lock was checked or
+acquired.  Most likely when locking a remote file (e.g. locking over
+NFS), but can sometimes happen locally.
+.TP
+.B EINVAL
+For
+.BR F_DUPFD ,
+.I arg
+is negative or is greater than the maximum allowable value.  For
+.BR F_SETSIG ,
+.I arg
+is not an allowable signal number.
+.TP
+.B EMFILE
+For
+.BR F_DUPFD ,
+the process already has the maximum number of file descriptors open.
+.TP
+.B ENOLCK
+Too many segment locks open, lock table is full, or a remote locking
+protocol failed (e.g. locking over NFS).
+.TP
+.B EPERM
+Attempted to clear the
+.B O_APPEND
+flag on a file that has the append-only attribute set.
+.SH NOTES
+The errors returned by
+.B dup2
+are different from those returned by
+.BR F_DUPFD .
+
+Since kernel 2.0, there is no interaction between the types of lock
+placed by
+.BR flock (2)
+and
+.BR fcntl (2).
+
+POSIX 1003.1-2001 allows
+.I l_len
+to be negative. (And if it is, the interval described by the lock
+covers bytes
+.IR l_start + l_len
+up to and including
+.IR l_start -1.)
+This is supported by Linux since Linux 2.4.21 and 2.5.49.
+
+Several systems have more fields in
+.I "struct flock"
+such as e.g.
+.IR l_sysid .
+Clearly,
+.I l_pid
+alone is not going to be very useful if the process holding the lock
+may live on a different machine.
+
+.SH "CONFORMING TO"
+SVr4, SVID, POSIX, X/OPEN, BSD 4.3.  Only the operations F_DUPFD,
+F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_GETLK, F_SETLK and F_SETLKW are
+specified in POSIX.1.  F_GETOWN and F_SETOWN are BSDisms not supported
+in SVr4; F_GETSIG and F_SETSIG are specific to Linux.
+.BR F_NOTIFY ", " F_GETLEASE ", and " F_SETLEASE
+are Linux specific.
+(Define the _GNU_SOURCE macro before including <fcntl.h> to
+obtain these definitions.)
+The flags legal for F_GETFL/F_SETFL are those supported by
+.BR open (2)
+and vary between these systems; O_APPEND, O_NONBLOCK, O_RDONLY,
+and O_RDWR are specified in POSIX.1.  SVr4 supports several other
+options and flags not documented here.
+.PP
+SVr4 documents additional EIO, ENOLINK and EOVERFLOW error conditions.
+.SH "SEE ALSO"
+.BR dup2 (2),
+.BR flock (2),
+.BR open (2),
+.BR socket (2),
+.BR lockf (3),
+.BR capabilities (7)
+.P
+See also locks.txt, mandatory.txt, and dnotify.txt in
+/usr/src/linux/Documentation.

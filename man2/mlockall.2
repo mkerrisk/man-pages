@@ -1,0 +1,156 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) Markus Kuhn, 1996
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 1995-11-26  Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"      First version written
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH MLOCKALL 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+mlockall \- disable paging for calling process
+.SH SYNOPSIS
+.nf
+.B #include <sys/mman.h>
+.sp
+\fBint mlockall(int \fIflags\fB);
+.fi
+.SH DESCRIPTION
+.B mlockall
+disables paging for all pages mapped into the address space of the
+calling process. This includes the pages of the code, data and stack
+segment, as well as shared libraries, user space kernel data, shared
+memory and memory mapped files. All mapped pages are guaranteed to be
+resident in RAM when the
+.B mlockall
+system call returns successfully and they are guaranteed to stay in RAM
+until the pages are unlocked again by
+.B munlock
+or
+.B munlockall
+or until the process terminates or starts another program with
+.BR exec .
+Child processes do not inherit page locks across a
+.BR fork .
+
+Memory locking has two main applications: real-time algorithms and
+high-security data processing. Real-time applications require
+deterministic timing, and, like scheduling, paging is one major cause
+of unexpected program execution delays. Real-time applications will
+usually also switch to a real-time scheduler with
+.BR sched_setscheduler .
+Cryptographic security software often handles critical bytes like
+passwords or secret keys as data structures. As a result of paging,
+these secrets could be transfered onto a persistent swap store medium,
+where they might be accessible to the enemy long after the security
+software has erased the secrets in RAM and terminated. For security
+applications, only small parts of memory have to be locked, for which
+.B mlock
+is available.
+
+The 
+.I flags
+parameter can be constructed from the bitwise OR of the following
+constants:
+.TP 1.2i
+.B MCL_CURRENT
+Lock all pages which are currently mapped into the address space of
+the process.
+.TP
+.B MCL_FUTURE
+Lock all pages which will become mapped into the address space of the
+process in the future. These could be for instance new pages required
+by a growing heap and stack as well as new memory mapped files or
+shared memory regions.
+.PP
+If
+.B MCL_FUTURE
+has been specified and the number of locked pages exceeds the upper
+limit of allowed locked pages, then the system call which caused the
+new mapping will fail with
+.BR ENOMEM .
+If these new pages have been mapped by the the growing stack, then the
+kernel will deny stack expansion and send a 
+.BR SIGSEGV .
+
+Real-time processes should reserve enough locked stack pages before
+entering the time-critical section, so that no page fault can be
+caused by function calls. This can be achieved by calling a function
+which has a sufficiently large automatic variable and which writes to
+the memory occupied by this large array in order to touch these stack
+pages. This way, enough pages will be mapped for the stack and can be
+locked into RAM. The dummy writes ensure that not even copy-on-write
+page faults can occur in the critical section.
+
+Memory locks do not stack, i.e., pages which have been locked several times
+by calls to
+.B mlockall
+or
+.B mlock
+will be unlocked by a single call to
+.BR munlockall .
+Pages which are mapped to several locations or by several processes stay
+locked into RAM as long as they are locked at least at one location or by
+at least one process.
+.SH "RETURN VALUE"
+On success,
+.B mlockall
+returns zero.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EINVAL
+Unknown flags were specified.
+.TP
+.B ENOMEM
+The process tried to exceed the maximum number of allowed locked
+pages.
+.TP
+.B EPERM
+The calling process has insufficient privilege to call 
+.BR mlockall .
+Under Linux the
+.B CAP_IPC_LOCK
+capability is required.
+.SH AVAILABILITY
+On POSIX systems on which
+.B mlockall
+and
+.B munlockall
+are available,
+.B _POSIX_MEMLOCK
+is defined in <unistd.h> to a value greater than 0. (See also
+.BR sysconf (3).)
+.\" POSIX 1003.1-2001: It shall be defined to -1 or 0 or 200112L.
+.\" -1: unavailable, 0: ask using sysconf().
+.\" glibc defines it to 1.
+.SH "CONFORMING TO"
+POSIX.1b, SVr4.   SVr4 documents an additional EAGAIN error code.
+.SH "SEE ALSO"
+.BR mlock (2),
+.BR munlock (2),
+.BR munlockall (2),
+.BR sysconf (3),
+.BR capabilities (7)

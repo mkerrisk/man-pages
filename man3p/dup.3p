@@ -1,0 +1,194 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "DUP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" dup 
+.SH NAME
+dup, dup2 \- duplicate an open file descriptor
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int dup(int\fP \fIfildes\fP\fB);
+.br
+int dup2(int\fP \fIfildes\fP\fB, int\fP \fIfildes2\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIdup\fP() and \fIdup2\fP() functions provide an alternative
+interface to the service provided by \fIfcntl\fP() using the F_DUPFD
+command. The call:
+.sp
+.RS
+.nf
+
+\fBfid = dup(\fP\fIfildes\fP\fB);
+\fP
+.fi
+.RE
+.LP
+shall be equivalent to:
+.sp
+.RS
+.nf
+
+\fBfid = fcntl(\fP\fIfildes\fP\fB, F_DUPFD, 0);
+\fP
+.fi
+.RE
+.LP
+The call:
+.sp
+.RS
+.nf
+
+\fBfid = dup2(\fP\fIfildes\fP\fB,\fP \fIfildes2\fP\fB);
+\fP
+.fi
+.RE
+.LP
+shall be equivalent to:
+.sp
+.RS
+.nf
+
+\fBclose(\fP\fIfildes2\fP\fB);
+fid = fcntl(\fP\fIfildes\fP\fB, F_DUPFD,\fP \fIfildes2\fP\fB);
+\fP
+.fi
+.RE
+.LP
+except for the following:
+.IP " *" 3
+If \fIfildes2\fP is less than 0 or greater than or equal to {OPEN_MAX},
+\fIdup2\fP() shall return -1 with \fIerrno\fP set to
+[EBADF].
+.LP
+.IP " *" 3
+If \fIfildes\fP is a valid file descriptor and is equal to \fIfildes2\fP,
+\fIdup2\fP() shall return \fIfildes2\fP without
+closing it.
+.LP
+.IP " *" 3
+If \fIfildes\fP is not a valid file descriptor, \fIdup2\fP() shall
+return -1 and shall not close \fIfildes2\fP.
+.LP
+.IP " *" 3
+The value returned shall be equal to the value of \fIfildes2\fP upon
+successful completion, or -1 upon failure.
+.LP
+.SH RETURN VALUE
+.LP
+Upon successful completion a non-negative integer, namely the file
+descriptor, shall be returned; otherwise, -1 shall be
+returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIdup\fP() function shall fail if:
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor.
+.TP 7
+.B EMFILE
+The number of file descriptors in use by this process would exceed
+{OPEN_MAX}.
+.sp
+.LP
+The \fIdup2\fP() function shall fail if:
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor or the
+argument \fIfildes2\fP is negative or greater than or
+equal to {OPEN_MAX}.
+.TP 7
+.B EINTR
+The \fIdup2\fP() function was interrupted by a signal.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Redirecting Standard Output to a File
+.LP
+The following example closes standard output for the current processes,
+re-assigns standard output to go to the file referenced
+by \fIpfd\fP, and closes the original file descriptor to clean up.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+\&...
+int pfd;
+\&...
+close(1);
+dup(pfd);
+close(pfd);
+\&...
+\fP
+.fi
+.RE
+.SS Redirecting Error Messages
+.LP
+The following example redirects messages from \fIstderr\fP to \fIstdout\fP.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+\&...
+dup2(1, 2);
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The \fIdup\fP() and \fIdup2\fP() functions are redundant. Their services
+are also provided by the \fIfcntl\fP() function. They have been included
+in this volume of IEEE\ Std\ 1003.1-2001
+primarily for historical reasons, since many existing applications
+use them.
+.LP
+While the brief code segment shown is very similar in behavior to
+\fIdup2\fP(), a conforming implementation based on other
+functions defined in this volume of IEEE\ Std\ 1003.1-2001 is significantly
+more complex. Least obvious is the possible
+effect of a signal-catching function that could be invoked between
+steps and allocate or deallocate file descriptors. This could be
+avoided by blocking signals.
+.LP
+The \fIdup2\fP() function is not marked obsolescent because it presents
+a type-safe version of functionality provided in a
+type-unsafe version by \fIfcntl\fP(). It is used in the POSIX Ada
+binding.
+.LP
+The \fIdup2\fP() function is not intended for use in critical regions
+as a synchronization mechanism.
+.LP
+In the description of [EBADF], the case of \fIfildes\fP being out
+of range is covered by the given case of \fIfildes\fP not
+being valid. The descriptions for \fIfildes\fP and \fIfildes2\fP are
+different because the only kind of invalidity that is
+relevant for \fIfildes2\fP is whether it is out of range; that is,
+it does not matter whether \fIfildes2\fP refers to an open
+file when the \fIdup2\fP() call is made.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclose\fP() , \fIfcntl\fP() , \fIopen\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

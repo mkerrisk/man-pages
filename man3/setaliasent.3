@@ -1,0 +1,135 @@
+.\" Copyright 2003 Walter Harms (walter.harms@informatik.uni-oldenburg.de)
+.\" Distributed under GPL
+.\"
+.\" Polished a bit, added a little, aeb
+.\"
+.TH SETALIASENT 3 2003-09-09 "GNU" "access mail aliases database"
+.SH NAME
+setaliasent, endaliasent, getaliasent, getaliasent_r,
+getaliasbyname, getaliasbyname_r \- read an alias entry
+.SH SYNOPSIS
+.B #include <aliases.h>
+.sp
+.BI "void setaliasent(void);"
+.sp 
+.BI "void endaliasent(void);"
+.sp
+.BI "struct aliasent *getaliasent(void);"
+.sp
+.BI "int getaliasent_r(struct aliasent *" result ","
+.br
+.BI "    char *" buffer ", size_t " buflen ", struct aliasent **" res );
+.sp
+.BI "struct aliasent *getaliasbyname(const char *" name );
+.sp
+.BI "int getaliasbyname_r(const char *" name ,
+.br
+.BI "    struct aliasent *" result ,
+.br
+.BI "    char *" buffer ", size_t " buflen ", struct aliasent **" res );
+.sp
+.SH DESCRIPTION
+One of the databases available with the Name Service Switch (NSS)
+is the aliases database, that contains mail aliases. (To find out
+which databases are supported, try  getent \-\-help .)
+Six functions are provided to access the aliases database.
+.PP
+The 
+.B getaliasent()
+function returns a pointer to a structure containing
+the group information from the aliases database.
+The first time it is called it returns the first entry; 
+thereafter, it returns successive entries.
+.PP
+The 
+.B setaliasent() 
+function rewinds the file pointer to the beginning of the
+aliases database.
+.PP
+The 
+.B endaliasent() 
+function closes the aliases database.
+.PP
+.B getaliasent_r()
+is the reentrant version of the previous function. The requested structure
+is stored via the first argument but the programmer needs to fill the other
+arguments also. Not providing enough space causes the function to fail.
+.PP
+The function
+.B getaliasbyname()
+takes the name argument and searches the aliases database. The entry is
+returned as a pointer to a struct aliasent. 
+.PP
+.B getaliasbyname_r()
+is the reentrant version of the previous function. The requested structure
+is stored via the second argument but the programmer need to fill the other
+arguments also. Not providing enough space causes the function to fail.
+.PP
+The struct aliasent is defined in <aliases.h>.
+.nf
+struct aliasent {
+    char *alias_name;              /* alias name */
+    size_t alias_members_len;           
+    char **alias_members;          /* alias name list */
+    int alias_local;
+};
+.fi
+.SH FILES
+The default alias database is the file
+.IR /etc/aliases .
+This can be changed in the
+.I /etc/nsswitch.conf
+file.
+.SH "RETURN VALUE"
+The functions
+.B getaliasent_r()
+and
+.B getaliasbyname_r()
+return a non-zero value on error.
+.SH EXAMPLE
+The following example compiles with gcc example.c -o example .
+It will dump all names in the alias database.
+.sp
+.nf
+#include <aliases.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+int main() {
+  struct aliasent *al;
+  setaliasent();
+  for (;;) {
+    al = getaliasent();
+    if (al == NULL) break;
+    printf("Name: %s\\n", al->alias_name);
+  }
+  if (errno) {
+      perror("reading alias");
+      exit(EXIT_FAILURE);
+  }
+  endaliasent();
+  exit(EXIT_SUCCESS);
+}
+.fi
+.SH "CONFORMING TO"
+These routines are glibc-specific.
+The NeXT has similar routines
+.RS
+.nf
+#include <aliasdb.h>
+void alias_setent(void);
+void alias_endent(void);
+alias_ent *alias_getent(void);
+alias_ent *alias_getbyname(char *name);
+.fi
+.RE
+.SH "SEE ALSO"
+.BR getgrent (3),
+.BR getpwent (3),
+.BR getspent (3),
+.BR aliases (5)
+.\"
+.\" /etc/sendmail/aliases
+.\" Yellow Pages
+.\" newaliases, postalias

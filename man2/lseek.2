@@ -1,0 +1,153 @@
+'\" t
+.\" Copyright (c) 1980, 1991 Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     @(#)lseek.2	6.5 (Berkeley) 3/10/91
+.\"
+.\" Modified 1993-07-23 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 1995-06-10 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified 1996-10-31 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1998-01-17 by Michael Haardt
+.\"   <michael@cantor.informatik.rwth-aachen.de>
+.\" Modified 2001-09-24 by Michael Haardt <michael@moria.de>
+.\" Modified 2003-08-21 by Andries Brouwer <aeb@cwi.nl>
+.\"
+.TH LSEEK 2 2001-09-24 "Linux" "Linux Programmer's Manual"
+.SH NAME
+lseek \- reposition read/write file offset
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <unistd.h>
+.sp
+.BI "off_t lseek(int " fildes ", off_t " offset ", int " whence );
+.SH DESCRIPTION
+The
+.B lseek
+function repositions the offset of the file descriptor
+.I fildes
+to the argument
+.I offset
+according to the directive
+.I whence
+as follows:
+.TP
+.B SEEK_SET
+The offset is set to
+.I offset
+bytes.
+.TP
+.B SEEK_CUR
+The offset is set to its current location plus
+.I offset
+bytes.
+.TP
+.B SEEK_END
+The offset is set to the size of the file plus
+.I offset
+bytes.
+.PP
+The
+.B lseek
+function allows the file offset to be set beyond the end of the existing
+end-of-file of the file (but this does not change the size of the file).
+If data is later written at this point, subsequent reads of the data
+in the gap return bytes of zeros (until data is actually written into
+the gap).
+.SH "RETURN VALUE"
+Upon successful completion,
+.B lseek
+returns the resulting offset location as measured in bytes from the
+beginning of the file.  Otherwise, a value of (off_t)\-1 is returned and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EBADF
+.I fildes
+is not an open file descriptor.
+.TP
+.B EINVAL
+.I whence
+is not one of SEEK_SET, SEEK_CUR, SEEK_END,
+or the resulting file offset would be negative.
+.\" Some systems may allow negative offsets for character devices
+.\" and/or for remote filesystems.
+.TP
+.B EOVERFLOW
+The resulting file offset cannot be represented in an off_t.
+.TP
+.B ESPIPE
+.I fildes
+is associated with a pipe, socket, or FIFO.
+.SH "CONFORMING TO"
+SVr4, POSIX, BSD 4.3
+.SH RESTRICTIONS
+Some devices are incapable of seeking and POSIX does not specify which
+devices must support it.
+
+Linux specific restrictions: using \fBlseek\fP on a tty device returns
+\fBESPIPE\fP.
+.\" Other systems return the number of written characters,
+.\" using SEEK_SET to set the counter. (Of written characters.)
+.SH NOTES
+This document's use of
+.I whence
+is incorrect English, but maintained for historical reasons.
+
+When converting old code, substitute values for \fIwhence\fP with the
+following macros:
+.PP
+.TS
+c c
+l l.
+old	new
+0	SEEK_SET
+1	SEEK_CUR
+2	SEEK_END
+L_SET	SEEK_SET
+L_INCR	SEEK_CUR
+L_XTND	SEEK_END
+.TE
+.PP
+SVR1-3 returns \fBlong\fP instead of \fBoff_t\fP, BSD returns \fBint\fP.
+.PP
+Note that file descriptors created by
+.BR dup (2)
+or
+.BR fork (2)
+share the current file position pointer, so seeking on such files may be
+subject to race conditions.
+.SH "SEE ALSO"
+.BR dup (2),
+.BR fork (2),
+.BR open (2),
+.BR fseek (3)

@@ -1,0 +1,1462 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "ED" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" ed 
+.SH NAME
+ed \- edit text
+.SH SYNOPSIS
+.LP
+\fBed\fP \fB[\fP\fB-p\fP \fIstring\fP\fB][\fP\fB-s\fP\fB][\fP\fIfile\fP\fB]\fP
+.SH DESCRIPTION
+.LP
+The \fIed\fP utility is a line-oriented text editor that uses two
+modes: \fIcommand mode\fP and \fIinput mode\fP. In command
+mode the input characters shall be interpreted as commands, and in
+input mode they shall be interpreted as text. See the EXTENDED
+DESCRIPTION section.
+.SH OPTIONS
+.LP
+The \fIed\fP utility shall conform to the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines.
+.LP
+The following options shall be supported:
+.TP 7
+\fB-p\ \fP \fIstring\fP
+Use \fIstring\fP as the prompt string when in command mode. By default,
+there shall be no prompt string.
+.TP 7
+\fB-s\fP
+Suppress the writing of byte counts by \fBe\fP, \fBE\fP, \fBr\fP,
+and \fBw\fP commands and of the \fB'!'\fP prompt after
+a !\fIcommand\fP.
+.sp
+.SH OPERANDS
+.LP
+The following operand shall be supported:
+.TP 7
+\fIfile\fP
+If the \fIfile\fP argument is given, \fIed\fP shall simulate an \fBe\fP
+command on the file named by the pathname,
+\fIfile\fP, before accepting commands from the standard input. If
+the \fIfile\fP operand is \fB'-'\fP , the results are
+unspecified.
+.sp
+.SH STDIN
+.LP
+The standard input shall be a text file consisting of commands, as
+described in the EXTENDED DESCRIPTION section.
+.SH INPUT FILES
+.LP
+The input files shall be text files.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIed\fP:
+.TP 7
+\fIHOME\fP
+Determine the pathname of the user's home directory.
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_COLLATE\fP
+.sp
+Determine the locale for the behavior of ranges, equivalence classes,
+and multi-character collating elements within regular
+expressions.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments and input files) and
+the behavior of character classes within regular
+expressions.
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale that should be used to affect the format and
+contents of diagnostic messages written to standard error and
+informative messages written to standard output.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+The \fIed\fP utility shall take the standard action for all signals
+(see the ASYNCHRONOUS EVENTS section in \fIUtility Description Defaults\fP
+) with the following exceptions:
+.TP 7
+SIGINT
+The \fIed\fP utility shall interrupt its current activity, write the
+string \fB"?\\n"\fP to standard output, and return to
+command mode (see the EXTENDED DESCRIPTION section).
+.TP 7
+SIGHUP
+If the buffer is not empty and has changed since the last write, the
+\fIed\fP utility shall attempt to write a copy of the
+buffer in a file. First, the file named \fBed.hup\fP in the current
+directory shall be used; if that fails, the file named
+\fBed.hup\fP in the directory named by the \fIHOME\fP environment
+variable shall be used. In any case, the \fIed\fP utility
+shall exit without returning to command mode.
+.TP 7
+SIGQUIT
+The \fIed\fP utility shall ignore this event.
+.sp
+.SH STDOUT
+.LP
+Various editing commands and the prompting feature (see \fB-p\fP)
+write to standard output, as described in the EXTENDED
+DESCRIPTION section.
+.SH STDERR
+.LP
+The standard error shall be used only for diagnostic messages.
+.SH OUTPUT FILES
+.LP
+The output files shall be text files whose formats are dependent on
+the editing commands given.
+.SH EXTENDED DESCRIPTION
+.LP
+The \fIed\fP utility shall operate on a copy of the file it is editing;
+changes made to the copy shall have no effect on the
+file until a \fBw\fP (write) command is given. The copy of the text
+is called the \fIbuffer\fP.
+.LP
+Commands to \fIed\fP have a simple and regular structure: zero, one,
+or two \fIaddresses\fP followed by a single-character
+\fIcommand\fP, possibly followed by parameters to that command. These
+addresses specify one or more lines in the buffer. Every
+command that requires addresses has default addresses, so that the
+addresses very often can be omitted. If the \fB-p\fP option is
+specified, the prompt string shall be written to standard output before
+each command is read.
+.LP
+In general, only one command can appear on a line. Certain commands
+allow text to be input. This text is placed in the
+appropriate place in the buffer. While \fIed\fP is accepting text,
+it is said to be in \fIinput mode\fP. In this mode, no
+commands shall be recognized; all input is merely collected. Input
+mode is terminated by entering a line consisting of two
+characters: a period ( \fB'.'\fP ) followed by a <newline>. This line
+is not considered part of the input text.
+.SS Regular Expressions in ed
+.LP
+The \fIed\fP utility shall support basic regular expressions, as described
+in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 9.3, Basic Regular Expressions. Since
+regular expressions in \fIed\fP are always matched against single
+lines (excluding the terminating <newline>s), never
+against any larger section of text, there is no way for a regular
+expression to match a <newline>.
+.LP
+A null RE shall be equivalent to the last RE encountered.
+.LP
+Regular expressions are used in addresses to specify lines, and in
+some commands (for example, the \fBs\fP substitute command)
+to specify portions of a line to be substituted.
+.SS Addresses in ed
+.LP
+Addressing in \fIed\fP relates to the current line. Generally, the
+current line is the last line affected by a command. The
+current line number is the address of the current line. If the edit
+buffer is not empty, the initial value for the current line
+shall be the last line in the edit buffer; otherwise, zero.
+.LP
+Addresses shall be constructed as follows:
+.IP " 1." 4
+The period character ( \fB'.'\fP ) shall address the current line.
+.LP
+.IP " 2." 4
+The dollar sign character ( \fB'$'\fP ) shall address the last line
+of the edit buffer.
+.LP
+.IP " 3." 4
+The positive decimal number \fIn\fP shall address the \fIn\fPth line
+of the edit buffer.
+.LP
+.IP " 4." 4
+The apostrophe-x character pair ( \fB"'x"\fP ) shall address the line
+marked with the mark name character \fIx\fP, which
+shall be a lowercase letter from the portable character set. It shall
+be an error if the character has not been set to mark a line
+or if the line that was marked is not currently present in the edit
+buffer.
+.LP
+.IP " 5." 4
+A BRE enclosed by slash characters ( \fB'/'\fP ) shall address the
+first line found by searching forwards from the line
+following the current line toward the end of the edit buffer and stopping
+at the first line for which the line excluding the
+terminating <newline> matches the BRE. The BRE consisting of a null
+BRE delimited by a pair of slash characters shall address
+the next line for which the line excluding the terminating <newline>
+matches the last BRE encountered. In addition, the
+second slash can be omitted at the end of a command line. Within the
+BRE, a backslash-slash pair ( \fB"\\/"\fP ) shall represent
+a literal slash instead of the BRE delimiter. If necessary, the search
+shall wrap around to the beginning of the buffer and
+continue up to and including the current line, so that the entire
+buffer is searched.
+.LP
+.IP " 6." 4
+A BRE enclosed by question-mark characters ( \fB'?'\fP ) shall address
+the first line found by searching backwards from the
+line preceding the current line toward the beginning of the edit buffer
+and stopping at the first line for which the line excluding
+the terminating <newline> matches the BRE. The BRE consisting of a
+null BRE delimited by a pair of question-mark characters (
+\fB"??"\fP ) shall address the previous line for which the line excluding
+the terminating <newline> matches the last BRE
+encountered. In addition, the second question-mark can be omitted
+at the end of a command line. Within the BRE, a
+backslash-question-mark pair ( \fB"\\?"\fP ) shall represent a literal
+question mark instead of the BRE delimiter. If necessary,
+the search shall wrap around to the end of the buffer and continue
+up to and including the current line, so that the entire buffer
+is searched.
+.LP
+.IP " 7." 4
+A plus-sign ( \fB'+'\fP ) or hyphen character ( \fB'-'\fP ) followed
+by a decimal number shall address the current line
+plus or minus the number. A plus-sign or hyphen character not followed
+by a decimal number shall address the current line plus or
+minus 1.
+.LP
+.LP
+Addresses can be followed by zero or more address offsets, optionally
+<blank>-separated. Address offsets are constructed
+as follows:
+.IP " *" 3
+A plus-sign or hyphen character followed by a decimal number shall
+add or subtract, respectively, the indicated number of lines
+to or from the address. A plus-sign or hyphen character not followed
+by a decimal number shall add or subtract 1 to or from the
+address.
+.LP
+.IP " *" 3
+A decimal number shall add the indicated number of lines to the address.
+.LP
+.LP
+It shall not be an error for an intermediate address value to be less
+than zero or greater than the last line in the edit
+buffer. It shall be an error for the final address value to be less
+than zero or greater than the last line in the edit buffer. It
+shall be an error if a search for a BRE fails to find a matching line.
+.LP
+Commands accept zero, one, or two addresses. If more than the required
+number of addresses are provided to a command that
+requires zero addresses, it shall be an error. Otherwise, if more
+than the required number of addresses are provided to a command,
+the addresses specified first shall be evaluated and then discarded
+until the maximum number of valid addresses remain, for the
+specified command.
+.LP
+Addresses shall be separated from each other by a comma ( \fB','\fP
+) or semicolon character ( \fB';'\fP ). In the case of
+a semicolon separator, the current line ( \fB'.'\fP ) shall be set
+to the first address, and only then will the second address
+be calculated. This feature can be used to determine the starting
+line for forwards and backwards searches; see rules 5. and 6.
+.LP
+Addresses can be omitted on either side of the comma or semicolon
+separator, in which case the resulting address pairs shall be
+as follows:
+.TS C
+center; l l.
+\fBSpecified\fP	\fBResulting\fP
+,	1 , $
+, addr	1 , addr
+addr ,	addr , addr
+;	. ; $
+; addr	. ; addr
+addr ;	addr ; addr
+.TE
+.LP
+Any <blank>s included between addresses, address separators, or address
+offsets shall be ignored.
+.SS Commands in ed
+.LP
+In the following list of \fIed\fP commands, the default addresses
+are shown in parentheses. The number of addresses shown in
+the default shall be the number expected by the command. The parentheses
+are not part of the address; they show that the given
+addresses are the default.
+.LP
+It is generally invalid for more than one command to appear on a line.
+However, any command (except \fBe\fP, \fBE\fP,
+\fBf\fP, \fBq\fP, \fBQ\fP, \fBr\fP, \fBw\fP, and \fB!\fP) can be suffixed
+by the letter \fBl\fP, \fBn\fP, or \fBp\fP; in
+which case, except for the \fBl\fP, \fBn\fP, and \fBp\fP commands,
+the command shall be executed and then the new current line
+shall be written as described below under the \fBl\fP, \fBn\fP, and
+\fBp\fP commands. When an \fBl\fP, \fBn\fP, or \fBp\fP
+suffix is used with an \fBl\fP, \fBn\fP, or \fBp\fP command, the command
+shall write to standard output as described below, but
+it is unspecified whether the suffix writes the current line again
+in the requested format or whether the suffix has no effect. For
+example, the \fBpl\fP command (base \fBp\fP command with an \fBl\fP
+suffix) shall either write just the current line or write it
+twice-once as specified for \fBp\fP and once as specified for \fBl\fP.
+Also, the \fBg\fP, \fBG\fP, \fBv\fP, and \fBV\fP
+commands shall take a command as a parameter.
+.LP
+Each address component can be preceded by zero or more <blank>s. The
+command letter can be preceded by zero or more
+<blank>s. If a suffix letter ( \fBl\fP, \fBn\fP, or \fBp\fP) is given,
+the application shall ensure that it immediately
+follows the command.
+.LP
+The \fBe\fP, \fBE\fP, \fBf\fP, \fBr\fP, and \fBw\fP commands shall
+take an optional \fIfile\fP parameter, separated from
+the command letter by one or more <blank>s.
+.LP
+If changes have been made in the buffer since the last \fBw\fP command
+that wrote the entire buffer, \fIed\fP shall warn the
+user if an attempt is made to destroy the editor buffer via the \fBe\fP
+or \fBq\fP commands. The \fIed\fP utility shall write
+the string:
+.sp
+.RS
+.nf
+
+\fB"?\\n"
+\fP
+.fi
+.RE
+.LP
+(followed by an explanatory message if \fIhelp mode\fP has been enabled
+via the \fBH\fP command) to standard output and shall
+continue in command mode with the current line number unchanged. If
+the \fBe\fP or \fBq\fP command is repeated with no
+intervening command, it shall take effect.
+.LP
+If a terminal disconnect is detected:
+.IP " *" 3
+If the buffer is not empty and has changed since the last write, the
+\fIed\fP utility shall attempt to write a copy of the
+buffer to a file named \fBed.hup\fP in the current directory. If this
+write fails, \fIed\fP shall attempt to write a copy of the
+buffer to a filename \fBed.hup\fP in the directory named by the \fIHOME\fP
+environment variable. If both these attempts fail,
+\fIed\fP shall exit without saving the buffer.
+.LP
+.IP " *" 3
+The \fIed\fP utility shall not write the file to the currently remembered
+pathname or return to command mode, and shall
+terminate with a non-zero exit status.
+.LP
+.LP
+If an end-of-file is detected on standard input:
+.IP " *" 3
+If the \fIed\fP utility is in input mode, \fIed\fP shall terminate
+input mode and return to command mode. It is unspecified if
+any partially entered lines (that is, input text without a terminating
+<newline>) are discarded from the input text.
+.LP
+.IP " *" 3
+If the \fIed\fP utility is in command mode, it shall act as if a \fBq\fP
+command had been entered.
+.LP
+.LP
+If the closing delimiter of an RE or of a replacement string (for
+example, \fB'/'\fP ) in a \fBg\fP, \fBG\fP, \fBs\fP,
+\fBv\fP, or \fBV\fP command would be the last character before a <newline>,
+that delimiter can be omitted, in which case
+the addressed line shall be written. For example, the following pairs
+of commands are equivalent:
+.sp
+.RS
+.nf
+
+\fBs/s1/s2   s/s1/s2/p
+g/s1      g/s1/p
+?s1       ?s1?
+\fP
+.fi
+.RE
+.LP
+If an invalid command is entered, \fIed\fP shall write the string:
+.sp
+.RS
+.nf
+
+\fB"?\\n"
+\fP
+.fi
+.RE
+.LP
+(followed by an explanatory message if \fIhelp mode\fP has been enabled
+via the \fBH\fP command) to standard output and shall
+continue in command mode with the current line number unchanged.
+.SS Append Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.)a
+<\fP\fItext\fP\fB>
+\&.
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBa\fP command shall read the given text and append it after
+the addressed line; the current line number shall become the
+address of the last inserted line or, if there were none, the addressed
+line. Address 0 shall be valid for this command; it shall
+cause the appended text to be placed at the beginning of the buffer.
+.SS Change Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)c
+<\fP\fItext\fP\fB>
+\&.
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBc\fP command shall delete the addressed lines, then accept
+input text that replaces these lines; the current line shall
+be set to the address of the last line input; or, if there were none,
+at the line after the last line deleted; if the lines deleted
+were originally at the end of the buffer, the current line number
+shall be set to the address of the new last line; if no lines
+remain in the buffer, the current line number shall be set to zero.
+Address 0 shall be valid for this command; it shall be
+interpreted as if address 1 were specified.
+.SS Delete Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)d
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBd\fP command shall delete the addressed lines from the buffer.
+The address of the line after the last line deleted shall
+become the current line number; if the lines deleted were originally
+at the end of the buffer, the current line number shall be set
+to the address of the new last line; if no lines remain in the buffer,
+the current line number shall be set to zero.
+.SS Edit Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBe\fP \fB[\fP\fIfile\fP\fB]\fP
+.fi
+.RE
+.sp
+.LP
+The \fBe\fP command shall delete the entire contents of the buffer
+and then read in the file named by the pathname \fIfile\fP.
+The current line number shall be set to the address of the last line
+of the buffer. If no pathname is given, the currently
+remembered pathname, if any, shall be used (see the \fBf\fP command).
+The number of bytes read shall be written to standard
+output, unless the \fB-s\fP option was specified, in the following
+format:
+.sp
+.RS
+.nf
+
+\fB"%d\\n", <\fP\fInumber of bytes read\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The name \fIfile\fP shall be remembered for possible use as a default
+pathname in subsequent \fBe\fP, \fBE\fP, \fBr\fP, and
+\fBw\fP commands. If \fIfile\fP is replaced by \fB'!'\fP , the rest
+of the line shall be taken to be a shell command line
+whose output is to be read. Such a shell command line shall not be
+remembered as the current \fIfile\fP. All marks shall be
+discarded upon the completion of a successful \fBe\fP command. If
+the buffer has changed since the last time the entire buffer was
+written, the user shall be warned, as described previously.
+.SS Edit Without Checking Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBE\fP \fB[\fP\fIfile\fP\fB]\fP
+.fi
+.RE
+.sp
+.LP
+The \fBE\fP command shall possess all properties and restrictions
+of the \fBe\fP command except that the editor shall not
+check to see whether any changes have been made to the buffer since
+the last \fBw\fP command.
+.SS Filename Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBf\fP \fB[\fP\fIfile\fP\fB]\fP
+.fi
+.RE
+.sp
+.LP
+If \fIfile\fP is given, the \fBf\fP command shall change the currently
+remembered pathname to \fIfile\fP; whether the name is
+changed or not, it shall then write the (possibly new) currently remembered
+pathname to the standard output in the following
+format:
+.sp
+.RS
+.nf
+
+\fB"%s\\n", <\fP\fIpathname\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The current line number shall be unchanged.
+.SS Global Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(1,$)g/\fP\fIRE\fP\fB/\fP\fIcommand list\fP
+.fi
+.RE
+.sp
+.LP
+In the \fBg\fP command, the first step shall be to mark every line
+for which the line excluding the terminating <newline>
+matches the given RE. Then, going sequentially from the beginning
+of the file to the end of the file, the given \fIcommand list\fP
+shall be executed for each marked line, with the current line number
+set to the address of that line. Any line modified by the
+\fIcommand list\fP shall be unmarked. When the \fBg\fP command completes,
+the current line number shall have the value assigned
+by the last command in the \fIcommand list\fP. If there were no matching
+lines, the current line number shall not be changed. A
+single command or the first of a list of commands shall appear on
+the same line as the global command. All lines of a multi-line
+list except the last line shall be ended with a backslash preceding
+the terminating <newline>; the \fBa\fP, \fBi\fP, and
+\fBc\fP commands and associated input are permitted. The \fB'.'\fP
+terminating input mode can be omitted if it would be the
+last line of the \fIcommand list\fP. An empty \fIcommand list\fP shall
+be equivalent to the \fBp\fP command. The use of the
+\fBg\fP, \fBG\fP, \fBv\fP, \fBV\fP, and \fB!\fP commands in the \fIcommand
+list\fP produces undefined results. Any character
+other than <space> or <newline> can be used instead of a slash to
+delimit the RE. Within the RE, the RE delimiter
+itself can be used as a literal character if it is preceded by a backslash.
+.SS Interactive Global Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(1,$)G/\fP\fIRE\fP\fB/
+\fP
+.fi
+.RE
+.sp
+.LP
+In the \fBG\fP command, the first step shall be to mark every line
+for which the line excluding the terminating <newline>
+matches the given RE. Then, for every such line, that line shall be
+written, the current line number shall be set to the address of
+that line, and any one command (other than one of the \fBa\fP, \fBc\fP,
+\fBi\fP, \fBg\fP, \fBG\fP, \fBv\fP, and \fBV\fP
+commands) shall be read and executed. A <newline> shall act as a null
+command (causing no action to be taken on the current
+line); an \fB'&'\fP shall cause the re-execution of the most recent
+non-null command executed within the current invocation
+of \fBG\fP. Note that the commands input as part of the execution
+of the \fBG\fP command can address and affect any lines in the
+buffer. Any line modified by the command shall be unmarked. The final
+value of the current line number shall be the value set by
+the last command successfully executed. (Note that the last command
+successfully executed shall be the \fBG\fP command itself if a
+command fails or the null command is specified.) If there were no
+matching lines, the current line number shall not be changed. The
+\fBG\fP command can be terminated by a SIGINT signal. Any character
+other than <space> or <newline> can be used
+instead of a slash to delimit the RE and the replacement. Within the
+RE, the RE delimiter itself can be used as a literal character
+if it is preceded by a backslash.
+.SS Help Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBh
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBh\fP command shall write a short message to standard output
+that explains the reason for the most recent \fB'?'\fP
+notification. The current line number shall be unchanged.
+.SS Help-Mode Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBH
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBH\fP command shall cause \fIed\fP to enter a mode in which
+help messages (see the \fBh\fP command) shall be written to
+standard output for all subsequent \fB'?'\fP notifications. The \fBH\fP
+command alternately shall turn this mode on and off; it
+is initially off. If the help-mode is being turned on, the \fBH\fP
+command also explains the previous \fB'?'\fP notification,
+if there was one. The current line number shall be unchanged.
+.SS Insert Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.)i
+<\fP\fItext\fP\fB>
+\&.
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBi\fP command shall insert the given text before the addressed
+line; the current line is set to the last inserted line
+or, if there was none, to the addressed line. This command differs
+from the \fBa\fP command only in the placement of the input
+text. Address 0 shall be valid for this command; it shall be interpreted
+as if address 1 were specified.
+.SS Join Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.+1)j
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBj\fP command shall join contiguous lines by removing the appropriate
+<newline>s. If exactly one address is given,
+this command shall do nothing. If lines are joined, the current line
+number shall be set to the address of the joined line;
+otherwise, the current line number shall be unchanged.
+.SS Mark Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.)k\fP\fIx\fP
+.fi
+.RE
+.sp
+.LP
+The \fBk\fP command shall mark the addressed line with name \fIx\fP,
+which the application shall ensure is a lowercase letter
+from the portable character set. The address \fB"'x"\fP shall then
+refer to this line; the current line number shall be
+unchanged.
+.SS List Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)l
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBl\fP command shall write to standard output the addressed lines
+in a visually unambiguous form. The characters listed in
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, Table 5-1,
+Escape Sequences and Associated Actions ( \fB'\\\\'\fP ,
+\fB'\\a'\fP , \fB'\\b'\fP , \fB'\\f'\fP , \fB'\\r'\fP , \fB'\\t'\fP
+, \fB'\\v'\fP ) shall be written as the
+corresponding escape sequence; the \fB'\\n'\fP in that table is not
+applicable. Non-printable characters not in the table shall
+be written as one three-digit octal number (with a preceding backslash
+character) for each byte in the character (most significant
+byte first). If the size of a byte on the system is greater than nine
+bits, the format used for non-printable characters is
+implementation-defined.
+.LP
+Long lines shall be folded, with the point of folding indicated by
+<newline> preceded by a backslash; the length at which
+folding occurs is unspecified, but should be appropriate for the output
+device. The end of each line shall be marked with a
+\fB'$'\fP , and \fB'$'\fP characters within the text shall be written
+with a preceding backslash. An \fBl\fP command can be
+appended to any other command other than \fBe\fP, \fBE\fP, \fBf\fP,
+\fBq\fP, \fBQ\fP, \fBr\fP, \fBw\fP, or \fB!\fP. The
+current line number shall be set to the address of the last line written.
+.SS Move Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)m\fP\fIaddress\fP
+.fi
+.RE
+.sp
+.LP
+The \fBm\fP command shall reposition the addressed lines after the
+line addressed by \fIaddress\fP. Address 0 shall be valid
+for \fIaddress\fP and cause the addressed lines to be moved to the
+beginning of the buffer. It shall be an error if address
+\fIaddress\fP falls within the range of moved lines. The current line
+number shall be set to the address of the last line
+moved.
+.SS Number Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)n
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBn\fP command shall write to standard output the addressed lines,
+preceding each line by its line number and a
+<tab>; the current line number shall be set to the address of the
+last line written. The \fBn\fP command can be appended to
+any command other than \fBe\fP, \fBE\fP, \fBf\fP, \fBq\fP, \fBQ\fP,
+\fBr\fP, \fBw\fP, or \fB!\fP.
+.SS Print Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)p
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBp\fP command shall write to standard output the addressed lines;
+the current line number shall be set to the address of
+the last line written. The \fBp\fP command can be appended to any
+command other than \fBe\fP, \fBE\fP, \fBf\fP, \fBq\fP,
+\fBQ\fP, \fBr\fP, \fBw\fP, or \fB!\fP.
+.SS Prompt Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBP
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBP\fP command shall cause \fIed\fP to prompt with an asterisk
+( \fB'*'\fP ) (or \fIstring\fP, if \fB-p\fP is
+specified) for all subsequent commands. The \fBP\fP command alternatively
+shall turn this mode on and off; it shall be initially
+on if the \fB-p\fP option is specified; otherwise, off. The current
+line number shall be unchanged.
+.SS Quit Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBq
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBq\fP command shall cause \fIed\fP to exit. If the buffer has
+changed since the last time the entire buffer was written,
+the user shall be warned, as described previously.
+.SS Quit Without Checking Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBQ
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBQ\fP command shall cause \fIed\fP to exit without checking
+whether changes have been made in the buffer since the last
+\fBw\fP command.
+.SS Read Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB($)r\fP \fB[\fP\fIfile\fP\fB]\fP
+.fi
+.RE
+.sp
+.LP
+The \fBr\fP command shall read in the file named by the pathname \fIfile\fP
+and append it after the addressed line. If no
+\fIfile\fP argument is given, the currently remembered pathname, if
+any, shall be used (see the \fBe\fP and \fBf\fP commands).
+The currently remembered pathname shall not be changed unless there
+is no remembered pathname. Address 0 shall be valid for
+\fBr\fP and shall cause the file to be read at the beginning of the
+buffer. If the read is successful, and \fB-s\fP was not
+specified, the number of bytes read shall be written to standard output
+in the following format:
+.sp
+.RS
+.nf
+
+\fB"%d\\n", <\fP\fInumber of bytes read\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The current line number shall be set to the address of the last line
+read in. If \fIfile\fP is replaced by \fB'!'\fP , the
+rest of the line shall be taken to be a shell command line whose output
+is to be read. Such a shell command line shall not be
+remembered as the current pathname.
+.SS Substitute Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)s/\fP\fIRE\fP\fB/\fP\fIreplacement\fP\fB/\fP\fIflags\fP
+.fi
+.RE
+.sp
+.LP
+The \fBs\fP command shall search each addressed line for an occurrence
+of the specified RE and replace either the first or all
+(non-overlapped) matched strings with the \fIreplacement\fP; see the
+following description of the \fBg\fP suffix. It is an error
+if the substitution fails on every addressed line. Any character other
+than <space> or <newline> can be used instead of
+a slash to delimit the RE and the replacement. Within the RE, the
+RE delimiter itself can be used as a literal character if it is
+preceded by a backslash. The current line shall be set to the address
+of the last line on which a substitution occurred.
+.LP
+An ampersand ( \fB'&'\fP ) appearing in the \fIreplacement\fP shall
+be replaced by the string matching the RE on the
+current line. The special meaning of \fB'&'\fP in this context can
+be suppressed by preceding it by backslash. As a more
+general feature, the characters \fB'\\n'\fP , where \fIn\fP is a digit,
+shall be replaced by the text matched by the
+corresponding back-reference expression. When the character \fB'%'\fP
+is the only character in the \fIreplacement\fP, the
+\fIreplacement\fP used in the most recent substitute command shall
+be used as the \fIreplacement\fP in the current substitute
+command; if there was no previous substitute command, the use of \fB'%'\fP
+in this manner shall be an error. The \fB'%'\fP
+shall lose its special meaning when it is in a replacement string
+of more than one character or is preceded by a backslash. For
+each backslash ( \fB'\\'\fP ) encountered in scanning \fIreplacement\fP
+from beginning to end, the following character shall
+lose its special meaning (if any). It is unspecified what special
+meaning is given to any character other than \fB'&'\fP ,
+\fB'\\'\fP , \fB'%'\fP , or digits.
+.LP
+A line can be split by substituting a <newline> into it. The application
+shall ensure it escapes the <newline> in
+the \fIreplacement\fP by preceding it by backslash. Such substitution
+cannot be done as part of a \fBg\fP or \fBv\fP \fIcommand
+list\fP. The current line number shall be set to the address of the
+last line on which a substitution is performed. If no
+substitution is performed, the current line number shall be unchanged.
+If a line is split, a substitution shall be considered to
+have been performed on each of the new lines for the purpose of determining
+the new current line number. A substitution shall be
+considered to have been performed even if the replacement string is
+identical to the string that it replaces.
+.LP
+The application shall ensure that the value of \fIflags\fP is zero
+or more of:
+.TP 7
+\fIcount\fP
+Substitute for the \fIcount\fPth occurrence only of the RE found on
+each addressed line.
+.TP 7
+\fBg\fP
+Globally substitute for all non-overlapping instances of the RE rather
+than just the first one. If both \fBg\fP and
+\fIcount\fP are specified, the results are unspecified.
+.TP 7
+\fBl\fP
+Write to standard output the final line in which a substitution was
+made. The line shall be written in the format specified for
+the \fBl\fP command.
+.TP 7
+\fBn\fP
+Write to standard output the final line in which a substitution was
+made. The line shall be written in the format specified for
+the \fBn\fP command.
+.TP 7
+\fBp\fP
+Write to standard output the final line in which a substitution was
+made. The line shall be written in the format specified for
+the \fBp\fP command.
+.sp
+.SS Copy Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.,.)t\fP\fIaddress\fP
+.fi
+.RE
+.sp
+.LP
+The \fBt\fP command shall be equivalent to the \fBm\fP command, except
+that a copy of the addressed lines shall be placed
+after address \fIaddress\fP (which can be 0); the current line number
+shall be set to the address of the last line added.
+.SS Undo Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fBu
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBu\fP command shall nullify the effect of the most recent command
+that modified anything in the buffer, namely the most
+recent \fBa\fP, \fBc\fP, \fBd\fP, \fBg\fP, \fBi\fP, \fBj\fP, \fBm\fP,
+\fBr\fP, \fBs\fP, \fBt\fP, \fBu\fP, \fBv\fP,
+\fBG\fP, or \fBV\fP command. All changes made to the buffer by a \fBg\fP,
+\fBG\fP, \fBv\fP, or \fBV\fP global command shall
+be undone as a single change; if no changes were made by the global
+command (such as with \fBg\fP/RE/ \fBp\fP), the \fBu\fP
+command shall have no effect. The current line number shall be set
+to the value it had immediately before the command being undone
+started.
+.SS Global Non-Matched Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(1,$)v/\fP\fIRE\fP\fB/\fP\fIcommand list\fP
+.fi
+.RE
+.sp
+.LP
+This command shall be equivalent to the global command \fBg\fP except
+that the lines that are marked during the first step
+shall be those for which the line excluding the terminating <newline>
+does not match the RE.
+.SS Interactive Global Not-Matched Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(1,$)V/\fP\fIRE\fP\fB/
+\fP
+.fi
+.RE
+.sp
+.LP
+This command shall be equivalent to the interactive global command
+\fBG\fP except that the lines that are marked during the
+first step shall be those for which the line excluding the terminating
+<newline> does not match the RE.
+.SS Write Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(1,$)w\fP \fB[\fP\fIfile\fP\fB]
+\fP
+.fi
+.RE
+.sp
+.LP
+The \fBw\fP command shall write the addressed lines into the file
+named by the pathname \fIfile\fP. The command shall create
+the file, if it does not exist, or shall replace the contents of the
+existing file. The currently remembered pathname shall not be
+changed unless there is no remembered pathname. If no pathname is
+given, the currently remembered pathname, if any, shall be used
+(see the \fBe\fP and \fBf\fP commands); the current line number shall
+be unchanged. If the command is successful, the number of
+bytes written shall be written to standard output, unless the \fB-s\fP
+option was specified, in the following format:
+.sp
+.RS
+.nf
+
+\fB"%d\\n", <\fP\fInumber of bytes written\fP\fB>
+\fP
+.fi
+.RE
+.LP
+If \fIfile\fP begins with \fB'!'\fP , the rest of the line shall be
+taken to be a shell command line whose standard input
+shall be the addressed lines. Such a shell command line shall not
+be remembered as the current pathname. This usage of the write
+command with \fB'!'\fP shall not be considered as a "last \fBw\fP
+command that wrote the entire buffer", as described
+previously; thus, this alone shall not prevent the warning to the
+user if an attempt is made to destroy the editor buffer via the
+\fBe\fP or \fBq\fP commands.
+.SS Line Number Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB($)=
+\fP
+.fi
+.RE
+.sp
+.LP
+The line number of the addressed line shall be written to standard
+output in the following format:
+.sp
+.RS
+.nf
+
+\fB"%d\\n", <\fP\fIline number\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The current line number shall be unchanged by this command.
+.SS Shell Escape Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB!\fP\fIcommand\fP
+.fi
+.RE
+.sp
+.LP
+The remainder of the line after the \fB'!'\fP shall be sent to the
+command interpreter to be interpreted as a shell command
+line. Within the text of that shell command line, the unescaped character
+\fB'%'\fP shall be replaced with the remembered
+pathname; if a \fB'!'\fP appears as the first character of the command,
+it shall be replaced with the text of the previous shell
+command executed via \fB'!'\fP . Thus, \fB"!!"\fP shall repeat the
+previous !\fIcommand\fP. If any replacements of
+\fB'%'\fP or \fB'!'\fP are performed, the modified line shall be written
+to the standard output before \fIcommand\fP is
+executed. The \fB!\fP command shall write:
+.sp
+.RS
+.nf
+
+\fB"!\\n"
+\fP
+.fi
+.RE
+.LP
+to standard output upon completion, unless the \fB-s\fP option is
+specified. The current line number shall be unchanged.
+.SS Null Command
+.TP 7
+\fISynopsis\fP:
+.sp
+.RS
+.nf
+
+\fB(.+1)
+\fP
+.fi
+.RE
+.sp
+.LP
+An address alone on a line shall cause the addressed line to be written.
+A <newline> alone shall be equivalent to
+\fB"+1p"\fP . The current line number shall be set to the address
+of the written line.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ 0
+Successful completion without any file or command errors.
+.TP 7
+>0
+An error occurred.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+When an error in the input script is encountered, or when an error
+is detected that is a consequence of the data (not) present
+in the file or due to an external condition such as a read or write
+error:
+.IP " *" 3
+If the standard input is a terminal device file, all input shall be
+flushed, and a new command read.
+.LP
+.IP " *" 3
+If the standard input is a regular file, \fIed\fP shall terminate
+with a non-zero exit status.
+.LP
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+Because of the extremely terse nature of the default error messages,
+the prudent script writer begins the \fIed\fP input
+commands with an \fBH\fP command, so that if any errors do occur at
+least some clue as to the cause is made available.
+.LP
+In previous versions, an obsolescent \fB-\fP option was described.
+This is no longer specified. Applications should use the
+\fB-s\fP option. Using \fB-\fP as a \fIfile\fP operand now produces
+unspecified results. This allows implementations to continue
+to support the former required behavior.
+.SH EXAMPLES
+.LP
+None.
+.SH RATIONALE
+.LP
+The initial description of this utility was adapted from the SVID.
+It contains some features not found in Version 7 or
+BSD-derived systems. Some of the differences between the POSIX and
+BSD \fIed\fP utilities include, but need not be limited to:
+.IP " *" 3
+The BSD \fB-\fP option does not suppress the \fB'!'\fP prompt after
+a \fB!\fP command.
+.LP
+.IP " *" 3
+BSD does not support the special meanings of the \fB'%'\fP and \fB'!'\fP
+characters within a \fB!\fP command.
+.LP
+.IP " *" 3
+BSD does not support the \fIaddresses\fP \fB';'\fP and \fB','\fP .
+.LP
+.IP " *" 3
+BSD allows the command/suffix pairs \fBpp\fP, \fBll\fP, and so on,
+which are unspecified in this volume of
+IEEE\ Std\ 1003.1-2001.
+.LP
+.IP " *" 3
+BSD does not support the \fB'!'\fP character part of the \fBe\fP,
+\fBr\fP, or \fBw\fP commands.
+.LP
+.IP " *" 3
+A failed \fBg\fP command in BSD sets the line number to the last line
+searched if there are no matches.
+.LP
+.IP " *" 3
+BSD does not default the \fIcommand list\fP to the \fBp\fP command.
+.LP
+.IP " *" 3
+BSD does not support the \fBG\fP, \fBh\fP, \fBH\fP, \fBn\fP, or \fBV\fP
+commands.
+.LP
+.IP " *" 3
+On BSD, if there is no inserted text, the insert command changes the
+current line to the referenced line -1; that is, the line
+before the specified line.
+.LP
+.IP " *" 3
+On BSD, the \fIjoin\fP command with only a single address changes
+the current line to that
+address.
+.LP
+.IP " *" 3
+BSD does not support the \fBP\fP command; moreover, in BSD it is synonymous
+with the \fBp\fP command.
+.LP
+.IP " *" 3
+BSD does not support the \fIundo\fP of the commands \fBj\fP, \fBm\fP,
+\fBr\fP, \fBs\fP, or \fBt\fP.
+.LP
+.IP " *" 3
+The Version 7 \fIed\fP command \fBW\fP, and the BSD \fIed\fP commands
+\fBW\fP, \fBwq\fP, and \fBz\fP are not present in
+this volume of IEEE\ Std\ 1003.1-2001.
+.LP
+.LP
+The \fB-s\fP option was added to allow the functionality of the now
+withdrawn \fB-\fP option in a manner compatible with the
+Utility Syntax Guidelines.
+.LP
+In early proposals there was a limit, {ED_FILE_MAX}, that described
+the historical limitations of some \fIed\fP utilities in
+their handling of large files; some of these have had problems with
+files larger than 100000 bytes. It was this limitation that
+prompted much of the desire to include a \fIsplit\fP command in this
+volume of
+IEEE\ Std\ 1003.1-2001. Since this limit was removed, this volume
+of IEEE\ Std\ 1003.1-2001 requires that
+implementations document the file size limits imposed by \fIed\fP
+in the conformance document. The limit {ED_LINE_MAX} was also
+removed; therefore, the global limit {LINE_MAX} is used for input
+and output lines.
+.LP
+The manner in which the \fBl\fP command writes non-printable characters
+was changed to avoid the historical
+backspace-overstrike method. On video display terminals, the overstrike
+is ambiguous because most terminals simply replace
+overstruck characters, making the \fBl\fP format not useful for its
+intended purpose of unambiguously understanding the content of
+the line. The historical backslash escapes were also ambiguous. (The
+string \fB"a\\0011"\fP could represent a line containing
+those six characters or a line containing the three characters \fB'a'\fP
+, a byte with a binary value of 1, and a 1.) In the
+format required here, a backslash appearing in the line is written
+as \fB"\\\\"\fP so that the output is truly unambiguous. The
+method of marking the ends of lines was adopted from the \fIex\fP
+editor and is required for
+any line ending in <space>s; the \fB'$'\fP is placed on all lines
+so that a real \fB'$'\fP at the end of a line cannot
+be misinterpreted.
+.LP
+Systems with bytes too large to fit into three octal digits must devise
+other means of displaying non-printable characters.
+Consideration was given to requiring that the number of octal digits
+be large enough to hold a byte, but this seemed to be too
+confusing for applications on the vast majority of systems where three
+digits are adequate. It would be theoretically possible for
+the application to use the \fIgetconf\fP utility to find out the CHAR_BIT
+value and deal
+with such an algorithm; however, there is really no portable way that
+an application can use the octal values of the bytes across
+various coded character sets, so the additional specification was
+not worthwhile.
+.LP
+The description of how a NUL is written was removed. The NUL character
+cannot be in text files, and this volume of
+IEEE\ Std\ 1003.1-2001 should not dictate behavior in the case of
+undefined, erroneous input.
+.LP
+Unlike some of the other editing utilities, the filenames accepted
+by the \fBE\fP, \fBe\fP, \fBR\fP, and \fBr\fP commands
+are not patterns.
+.LP
+Early proposals stated that the \fB-p\fP option worked only when standard
+input was associated with a terminal device. This has
+been changed to conform to historical implementations, thereby allowing
+applications to interpose themselves between a user and the
+\fIed\fP utility.
+.LP
+The form of the substitute command that uses the \fBn\fP suffix was
+limited in some historical documentation (where this was
+described incorrectly as "backreferencing"). This limit has been omitted
+because there is no reason why an editor processing
+lines of {LINE_MAX} length should have this restriction. The command
+\fBs/x/X/2047\fP should be able to substitute the 2047th
+occurrence of \fB'x'\fP on a line.
+.LP
+The use of printing commands with printing suffixes (such as \fBpn\fP,
+\fBlp\fP, and so on) was made unspecified because
+BSD-based systems allow this, whereas System V does not.
+.LP
+Some BSD-based systems exit immediately upon receipt of end-of-file
+if all of the lines in the file have been deleted. Since
+this volume of IEEE\ Std\ 1003.1-2001 refers to the \fBq\fP command
+in this instance, such behavior is not allowed.
+.LP
+Some historical implementations returned exit status zero even if
+command errors had occurred; this is not allowed by this
+volume of IEEE\ Std\ 1003.1-2001.
+.LP
+Some historical implementations contained a bug that allowed a single
+period to be entered in input mode as <backslash>
+<period> <newline>. This is not allowed by \fIed\fP because there
+is no description of escaping any of the characters
+in input mode; backslashes are entered into the buffer exactly as
+typed. The typical method of entering a single period has been to
+precede it with another character and then use the substitute command
+to delete that character.
+.LP
+It is difficult under some modes of some versions of historical operating
+system terminal drivers to distinguish between an
+end-of-file condition and terminal disconnect. IEEE\ Std\ 1003.1-2001
+does not require implementations to distinguish
+between the two situations, which permits historical implementations
+of the \fIed\fP utility on historical platforms to conform.
+Implementations are encouraged to distinguish between the two, if
+possible, and take appropriate action on terminal disconnect.
+.LP
+Historically, \fIed\fP accepted a zero address for the \fBa\fP and
+\fBr\fP commands in order to insert text at the start of
+the edit buffer. When the buffer was empty the command \fB.=\fP returned
+zero. IEEE\ Std\ 1003.1-2001 requires conformance
+to historical practice.
+.LP
+For consistency with the \fBa\fP and \fBr\fP commands and better user
+functionality, the \fBi\fP and \fBc\fP commands must
+also accept an address of 0, in which case 0\fIi\fP is treated as
+1\fIi\fP and likewise for the \fBc\fP command.
+.LP
+All of the following are valid addresses:
+.TP 7
+\fB+++\fP
+Three lines after the current line.
+.TP 7
+\fB/\fP\fIpattern\fP\fB/-\fP
+One line before the next occurrence of pattern.
+.TP 7
+\fB-2\fP
+Two lines before the current line.
+.TP 7
+\fB3\ ----\ 2\fP
+Line one (note the intermediate negative address).
+.TP 7
+\fB1\ 2\ 3\fP
+Line six.
+.sp
+.LP
+Any number of addresses can be provided to commands taking addresses;
+for example, \fB"1,2,3,4,5p"\fP prints lines 4 and 5,
+because two is the greatest valid number of addresses accepted by
+the \fBprint\fP command. This, in combination with the semicolon
+delimiter, permits users to create commands based on ordered patterns
+in the file. For example, the command \fB"3;/foo/;+2p"\fP
+will display the first line after line 3 that contains the pattern
+\fIfoo\fP, plus the next two lines. Note that the address
+\fB"3;"\fP must still be evaluated before being discarded, because
+the search origin for the \fB"/foo/"\fP command depends on
+this.
+.LP
+Historically, \fIed\fP disallowed address chains, as discussed above,
+consisting solely of comma or semicolon separators; for
+example, \fB",,,"\fP or \fB";;;"\fP were considered an error. For
+consistency of address specification, this restriction is
+removed. The following table lists some of the address forms now possible:
+.TS C
+center; l2 l2 l2 l2 l.
+\fBAddress\fP	\fBAddr1\fP	\fBAddr2\fP	\fBStatus\fP	\fBComment\fP
+7,	7	7	Historical	\ 
+7,5,	5	5	Historical	\ 
+7,5,9	5	9	Historical	\ 
+7,9	7	9	Historical	\ 
+7,+	7	8	Historical	\ 
+,	1	$	Historical	\ 
+,7	1	7	Extension	\ 
+,,	$	$	Extension	\ 
+,;	$	$	Extension	\ 
+7;	7	7	Historical	\ 
+7;5;	5	5	Historical	\ 
+7;5;9	5	9	Historical	\ 
+7;5,9	5	9	Historical	\ 
+7;$;4	$	4	Historical	Valid, but erroneous.
+7;9	7	9	Historical	\ 
+7;+	7	8	Historical	\ 
+;	.	$	Historical	\ 
+;7	.	7	Extension	\ 
+;;	$	$	Extension	\ 
+;,	$	$	Extension	\ 
+.TE
+.LP
+Historically, values could be added to addresses by including them
+after one or more <blank>s; for example,
+\fB"3\ -\ 5p"\fP wrote the seventh line of the file, and \fB"/foo/\ 5"\fP
+was the same as \fB"5\ /foo/"\fP
+\&. However, only absolute values could be added; for example, \fB"5\ /foo/"\fP
+was an error. IEEE\ Std\ 1003.1-2001
+requires conformance to historical practice.
+.LP
+Historically, \fIed\fP accepted the \fB'^'\fP character as an address,
+in which case it was identical to the hyphen
+character. IEEE\ Std\ 1003.1-2001 does not require or prohibit this
+behavior.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIUtility Description Defaults\fP , \fIex\fP , \fIsed\fP , \fIsh\fP
+, \fIvi\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,143 @@
+.\" Copyright (c) 2002 Michael kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH SIGWAITINFO 2 2002-06-07 "Linux 2.4.18" "Linux Programmer's Manual"
+.SH NAME
+sigwaitinfo, sigtimedwait \- synchronously wait for queued signals
+.SH SYNOPSIS
+.B #include <signal.h>
+.sp
+.BI "int sigwaitinfo(const sigset_t *" set ", siginfo_t *" info ");"
+.sp
+.BI "int sigtimedwait(const sigset_t *" set ", siginfo_t *" info ", "
+.BI "const struct timespec " timeout ");"
+.SH DESCRIPTION
+.BR sigwaitinfo ()
+suspends execution of the calling process until one of the signals in
+.I set
+is delivered.
+(If one of the signals in
+.I set
+is already pending for the calling process,
+.BR sigwaitinfo ()
+will return immediately with information about that signal.)
+
+.BR sigwaitinfo ()
+removes the delivered signal from the calling process's list of pending
+signals and returns the signal number as its function result.
+If the
+.I info
+argument is not
+.BR NULL ,
+then it returns a structure of type
+.I siginfo_t
+(see
+.BR sigaction (2))
+containing information about the signal.
+.PP
+Signals returned via
+.BR sigwaitinfo ()
+are delivered in the usual order; see
+.BR signal (7)
+for further details.
+.PP
+.BR sigtimedwait ()
+operates in exactly the same way as
+.BR sigwaitinfo ()
+except that it has an additional argument,
+.IR timeout ,
+which enables an upper bound to be placed on the time for which
+the process is suspended.
+This argument is of the following type:
+.sp
+.in +2n
+.nf
+struct timespec {
+    long    tv_sec;         /* seconds */
+    long    tv_nsec;        /* nanoseconds */
+}
+.fi
+.in -2n
+.sp
+If both fields of this structure are specified as 0, a poll is performed:
+.BR sigtimedwait ()
+returns immediately, either with information about a signal that
+was pending for the caller, or with an error
+if none of the signals in
+.I set
+was pending.
+.SH "RETURN VALUE"
+On success, both
+.BR sigwaitinfo ()
+and
+.BR sigtimedwait ()
+return a signal number (i.e., a value greater than zero).
+On failure both calls return \-1, with
+.I errno
+set to indicate the error.
+.SH ERRORS
+.TP
+.B EAGAIN
+No signal in
+.I set
+was delivered within the
+.I timeout
+period specified to
+.BR sigtimedwait ().
+.TP
+.B EINTR
+The wait was interrupted by a signal handler.
+(This handler was for a signal other than one of those in
+.IR set .)
+.TP
+.B EINVAL
+.I timeout
+was invalid.
+.SH NOTES
+In normal usage, the caller blocks the signals in
+.I set
+via a prior call to
+.BR sigprocmask ()
+(so that the default disposition for these signals does not occur if they
+are delivered between successive calls to
+.BR sigwaitinfo () or
+.BR sigtimedwait())
+and does not establish handlers for these signals.
+.PP
+POSIX leaves the meaning of a
+.B NULL
+value for the
+.I timeout
+argument of
+.BR sigtimedwait ()
+unspecified, permitting the possibility that this has the same meaning
+as a call to
+.BR sigwaitinfo (),
+and indeed this is what is done on Linux.
+.SH "CONFORMING TO"
+POSIX 1003.1-2001
+.SH "SEE ALSO"
+.BR kill (2),
+.BR sigaction (2),
+.BR signal (2),
+.BR sigpending (2),
+.BR sigprocmask (2),
+.BR sigqueue (2),
+.BR sigsetops (3),
+.BR signal (7)

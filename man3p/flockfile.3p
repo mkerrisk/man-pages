@@ -1,0 +1,124 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FLOCKFILE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" flockfile 
+.SH NAME
+flockfile, ftrylockfile, funlockfile \- stdio locking functions
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+void flockfile(FILE *\fP\fIfile\fP\fB);
+.br
+int ftrylockfile(FILE *\fP\fIfile\fP\fB);
+.br
+void funlockfile(FILE *\fP\fIfile\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions shall provide for explicit application-level locking
+of stdio ( \fBFILE *\fP) objects. These functions can be
+used by a thread to delineate a sequence of I/O statements that are
+executed as a unit.
+.LP
+The \fIflockfile\fP() function shall acquire for a thread ownership
+of a ( \fBFILE *\fP) object.
+.LP
+The \fIftrylockfile\fP() function shall acquire for a thread ownership
+of a ( \fBFILE *\fP) object if the object is available;
+\fIftrylockfile\fP() is a non-blocking version of \fIflockfile\fP().
+.LP
+The \fIfunlockfile\fP() function shall relinquish the ownership granted
+to the thread. The behavior is undefined if a thread
+other than the current owner calls the \fIfunlockfile\fP() function.
+.LP
+The functions shall behave as if there is a lock count associated
+with each ( \fBFILE *\fP) object. This count is implicitly
+initialized to zero when the ( \fBFILE *\fP) object is created. The
+( \fBFILE *\fP) object is unlocked when the count is zero.
+When the count is positive, a single thread owns the ( \fBFILE *\fP)
+object. When the \fIflockfile\fP() function is called, if
+the count is zero or if the count is positive and the caller owns
+the ( \fBFILE *\fP) object, the count shall be incremented.
+Otherwise, the calling thread shall be suspended, waiting for the
+count to return to zero. Each call to \fIfunlockfile\fP() shall
+decrement the count. This allows matching calls to \fIflockfile\fP()
+(or successful calls to \fIftrylockfile\fP()) and
+\fIfunlockfile\fP() to be nested.
+.LP
+All functions that reference ( \fBFILE *\fP) objects shall behave
+as if they use \fIflockfile\fP() and \fIfunlockfile\fP()
+internally to obtain ownership of these ( \fBFILE *\fP) objects.
+.SH RETURN VALUE
+.LP
+None for \fIflockfile\fP() and \fIfunlockfile\fP().
+.LP
+The \fIftrylockfile\fP() function shall return zero for success and
+non-zero to indicate that the lock cannot be acquired.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Applications using these functions may be subject to priority inversion,
+as discussed in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 3.285, Priority Inversion.
+.SH RATIONALE
+.LP
+The \fIflockfile\fP() and \fIfunlockfile\fP() functions provide an
+orthogonal mutual-exclusion lock for each \fBFILE\fP. The
+\fIftrylockfile\fP() function provides a non-blocking attempt to acquire
+a file lock, analogous to \fIpthread_mutex_trylock\fP().
+.LP
+These locks behave as if they are the same as those used internally
+by \fIstdio\fP for thread-safety. This both provides
+thread-safety of these functions without requiring a second level
+of internal locking and allows functions in \fIstdio\fP to be
+implemented in terms of other \fIstdio\fP functions.
+.LP
+Application writers and implementors should be aware that there are
+potential deadlock problems on \fBFILE\fP objects. For
+example, the line-buffered flushing semantics of \fIstdio\fP (requested
+via {_IOLBF}) require that certain input operations
+sometimes cause the buffered contents of implementation-defined line-buffered
+output streams to be flushed. If two threads each
+hold the lock on the other's \fBFILE\fP, deadlock ensues. This type
+of deadlock can be avoided by acquiring \fBFILE\fP locks in a
+consistent order. In particular, the line-buffered output stream deadlock
+can typically be avoided by acquiring locks on input
+streams before locks on output streams if a thread would be acquiring
+both.
+.LP
+In summary, threads sharing \fIstdio\fP streams with other threads
+can use \fIflockfile\fP() and \fIfunlockfile\fP() to cause
+sequences of I/O performed by a single thread to be kept bundled.
+The only case where the use of \fIflockfile\fP() and
+\fIfunlockfile\fP() is required is to provide a scope protecting uses
+of the
+\fI*_unlocked\fP() functions/macros. This moves the cost/performance
+tradeoff to the optimal
+point.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetc_unlocked\fP() , \fIputc_unlocked\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<stdio.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

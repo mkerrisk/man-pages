@@ -1,0 +1,272 @@
+.\"  Copyright 2002 walter harms (walter.harms@informatik.uni-oldenburg.de)
+.\"  Distributed under GPL
+.\"  adapted glibc info page
+.\"  
+.\"  This should run as 'Guru Meditation' (amiga joke :)
+.\"  The function is quite complex an deserves an example
+.\"
+.\"  Polished, aeb, 2003-11-01
+.TH fmtmsg 3 2003-11-01 "" "Linux Programmer's Manual"
+.SH NAME
+fmtmsg \- print formatted error messages
+.SH SYNOPSIS
+.nf
+.sp
+.B #include <fmtmsg.h>
+.sp
+.BI "int fmtmsg(long " classification ", const char *" label ,
+.br
+.BI "           int " severity ", const char *" text ,
+.br
+.BI "           const char *" action ", const char *" tag );
+.sp
+.fi
+.SH DESCRIPTION
+This function displays a message described by its parameters on the device(s)
+specified in the
+.I classification
+parameter. For messages written to
+.IR stderr ,
+the format depends on the
+.B MSGVERB
+environment variable.
+.LP
+The
+.I label
+parameter identifies the source of the message.  The string must consist
+of two colon separated parts where the first part has not more
+than 10 and the second part not more than 14 characters.  
+.LP
+The
+.I text
+parameter describes the condition of the error.
+.LP
+The
+.I action
+parameter describes possible steps to recover from the error.
+If it is printed, it is prefixed by "TO FIX: ".
+.LP
+The
+.I tag
+parameter is a reference to the online documentation where more
+information can be found.  It should contain the
+.I label
+value and a unique identification number.
+.SS "Dummy parameters"
+Each of the parameters can have a dummy value. The dummy classification value
+.B MM_NULLMC
+(0L) does not specify any output, so nothing is printed.
+The dummy severity value
+.B NO_SEV
+(0) says that no severity is supplied.
+The values
+.BR MM_NULLLBL ,
+.BR MM_NULLTXT ,
+.BR MM_NULLACT ,
+.BR MM_NULLTAG
+are synonyms for ((char *) 0), the empty string, and
+.B MM_NULLSEV
+is a synonym for
+.BR NO_SEV .
+.SS "The classification parameter"
+The 
+.I classification 
+parameter is the sum of values describing 4 types of information.
+.br 
+.sp
+The first value defines the output channel.
+.TP 12n
+.B MM_PRINT
+Output to
+.IR stderr .
+.TP
+.B MM_CONSOLE
+Output to the system console.
+.TP
+.B "MM_PRINT | MM_CONSOLE"
+Output to both.
+.PP
+The second value is the source of the error:
+.TP 12n
+.B MM_HARD
+A hardware error occurred.
+.TP
+.B MM_FIRM
+A firmware error occurred.
+.TP
+.B MM_SOFT
+A software error occurred.
+.PP
+The third value encodes the detector of the problem:
+.TP 12n
+.B MM_APPL
+It is detected by an application.
+.TP
+.B MM_UTIL
+It is detected by a utility.
+.TP
+.B MM_OPSYS
+It is detected by the operating system.
+.PP
+The fourth value shows the severity of the incident:
+.TP 12n
+.B MM_RECOVER
+It is a recoverable error.
+.TP
+.B MM_NRECOV
+It is a non-recoverable error.
+.SS "The severity parameter"
+The 
+.I severity 
+parameter can take one of the following values:
+.TP 12n
+.B MM_NOSEV
+No severity is printed.
+.TP
+.B MM_HALT
+This value is printed as HALT.
+.TP
+.B MM_ERROR
+This value is printed as ERROR.
+.TP
+.B MM_WARNING
+This value is printed as WARNING.
+.TP
+.B MM_INFO
+This value is printed as INFO.
+.PP
+The numeric values are between 0 and 4. Using 
+.B addseverity()
+or the environment variable
+.B SEV_LEVEL
+you can add more levels and strings to print.
+.SH ENVIRONMENT
+The environment variable 
+.B MSGVERB
+("message verbosity") can be used to suppress parts of
+the output to
+.IR stderr .
+(It does not influence output to the console.)
+When this variable is defined, is non-NULL, and is a colon-separated
+list of valid keywords, then only the parts of the message corresponding
+to these keywords is printed.
+Valid keywords are "label", "severity", "text", "action" and "tag".
+.PP
+The environment variable
+.B SEV_LEVEL
+can be used to introduce new severity levels.
+By default, only the five severity levels described
+above are available.  Any other numeric value would make fmtmsg() print
+nothing.
+If the user puts 
+.B SEV_LEVEL
+with a format like
+.sp
+.RS
+SEV_LEVEL=[description[:description[:...]]]
+.RE
+.sp
+in the environment of the process before the first call to fmtmsg(),
+where each description is of the form
+.sp
+.RS
+severity-keyword,level,printstring
+.RE
+.sp
+then
+.I fmtmsg()
+will also accept the indicated values for the level (in addition to
+the standard levels 0-4), and use the indicated printstring when
+such a level occurs.
+.LP
+The severity-keyword part is not used by
+.I fmtmsg()
+but it has to be present.  
+The level part is a string representation of a number.  
+The numeric value must be a number greater than 4.
+This value must be used in the severity parameter of 
+.I fmtmsg()
+to select this class.  It is not possible to overwrite
+any of the predefined classes.  The printstring
+is the string printed when a message of this class is processed by
+.IR fmtmsg() .
+.SH "RETURN VALUES"
+The function can return 4 values:
+.TP 12n
+.B MM_OK
+Everything went smooth.
+.TP
+.B MM_NOTOK
+Complete failure.
+.TP
+.B MM_NOMSG
+Error writing to
+.IR stderr .
+.TP
+.B MM_NOCON
+Error writing to the console.
+.SH "CONFORMING TO"
+The functions
+.I fmtmsg()
+and
+.IR addseverity() ,
+and environment variables
+.B MSGVERB
+and
+.B SEV_LEVEL
+come from System V (XPG4-UNIX).
+The function
+.I fmtmsg()
+and the environment variable
+.B MSGVERB
+are described in POSIX 1003.1-2001.
+.SH NOTES
+System V and Unixware man pages tell us that these functions
+have been replaced by "pfmt() and addsev()" or by "pfmt(),
+vpfmt(), lfmt(), and vlfmt()", and will be removed later.
+.SH EXAMPLE
+.nf
+#include <stdio.h>
+#include <fmtmsg.h>
+
+int main() {
+  long class = MM_PRINT | MM_SOFT | MM_OPSYS | MM_RECOVER;
+  int err;
+  err = fmtmsg(class, "util-linux:mount", MM_ERROR,
+        "unknown mount option", "See mount(8).", "util-linux:mount:017");
+  switch(err) {
+    case MM_OK:
+      break;
+    case MM_NOTOK:
+      printf("Nothing printed\en");
+      break;
+    case MM_NOMSG:
+      printf("Nothing printed to stderr\en");
+      break;
+    case MM_NOCON:
+      printf("No console output\en");
+      break;
+    default:
+      printf("Unknown error from fmtmsg()\en");
+  }
+  return 0;
+}
+.fi
+.PP
+The output should be:
+.nf
+  util-linux:mount: ERROR: unknown mount option
+  TO FIX: See mount(8).  util-linux:mount:017
+.fi
+and after
+.nf
+  MSGVERB=text:action; export MSGVERB
+.fi
+the output becomes:
+.nf
+  unknown mount option
+  TO FIX: See mount(8).
+.fi
+.SH "SEE ALSO"
+.BR addseverity (3),
+.BR perror (3)

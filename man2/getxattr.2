@@ -1,0 +1,143 @@
+.\"
+.\" Extended attributes system calls manual pages
+.\"
+.\" (C) Andreas Gruenbacher, February 2001
+.\" (C) Silicon Graphics Inc, September 2001
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH GETXATTR 2 "Extended Attributes" "Dec 2001" "Linux Programmer's Manual"
+.SH NAME
+getxattr, lgetxattr, fgetxattr \- retrieve an extended attribute value
+.SH SYNOPSIS
+.fam C
+.nf
+.B #include <sys/types.h>
+.B #include <attr/xattr.h>
+.sp
+.BI "ssize_t getxattr (const char\ *" path ", const char\ *" name ",
+.BI "\t\t\t\t void\ *" value ", size_t " size );
+.BI "ssize_t lgetxattr (const char\ *" path ", const char\ *" name ",
+.BI "\t\t\t\t void\ *" value ", size_t " size );
+.BI "ssize_t fgetxattr (int " filedes ", const char\ *" name ",
+.BI "\t\t\t\t void\ *" value ", size_t " size );
+.fi
+.fam T
+.SH DESCRIPTION
+Extended attributes are
+.IR name :\c
+.I value
+pairs associated with inodes (files, directories, symlinks, etc).
+They are extensions to the normal attributes which are associated
+with all inodes in the system (i.e. the
+.BR stat (2)
+data).
+A complete overview of extended attributes concepts can be found in
+.BR attr (5).
+.PP
+.B getxattr
+retrieves the
+.I value
+of the extended attribute identified by
+.I name
+and associated with the given
+.I path
+in the filesystem.
+The length of the attribute
+.I value
+is returned.
+.PP
+.B lgetxattr
+is identical to 
+.BR getxattr ,
+except in the case of a symbolic link, where the link itself is
+interrogated, not the file that it refers to.
+.PP
+.B fgetxattr
+is identical to
+.BR getxattr ,
+only the open file pointed to by
+.I filedes
+(as returned by
+.BR open (2))
+is interrogated in place of
+.IR path .
+.PP
+An extended attribute
+.I name
+is a simple NULL-terminated string.
+The name includes a namespace prefix \- there may be several, disjoint
+namespaces associated with an individual inode.
+The value of an extended attribute is a chunk of arbitrary textual or
+binary data of specified length.
+.PP
+An empty buffer of
+.I size
+zero can be passed into these calls to return the current size of the
+named extended attribute, which can be used to estimate the size of a
+buffer which is sufficiently large to hold the value associated with
+the extended attribute.
+.PP
+The interface is designed to allow guessing of initial buffer
+sizes, and to enlarge buffers when the return value indicates
+that the buffer provided was too small.
+.SH RETURN VALUE
+On success, a positive number is returned indicating the size of the
+extended attribute value.
+On failure, \-1 is returned and
+.I errno
+is set appropriately.
+.PP
+If the named attribute does not exist, or the process has no access to
+this attribute,
+.I errno
+is set to ENOATTR.
+.PP
+If the
+.I size
+of the
+.I value
+buffer is too small to hold the result,
+.I errno
+is set to ERANGE.
+.PP
+If extended attributes are not supported by the filesystem, or are disabled,
+.I errno
+is set to ENOTSUP.
+.PP
+The errors documented for the
+.BR stat (2)
+system call are also applicable here.
+.SH AUTHORS
+Andreas Gruenbacher,
+.RI < a.gruenbacher@computer.org >
+and the SGI XFS development team,
+.RI < linux-xfs@oss.sgi.com >.
+Please send any bug reports or comments to these addresses.
+.SH SEE ALSO
+.BR getfattr (1),
+.BR setfattr (1),
+.BR listxattr (2),
+.BR open (2),
+.BR removexattr (2),
+.BR setxattr (2),
+.BR stat (2),
+.BR attr (5)

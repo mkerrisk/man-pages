@@ -1,0 +1,228 @@
+.\" Copyright Andries Brouwer, Ragnar Hojland Espinosa and A. Wik, 1998.
+.\"
+.\" This file may be copied under the conditions described
+.\" in the LDP GENERAL PUBLIC LICENSE, Version 1, September 1998
+.\" that should have been distributed together with this file.
+.\"
+.TH LN 1 1998-11 "GNU fileutils 4.0"
+.SH NAME
+ln \- make links between files
+.SH SYNOPSIS
+.B ln [options]
+.IB source " [" dest ]
+.br
+.B ln [options]
+.I source... directory
+.sp
+POSIX options:
+.B "[\-f] [\-\-]"
+.sp
+GNU options (shortest form):
+.B [\-bdfinsvF]
+.BI "[\-S " backup-suffix ]
+.B "[\-V {numbered,existing,simple}]"
+.B "[\-\-help] [\-\-version] [\-\-]"
+.SH DESCRIPTION
+There are two concepts of `link' in Unix, usually called
+hard link and soft link. A hard link is just a name for a file.
+(And a file can have several names. It is deleted from disk only
+when the last name is removed. The number of names is given by
+.BR ls (1).
+There is no such thing as an `original' name: all names have the
+same status. Usually, but not necessarily, all names of a file
+are found in the filesystem that also contains its data.)
+.PP
+A soft link (or symbolic link, or symlink) is an entirely different
+animal: it is a small special file that contains a pathname.
+Thus, soft links can point at files on different filesystems
+(possibly NFS mounted from different machines), and need not point
+to actually existing files.
+When accessed (with the
+.BR open (2)
+or
+.BR stat (2)
+system calls), a reference to a symlink is replaced by the operating
+system kernel with a reference to the file named by the path name.
+(However, with
+.BR rm (1)
+and
+.BR unlink (2)
+the link itself is removed, not the file it points to.
+There are special system calls
+.BR lstat (2)
+and
+.BR readlink (2)
+that read the status of a symlink and the filename it points to.
+For various other system calls there is some uncertainty
+and variation between operating systems as to whether
+the operation acts on the symlink itself, or on the file pointed to.)
+.PP
+.B ln
+makes links between files.  By default, it makes hard links;
+with the
+.B "\-s"
+option, it makes symbolic (or `soft') links.
+.PP
+If only one file is given, it links that file into
+the current directory, that is, creates a link to that file
+in the current directory, with name equal to (the last component of)
+the name of that file. (This is a GNU extension.)
+Otherwise, if the last argument names an existing directory,
+.B ln
+will create links to each mentioned
+.I source
+file in that directory, with a name equal to (the last component of)
+the name of that
+.I source
+file.  (But see the description of the
+.B "\-\-no\-dereference"
+option below.) 
+Otherwise, if only two files are given, it creates a link named
+.I dest
+to the file
+.IR source .
+It is an error if the last argument is not a directory and
+more than two files are given.
+.PP
+By default,
+.B ln
+does not remove existing files or existing symbolic links.
+(Thus, it can be used for locking purposes: it will succeed only if
+.I dest
+did not exist already.)
+But it can be forced to do so with the option \-f.
+.PP
+On existing implementations, if it is at all possible to make a hard link
+to a directory, this may be done by the superuser only. POSIX forbids
+the system call
+.BR link (2)
+and the utility
+.B ln
+to make hard links to directories (but does not forbid
+hard links to cross filesystem boundaries).
+.SH "POSIX OPTIONS"
+.TP
+.B "\-f"
+Remove existing destination files.
+.TP
+.B "\-\-"
+Terminate option list.
+.SH "GNU OPTIONS"
+.TP
+.B "\-d, \-F, \-\-directory"
+Allow the super-user to make hard links to directories.
+.TP
+.B "\-f, \-\-force"
+Remove existing destination files.
+.TP
+.B "\-i, \-\-interactive"
+Prompt whether to remove existing destination files.
+.TP
+.B "\-n, \-\-no\-dereference"
+When given an explicit destination that is a symlink to a
+directory, treat that destination as if it were a normal file.
+
+When the destination is an actual directory (not a symlink to one),
+there is no ambiguity.  The link is created in that directory.
+But when the specified destination is a symlink to a directory,
+there are two ways to treat the user's request.
+.B ln
+can treat the destination just as it would a normal directory and
+create the link in it.  On the other hand, the destination can be
+viewed as a non-directory - as the symlink itself.  In that case,
+.B ln
+must delete or backup that symlink before creating the new link.
+The default is to treat a destination that is a symlink to a directory
+just like a directory.
+.TP
+.B "\-s, \-\-symbolic"
+Make symbolic links instead of hard links.  This option merely
+produces an error message on systems that do not support symbolic links.
+.TP
+.B "\-v, \-\-verbose"
+Print the name of each file before linking it.
+.SH "GNU BACKUP OPTIONS"
+The GNU versions of programs like
+.BR cp ,
+.BR mv ,
+.BR ln ,
+.B install
+and
+.B patch 
+will make a backup of files about to be overwritten, changed or destroyed
+if that is desired. That backup files are desired is indicated by
+the \-b option. How they should be named is specified by the \-V option.
+In case the name of the backup file is given by the name of the file
+extended by a suffix, this suffix is specified by the \-S option.
+.TP
+.B "\-b, \-\-backup"
+Make backups of files that are about to be overwritten or removed.
+.TP
+.BI "\-S " SUFFIX ", \-\-suffix=" SUFFIX
+Append
+.I SUFFIX
+to each backup file made.
+If this option is not specified, the value of the
+.B SIMPLE_BACKUP_SUFFIX
+environment variable is used.  And if
+.B SIMPLE_BACKUP_SUFFIX
+is not set, the default is `~'.
+.TP
+.BI "\-V " METHOD ", \-\-version\-control=" METHOD
+.RS
+Specify how backup files are named. The
+.I METHOD
+argument can be `numbered' (or `t'), `existing' (or `nil'), or `never' (or
+`simple').
+If this option is not specified, the value of the
+.B VERSION_CONTROL
+environment variable is used.  And if
+.B VERSION_CONTROL
+is not set, the default backup type is `existing'.
+.PP
+This option corresponds to the Emacs variable `version-control'.
+The valid
+.IR METHOD s
+are (unique abbreviations are accepted):
+.TP
+.BR t ", " numbered
+Always make numbered backups.
+.TP
+.BR nil ", " existing
+Make numbered backups of files that already have them, simple
+backups of the others.
+.TP
+.BR never ", " simple
+Always make simple backups.
+.RE
+.SH "GNU STANDARD OPTIONS"
+.TP
+.B "\-\-help"
+Print a usage message on standard output and exit successfully.
+.TP
+.B "\-\-version"
+Print version information on standard output, then exit successfully.
+.TP
+.B "\-\-"
+Terminate option list.
+.SH ENVIRONMENT
+The variables LANG, LC_ALL, LC_CTYPE and LC_MESSAGES have the
+usual meaning.
+.SH "CONFORMING TO"
+POSIX 1003.2. However, POSIX 1003.2 (1996) does not discuss soft links.
+Soft links were introduced by BSD, and do not occur in System V release 3
+(and older) systems.
+.SH "SEE ALSO"
+.BR ls (1),
+.BR rm (1),
+.BR link (2),
+.BR lstat (2),
+.BR open (2),
+.BR readlink (2),
+.BR stat (2),
+.BR unlink (2)
+.SH NOTES
+This page describes
+.B ln
+as found in the fileutils-4.0 package;
+other versions may differ slightly.

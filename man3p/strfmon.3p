@@ -1,0 +1,283 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "STRFMON" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" strfmon 
+.SH NAME
+strfmon \- convert monetary value to a string
+.SH SYNOPSIS
+.LP
+\fB#include <monetary.h>
+.br
+.sp
+ssize_t strfmon(char *restrict\fP \fIs\fP\fB, size_t\fP \fImaxsize\fP\fB,
+.br
+\ \ \ \ \ \  const char *restrict\fP \fIformat\fP\fB, ...); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIstrfmon\fP() function shall place characters into the array
+pointed to by \fIs\fP as controlled by the string pointed
+to by \fIformat\fP. No more than \fImaxsize\fP bytes are placed into
+the array.
+.LP
+The format is a character string, beginning and ending in its initial
+state, if any, that contains two types of objects:
+\fIplain characters\fP, which are simply copied to the output stream,
+and \fIconversion specifications\fP, each of which shall
+result in the fetching of zero or more arguments which are converted
+and formatted. The results are undefined if there are
+insufficient arguments for the format. If the format is exhausted
+while arguments remain, the excess arguments are simply
+ignored.
+.LP
+The application shall ensure that a conversion specification consists
+of the following sequence:
+.IP " *" 3
+A \fB'%'\fP character
+.LP
+.IP " *" 3
+Optional flags
+.LP
+.IP " *" 3
+Optional field width
+.LP
+.IP " *" 3
+Optional left precision
+.LP
+.IP " *" 3
+Optional right precision
+.LP
+.IP " *" 3
+A required conversion specifier character that determines the conversion
+to be performed
+.LP
+.SS Flags
+.LP
+One or more of the following optional flags can be specified to control
+the conversion:
+.TP 7
+\fB=\fP\fIf\fP
+An \fB'='\fP followed by a single character \fIf\fP which is used
+as the numeric fill character. In order to work with
+precision or width counts, the fill character shall be a single byte
+character; if not, the behavior is undefined. The default
+numeric fill character is the <space>. This flag does not affect field
+width filling which always uses the <space>.
+This flag is ignored unless a left precision (see below) is specified.
+.TP 7
+\fB^\fP
+Do not format the currency amount with grouping characters. The default
+is to insert the grouping characters if defined for the
+current locale.
+.TP 7
+\fB+\fP\ or\ \fB(\fP
+Specify the style of representing positive and negative currency amounts.
+Only one of \fB'+'\fP or \fB'('\fP may be
+specified. If \fB'+'\fP is specified, the locale's equivalent of \fB'+'\fP
+and \fB'-'\fP are used (for example, in the
+U.S., the empty string if positive and \fB'-'\fP if negative). If
+\fB'('\fP is specified, negative amounts are enclosed
+within parentheses. If neither flag is specified, the \fB'+'\fP style
+is used.
+.TP 7
+\fB!\fP
+Suppress the currency symbol from the output conversion.
+.TP 7
+\fB-\fP
+Specify the alignment. If this flag is present the result of the conversion
+is left-justified (padded to the right) rather than
+right-justified. This flag shall be ignored unless a field width (see
+below) is specified.
+.sp
+.SS Field Width
+.TP 7
+\fIw\fP
+A decimal digit string \fIw\fP specifying a minimum field width in
+bytes in which the result of the conversion is
+right-justified (or left-justified if the flag \fB'-'\fP is specified).
+The default is 0.
+.sp
+.SS Left Precision
+.TP 7
+\fB#\fP\fIn\fP
+A \fB'#'\fP followed by a decimal digit string \fIn\fP specifying
+a maximum number of digits expected to be formatted to
+the left of the radix character. This option can be used to keep the
+formatted output from multiple calls to the \fIstrfmon\fP()
+function aligned in the same columns. It can also be used to fill
+unused positions with a special character as in
+\fB"$***123.45"\fP . This option causes an amount to be formatted
+as if it has the number of digits specified by \fIn\fP. If
+more than \fIn\fP digit positions are required, this conversion specification
+is ignored. Digit positions in excess of those
+actually required are filled with the numeric fill character (see
+the \fB=\fP\fIf\fP flag above). 
+.LP
+If grouping has not been suppressed with the \fB'^'\fP flag, and it
+is defined for the current locale, grouping separators
+are inserted before the fill characters (if any) are added. Grouping
+separators are not applied to fill characters even if the fill
+character is a digit.
+.LP
+To ensure alignment, any characters appearing before or after the
+number in the formatted output such as currency or sign
+symbols are padded as necessary with <space>s to make their positive
+and negative formats an equal length.
+.sp
+.SS Right Precision
+.TP 7
+\fB\&.\fP\fIp\fP
+A period followed by a decimal digit string \fIp\fP specifying the
+number of digits after the radix character. If the value of
+the right precision \fIp\fP is 0, no radix character appears. If a
+right precision is not included, a default specified by the
+current locale is used. The amount being formatted is rounded to the
+specified number of digits prior to formatting.
+.sp
+.SS Conversion Specifier Characters
+.LP
+The conversion specifier characters and their meanings are:
+.TP 7
+\fBi\fP
+The \fBdouble\fP argument is formatted according to the locale's international
+currency format (for example, in the U.S.: USD
+1,234.56). If the argument is \(+-Inf or NaN, the result of the conversion
+is unspecified.
+.TP 7
+\fBn\fP
+The \fBdouble\fP argument is formatted according to the locale's national
+currency format (for example, in the U.S.:
+$1,234.56). If the argument is \(+-Inf or NaN, the result of the conversion
+is unspecified.
+.TP 7
+\fB%\fP
+Convert to a \fB'%'\fP ; no argument is converted. The entire conversion
+specification shall be \fB%%\fP .
+.sp
+.SS Locale Information
+.LP
+The \fILC_MONETARY\fP category of the program's locale affects the
+behavior of this function including the monetary radix
+character (which may be different from the numeric radix character
+affected by the \fILC_NUMERIC\fP category), the grouping
+separator, the currency symbols, and formats. The international currency
+symbol should be conformant with the ISO\ 4217:1995
+standard.
+.LP
+If the value of \fImaxsize\fP is greater than {SSIZE_MAX}, the result
+is implementation-defined.
+.SH RETURN VALUE
+.LP
+If the total number of resulting bytes including the terminating null
+byte is not more than \fImaxsize\fP, \fIstrfmon\fP()
+shall return the number of bytes placed into the array pointed to
+by \fIs\fP, not including the terminating null byte. Otherwise,
+-1 shall be returned, the contents of the array are unspecified, and
+\fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fIstrfmon\fP() function shall fail if:
+.TP 7
+.B E2BIG
+Conversion stopped due to lack of space in the buffer.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+Given a locale for the U.S. and the values 123.45, -123.45, and 3456.781,
+the following output might be produced. Square
+brackets ( \fB"[]"\fP ) are used in this example to delimit the output.
+.sp
+.RS
+.nf
+
+\fB%n         [$123.45]        \fP Default formatting 
+\fB           [-$123.45]
+           [$3,456.78]
+.sp
+
+%11n       [    $123.45]    \fP Right align within an 11-character field 
+\fB           [   -$123.45]
+           [  $3,456.78]
+.sp
+
+%#5n       [ $   123.45]    \fP Aligned columns for values up to 99999 
+\fB           [-$   123.45]
+           [ $ 3,456.78]
+.sp
+
+%=*#5n     [ $***123.45]    \fP Specify a fill character 
+\fB           [-$***123.45]
+           [ $*3,456.78]
+.sp
+
+%=0#5n     [ $000123.45]    \fP Fill characters do not use grouping 
+\fB           [-$000123.45]    \fP even if the fill character is a digit 
+\fB           [ $03,456.78]
+.sp
+
+%^#5n      [ $  123.45]     \fP Disable the grouping separator 
+\fB           [-$  123.45]
+           [ $ 3456.78]
+.sp
+
+%^#5.0n    [ $  123]        \fP Round off to whole units 
+\fB           [-$  123]
+           [ $ 3457]
+.sp
+
+%^#5.4n    [ $  123.4500]   \fP Increase the precision 
+\fB           [-$  123.4500]
+           [ $ 3456.7810]
+.sp
+
+%(#5n      [$   123.45]     \fP Use an alternative pos/neg style 
+\fB           [($   123.45)]
+           [$ 3,456.78]
+.sp
+
+%!(#5n     [   123.45]      \fP Disable the currency symbol 
+\fB           [(   123.45)]
+           [ 3,456.78]
+.sp
+
+%-14#5.4n  [ $   123.4500 ] \fP Left-justify the output 
+\fB           [-$   123.4500 ]
+           [ $ 3,456.7810 ]
+.sp
+
+%14#5.4n   [  $   123.4500] \fP Corresponding right-justified output 
+\fB           [ -$   123.4500]
+           [  $ 3,456.7810]
+\fP
+.fi
+.RE
+.LP
+See also the EXAMPLES section in \fIfprintf\fP().
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+Lowercase conversion characters are reserved for future standards
+use and uppercase for implementation-defined use.
+.SH SEE ALSO
+.LP
+\fIfprintf\fP() , \fIlocaleconv\fP() , the Base Definitions volume
+of
+IEEE\ Std\ 1003.1-2001, \fI<monetary.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

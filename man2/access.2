@@ -1,0 +1,181 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt, Ian Jackson.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1993-07-21 Rik Faith (faith@cs.unc.edu)
+.\" Modified 1994-08-21 by Michael Chastain (mec@shell.portal.com):
+.\"   Removed note about old kernel (pre-1.1.44) using wrong id on path.
+.\" Modified 1996-03-18 by Martin Schulze (joey@infodrom.north.de):
+.\"   Stated more clearly how it behaves with symbolic links.
+.\" Added correction due to Nick Duffek (nsd@bbc.com), aeb, 960426
+.\" Modified 1996-09-07 by Michael Haardt:
+.\"   Restrictions for NFS
+.\" Modified 1997-09-09 by Joseph S. Myers <jsm28@cam.ac.uk>
+.\" Modified 1998-01-13 by Michael Haardt:
+.\"   Using access is often insecure
+.\" Modified 2001-10-16 by aeb
+.\" Modified 2002-04-23 by Roger Luethi <rl@hellgate.ch>
+.\" Modified 2004-06-23 by Michael Kerrisk
+.\"
+.TH ACCESS 2 2004-06-23 "Linux" "Linux Programmer's Manual"
+.SH NAME
+access \- check user's permissions for a file
+.SH SYNOPSIS
+.nf
+.B #include <unistd.h>
+.sp
+.BI "int access(const char *" pathname ", int " mode );
+.fi
+.SH DESCRIPTION
+.B access
+checks whether the process would be allowed to read,
+write or test for existence of the file (or other file system
+object) whose name is
+.IR pathname .
+If
+.I pathname
+is a symbolic link permissions of the file referred to by this
+symbolic link are tested.
+
+.I mode
+is a mask consisting of one or more of
+.BR R_OK ", " W_OK ", " X_OK " and " F_OK .
+
+.BR R_OK ", " W_OK " and " X_OK
+request checking whether the file exists and has read, write and
+execute permissions, respectively.
+.B F_OK
+just requests checking for the existence of the file.
+
+The tests depend on the permissions of the directories
+occurring in the path to the file, as given in
+.IR pathname ,
+and on the permissions of directories and files referred to by symbolic
+links encountered on the way.
+
+The check is done with the process's
+.I real
+UID and GID, rather than with the effective IDs as is done when
+actually attempting an operation.  This is to allow set-UID programs to
+easily determine the invoking user's authority.
+
+Only access bits are checked, not the file type or contents.  Therefore, if
+a directory is found to be "writable," it probably means that files can be
+created in the directory, and not that the directory can be written as a
+file.  Similarly, a DOS file may be found to be "executable," but the
+.BR execve (2)
+call will still fail.
+
+If the process has appropriate privileges, an implementation may
+indicate success for
+.B X_OK
+even if none of the execute file permission bits are set. 
+.SH "RETURN VALUE"
+On success (all requested permissions granted), zero is returned.
+On error (at least one bit in
+.I mode
+asked for a permission that is denied, or some other error occurred),
+\-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.B access
+shall fail if:
+.TP
+.B EACCES
+The requested access would be denied to the file or search permission
+is denied for one of the directories in the path prefix of
+.IR pathname .
+(See also
+.BR path_resolution (2).)
+.TP
+.B ELOOP
+Too many symbolic links were encountered in resolving
+.IR pathname .
+.TP
+.B ENAMETOOLONG
+.I pathname
+is too long.
+.TP
+.B ENOENT
+A directory component in
+.I pathname
+would have been accessible but does not exist or was a dangling
+symbolic link.
+.TP
+.B ENOTDIR
+A component used as a directory in
+.I pathname
+is not, in fact, a directory.
+.TP
+.B EROFS
+Write permission was requested for a file on a read-only filesystem.
+.PP
+.B access
+may fail if:
+.TP
+.B EFAULT
+.I pathname
+points outside your accessible address space.
+.TP
+.B EINVAL
+.I mode
+was incorrectly specified.
+.TP
+.B EIO
+An I/O error occurred.
+.TP
+.B ENOMEM
+Insufficient kernel memory was available.
+.TP
+.B ETXTBSY
+Write access was requested to an executable which is being
+executed.
+.SH RESTRICTIONS
+.B access
+returns an error if any of the access types in the requested call
+fails, even if other types might be successful.
+.PP
+.B access
+may not work correctly on NFS file systems with UID mapping enabled,
+because UID mapping is done on the server and hidden from the client,
+which checks permissions.
+.PP
+Using
+.B access
+to check if a user is authorized to e.g. open a file before actually
+doing so using
+.BR open (2)
+creates a security hole, because the user might exploit the short time
+interval between checking and opening the file to manipulate it.
+.SH "CONFORMING TO"
+SVID, AT&T, POSIX, X/OPEN, BSD 4.3
+.SH "SEE ALSO"
+.BR chmod (2),
+.BR chown (2),
+.BR open (2),
+.BR path_resolution (2),
+.BR setgid (2),
+.BR setuid (2),
+.BR stat (2)

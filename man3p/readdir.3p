@@ -1,0 +1,281 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "READDIR" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" readdir 
+.SH NAME
+readdir, readdir_r \- read a directory
+.SH SYNOPSIS
+.LP
+\fB#include <dirent.h>
+.br
+.sp
+struct dirent *readdir(DIR *\fP\fIdirp\fP\fB);
+.br
+\fP
+.LP
+\fBint readdir_r(DIR *restrict\fP \fIdirp\fP\fB, struct dirent *restrict\fP
+\fIentry\fP\fB,
+.br
+\ \ \ \ \ \  struct dirent **restrict\fP \fIresult\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The type \fBDIR\fP, which is defined in the \fI<dirent.h>\fP header,
+represents
+a \fIdirectory stream\fP, which is an ordered sequence of all the
+directory entries in a particular directory. Directory entries
+represent files; files may be removed from a directory or added to
+a directory asynchronously to the operation of
+\fIreaddir\fP().
+.LP
+The \fIreaddir\fP() function shall return a pointer to a structure
+representing the directory entry at the current position in
+the directory stream specified by the argument \fIdirp\fP, and position
+the directory stream at the next entry. It shall return a
+null pointer upon reaching the end of the directory stream. The structure
+\fBdirent\fP defined in the \fI<dirent.h>\fP header describes a directory
+entry.
+.LP
+The \fIreaddir\fP() function shall not return directory entries containing
+empty names. If entries for dot or dot-dot exist,
+one entry shall be returned for dot and one entry shall be returned
+for dot-dot; otherwise, they shall not be returned.
+.LP
+The pointer returned by \fIreaddir\fP() points to data which may be
+overwritten by another call to \fIreaddir\fP() on the same
+directory stream. This data is not overwritten by another call to
+\fIreaddir\fP() on a different directory stream.
+.LP
+If a file is removed from or added to the directory after the most
+recent call to \fIopendir\fP() or \fIrewinddir\fP(), whether a
+subsequent call to \fIreaddir\fP() returns an entry for that file
+is unspecified.
+.LP
+The \fIreaddir\fP() function may buffer several directory entries
+per actual read operation; \fIreaddir\fP() shall mark for
+update the \fIst_atime\fP field of the directory each time the directory
+is actually read.
+.LP
+After a call to \fIfork\fP(), either the parent or child (but not
+both) may continue
+processing the directory stream using \fIreaddir\fP(), \fIrewinddir\fP(),
+\ or \fIseekdir\fP().  If both the
+parent and child processes use these functions, the result is undefined.
+.LP
+If the entry names a symbolic link, the value of the \fId_ino\fP member
+is unspecified.
+.LP
+The \fIreaddir\fP() function need not be reentrant. A function that
+is not required to be reentrant is not required to be
+thread-safe.
+.LP
+The \fIreaddir_r\fP() function shall initialize the \fBdirent\fP structure
+referenced by \fIentry\fP to represent the directory
+entry at the current position in the directory stream referred to
+by \fIdirp\fP, store a pointer to this structure at the location
+referenced by \fIresult\fP, and position the directory stream at the
+next entry.
+.LP
+The storage pointed to by \fIentry\fP shall be large enough for a
+\fBdirent\fP with an array of \fBchar\fP \fId_name\fP
+members containing at least {NAME_MAX}+1 elements.
+.LP
+Upon successful return, the pointer returned at *\fIresult\fP shall
+have the same value as the argument \fIentry\fP. Upon
+reaching the end of the directory stream, this pointer shall have
+the value NULL.
+.LP
+The \fIreaddir_r\fP() function shall not return directory entries
+containing empty names.
+.LP
+If a file is removed from or added to the directory after the most
+recent call to \fIopendir\fP() or \fIrewinddir\fP(), whether a
+subsequent call to \fIreaddir_r\fP() returns an entry for that file
+is unspecified.
+.LP
+The \fIreaddir_r\fP() function may buffer several directory entries
+per actual read operation; the \fIreaddir_r\fP() function
+shall mark for update the \fIst_atime\fP field of the directory each
+time the directory is actually read. 
+.LP
+Applications wishing to check for error situations should set \fIerrno\fP
+to 0 before calling \fIreaddir\fP(). If \fIerrno\fP
+is set to non-zero on return, an error occurred.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIreaddir\fP() shall return a pointer
+to an object of type \fBstruct dirent\fP. When an error is
+encountered, a null pointer shall be returned and \fIerrno\fP shall
+be set to indicate the error. When the end of the directory is
+encountered, a null pointer shall be returned and \fIerrno\fP is not
+changed.
+.LP
+If successful, the \fIreaddir_r\fP() function shall return zero; otherwise,
+an error number shall be returned to indicate the
+error. 
+.SH ERRORS
+.LP
+The \fIreaddir\fP() function shall fail if:
+.TP 7
+.B EOVERFLOW
+One of the values in the structure to be returned cannot be represented
+correctly.
+.sp
+.LP
+The \fIreaddir\fP() function may fail if:
+.TP 7
+.B EBADF
+The \fIdirp\fP argument does not refer to an open directory stream.
+.TP 7
+.B ENOENT
+The current position of the directory stream is invalid.
+.sp
+.LP
+The \fIreaddir_r\fP() function may fail if:
+.TP 7
+.B EBADF
+The \fIdirp\fP argument does not refer to an open directory stream.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following sample program searches the current directory for each
+of the arguments supplied on the command line.
+.sp
+.RS
+.nf
+
+\fB#include <dirent.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+.sp
+
+static void lookup(const char *arg)
+{
+    DIR *dirp;
+    struct dirent *dp;
+.sp
+
+    if ((dirp = opendir(".")) == NULL) {
+        perror("couldn't open '.'");
+        return;
+    }
+.sp
+
+    do {
+        errno = 0;
+        if ((dp = readdir(dirp)) != NULL) {
+            if (strcmp(dp->d_name, arg) != 0)
+                continue;
+.sp
+
+            (void) printf("found %s\\n", arg);
+            (void) closedir(dirp);
+                return;
+.sp
+
+        }
+    } while (dp != NULL);
+.sp
+
+    if (errno != 0)
+        perror("error reading directory");
+    else
+        (void) printf("failed to find %s\\n", arg);
+    (void) closedir(dirp);
+    return;
+}
+.sp
+
+int main(int argc, char *argv[])
+{
+    int i;
+    for (i = 1; i < argc; i++)
+        lookup(arvg[i]);
+    return (0);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIreaddir\fP() function should be used in conjunction with \fIopendir\fP(),
+\fIclosedir\fP(), and \fIrewinddir\fP() to
+examine the contents of the directory.
+.LP
+The \fIreaddir_r\fP() function is thread-safe and shall return values
+in a user-supplied buffer instead of possibly using a
+static data area that may be overwritten by each call.
+.SH RATIONALE
+.LP
+The returned value of \fIreaddir\fP() merely \fIrepresents\fP a directory
+entry. No equivalence should be inferred.
+.LP
+Historical implementations of \fIreaddir\fP() obtain multiple directory
+entries on a single read operation, which permits
+subsequent \fIreaddir\fP() operations to operate from the buffered
+information. Any wording that required each successful
+\fIreaddir\fP() operation to mark the directory \fIst_atime\fP field
+for update would disallow such historical
+performance-oriented implementations.
+.LP
+Since \fIreaddir\fP() returns NULL when it detects an error and when
+the end of the directory is encountered, an application
+that needs to tell the difference must set \fIerrno\fP to zero before
+the call and check it if NULL is returned. Since the
+function must not change \fIerrno\fP in the second case and must set
+it to a non-zero value in the first case, a zero \fIerrno\fP
+after a call returning NULL indicates end-of-directory; otherwise,
+an error.
+.LP
+Routines to deal with this problem more directly were proposed:
+.sp
+.RS
+.nf
+
+\fBint derror (\fP\fIdirp\fP\fB)
+DIR *\fP\fIdirp\fP\fB;
+.sp
+
+void clearderr (\fP\fIdirp\fP\fB)
+DIR *\fP\fIdirp\fP\fB;
+\fP
+.fi
+.RE
+.LP
+The first would indicate whether an error had occurred, and the second
+would clear the error indication. The simpler method
+involving \fIerrno\fP was adopted instead by requiring that \fIreaddir\fP()
+not change \fIerrno\fP when end-of-directory is
+encountered.
+.LP
+An error or signal indicating that a directory has changed while open
+was considered but rejected.
+.LP
+The thread-safe version of the directory reading function returns
+values in a user-supplied buffer instead of possibly using a
+static data area that may be overwritten by each call. Either the
+{NAME_MAX} compile-time constant or the corresponding \fIpathconf\fP()
+option can be used to determine the maximum sizes of returned pathnames.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclosedir\fP() , \fIlstat\fP() , \fIopendir\fP() , \fIrewinddir\fP()
+, \fIsymlink\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<dirent.h>\fP,
+\fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,88 @@
+.\" Copyright (C) 2004 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH SET_TID_ADDRESS 2 2004-09-10 "Linux 2.6" "Linux Programmer's Manual"
+.SH NAME
+set_tid_address \- set pointer to thread ID
+.SH SYNOPSIS
+.nf
+.B #include <linux/unistd.h>
+.sp
+.BI "long set_tid_address(int *" tidptr );
+.SH DESCRIPTION
+The kernel keeps for each process two values called
+.I set_child_tid
+and
+.I clear_child_tid
+that are NULL by default.
+
+.SS set_child_tid
+If a process is started using
+.BR clone (2)
+with the
+.B CLONE_CHILD_SETTID
+flag,
+.I set_child_tid
+is set to
+.IR child_tidptr ,
+the fifth parameter of that system call.
+.LP
+When
+.I set_child_tid
+is set, the very first thing the new process does
+is writing its PID at this address.
+
+.SS clear_child_tid
+If a process is started using
+.BR clone (2)
+with the
+.B CLONE_CHILD_CLEARTID
+flag, 
+.I clear_child_tid
+is set to
+.IR child_tidptr ,
+the fifth parameter of that system call.
+.LP
+The system call
+.B set_tid_address
+sets the
+.I clear_child_tid
+value for the calling process to
+.IR tidptr .
+.LP
+When
+.I clear_child_tid
+is set, and the process exits, and the process was sharing memory
+with other processes or threads, then 0 is written at this address,
+and a
+.I futex(child_tidptr, FUTEX_WAKE, 1, NULL, NULL, 0);
+call is done. (That is, wake a single process waiting on this futex.)
+Errors are ignored.
+.SH "RETURN VALUE"
+.B set_tid_address
+returns the PID of the current process.
+.SH HISTORY
+This call is present since Linux 2.5.48.
+Details as given here are valid since Linux 2.5.49.
+.SH "SEE ALSO"
+.BR clone (2),
+.BR futex (2)

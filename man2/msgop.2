@@ -1,0 +1,415 @@
+.\" Copyright 1993 Giorgio Ciucci <giorgio@crcc.it>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Tue Oct 22 16:40:11 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Mon Jul 10 21:09:59 2000 by aeb
+.\" Modified 1 Jun 2002, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	Language clean-ups.
+.\"	Enhanced and corrected information on msg_qbytes, MSGMNB and MSGMAX
+.\"	Added note on restart behaviour of msgsnd and msgrcv
+.\"	Formatting clean-ups (argument and field names marked as .I 
+.\"		instead of .B)
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH MSGOP 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+msgop \- message operations
+.SH SYNOPSIS
+.nf
+.B
+#include <sys/types.h>
+.br
+.B
+#include <sys/ipc.h>
+.br
+.B
+#include <sys/msg.h>
+.fi
+.sp
+.BI "int msgsnd(int " msqid ,
+.BI "struct msgbuf *" msgp ,
+.BI "size_t " msgsz ,
+.BI "int " msgflg );
+.sp
+.BI "ssize_t msgrcv(int " msqid ,
+.BI "struct msgbuf *" msgp ,
+.BI "size_t " msgsz ,
+.BI "long " msgtyp ,
+.BI "int " msgflg );
+.SH DESCRIPTION
+To send or receive a message, the calling process allocates a structure
+of the following general form:
+.sp
+.B
+	struct msgbuf {
+.br
+.B
+		long	mtype;	
+/* message type, must be > 0 */
+.br
+.B
+		char	mtext[1];	
+/* message data */
+.br
+.B
+	};
+.sp
+The
+.I mtext
+field is an array (or other structure) whose size is specified by
+.IR msgsz ,
+a non-negative integer value.
+Messages of zero length (i.e., no
+.I mtext
+field) are permitted.
+The
+.I mtype
+field must have a strictly positive integer value that can be
+used by the receiving process for message selection
+(see the section about
+.BR msgrcv ).
+.PP
+The calling process must have write permission to send
+and read permission to receive a message on the queue.
+.PP
+The
+.B msgsnd
+system call appends a copy of the message pointed to by
+.I msgp
+to the message queue whose identifier is specified
+by
+.IR msqid .
+.PP
+If sufficient space is available on the queue,
+.B msgsnd
+succeeds immediately.
+(The queue capacity is defined by the
+.I msg_bytes
+field in the associated data structure for the message queue.
+During queue creation this field is initialised to
+.B MSGMNB
+bytes, but this limit can be modified using
+.BR msgctl .)
+If insufficient space is available on the queue, then the default
+behaviour of 
+.B msgsnd
+is to block until space becomes available.
+If
+.B IPC_NOWAIT
+is asserted in
+.B msgflg
+then the call instead fails with the error
+.BR EAGAIN .
+
+A blocked 
+.B msgsnd
+call may also fail if the queue is removed 
+(in which case the system call fails with
+.I errno
+set to
+.BR EIDRM ),
+or a signal is caught (in which case the system call fails
+with
+.I errno
+set to
+.BR EINTR ).
+.RB ( msgsnd " and " msgrcv
+are never automatically restarted after being interrupted by a 
+signal handler, regardless of the  setting  of the
+.B SA_RESTART
+flag when establishing a signal handler.)
+.PP
+Upon successful completion the message queue data structure is updated
+as follows:
+.IP
+.I msg_lspid
+is set to the process ID of the calling process.
+.IP
+.I msg_qnum
+is incremented by 1.
+.IP
+.I msg_stime
+is set to the current time.
+.PP
+The system call
+.B msgrcv
+reads a message from the message queue specified by
+.I msqid
+into the
+.I msgbuf
+pointed to by the
+.I msgp
+argument, removing the read message from the queue.
+.PP
+The argument
+.I msgsz
+specifies the maximum size in bytes for the member
+.I mtext
+of the structure pointed to by the
+.I msgp
+argument.
+If the message text has length greater than
+.IR msgsz ,
+then if the
+.I msgflg
+argument asserts
+.BR MSG_NOERROR ,
+the message text will be truncated (and the truncated part will be
+lost), otherwise the message isn't removed from the queue and
+the system call fails returning with
+.I errno
+set to
+.BR E2BIG .
+.PP
+The argument
+.I msgtyp
+specifies the type of message requested as follows:
+.IP
+If
+.I msgtyp
+is
+.BR 0 ,
+then the first message in the queue is read.
+.IP
+If
+.I msgtyp
+is greater than
+.BR 0 ,
+then the first message on the queue of type
+.I msgtyp
+is read, unless
+.B MSG_EXCEPT
+was asserted in
+.IR msgflg ,
+in which case
+the first message on the queue of type not equal to
+.I msgtyp
+will be read.
+.IP
+If
+.I msgtyp
+is less than
+.BR 0 ,
+then the first message on the queue with the lowest type less than or
+equal to the absolute value of
+.I msgtyp
+will be read.
+.PP
+The
+.I msgflg
+argument asserts none, one or more (or\-ing them) of the following
+flags:
+.IP
+.B IPC_NOWAIT
+For immediate return if no message of the requested type is on the queue.
+The system call fails with errno set to
+.BR ENOMSG .
+.IP
+.B MSG_EXCEPT
+Used with
+.I msgtyp
+greater than
+.B 0
+to read the first message on the queue with message type that differs
+from
+.IR msgtyp .
+.IP
+.B MSG_NOERROR
+To truncate the message text if longer than
+.I msgsz
+bytes.
+.PP
+If no message of the requested type is available and
+.B IPC_NOWAIT
+isn't asserted in
+.IR msgflg ,
+the calling process is blocked until one of the following conditions occurs:
+.IP
+A message of the desired type is placed on the queue.
+.IP
+The message queue is removed from the system.
+In this case the system call fails with
+.I errno
+set to
+.BR EIDRM .
+.IP
+The calling process catches a signal.
+In this case the system call fails with
+.I errno
+set to
+.BR EINTR .
+.PP
+Upon successful completion the message queue data structure is updated
+as follows:
+.IP
+.I msg_lrpid
+is set to the process ID of the calling process.
+.IP
+.I msg_qnum
+is decremented by 1.
+.IP
+.I msg_rtime
+is set to the current time.
+.SH "RETURN VALUE"
+On a failure both functions return
+.B \-1
+with
+.I errno
+indicating the error,
+otherwise
+.B msgsnd
+returns
+.B 0
+and
+.B msgrvc
+returns the number of bytes actually copied into the
+.I mtext
+array.
+.SH ERRORS
+When
+.B msgsnd
+fails, at return
+.I errno
+will be set to one among the following values:
+.TP
+.B EACCES
+The calling process does not have write permission on the message queue,
+and does not have the
+.BR CAP_IPC_OWNER
+capability.
+.TP 11
+.B EAGAIN
+The message can't be sent due to the
+.I msg_qbytes
+limit for the queue and
+.B IPC_NOWAIT
+was asserted in
+.IR mgsflg .
+.TP
+.B EFAULT
+The address pointed to by
+.I msgp
+isn't accessible.
+.TP
+.B EIDRM
+The message queue was removed.
+.TP
+.B EINTR
+Sleeping on a full message queue condition, the process caught a signal.
+.TP
+.B EINVAL
+Invalid
+.I msqid
+value, or nonpositive
+.I mtype
+value, or
+invalid
+.I msgsz
+value (less than 0 or greater than the system value
+.BR MSGMAX ).
+.TP
+.B ENOMEM
+The system has not enough memory to make a copy of the supplied
+.IR msgbuf .
+.PP
+When
+.B msgrcv
+fails, at return
+.I errno
+will be set to one among the following values:
+.TP 11
+.B E2BIG
+The message text length is greater than
+.I msgsz
+and
+.B MSG_NOERROR
+isn't asserted in
+.IR msgflg .
+.TP
+.B EACCES
+The calling process does not have read permission on the message queue,
+and does not have the
+.BR CAP_IPC_OWNER
+capability.
+.TP
+.B EFAULT
+The address pointed to by
+.I msgp
+isn't accessible.
+.TP
+.B EIDRM
+While the process was sleeping to receive a message,
+the message queue was removed.
+.TP
+.B EINTR
+While the process was sleeping to receive a message,
+the process received a signal that had to be caught.
+.TP
+.B EINVAL
+Illegal
+.I msgqid
+value, or
+.I msgsz
+less than
+.BR 0 .
+.TP
+.B ENOMSG
+.B IPC_NOWAIT
+was asserted in
+.I msgflg
+and no message of the requested type existed on the message queue.
+.SH NOTES
+The followings are system limits affecting a
+.B msgsnd
+system call:
+.TP 11
+.B MSGMAX
+Maximum size for a message text: the implementation set this value to
+8192 bytes.
+.TP
+.B MSGMNB
+Default maximum size in bytes of a message queue: 16384 bytes.
+The super\-user can increase the size of a message queue beyond
+.B MSGMNB
+by a
+.B msgctl
+system call.
+.PP
+The implementation has no intrinsic limits for the system wide maximum
+number of message headers
+.RB ( MSGTQL )
+and for the system wide maximum size in bytes of the message pool
+.RB ( MSGPOOL ).
+.SH "CONFORMING TO"
+SVr4, SVID.
+.SH NOTE
+The pointer argument is declared as \fIstruct msgbuf *\fP with
+libc4, libc5, glibc 2.0, glibc 2.1. It is declared as \fIvoid *\fP
+(\fIconst void *\fP for \fImsgsnd()\fP) with glibc 2.2, following the SUSv2.
+.SH "SEE ALSO"
+.BR msgctl (2),
+.BR msgget (2),
+.BR msgrcv (2),
+.BR msgsnd (2),
+.BR ipc (5),
+.BR capabilities (7)

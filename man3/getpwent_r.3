@@ -1,0 +1,171 @@
+.\" Copyright (c) 2003 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH GETPWENT_R 3 2003-11-15 "GNU" "Linux Programmer's Manual"
+.SH NAME
+getpwent_r, fgetpwent_r \- get passwd file entry reentrantly
+.SH SYNOPSIS
+.nf
+.B "#define _GNU_SOURCE"
+.br
+.B #include <pwd.h>
+.sp
+.BI "int getpwent_r(struct passwd *" pwbuf ", char *" buf ,
+.br
+.BI "               size_t " buflen ", struct passwd **" pwbufp );
+.sp
+.BI "int fgetpwent_r(FILE *" fp ", struct passwd *" pwbuf ", char *" buf ,
+.br
+.BI "                size_t " buflen ", struct passwd **" pwbufp );
+.SH DESCRIPTION
+The functions
+.B getpwent_r()
+and
+.B fgetpwent_r()
+are the reentrant versions of
+.BR getpwent (3)
+and
+.BR fgetpwent (3).
+The former reads the next passwd entry from the stream initialized by
+.BR setpwent (3).
+The latter reads the next passwd entry from the stream
+.I fp
+given as parameter.
+.PP
+The \fIpasswd\fP structure is defined in
+.I <pwd.h>
+as follows:
+.sp
+.RS
+.nf
+struct passwd {
+      char    *pw_name;      /* user name */
+      char    *pw_passwd;    /* user password */
+      uid_t   pw_uid;        /* user id */
+      gid_t   pw_gid;        /* group id */
+      char    *pw_gecos;     /* real name */
+      char    *pw_dir;       /* home directory */
+      char    *pw_shell;     /* shell program */
+};
+.fi
+.RE
+.sp
+The non-reentrant functions return a pointer to static storage,
+where this static storage contains further pointers to user
+name, password, gecos field, home directory and shell.
+The reentrant functions described here return all of that in
+caller-provided buffers. First of all there is the buffer
+.I pwbuf
+that can hold a struct passwd. And next the buffer
+.I buf
+of size
+.I buflen
+that can hold additional strings.
+The result of these functions, the struct passwd read from the stream,
+is stored in the provided buffer
+.RI * pwbuf ,
+and a pointer to this struct passwd is returned in
+.RI * pwbufp .
+.SH "RETURN VALUE"
+On success, these functions return 0 and
+.RI * pwbufp
+is a pointer to the struct passwd.
+On error, these functions return an error value and
+.RI * pwbufp
+is NULL.
+.SH ERRORS
+.TP
+.B ENOENT
+No more entries.
+.TP
+.B ERANGE
+Insufficient buffer space supplied. Try again with larger buffer.
+.SH EXAMPLE
+.nf
+#define _GNU_SOURCE
+#include <pwd.h>
+#include <stdio.h>
+#define BUFLEN 4096
+
+int main() {
+      struct passwd pw, *pwp;
+      char buf[BUFLEN];
+      int i;
+
+      setpwent();
+      while (1) {
+            i = getpwent_r(&pw, buf, BUFLEN, &pwp);
+            if (i)
+                  break;
+            printf("%s (%d)\etHOME %s\etSHELL %s\en",
+                  pwp->pw_name, pwp->pw_uid,
+                  pwp->pw_dir, pwp->pw_shell);
+      }
+      endpwent();
+      return 0;
+}
+.fi
+.\" perhaps add error checking - should use strerror_r
+.\" #include <errno.h>
+.\" #include <stdlib.h>
+.\"         if (i) {
+.\"               if (i == ENOENT)
+.\"                     break;
+.\"               printf("getpwent_r: %s", strerror(i));
+.\"               exit(1);
+.\"         }
+.SH "CONFORMING TO"
+These functions are GNU extensions, done in a style resembling
+the POSIX version of functions like
+.BR getpwnam_r (3).
+Other systems use prototype
+.sp
+.nf
+.in +4
+struct passwd *
+getpwent_r(struct passwd *pwd, char *buf, int buflen);
+.in
+.fi
+.sp
+or, better,
+.sp
+.nf
+.in +4
+int
+getpwent_r(struct passwd *pwd, char *buf, int buflen,
+           FILE **pw_fp);
+.in
+.fi
+.sp
+.SH NOTES
+The function
+.B getpwent_r()
+is not really reentrant since it shares the reading position
+in the stream with all other threads.
+.SH "SEE ALSO"
+.BR fgetpwent (3),
+.BR getpw (3),
+.BR getpwent (3),
+.BR getpwnam (3),
+.BR getpwuid (3),
+.BR putpwent (3),
+.BR passwd (5)

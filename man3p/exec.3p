@@ -1,0 +1,863 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "EXEC" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" exec 
+.SH NAME
+environ, execl, execv, execle, execve, execlp, execvp \- execute a
+file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+extern char **environ;
+.br
+int execl(const char *\fP\fIpath\fP\fB, const char *\fP\fIarg0\fP\fB,
+\&... /*, (char *)0 */);
+.br
+int execv(const char *\fP\fIpath\fP\fB, char *const\fP \fIargv\fP\fB[]);
+.br
+int execle(const char *\fP\fIpath\fP\fB, const char *\fP\fIarg0\fP\fB,
+\&... /*,
+.br
+\ \ \ \ \ \  (char *)0, char *const\fP \fIenvp\fP\fB[]*/);
+.br
+int execve(const char *\fP\fIpath\fP\fB, char *const\fP \fIargv\fP\fB[],
+char *const\fP \fIenvp\fP\fB[]);
+.br
+int execlp(const char *\fP\fIfile\fP\fB, const char *\fP\fIarg0\fP\fB,
+\&... /*, (char *)0 */);
+.br
+int execvp(const char *\fP\fIfile\fP\fB, char *const\fP \fIargv\fP\fB[]);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIexec\fP family of functions shall replace the current process
+image with a new process image. The new image shall be
+constructed from a regular, executable file called the \fInew process
+image file\fP. There shall be no return from a successful
+\fIexec\fP, because the calling process image is overlaid by the new
+process image.
+.LP
+When a C-language program is executed as a result of this call, it
+shall be entered as a C-language function call as
+follows:
+.sp
+.RS
+.nf
+
+\fBint main (\fP\fIint argc, char *argv\fP\fB[]);
+\fP
+.fi
+.RE
+.LP
+where \fIargc\fP is the argument count and \fIargv\fP is an array
+of character pointers to the arguments themselves. In
+addition, the following variable:
+.sp
+.RS
+.nf
+
+\fBextern char **environ;
+\fP
+.fi
+.RE
+.LP
+is initialized as a pointer to an array of character pointers to the
+environment strings. The \fIargv\fP and \fIenviron\fP
+arrays are each terminated by a null pointer. The null pointer terminating
+the \fIargv\fP array is not counted in \fIargc\fP.
+.LP
+Conforming multi-threaded applications shall not use the \fIenviron\fP
+variable to access or modify any environment variable while
+any other thread is concurrently modifying any environment variable.
+A call to any function dependent on any environment variable
+shall be considered a use of the \fIenviron\fP variable to access
+that environment variable. 
+.LP
+The arguments specified by a program with one of the \fIexec\fP functions
+shall be passed on to the new process image in the
+corresponding \fImain\fP() arguments.
+.LP
+The argument \fIpath\fP points to a pathname that identifies the new
+process image file.
+.LP
+The argument \fIfile\fP is used to construct a pathname that identifies
+the new process image file. If the \fIfile\fP argument
+contains a slash character, the \fIfile\fP argument shall be used
+as the pathname for this file. Otherwise, the path prefix for
+this file is obtained by a search of the directories passed as the
+environment variable \fIPATH\fP (see the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Chapter 8, Environment Variables).
+If this
+environment variable is not present, the results of the search are
+implementation-defined.
+.LP
+There are two distinct ways in which the contents of the process image
+file may cause the execution to fail, distinguished by
+the setting of \fIerrno\fP to either [ENOEXEC] or [EINVAL] (see the
+ERRORS section). In the cases where the other members of the
+\fIexec\fP family of functions would fail and set \fIerrno\fP to [ENOEXEC],
+the \fIexeclp\fP() and \fIexecvp\fP() functions
+shall execute a command interpreter and the environment of the executed
+command shall be as if the process invoked the \fIsh\fP utility using
+\fIexecl\fP() as follows:
+.sp
+.RS
+.nf
+
+\fBexecl(<shell path>, arg0, file, arg1, ..., (char *)0);
+\fP
+.fi
+.RE
+.LP
+where <\fIshell\ path\fP> is an unspecified pathname for the \fIsh\fP
+utility,
+\fIfile\fP is the process image file, and for \fIexecvp\fP(), where
+\fIarg\fP0, \fIarg\fP1, and so on correspond to the values
+passed to \fIexecvp\fP() in \fIargv\fP[0], \fIargv\fP[1], and so on.
+.LP
+The arguments represented by \fIarg0\fP,... are pointers to null-terminated
+character strings. These strings shall constitute
+the argument list available to the new process image. The list is
+terminated by a null pointer. The argument \fIarg0\fP should
+point to a filename that is associated with the process being started
+by one of the \fIexec\fP functions.
+.LP
+The argument \fIargv\fP is an array of character pointers to null-terminated
+strings. The application shall ensure that the
+last member of this array is a null pointer. These strings shall constitute
+the argument list available to the new process image.
+The value in \fIargv\fP[0] should point to a filename that is associated
+with the process being started by one of the \fIexec\fP
+functions.
+.LP
+The argument \fIenvp\fP is an array of character pointers to null-terminated
+strings. These strings shall constitute the
+environment for the new process image. The \fIenvp\fP array is terminated
+by a null pointer.
+.LP
+For those forms not containing an \fIenvp\fP pointer ( \fIexecl\fP(),
+\fIexecv\fP(), \fIexeclp\fP(), and \fIexecvp\fP()),
+the environment for the new process image shall be taken from the
+external variable \fIenviron\fP in the calling process.
+.LP
+The number of bytes available for the new process' combined argument
+and environment lists is {ARG_MAX}. It is
+implementation-defined whether null terminators, pointers, and/or
+any alignment bytes are included in this total.
+.LP
+File descriptors open in the calling process image shall remain open
+in the new process image, except for those whose close-on-
+\fIexec\fP flag FD_CLOEXEC is set. For those file descriptors that
+remain open, all attributes of the open file description remain
+unchanged. For any file descriptor that is closed for this reason,
+file locks are removed as a result of the close as described in
+\fIclose\fP() . Locks that are not removed by closing of file descriptors
+remain unchanged.
+.LP
+If file descriptors 0, 1, and 2 would otherwise be closed after a
+successful call to one of the \fIexec\fP family of functions,
+and the new process image file has the set-user-ID or set-group-ID
+file mode bits set,   \ and the
+ST_NOSUID bit is not set for the file system containing the new process
+image file,  implementations may open an unspecified file for each
+of these file descriptors in the new process
+image.
+.LP
+Directory streams open in the calling process image shall be closed
+in the new process image.
+.LP
+The state of the floating-point environment in the new process image
+shall be set to the default.
+.LP
+The state of conversion descriptors and message catalog descriptors
+in the new process image is undefined.  \ For the new process image,
+the equivalent of:
+.sp
+.RS
+.nf
+
+\fBsetlocale(LC_ALL, "C")
+\fP
+.fi
+.RE
+.LP
+shall be executed at start-up.
+.LP
+Signals set to the default action (SIG_DFL) in the calling process
+image shall be set to the default action in the new process
+image. Except for SIGCHLD, signals set to be ignored (SIG_IGN) by
+the calling process image shall be set to be ignored by the new
+process image. Signals set to be caught by the calling process image
+shall be set to the default action in the new process image
+(see \fI<signal.h>\fP). If the SIGCHLD signal is set to be ignored
+by the calling
+process image, it is unspecified whether the SIGCHLD signal is set
+to be ignored or to the default action in the new process image.
+\ After a successful call to any of the \fIexec\fP functions, alternate
+signal stacks are not preserved and the SA_ONSTACK
+flag shall be cleared for all signals. 
+.LP
+After a successful call to any of the \fIexec\fP functions, any functions
+previously registered by \fIatexit\fP() are no longer registered.
+.LP
+If the ST_NOSUID bit is set for the file system containing the new
+process image file, then the effective user ID, effective group
+ID, saved set-user-ID, and saved set-group-ID are unchanged in the
+new process image. Otherwise,  if the set-user-ID mode bit of the
+new process image file is set, the effective user ID of the new
+process image shall be set to the user ID of the new process image
+file. Similarly, if the set-group-ID mode bit of the new process
+image file is set, the effective group ID of the new process image
+shall be set to the group ID of the new process image file. The
+real user ID, real group ID, and supplementary group IDs of the new
+process image shall remain the same as those of the calling
+process image. The effective user ID and effective group ID of the
+new process image shall be saved (as the saved set-user-ID and
+the saved set-group-ID) for use by \fIsetuid\fP().
+.LP
+Any shared memory segments attached to the calling process image shall
+not be attached to the new process image. 
+.LP
+Any named semaphores open in the calling process shall be closed as
+if by appropriate calls to \fIsem_close\fP(). 
+.LP
+Any blocks of typed memory that were mapped in the calling process
+are unmapped, as if \fImunmap\fP() was implicitly called to unmap
+them. 
+.LP
+Memory locks established by the calling process via calls to \fImlockall\fP()
+or \fImlock\fP() shall be removed. If locked pages in the address
+space of the calling process are also
+mapped into the address spaces of other processes and are locked by
+those processes, the locks established by the other processes
+shall be unaffected by the call by this process to the \fIexec\fP
+function. If the \fIexec\fP function fails, the effect on
+memory locks is unspecified. 
+.LP
+Memory mappings created in the process are unmapped before the address
+space is rebuilt for the new process image. 
+.LP
+For
+the SCHED_FIFO and SCHED_RR scheduling policies, the policy and priority
+settings shall not be changed by a call to an \fIexec\fP
+function. For other scheduling policies, the policy and priority settings
+on \fIexec\fP are implementation-defined. 
+.LP
+Per-process timers created by the calling process shall be deleted
+before replacing the current process image with the new process
+image. 
+.LP
+All open message queue descriptors in the calling process shall be
+closed, as described in \fImq_close\fP() . 
+.LP
+Any outstanding asynchronous I/O operations may be canceled. Those
+asynchronous I/O operations that are not canceled shall complete
+as if the \fIexec\fP function had not yet occurred, but any associated
+signal notifications shall be suppressed. It is unspecified
+whether the \fIexec\fP function itself blocks awaiting such I/O completion.
+In no event, however, shall the new process image
+created by the \fIexec\fP function be affected by the presence of
+outstanding asynchronous I/O operations at the time the
+\fIexec\fP function is called. Whether any I/O is canceled, and which
+I/O may be canceled upon \fIexec\fP, is
+implementation-defined. 
+.LP
+The new process image shall inherit the CPU-time clock of the calling
+process image. This inheritance means that the process
+CPU-time clock of the process being \fIexec\fP-ed shall not be reinitialized
+or altered as a result of the \fIexec\fP function
+other than to reflect the time spent by the process executing the
+\fIexec\fP function itself. 
+.LP
+The initial value of the CPU-time clock of the initial thread of the
+new process image shall be set to zero. 
+.LP
+If the calling process is being traced, the new process image shall
+continue to be traced into the same trace stream as the
+original process image, but the new process image shall not inherit
+the mapping of trace event names to trace event type
+identifiers that was defined by calls to the \fIposix_trace_eventid_open\fP()
+or the \fIposix_trace_trid_eventid_open\fP() functions in the calling
+process
+image.
+.LP
+If the calling process is a trace controller process, any trace streams
+that were created by the calling process shall be shut
+down as described in the \fIposix_trace_shutdown\fP() function. 
+.LP
+The new process shall inherit at least the following attributes from
+the calling process image:
+.IP " *" 3
+Nice value (see \fInice\fP() ) 
+.LP
+.IP " *" 3
+\fIsemadj\fP values (see \fIsemop\fP() ) 
+.LP
+.IP " *" 3
+Process ID
+.LP
+.IP " *" 3
+Parent process ID
+.LP
+.IP " *" 3
+Process group ID
+.LP
+.IP " *" 3
+Session membership
+.LP
+.IP " *" 3
+Real user ID
+.LP
+.IP " *" 3
+Real group ID
+.LP
+.IP " *" 3
+Supplementary group IDs
+.LP
+.IP " *" 3
+Time left until an alarm clock signal (see \fIalarm\fP() )
+.LP
+.IP " *" 3
+Current working directory
+.LP
+.IP " *" 3
+Root directory
+.LP
+.IP " *" 3
+File mode creation mask (see \fIumask\fP() )
+.LP
+.IP " *" 3
+File size limit (see \fIulimit\fP() ) 
+.LP
+.IP " *" 3
+Process signal mask (see \fIsigprocmask\fP() )
+.LP
+.IP " *" 3
+Pending signal (see \fIsigpending\fP() )
+.LP
+.IP " *" 3
+\fItms_utime\fP, \fItms_stime\fP, \fItms_cutime\fP, and \fItms_cstime\fP
+(see \fItimes\fP() )
+.LP
+.IP " *" 3
+Resource limits 
+.LP
+.IP " *" 3
+Controlling terminal 
+.LP
+.IP " *" 3
+Interval timers 
+.LP
+.LP
+All other process attributes defined in this volume of IEEE\ Std\ 1003.1-2001
+shall be the same in the new and old
+process images. The inheritance of process attributes not defined
+by this volume of IEEE\ Std\ 1003.1-2001 is
+implementation-defined.
+.LP
+A call to any \fIexec\fP function from a process with more than one
+thread shall result in all threads being terminated and the
+new executable image being loaded and executed. No destructor functions
+shall be called.
+.LP
+Upon successful completion, the \fIexec\fP functions shall mark for
+update the \fIst_atime\fP field of the file. If an
+\fIexec\fP function failed but was able to locate the process image
+file, whether the \fIst_atime\fP field is marked for update
+is unspecified. Should the \fIexec\fP function succeed, the process
+image file shall be considered to have been opened with \fIopen\fP().
+The corresponding \fIclose\fP() shall be
+considered to occur at a time after this open, but before process
+termination or successful completion of a subsequent call to one
+of the \fIexec\fP functions, \fIposix_spawn\fP(), or \fIposix_spawnp\fP().
+The \fIargv\fP[] and \fIenvp\fP[] arrays of pointers and the strings
+to which those arrays point shall not be modified by a call to one
+of the \fIexec\fP functions, except as a consequence of
+replacing the process image.
+.LP
+The saved resource limits in the new process image are set to be a
+copy of the process' corresponding hard and soft limits. 
+.SH RETURN VALUE
+.LP
+If one of the \fIexec\fP functions returns to the calling process
+image, an error has occurred; the return value shall be -1,
+and \fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fIexec\fP functions shall fail if:
+.TP 7
+.B E2BIG
+The number of bytes used by the new process image's argument list
+and environment list is greater than the system-imposed limit
+of {ARG_MAX} bytes.
+.TP 7
+.B EACCES
+Search permission is denied for a directory listed in the new process
+image file's path prefix, or the new process image file
+denies execution permission, or the new process image file is not
+a regular file and the implementation does not support execution
+of files of its type.
+.TP 7
+.B EINVAL
+The new process image file has the appropriate permission and has
+a recognized executable binary format, but the system does
+not support execution of a file with this format.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP or \fIfile\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP or \fIfile\fP arguments exceeds {PATH_MAX}
+or a pathname component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP or \fIfile\fP does not name an existing
+file or \fIpath\fP or \fIfile\fP is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the new process image file's path prefix is not a directory.
+.sp
+.LP
+The \fIexec\fP functions, except for \fIexeclp\fP() and \fIexecvp\fP(),
+shall fail if:
+.TP 7
+.B ENOEXEC
+The new process image file has the appropriate access permission but
+has an unrecognized format.
+.sp
+.LP
+The \fIexec\fP functions may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP or \fIfile\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.TP 7
+.B ENOMEM
+The new process image requires more memory than is allowed by the
+hardware or system-imposed memory management
+constraints.
+.TP 7
+.B ETXTBSY
+The new process image file is a pure procedure (shared text) file
+that is currently open for writing by some process.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Using execl()
+.LP
+The following example executes the \fIls\fP command, specifying the
+pathname of the
+executable ( \fB/bin/ls\fP) and using arguments supplied directly
+to the command to produce single-column output.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+\&...
+ret = execl ("/bin/ls", "ls", "-1", (char *)0);
+\fP
+.fi
+.RE
+.SS Using execle()
+.LP
+The following example is similar to Using execl() . In addition, it
+specifies the environment
+for the new process image using the \fIenv\fP argument.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+char *env[] = { "HOME=/usr/home", "LOGNAME=home", (char *)0 };
+\&...
+ret = execle ("/bin/ls", "ls", "-l", (char *)0, env);
+\fP
+.fi
+.RE
+.SS Using execlp()
+.LP
+The following example searches for the location of the \fIls\fP command
+among the
+directories specified by the \fIPATH\fP environment variable.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+\&...
+ret = execlp ("ls", "ls", "-l", (char *)0);
+\fP
+.fi
+.RE
+.SS Using execv()
+.LP
+The following example passes arguments to the \fIls\fP command in
+the \fIcmd\fP array.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+char *cmd[] = { "ls", "-l", (char *)0 };
+\&...
+ret = execv ("/bin/ls", cmd);
+\fP
+.fi
+.RE
+.SS Using execve()
+.LP
+The following example passes arguments to the \fIls\fP command in
+the \fIcmd\fP array, and
+specifies the environment for the new process image using the \fIenv\fP
+argument.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+char *cmd[] = { "ls", "-l", (char *)0 };
+char *env[] = { "HOME=/usr/home", "LOGNAME=home", (char *)0 };
+\&...
+ret = execve ("/bin/ls", cmd, env);
+\fP
+.fi
+.RE
+.SS Using execvp()
+.LP
+The following example searches for the location of the \fIls\fP command
+among the
+directories specified by the \fIPATH\fP environment variable, and
+passes arguments to the \fIls\fP command in the \fIcmd\fP array.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int ret;
+char *cmd[] = { "ls", "-l", (char *)0 };
+\&...
+ret = execvp ("ls", cmd);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+As the state of conversion descriptors and message catalog descriptors
+in the new process image is undefined, conforming
+applications should not rely on their use and should close them prior
+to calling one of the \fIexec\fP functions.
+.LP
+Applications that require other than the default POSIX locale should
+call \fIsetlocale\fP() with the appropriate parameters to establish
+the locale of the new
+process.
+.LP
+The \fIenviron\fP array should not be accessed directly by the application.
+.LP
+Applications should not depend on file descriptors 0, 1, and 2 being
+closed after an \fIexec\fP. A future version may allow
+these file descriptors to be automatically opened for any process.
+.SH RATIONALE
+.LP
+Early proposals required that the value of \fIargc\fP passed to \fImain\fP()
+be "one or greater". This was driven by the
+same requirement in drafts of the ISO\ C standard. In fact, historical
+implementations have passed a value of zero when no
+arguments are supplied to the caller of the \fIexec\fP functions.
+This requirement was removed from the ISO\ C standard and
+subsequently removed from this volume of IEEE\ Std\ 1003.1-2001 as
+well. The wording, in particular the use of the word
+\fIshould\fP, requires a Strictly Conforming POSIX Application to
+pass at least one argument to the \fIexec\fP function, thus
+guaranteeing that \fIargc\fP be one or greater when invoked by such
+an application. In fact, this is good practice, since many
+existing applications reference \fIargv\fP[0] without first checking
+the value of \fIargc\fP.
+.LP
+The requirement on a Strictly Conforming POSIX Application also states
+that the value passed as the first argument be a filename
+associated with the process being started. Although some existing
+applications pass a pathname rather than a filename in some
+circumstances, a filename is more generally useful, since the common
+usage of \fIargv\fP[0] is in printing diagnostics. In some
+cases the filename passed is not the actual filename of the file;
+for example, many implementations of the \fIlogin\fP utility use
+a convention of prefixing a hyphen ( \fB'-'\fP ) to the actual filename,
+which indicates to the command interpreter being
+invoked that it is a "login shell".
+.LP
+Historically there have been two ways that implementations can \fIexec\fP
+shell scripts.
+.LP
+One common historical implementation is that the \fIexecl\fP(), \fIexecv\fP(),
+\fIexecle\fP(), and \fIexecve\fP() functions
+return an [ENOEXEC] error for any file not recognizable as executable,
+including a shell script. When the \fIexeclp\fP() and
+\fIexecvp\fP() functions encounter such a file, they assume the file
+to be a shell script and invoke a known command interpreter
+to interpret such files. This is now required by IEEE\ Std\ 1003.1-2001.
+These implementations of \fIexecvp\fP() and
+\fIexeclp\fP() only give the [ENOEXEC] error in the rare case of a
+problem with the command interpreter's executable file. Because
+of these implementations, the [ENOEXEC] error is not mentioned for
+\fIexeclp\fP() or \fIexecvp\fP(), although implementations can
+still give it.
+.LP
+Another way that some historical implementations handle shell scripts
+is by recognizing the first two bytes of the file as the
+character string \fB"#!"\fP and using the remainder of the first line
+of the file as the name of the command interpreter to
+execute.
+.LP
+One potential source of confusion noted by the standard developers
+is over how the contents of a process image file affect the
+behavior of the \fIexec\fP family of functions. The following is a
+description of the actions taken:
+.IP " 1." 4
+If the process image file is a valid executable (in a format that
+is executable and valid and having appropriate permission) for
+this system, then the system executes the file.
+.LP
+.IP " 2." 4
+If the process image file has appropriate permission and is in a format
+that is executable but not valid for this system (such
+as a recognized binary for another architecture), then this is an
+error and \fIerrno\fP is set to [EINVAL] (see later RATIONALE on
+[EINVAL]).
+.LP
+.IP " 3." 4
+If the process image file has appropriate permission but is not otherwise
+recognized:
+.RS
+.IP " a." 4
+If this is a call to \fIexeclp\fP() or \fIexecvp\fP(), then they invoke
+a command interpreter assuming that the process image
+file is a shell script.
+.LP
+.IP " b." 4
+If this is not a call to \fIexeclp\fP() or \fIexecvp\fP(), then an
+error occurs and \fIerrno\fP is set to [ENOEXEC].
+.LP
+.RE
+.LP
+.LP
+Applications that do not require to access their arguments may use
+the form:
+.sp
+.RS
+.nf
+
+\fBmain(void)
+\fP
+.fi
+.RE
+as specified in the ISO\ C standard. However, the implementation will
+always provide the two arguments \fIargc\fP and
+\fIargv\fP, even if they are not used. 
+.LP
+Some implementations provide a third argument to \fImain\fP() called
+\fIenvp\fP. This is defined as a pointer to the
+environment. The ISO\ C standard specifies invoking \fImain\fP() with
+two arguments, so implementations must support
+applications written this way. Since this volume of IEEE\ Std\ 1003.1-2001
+defines the global variable \fIenviron\fP,
+which is also provided by historical implementations and can be used
+anywhere that \fIenvp\fP could be used, there is no
+functional need for the \fIenvp\fP argument. Applications should use
+the \fIgetenv\fP()
+function rather than accessing the environment directly via either
+\fIenvp\fP or \fIenviron\fP. Implementations are required to
+support the two-argument calling sequence, but this does not prohibit
+an implementation from supporting \fIenvp\fP as an optional
+third argument.
+.LP
+This volume of IEEE\ Std\ 1003.1-2001 specifies that signals set to
+SIG_IGN remain set to SIG_IGN, and that the process
+signal mask be unchanged across an \fIexec\fP. This is consistent
+with historical implementations, and it permits some useful
+functionality, such as the \fInohup\fP command. However, it should
+be noted that many
+existing applications wrongly assume that they start with certain
+signals set to the default action and/or unblocked. In
+particular, applications written with a simpler signal model that
+does not include blocking of signals, such as the one in the
+ISO\ C standard, may not behave properly if invoked with some signals
+blocked. Therefore, it is best not to block or ignore
+signals across \fIexec\fPs without explicit reason to do so, and especially
+not to block signals across \fIexec\fPs of arbitrary
+(not closely co-operating) programs.
+.LP
+The \fIexec\fP functions always save the value of the effective user
+ID and effective group ID of the process at the completion
+of the \fIexec\fP, whether or not the set-user-ID or the set-group-ID
+bit of the process image file is set.
+.LP
+The statement about \fIargv\fP[] and \fIenvp\fP[] being constants
+is included to make explicit to future writers of language
+bindings that these objects are completely constant. Due to a limitation
+of the ISO\ C standard, it is not possible to state
+that idea in standard C. Specifying two levels of \fIconst\fP- \fIqualification\fP
+for the \fIargv\fP[] and \fIenvp\fP[]
+parameters for the \fIexec\fP functions may seem to be the natural
+choice, given that these functions do not modify either the
+array of pointers or the characters to which the function points,
+but this would disallow existing correct code. Instead, only the
+array of pointers is noted as constant. The table of assignment compatibility
+for \fIdst\fP= \fIsrc\fP derived from the
+ISO\ C standard summarizes the compatibility:
+.TS C
+center; l1 l1 l1 l1 l.
+\fIdst\fP:	\fBchar *[]\fP	\fBconst char *[]\fP	\fBchar *const[]\fP	\fBconst char *const[]\fP
+\fB\fIsrc\fP:\fP	\ 	\ 	\ 	\ 
+\fBchar *[]\fP	VALID	-	VALID	-
+\fBconst char *[]\fP	-	VALID	-	VALID
+\fBchar * const []\fP	-	-	VALID	-
+\fBconst char *const[]\fP	-	-	-	VALID
+.TE
+.LP
+Since all existing code has a source type matching the first row,
+the column that gives the most valid combinations is the third
+column. The only other possibility is the fourth column, but using
+it would require a cast on the \fIargv\fP or \fIenvp\fP
+arguments. It is unfortunate that the fourth column cannot be used,
+because the declaration a non-expert would naturally use would
+be that in the second row.
+.LP
+The ISO\ C standard and this volume of IEEE\ Std\ 1003.1-2001 do not
+conflict on the use of \fIenviron\fP, but some
+historical implementations of \fIenviron\fP may cause a conflict.
+As long as \fIenviron\fP is treated in the same way as an entry
+point (for example, \fIfork\fP()), it conforms to both standards.
+A library can contain \fIfork\fP(), but if there is a user-provided
+\fIfork\fP(), that \fIfork\fP() is given precedence and no
+problem ensues. The situation is similar for \fIenviron\fP: the definition
+in this volume of IEEE\ Std\ 1003.1-2001 is to
+be used if there is no user-provided \fIenviron\fP to take precedence.
+At least three implementations are known to exist that
+solve this problem.
+.TP 7
+.B E2BIG
+The limit {ARG_MAX} applies not just to the size of the argument list,
+but to the sum of that and the size of the environment
+list.
+.TP 7
+.B EFAULT
+Some historical systems return [EFAULT] rather than [ENOEXEC] when
+the new process image file is corrupted. They are
+non-conforming.
+.TP 7
+.B EINVAL
+This error condition was added to IEEE\ Std\ 1003.1-2001 to allow
+an implementation to detect executable files
+generated for different architectures, and indicate this situation
+to the application. Historical implementations of shells,
+\fIexecvp\fP(), and \fIexeclp\fP() that encounter an [ENOEXEC] error
+will execute a shell on the assumption that the file is a
+shell script. This will not produce the desired effect when the file
+is a valid executable for a different architecture. An
+implementation may now choose to avoid this problem by returning [EINVAL]
+when a valid executable for a different architecture is
+encountered. Some historical implementations return [EINVAL] to indicate
+that the \fIpath\fP argument contains a character with
+the high order bit set. The standard developers chose to deviate from
+historical practice for the following reasons: 
+.RS
+.IP " 1." 4
+The new utilization of [EINVAL] will provide some measure of utility
+to the user community.
+.LP
+.IP " 2." 4
+Historical use of [EINVAL] is not acceptable in an internationalized
+operating environment.
+.LP
+.RE
+.TP 7
+.B ENAMETOOLONG
+Since the file pathname may be constructed by taking elements in the
+\fIPATH\fP variable and putting them together with the
+filename, the [ENAMETOOLONG] error condition could also be reached
+this way.
+.TP 7
+.B ETXTBSY
+System V returns this error when the executable file is currently
+open for writing by some process. This volume of
+IEEE\ Std\ 1003.1-2001 neither requires nor prohibits this behavior.
+.sp
+.LP
+Other systems (such as System V) may return [EINTR] from \fIexec\fP.
+This is not addressed by this volume of
+IEEE\ Std\ 1003.1-2001, but implementations may have a window between
+the call to \fIexec\fP and the time that a signal
+could cause one of the \fIexec\fP calls to return with [EINTR].
+.LP
+An explicit statement regarding the floating-point environment (as
+defined in the \fI<fenv.h>\fP header) was added to make it clear that
+the floating-point environment is set
+to its default when a call to one of the \fIexec\fP functions succeeds.
+The requirements for inheritance or setting to the default
+for other process and thread start-up functions is covered by more
+generic statements in their descriptions and can be summarized
+as follows:
+.TP 7
+\fIposix_spawn\fP()
+Set to default.
+.TP 7
+\fIfork\fP()
+Inherit.
+.TP 7
+\fIpthread_create\fP()
+Inherit.
+.sp
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIatexit\fP() , \fIchmod\fP() ,
+\fIclose\fP() , \fIexit\fP() , \fIfcntl\fP() , \fIfork\fP() , \fIfstatvfs\fP()
+, \fIgetenv\fP() , \fIgetitimer\fP() , \fIgetrlimit\fP() , \fImmap\fP()
+, \fInice\fP() , \fIposix_spawn\fP() , \fIposix_trace_eventid_open\fP()
+, \fIposix_trace_shutdown\fP() , \fIposix_trace_trid_eventid_open\fP()
+, \fIputenv\fP() , \fIsemop\fP() , \fIsetlocale\fP() , \fIshmat\fP()
+,
+\fIsigaction\fP() , \fIsigaltstack\fP() , \fIsigpending\fP() , \fIsigprocmask\fP()
+, \fIsystem\fP() , \fItimes\fP() , \fIulimit\fP() , \fIumask\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 11,
+General Terminal Interface, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

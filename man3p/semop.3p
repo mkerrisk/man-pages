@@ -1,0 +1,348 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SEMOP" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" semop 
+.SH NAME
+semop \- XSI semaphore operations
+.SH SYNOPSIS
+.LP
+\fB#include <sys/sem.h>
+.br
+.sp
+int semop(int\fP \fIsemid\fP\fB, struct sembuf *\fP\fIsops\fP\fB,
+size_t\fP \fInsops\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsemop\fP() function operates on XSI semaphores (see the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Section 4.15, Semaphore).
+It is unspecified whether this function interoperates
+with the realtime interprocess communication facilities defined in
+\fIRealtime\fP .
+.LP
+The \fIsemop\fP() function shall perform atomically a user-defined
+array of semaphore operations on the set of semaphores
+associated with the semaphore identifier specified by the argument
+\fIsemid\fP.
+.LP
+The argument \fIsops\fP is a pointer to a user-defined array of semaphore
+operation structures. The implementation shall not
+modify elements of this array unless the application uses implementation-defined
+extensions.
+.LP
+The argument \fInsops\fP is the number of such structures in the array.
+.LP
+Each structure, \fBsembuf\fP, includes the following members:
+.TS C
+center; l2 l2 l.
+\fBMember Type\fP	\fBMember Name\fP	\fBDescription\fP
+\fBshort\fP	\fIsem_num\fP	Semaphore number.
+\fBshort\fP	\fIsem_op\fP	Semaphore operation.
+\fBshort\fP	\fIsem_flg\fP	Operation flags.
+.TE
+.LP
+Each semaphore operation specified by \fIsem_op\fP is performed on
+the corresponding semaphore specified by \fIsemid\fP and
+\fIsem_num\fP.
+.LP
+The variable \fIsem_op\fP specifies one of three semaphore operations:
+.IP " 1." 4
+If \fIsem_op\fP is a negative integer and the calling process has
+alter permission, one of the following shall occur:
+.RS
+.IP " *" 3
+If \fIsemval\fP(see \fI<sys/sem.h>\fP) is greater than or equal to
+the absolute
+value of \fIsem_op\fP, the absolute value of \fIsem_op\fP is subtracted
+from \fIsemval\fP. Also, if (\fIsem_flg\fP
+&SEM_UNDO) is non-zero, the absolute value of \fIsem_op\fP shall be
+added to the calling process' \fIsemadj\fP value for the
+specified semaphore.
+.LP
+.IP " *" 3
+If \fIsemval\fP is less than the absolute value of \fIsem_op\fP and
+(\fIsem_flg\fP &IPC_NOWAIT) is non-zero,
+\fIsemop\fP() shall return immediately.
+.LP
+.IP " *" 3
+If \fIsemval\fP is less than the absolute value of \fIsem_op\fP and
+(\fIsem_flg\fP &IPC_NOWAIT) is 0, \fIsemop\fP()
+shall increment the \fIsemncnt\fP associated with the specified semaphore
+and suspend execution of the calling thread until one of
+the following conditions occurs:
+.RS
+.IP " *" 3
+The value of \fIsemval\fP becomes greater than or equal to the absolute
+value of \fIsem_op\fP. When this occurs, the value of
+\fIsemncnt\fP associated with the specified semaphore shall be decremented,
+the absolute value of \fIsem_op\fP shall be
+subtracted from \fIsemval\fP and, if (\fIsem_flg\fP &SEM_UNDO) is
+non-zero, the absolute value of \fIsem_op\fP shall be
+added to the calling process' \fIsemadj\fP value for the specified
+semaphore.
+.LP
+.IP " *" 3
+The \fIsemid\fP for which the calling thread is awaiting action is
+removed from the system. When this occurs, \fIerrno\fP
+shall be set equal to [EIDRM] and -1 shall be returned.
+.LP
+.IP " *" 3
+The calling thread receives a signal that is to be caught. When this
+occurs, the value of \fIsemncnt\fP associated with the
+specified semaphore shall be decremented, and the calling thread shall
+resume execution in the manner prescribed in \fIsigaction\fP() .
+.LP
+.RE
+.LP
+.RE
+.LP
+.IP " 2." 4
+If \fIsem_op\fP is a positive integer and the calling process has
+alter permission, the value of \fIsem_op\fP shall be added
+to \fIsemval\fP and, if (\fIsem_flg\fP &SEM_UNDO) is non-zero, the
+value of \fIsem_op\fP shall be subtracted from the
+calling process' \fIsemadj\fP value for the specified semaphore.
+.LP
+.IP " 3." 4
+If \fIsem_op\fP is 0 and the calling process has read permission,
+one of the following shall occur:
+.RS
+.IP " *" 3
+If \fIsemval\fP is 0, \fIsemop\fP() shall return immediately.
+.LP
+.IP " *" 3
+If \fIsemval\fP is non-zero and (\fIsem_flg\fP &IPC_NOWAIT) is non-zero,
+\fIsemop\fP() shall return immediately.
+.LP
+.IP " *" 3
+If \fIsemval\fP is non-zero and (\fIsem_flg\fP &IPC_NOWAIT) is 0,
+\fIsemop\fP() shall increment the \fIsemzcnt\fP
+associated with the specified semaphore and suspend execution of the
+calling thread until one of the following occurs:
+.RS
+.IP " *" 3
+The value of \fIsemval\fP becomes 0, at which time the value of \fIsemzcnt\fP
+associated with the specified semaphore shall be
+decremented.
+.LP
+.IP " *" 3
+The \fIsemid\fP for which the calling thread is awaiting action is
+removed from the system. When this occurs, \fIerrno\fP
+shall be set equal to [EIDRM] and -1 shall be returned.
+.LP
+.IP " *" 3
+The calling thread receives a signal that is to be caught. When this
+occurs, the value of \fIsemzcnt\fP associated with the
+specified semaphore shall be decremented, and the calling thread shall
+resume execution in the manner prescribed in \fIsigaction\fP() .
+.LP
+.RE
+.LP
+.RE
+.LP
+.LP
+Upon successful completion, the value of \fIsempid\fP for each semaphore
+specified in the array pointed to by \fIsops\fP shall
+be set equal to the process ID of the calling process.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIsemop\fP() shall return 0; otherwise,
+it shall return -1 and set \fIerrno\fP to indicate the
+error.
+.SH ERRORS
+.LP
+The \fIsemop\fP() function shall fail if:
+.TP 7
+.B E2BIG
+The value of \fInsops\fP is greater than the system-imposed maximum.
+.TP 7
+.B EACCES
+Operation permission is denied to the calling process; see \fIXSI
+Interprocess
+Communication\fP .
+.TP 7
+.B EAGAIN
+The operation would result in suspension of the calling process but
+(\fIsem_flg\fP &IPC_NOWAIT) is non-zero.
+.TP 7
+.B EFBIG
+The value of \fIsem_num\fP is less than 0 or greater than or equal
+to the number of semaphores in the set associated with
+\fIsemid\fP.
+.TP 7
+.B EIDRM
+The semaphore identifier \fIsemid\fP is removed from the system.
+.TP 7
+.B EINTR
+The \fIsemop\fP() function was interrupted by a signal.
+.TP 7
+.B EINVAL
+The value of \fIsemid\fP is not a valid semaphore identifier, or the
+number of individual semaphores for which the calling
+process requests a SEM_UNDO would exceed the system-imposed limit.
+.TP 7
+.B ENOSPC
+The limit on the number of individual processes requesting a SEM_UNDO
+would be exceeded.
+.TP 7
+.B ERANGE
+An operation would cause a \fIsemval\fP to overflow the system-imposed
+limit, or an operation would cause a \fIsemadj\fP
+value to overflow the system-imposed limit.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Setting Values in Semaphores
+.LP
+The following example sets the values of the two semaphores associated
+with the \fIsemid\fP identifier to the values contained
+in the \fIsb\fP array.
+.sp
+.RS
+.nf
+
+\fB#include <sys/sem.h>
+\&...
+int semid;
+struct sembuf sb[2];
+int nsops = 2;
+int result;
+.sp
+
+/* Adjust value of semaphore in the semaphore array semid. */
+sb[0].sem_num = 0;
+sb[0].sem_op = -1;
+sb[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
+sb[1].sem_num = 1;
+sb[1].sem_op =  1;
+sb[1].sem_flg = 0;
+.sp
+
+result = semop(semid, sb, nsops);
+\fP
+.fi
+.RE
+.SS Creating a Semaphore Identifier
+.LP
+The following example gets a unique semaphore key using the \fIftok\fP()
+function, then
+gets a semaphore ID associated with that key using the \fIsemget\fP()
+function (the first
+call also tests to make sure the semaphore exists). If the semaphore
+does not exist, the program creates it, as shown by the second
+call to \fIsemget\fP(). In creating the semaphore for the queuing
+process, the program
+attempts to create one semaphore with read/write permission for all.
+It also uses the IPC_EXCL flag, which forces \fIsemget\fP() to fail
+if the semaphore already exists.
+.LP
+After creating the semaphore, the program uses a call to \fIsemop\fP()
+to initialize it to the values in the \fIsbuf\fP array.
+The number of processes that can execute concurrently without queuing
+is initially set to 2. The final call to \fIsemget\fP() creates a
+semaphore identifier that can be used later in the program.
+.LP
+The final call to \fIsemop\fP() acquires the semaphore and waits until
+it is free; the SEM_UNDO option releases the semaphore
+when the process exits, waiting until there are less than two processes
+running concurrently.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <stdio.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <pwd.h>
+#include <fcntl.h>
+#include <limits.h>
+\&...
+key_t semkey;
+int semid, pfd, fv;
+struct sembuf sbuf;
+char *lgn;
+char filename[PATH_MAX+1];
+struct stat outstat;
+struct passwd *pw;
+\&...
+/* Get unique key for semaphore. */
+if ((semkey = ftok("/tmp", 'a')) == (key_t) -1) {
+    perror("IPC error: ftok"); exit(1);
+}
+.sp
+
+/* Get semaphore ID associated with this key. */
+if ((semid = semget(semkey, 0, 0)) == -1) {
+.sp
+
+    /* Semaphore does not exist - Create. */
+    if ((semid = semget(semkey, 1, IPC_CREAT | IPC_EXCL | S_IRUSR |
+        S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) != -1)
+    {
+        /* Initialize the semaphore. */
+        sbuf.sem_num = 0;
+        sbuf.sem_op = 2;  /* This is the number of runs without queuing. */
+        sbuf.sem_flg = 0;
+        if (semop(semid, &sbuf, 1) == -1) {
+            perror("IPC error: semop"); exit(1);
+        }
+    }
+    else if (errno == EEXIST) {
+        if ((semid = semget(semkey, 0, 0)) == -1) {
+            perror("IPC error 1: semget"); exit(1);
+        }
+    }
+    else {
+        perror("IPC error 2: semget"); exit(1);
+    }
+}
+\&...
+sbuf.sem_num = 0;
+sbuf.sem_op = -1;
+sbuf.sem_flg = SEM_UNDO;
+if (semop(semid, &sbuf, 1) == -1) {
+    perror("IPC Error: semop"); exit(1);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The POSIX Realtime Extension defines alternative interfaces for interprocess
+communication. Application developers who need to
+use IPC should design their applications so that modules using the
+IPC routines described in \fIXSI Interprocess Communication\fP can
+be easily modified to use the alternative
+interfaces.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIXSI Interprocess Communication\fP , \fIRealtime\fP , \fIexec\fP()
+,
+\fIexit\fP() , \fIfork\fP() , \fIsemctl\fP() , \fIsemget\fP() , \fIsem_close\fP()
+, \fIsem_destroy\fP() , \fIsem_getvalue\fP() , \fIsem_init\fP() ,
+\fIsem_open\fP() , \fIsem_post\fP() , \fIsem_unlink\fP() , \fIsem_wait\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/ipc.h>\fP,
+\fI<sys/sem.h>\fP, \fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

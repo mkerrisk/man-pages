@@ -1,0 +1,358 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PATHCHK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pathchk 
+.SH NAME
+pathchk \- check pathnames
+.SH SYNOPSIS
+.LP
+\fBpathchk\fP \fB[\fP\fB-p\fP\fB]\fP \fIpathname\fP\fB...\fP
+.SH DESCRIPTION
+.LP
+The \fIpathchk\fP utility shall check that one or more pathnames are
+valid (that is, they could be used to access or create a
+file without causing syntax errors) and portable (that is, no filename
+truncation results). More extensive portability checks are
+provided by the \fB-p\fP option.
+.LP
+By default, the \fIpathchk\fP utility shall check each component of
+each \fIpathname\fP operand based on the underlying file
+system. A diagnostic shall be written for each \fIpathname\fP operand
+that:
+.IP " *" 3
+Is longer than {PATH_MAX} bytes (see \fBPathname Variable Values\fP
+in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 13, Headers, \fI<limits.h>\fP)
+.LP
+.IP " *" 3
+Contains any component longer than {NAME_MAX} bytes in its containing
+directory
+.LP
+.IP " *" 3
+Contains any component in a directory that is not searchable
+.LP
+.IP " *" 3
+Contains any character in any component that is not valid in its containing
+directory
+.LP
+.LP
+The format of the diagnostic message is not specified, but shall indicate
+the error detected and the corresponding
+\fIpathname\fP operand.
+.LP
+It shall not be considered an error if one or more components of a
+\fIpathname\fP operand do not exist as long as a file
+matching the pathname specified by the missing components could be
+created that does not violate any of the checks specified
+above.
+.SH OPTIONS
+.LP
+The \fIpathchk\fP utility shall conform to the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines.
+.LP
+The following option shall be supported:
+.TP 7
+\fB-p\fP
+Instead of performing checks based on the underlying file system,
+write a diagnostic for each \fIpathname\fP operand that: 
+.RS
+.IP " *" 3
+Is longer than {_POSIX_PATH_MAX} bytes (see \fBMinimum Values\fP in
+the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 13, Headers, \fI<limits.h>\fP)
+.LP
+.IP " *" 3
+Contains any component longer than {_POSIX_NAME_MAX} bytes
+.LP
+.IP " *" 3
+Contains any character in any component that is not in the portable
+filename character set
+.LP
+.RE
+.sp
+.SH OPERANDS
+.LP
+The following operand shall be supported:
+.TP 7
+\fIpathname\fP
+A pathname to be checked.
+.sp
+.SH STDIN
+.LP
+Not used.
+.SH INPUT FILES
+.LP
+None.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIpathchk\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments).
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale that should be used to affect the format and
+contents of diagnostic messages written to standard
+error.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+Not used.
+.SH STDERR
+.LP
+The standard error shall be used only for diagnostic messages.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ 0
+All \fIpathname\fP operands passed all of the checks.
+.TP 7
+>0
+An error occurred.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+Default.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+The \fItest\fP utility can be used to determine whether a given pathname
+names an existing
+file; it does not, however, give any indication of whether or not
+any component of the pathname was truncated in a directory where
+the _POSIX_NO_TRUNC feature is not in effect. The \fIpathchk\fP utility
+does not check for file existence; it performs checks to
+determine whether a pathname does exist or could be created with no
+pathname component truncation.
+.LP
+The \fInoclobber\fP option in the shell (see the \fIset\fP special
+built-in) can be used to
+atomically create a file. As with all file creation semantics in the
+System Interfaces volume of IEEE\ Std\ 1003.1-2001, it
+guarantees atomic creation, but still depends on applications to agree
+on conventions and cooperate on the use of files after they
+have been created.
+.SH EXAMPLES
+.LP
+To verify that all pathnames in an imported data interchange archive
+are legitimate and unambiguous on the current system:
+.sp
+.RS
+.nf
+
+\fBpax -f archive | sed -e '/ == .*/s///' | xargs pathchk
+if [ $? -eq 0 ]
+then
+    pax -r -f archive
+else
+    echo Investigate problems before importing files.
+    exit 1
+fi
+\fP
+.fi
+.RE
+.LP
+To verify that all files in the current directory hierarchy could
+be moved to any system conforming to the System Interfaces
+volume of IEEE\ Std\ 1003.1-2001 that also supports the \fIpax\fP
+utility:
+.sp
+.RS
+.nf
+
+\fBfind . -print | xargs pathchk -p
+if [ $? -eq 0 ]
+then
+    pax -w -f archive .
+else
+    echo Portable archive cannot be created.
+    exit 1
+fi
+\fP
+.fi
+.RE
+.LP
+To verify that a user-supplied pathname names a readable file and
+that the application can create a file extending the given
+path without truncation and without overwriting any existing file:
+.sp
+.RS
+.nf
+
+\fBcase $- in
+    *C*)    reset="";;
+    *)      reset="set +C"
+            set -C;;
+esac
+test -r "$path" && pathchk "$path.out" &&
+    rm "$path.out" > "$path.out"
+if [ $? -ne 0 ]; then
+    printf "%s: %s not found or %s.out fails \\
+creation checks.\\n" $0 "$path" "$path"
+    $reset    # Reset the noclobber option in case a trap
+              # on EXIT depends on it.
+    exit 1
+fi
+$reset
+PROCESSING < "$path" > "$path.out"
+\fP
+.fi
+.RE
+.LP
+The following assumptions are made in this example:
+.IP " 1." 4
+\fBPROCESSING\fP represents the code that is used by the application
+to use \fB$path\fP once it is verified that
+\fB$path.out\fP works as intended.
+.LP
+.IP " 2." 4
+The state of the \fInoclobber\fP option is unknown when this code
+is invoked and should be set on exit to the state it was in
+when this code was invoked. (The \fBreset\fP variable is used in this
+example to restore the initial state.)
+.LP
+.IP " 3." 4
+Note the usage of:
+.sp
+.RS
+.nf
+
+\fBrm "$path.out" > "$path.out"
+\fP
+.fi
+.RE
+.RS
+.IP " a." 4
+The \fIpathchk\fP command has already verified, at this point, that
+\fB$path.out\fP is not truncated.
+.LP
+.IP " b." 4
+With the \fInoclobber\fP option set, the shell verifies that \fB$path.out\fP
+does not already exist before invoking \fIrm\fP.
+.LP
+.IP " c." 4
+If the shell succeeded in creating \fB$path.out\fP, \fIrm\fP removes
+it so that the
+application can create the file again in the \fBPROCESSING\fP step.
+.LP
+.IP " d." 4
+If the \fBPROCESSING\fP step wants the file to exist already when
+it is invoked, the:
+.sp
+.RS
+.nf
+
+\fBrm "$path.out" > "$path.out"
+\fP
+.fi
+.RE
+.LP
+should be replaced with:
+.sp
+.RS
+.nf
+
+\fB> "$path.out"
+\fP
+.fi
+.RE
+.LP
+which verifies that the file did not already exist, but leaves \fB$path.out\fP
+in place for use by \fBPROCESSING\fP.
+.LP
+.RE
+.LP
+.SH RATIONALE
+.LP
+The \fIpathchk\fP utility was new for the ISO\ POSIX-2:1993 standard.
+It, along with the \fIset\fP \fB-C\fP( \fInoclobber\fP) option added
+to the shell, replaces the
+\fImktemp\fP, \fIvalidfnam\fP, and \fIcreate\fP utilities that appeared
+in early proposals. All of these utilities were attempts
+to solve several common problems:
+.IP " *" 3
+Verify the validity (for several different definitions of "valid")
+of a pathname supplied by a user, generated by an
+application, or imported from an external source.
+.LP
+.IP " *" 3
+Atomically create a file.
+.LP
+.IP " *" 3
+Perform various string handling functions to generate a temporary
+filename.
+.LP
+.LP
+The \fIcreate\fP utility, included in an early proposal, provided
+checking and atomic creation in a single invocation of the
+utility; these are orthogonal issues and need not be grouped into
+a single utility. Note that the \fInoclobber\fP option also
+provides a way of creating a lock for process synchronization; since
+it provides an atomic \fIcreate\fP, there is no race between
+a test for existence and the following creation if it did not exist.
+.LP
+Having a function like \fItmpnam\fP() in the ISO\ C standard is important
+in many
+high-level languages. The shell programming language, however, has
+built-in string manipulation facilities, making it very easy to
+construct temporary filenames. The names needed obviously depend on
+the application, but are frequently of a form similar to:
+.sp
+.RS
+.nf
+
+\fB$TMPDIR/\fP\fIapplication_abbreviation\fP\fB$$.\fP\fIsuffix\fP
+.fi
+.RE
+.LP
+In cases where there is likely to be contention for a given suffix,
+a simple shell \fBfor\fP or \fBwhile\fP loop can be used
+with the shell \fInoclobber\fP option to create a file without risk
+of collisions, as long as applications trying to use the same
+filename name space are cooperating on the use of files after they
+have been created.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIRedirection\fP , \fIset\fP , \fItest\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,975 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FPRINTF" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" fprintf 
+.SH NAME
+fprintf, printf, snprintf, sprintf \- print formatted output
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+int fprintf(FILE *restrict\fP \fIstream\fP\fB, const char *restrict\fP
+\fIformat\fP\fB, ...);
+.br
+int printf(const char *restrict\fP \fIformat\fP\fB, ...);
+.br
+int snprintf(char *restrict\fP \fIs\fP\fB, size_t\fP \fIn\fP\fB,
+.br
+\ \ \ \ \ \  const char *restrict\fP \fIformat\fP\fB, ...);
+.br
+int sprintf(char *restrict\fP \fIs\fP\fB, const char *restrict\fP
+\fIformat\fP\fB, ...);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIfprintf\fP() function shall place output on the named output
+\fIstream\fP. The \fIprintf\fP() function shall place
+output on the standard output stream \fIstdout\fP. The \fIsprintf\fP()
+function shall place output followed by the null byte,
+\fB'\\0'\fP , in consecutive bytes starting at *\fIs\fP; it is the
+user's responsibility to ensure that enough space is
+available.
+.LP
+The \fIsnprintf\fP() function shall be equivalent to \fIsprintf\fP(),
+with the addition of the \fIn\fP argument which states
+the size of the buffer referred to by \fIs\fP. If \fIn\fP is zero,
+nothing shall be written and \fIs\fP may be a null pointer.
+Otherwise, output bytes beyond the \fIn\fP-1st shall be discarded
+instead of being written to the array, and a null byte is
+written at the end of the bytes actually written into the array.
+.LP
+If copying takes place between objects that overlap as a result of
+a call to \fIsprintf\fP() or \fIsnprintf\fP(), the results
+are undefined.
+.LP
+Each of these functions converts, formats, and prints its arguments
+under control of the \fIformat\fP. The \fIformat\fP is a
+character string, beginning and ending in its initial shift state,
+if any. The \fIformat\fP is composed of zero or more
+directives: \fIordinary characters\fP, which are simply copied to
+the output stream, and \fIconversion specifications\fP, each of
+which shall result in the fetching of zero or more arguments. The
+results are undefined if there are insufficient arguments for the
+\fIformat\fP. If the \fIformat\fP is exhausted while arguments remain,
+the excess arguments shall be evaluated but are otherwise
+ignored.
+.LP
+Conversions can be applied to the \fIn\fPth argument after the \fIformat\fP
+in the argument list, rather than to the next unused
+argument. In this case, the conversion specifier character \fB%\fP
+(see below) is replaced by the sequence
+\fB"%\fP\fIn\fP\fB$"\fP, where \fIn\fP is a decimal integer in the
+range [1,{NL_ARGMAX}], giving the position of the
+argument in the argument list. This feature provides for the definition
+of format strings that select arguments in an order
+appropriate to specific languages (see the EXAMPLES section).
+.LP
+The \fIformat\fP can contain either numbered argument conversion specifications
+(that is, \fB"%\fP\fIn\fP\fB$"\fP and
+\fB"*\fP\fIm\fP\fB$"\fP), or unnumbered argument conversion specifications
+(that is, \fB%\fP and \fB*\fP ), but not
+both. The only exception to this is that \fB%%\fP can be mixed with
+the \fB"%\fP\fIn\fP\fB$"\fP form. The results of
+mixing numbered and unnumbered argument specifications in a \fIformat\fP
+string are undefined. When numbered argument
+specifications are used, specifying the \fIN\fPth argument requires
+that all the leading arguments, from the first to the
+(\fIN-1\fP)th, are specified in the format string.
+.LP
+In format strings containing the \fB"%\fP\fIn\fP\fB$"\fP form of conversion
+specification, numbered arguments in the
+argument list can be referenced from the format string as many times
+as required. 
+.LP
+In format strings containing the \fB%\fP form of conversion specification,
+each conversion specification uses the first
+unused argument in the argument list.
+.LP
+All
+forms of the \fIfprintf\fP() functions allow for the insertion of
+a language-dependent radix character in the output string. The
+radix character is defined in the program's locale (category \fILC_NUMERIC
+).\fP In the POSIX locale, or in a locale where the
+radix character is not defined, the radix character shall default
+to a period ( \fB'.'\fP ). 
+.LP
+Each conversion specification is introduced by the \fB'%'\fP character
+\ or by the
+character sequence \fB"%\fP\fIn\fP\fB$"\fP,  after which the
+following appear in sequence:
+.IP " *" 3
+Zero or more \fIflags\fP (in any order), which modify the meaning
+of the conversion specification.
+.LP
+.IP " *" 3
+An optional minimum \fIfield width\fP. If the converted value has
+fewer bytes than the field width, it shall be padded with
+spaces by default on the left; it shall be padded on the right if
+the left-adjustment flag ( \fB'-'\fP ), described below, is
+given to the field width. The field width takes the form of an asterisk
+( \fB'*'\fP ), described below, or a decimal
+integer.
+.LP
+.IP " *" 3
+An optional \fIprecision\fP that gives the minimum number of digits
+to appear for the \fBd\fP , \fBi\fP , \fBo\fP ,
+\fBu\fP , \fBx\fP , and \fBX\fP conversion specifiers; the number
+of digits to appear after the radix character for the
+\fBa\fP , \fBA\fP , \fBe\fP , \fBE\fP , \fBf\fP , and \fBF\fP conversion
+specifiers; the maximum number of
+significant digits for the \fBg\fP and \fBG\fP conversion specifiers;
+or the maximum number of bytes to be printed from a
+string in the \fBs\fP   \ and \fBS\fP  \ conversion
+specifiers. The precision takes the form of a period ( \fB'.'\fP )
+followed either by an asterisk ( \fB'*'\fP ), described
+below, or an optional decimal digit string, where a null digit string
+is treated as zero. If a precision appears with any other
+conversion specifier, the behavior is undefined.
+.LP
+.IP " *" 3
+An optional length modifier that specifies the size of the argument.
+.LP
+.IP " *" 3
+A \fIconversion specifier\fP character that indicates the type of
+conversion to be applied.
+.LP
+.LP
+A field width, or precision, or both, may be indicated by an asterisk
+( \fB'*'\fP ). In this case an argument of type
+\fBint\fP supplies the field width or precision. Applications shall
+ensure that arguments specifying field width, or precision, or
+both appear in that order before the argument, if any, to be converted.
+A negative field width is taken as a \fB'-'\fP flag
+followed by a positive field width. A negative precision is taken
+as if the precision were omitted.   \ In format
+strings containing the \fB"%\fP\fIn\fP\fB$"\fP form of a conversion
+specification, a field width or precision may be
+indicated by the sequence \fB"*\fP\fIm\fP\fB$"\fP, where \fIm\fP is
+a decimal integer in the range [1,{NL_ARGMAX}] giving
+the position in the argument list (after the \fIformat\fP argument)
+of an integer argument containing the field width or
+precision, for example:
+.sp
+.RS
+.nf
+
+\fBprintf("%1$d:%2$.*3$d:%4$.*3$d\\n", hour, min, precision, sec);
+\fP
+.fi
+.RE
+.LP
+The flag characters and their meanings are:
+.TP 7
+\fB'\fP
+The integer portion of the result of a decimal conversion ( \fB%i\fP
+, \fB%d\fP , \fB%u\fP , \fB%f\fP , \fB%F\fP ,
+\fB%g\fP , or \fB%G\fP ) shall be formatted with thousands' grouping
+characters. For other conversions the behavior is
+undefined. The non-monetary grouping character is used. 
+.TP 7
+\fB-\fP
+The result of the conversion shall be left-justified within the field.
+The conversion is right-justified if this flag is not
+specified.
+.TP 7
+\fB+\fP
+The result of a signed conversion shall always begin with a sign (
+\fB'+'\fP or \fB'-'\fP ). The conversion shall begin
+with a sign only when a negative value is converted if this flag is
+not specified.
+.TP 7
+<space>
+If the first character of a signed conversion is not a sign or if
+a signed conversion results in no characters, a <space>
+shall be prefixed to the result. This means that if the <space> and
+\fB'+'\fP flags both appear, the <space> flag
+shall be ignored.
+.TP 7
+\fB#\fP
+Specifies that the value is to be converted to an alternative form.
+For \fBo\fP conversion, it increases the precision (if
+necessary) to force the first digit of the result to be zero. For
+\fBx\fP or \fBX\fP conversion specifiers, a non-zero result
+shall have 0x (or 0X) prefixed to it. For \fBa\fP , \fBA\fP , \fBe\fP
+, \fBE\fP , \fBf\fP , \fBF\fP , \fBg\fP
+, and \fBG\fP conversion specifiers, the result shall always contain
+a radix character, even if no digits follow the radix
+character. Without this flag, a radix character appears in the result
+of these conversions only if a digit follows it. For
+\fBg\fP and \fBG\fP conversion specifiers, trailing zeros shall \fInot\fP
+be removed from the result as they normally are.
+For other conversion specifiers, the behavior is undefined.
+.TP 7
+\fB0\fP
+For \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP , \fBx\fP , \fBX\fP , \fBa\fP
+, \fBA\fP , \fBe\fP ,
+\fBE\fP , \fBf\fP , \fBF\fP , \fBg\fP , and \fBG\fP conversion specifiers,
+leading zeros (following any indication
+of sign or base) are used to pad to the field width; no space padding
+is performed. If the \fB'0'\fP and \fB'-'\fP flags both
+appear, the \fB'0'\fP flag is ignored. For \fBd\fP , \fBi\fP , \fBo\fP
+, \fBu\fP , \fBx\fP , and \fBX\fP
+conversion specifiers, if a precision is specified, the \fB'0'\fP
+flag is ignored.   \ If the
+\fB'0'\fP and \fB'"\fP flags both appear, the grouping characters
+are inserted before zero padding. For other conversions,
+the behavior is undefined. 
+.sp
+.LP
+The length modifiers and their meanings are:
+.TP 7
+\fBhh\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBsigned char\fP or \fBunsigned char\fP argument (the
+argument will have been promoted according to the integer
+promotions, but its value shall be converted to \fBsigned char\fP
+or \fBunsigned char\fP before printing); or that a following
+\fBn\fP conversion specifier applies to a pointer to a \fBsigned char\fP
+argument.
+.TP 7
+\fBh\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBshort\fP or \fBunsigned short\fP argument (the argument
+will have been promoted according to the integer
+promotions, but its value shall be converted to \fBshort\fP or \fBunsigned
+short\fP before printing); or that a following
+\fBn\fP conversion specifier applies to a pointer to a \fBshort\fP
+argument.
+.TP 7
+\fBl\fP\ (ell)
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBlong\fP or \fBunsigned long\fP argument; that a following
+\fBn\fP conversion specifier applies to a pointer to
+a \fBlong\fP argument; that a following \fBc\fP conversion specifier
+applies to a \fBwint_t\fP argument; that a following
+\fBs\fP conversion specifier applies to a pointer to a \fBwchar_t\fP
+argument; or has no effect on a following \fBa\fP ,
+\fBA\fP , \fBe\fP , \fBE\fP , \fBf\fP , \fBF\fP , \fBg\fP , or \fBG\fP
+conversion specifier.
+.TP 7
+\fBll\fP\ (ell-ell)
+.sp
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBlong long\fP or \fBunsigned long long\fP argument;
+or that a following \fBn\fP conversion specifier applies to
+a pointer to a \fBlong long\fP argument.
+.TP 7
+\fBj\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to an \fBintmax_t\fP or \fBuintmax_t\fP argument; or that
+a following \fBn\fP conversion specifier applies to a
+pointer to an \fBintmax_t\fP argument.
+.TP 7
+\fBz\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBsize_t\fP or the corresponding signed integer type
+argument; or that a following \fBn\fP conversion specifier
+applies to a pointer to a signed integer type corresponding to a \fBsize_t\fP
+argument.
+.TP 7
+\fBt\fP
+Specifies that a following \fBd\fP , \fBi\fP , \fBo\fP , \fBu\fP ,
+\fBx\fP , or \fBX\fP conversion specifier
+applies to a \fBptrdiff_t\fP or the corresponding \fBunsigned\fP type
+argument; or that a following \fBn\fP conversion
+specifier applies to a pointer to a \fBptrdiff_t\fP argument.
+.TP 7
+\fBL\fP
+Specifies that a following \fBa\fP , \fBA\fP , \fBe\fP , \fBE\fP ,
+\fBf\fP , \fBF\fP , \fBg\fP , or
+\fBG\fP conversion specifier applies to a \fBlong double\fP argument.
+.sp
+.LP
+If a length modifier appears with any conversion specifier other than
+as specified above, the behavior is undefined.
+.LP
+The conversion specifiers and their meanings are:
+.TP 7
+\fBd\fP,\ \fBi\fP
+The \fBint\fP argument shall be converted to a signed decimal in the
+style \fB"[-]\fP\fIdddd\fP\fB"\fP. The precision
+specifies the minimum number of digits to appear; if the value being
+converted can be represented in fewer digits, it shall be
+expanded with leading zeros. The default precision is 1. The result
+of converting zero with an explicit precision of zero shall be
+no characters.
+.TP 7
+\fBo\fP
+The \fBunsigned\fP argument shall be converted to unsigned octal format
+in the style \fB"\fP\fIdddd\fP\fB"\fP. The
+precision specifies the minimum number of digits to appear; if the
+value being converted can be represented in fewer digits, it
+shall be expanded with leading zeros. The default precision is 1.
+The result of converting zero with an explicit precision of zero
+shall be no characters.
+.TP 7
+\fBu\fP
+The \fBunsigned\fP argument shall be converted to unsigned decimal
+format in the style \fB"\fP\fIdddd\fP\fB"\fP. The
+precision specifies the minimum number of digits to appear; if the
+value being converted can be represented in fewer digits, it
+shall be expanded with leading zeros. The default precision is 1.
+The result of converting zero with an explicit precision of zero
+shall be no characters.
+.TP 7
+\fBx\fP
+The \fBunsigned\fP argument shall be converted to unsigned hexadecimal
+format in the style \fB"\fP\fIdddd\fP\fB"\fP;
+the letters \fB"abcdef"\fP are used. The precision specifies the minimum
+number of digits to appear; if the value being
+converted can be represented in fewer digits, it shall be expanded
+with leading zeros. The default precision is 1. The result of
+converting zero with an explicit precision of zero shall be no characters.
+.TP 7
+\fBX\fP
+Equivalent to the \fBx\fP conversion specifier, except that letters
+\fB"ABCDEF"\fP are used instead of \fB"abcdef"\fP
+\&.
+.TP 7
+\fBf\fP,\ \fBF\fP
+The \fBdouble\fP argument shall be converted to decimal notation in
+the style
+\fB"[-]\fP\fIddd\fP\fB.\fP\fIddd\fP\fB"\fP, where the number of digits
+after the radix character is equal to the
+precision specification. If the precision is missing, it shall be
+taken as 6; if the precision is explicitly zero and no
+\fB'#'\fP flag is present, no radix character shall appear. If a radix
+character appears, at least one digit appears before it.
+The low-order digit shall be rounded in an implementation-defined
+manner. 
+.LP
+A \fBdouble\fP argument representing an infinity shall be converted
+in one of the styles \fB"[-]inf"\fP or
+\fB"[-]infinity"\fP ; which style is implementation-defined. A \fBdouble\fP
+argument representing a NaN shall be converted in
+one of the styles \fB"[-]nan(\fP\fIn-char-sequence\fP\fB)"\fP or \fB"[-]nan"\fP
+; which style, and the meaning of any
+\fIn-char-sequence\fP, is implementation-defined. The \fBF\fP conversion
+specifier produces \fB"INF"\fP ,
+\fB"INFINITY"\fP , or \fB"NAN"\fP instead of \fB"inf"\fP , \fB"infinity"\fP
+, or \fB"nan"\fP , respectively.
+.TP 7
+\fBe\fP,\ \fBE\fP
+The \fBdouble\fP argument shall be converted in the style
+\fB"[-]\fP\fId\fP\fB.\fP\fIddd\fP\fBe\(+-\fP\fIdd\fP\fB"\fP, where
+there is one digit before the radix character
+(which is non-zero if the argument is non-zero) and the number of
+digits after it is equal to the precision; if the precision is
+missing, it shall be taken as 6; if the precision is zero and no \fB'#'\fP
+flag is present, no radix character shall appear. The
+low-order digit shall be rounded in an implementation-defined manner.
+The \fBE\fP conversion specifier shall produce a number
+with \fB'E'\fP instead of \fB'e'\fP introducing the exponent. The
+exponent shall always contain at least two digits. If the
+value is zero, the exponent shall be zero. 
+.LP
+A \fBdouble\fP argument representing an infinity or NaN shall be converted
+in the style of an \fBf\fP or \fBF\fP
+conversion specifier.
+.TP 7
+\fBg\fP,\ \fBG\fP
+The \fBdouble\fP argument shall be converted in the style \fBf\fP
+or \fBe\fP (or in the style \fBF\fP or \fBE\fP
+in the case of a \fBG\fP conversion specifier), with the precision
+specifying the number of significant digits. If an explicit
+precision is zero, it shall be taken as 1. The style used depends
+on the value converted; style \fBe\fP (or \fBE\fP ) shall
+be used only if the exponent resulting from such a conversion is less
+than -4 or greater than or equal to the precision. Trailing
+zeros shall be removed from the fractional portion of the result;
+a radix character shall appear only if it is followed by a digit
+or a \fB'#'\fP flag is present. 
+.LP
+A \fBdouble\fP argument representing an infinity or NaN shall be converted
+in the style of an \fBf\fP or \fBF\fP
+conversion specifier.
+.TP 7
+\fBa\fP,\ \fBA\fP
+A \fBdouble\fP argument representing a floating-point number shall
+be converted in the style
+\fB"[-]0x\fP\fIh\fP\fB.\fP\fIhhhh\fP\fBp\(+-\fP\fId\fP\fB"\fP, where
+there is one hexadecimal digit (which shall
+be non-zero if the argument is a normalized floating-point number
+and is otherwise unspecified) before the decimal-point character
+and the number of hexadecimal digits after it is equal to the precision;
+if the precision is missing and FLT_RADIX is a power of 2,
+then the precision shall be sufficient for an exact representation
+of the value; if the precision is missing and FLT_RADIX is not a
+power of 2, then the precision shall be sufficient to distinguish
+values of type \fBdouble\fP, except that trailing zeros may be
+omitted; if the precision is zero and the \fB'#'\fP flag is not specified,
+no decimal-point character shall appear. The letters
+\fB"abcdef"\fP shall be used for \fBa\fP conversion and the letters
+\fB"ABCDEF"\fP for \fBA\fP conversion. The
+\fBA\fP conversion specifier produces a number with \fB'X'\fP and
+\fB'P'\fP instead of \fB'x'\fP and \fB'p'\fP . The
+exponent shall always contain at least one digit, and only as many
+more digits as necessary to represent the decimal exponent of 2.
+If the value is zero, the exponent shall be zero. 
+.LP
+A \fBdouble\fP argument representing an infinity or NaN shall be converted
+in the style of an \fBf\fP or \fBF\fP
+conversion specifier.
+.TP 7
+\fBc\fP
+The \fBint\fP argument shall be converted to an \fBunsigned char\fP,
+and the resulting byte shall be written. 
+.LP
+If an \fBl\fP (ell) qualifier is present, the \fBwint_t\fP argument
+shall be converted as if by an \fBls\fP conversion
+specification with no precision and an argument that points to a two-element
+array of type \fBwchar_t\fP, the first element of
+which contains the \fBwint_t\fP argument to the \fBls\fP conversion
+specification and the second element contains a null wide
+character.
+.TP 7
+\fBs\fP
+The argument shall be a pointer to an array of \fBchar\fP. Bytes from
+the array shall be written up to (but not including) any
+terminating null byte. If the precision is specified, no more than
+that many bytes shall be written. If the precision is not
+specified or is greater than the size of the array, the application
+shall ensure that the array contains a null byte. 
+.LP
+If an \fBl\fP (ell) qualifier is present, the argument shall be a
+pointer to an array of type \fBwchar_t\fP. Wide characters
+from the array shall be converted to characters (each as if by a call
+to the \fIwcrtomb\fP() function, with the conversion state described
+by an \fBmbstate_t\fP object
+initialized to zero before the first wide character is converted)
+up to and including a terminating null wide character. The
+resulting characters shall be written up to (but not including) the
+terminating null character (byte). If no precision is
+specified, the application shall ensure that the array contains a
+null wide character. If a precision is specified, no more than
+that many characters (bytes) shall be written (including shift sequences,
+if any), and the array shall contain a null wide
+character if, to equal the character sequence length given by the
+precision, the function would need to access a wide character one
+past the end of the array. In no case shall a partial character be
+written.
+.TP 7
+\fBp\fP
+The argument shall be a pointer to \fBvoid\fP. The value of the pointer
+is converted to a sequence of printable characters, in
+an implementation-defined manner.
+.TP 7
+\fBn\fP
+The argument shall be a pointer to an integer into which is written
+the number of bytes written to the output so far by this
+call to one of the \fIfprintf\fP() functions. No argument is converted.
+.TP 7
+\fBC\fP
+Equivalent to \fBlc\fP . 
+.TP 7
+\fBS\fP
+Equivalent to \fBls\fP . 
+.TP 7
+\fB%\fP
+Print a \fB'%'\fP character; no argument is converted. The complete
+conversion specification shall be \fB%%\fP .
+.sp
+.LP
+If a conversion specification does not match one of the above forms,
+the behavior is undefined. If any argument is not the
+correct type for the corresponding conversion specification, the behavior
+is undefined.
+.LP
+In no case shall a nonexistent or small field width cause truncation
+of a field; if the result of a conversion is wider than the
+field width, the field shall be expanded to contain the conversion
+result. Characters generated by \fIfprintf\fP() and
+\fIprintf\fP() are printed as if \fIfputc\fP() had been called.
+.LP
+For the \fBa\fP and \fBA\fP conversion specifiers, if FLT_RADIX is
+a power of 2, the value shall be correctly rounded to a
+hexadecimal floating number with the given precision.
+.LP
+For \fBa\fP and \fBA\fP conversions, if FLT_RADIX is not a power of
+2 and the result is not exactly representable in the
+given precision, the result should be one of the two adjacent numbers
+in hexadecimal floating style with the given precision, with
+the extra stipulation that the error should have a correct sign for
+the current rounding direction.
+.LP
+For the \fBe\fP , \fBE\fP , \fBf\fP , \fBF\fP , \fBg\fP , and \fBG\fP
+conversion specifiers, if the number of
+significant decimal digits is at most DECIMAL_DIG, then the result
+should be correctly rounded. If the number of significant
+decimal digits is more than DECIMAL_DIG but the source value is exactly
+representable with DECIMAL_DIG digits, then the result
+should be an exact representation with trailing zeros. Otherwise,
+the source value is bounded by two adjacent decimal strings
+\fIL\fP < \fIU\fP, both having DECIMAL_DIG significant digits; the
+value of the resultant decimal string \fID\fP should
+satisfy \fIL\fP <= \fID\fP <= \fIU\fP, with the extra stipulation
+that the error should have a correct sign for the
+current rounding direction.
+.LP
+The
+\fIst_ctime\fP and \fIst_mtime\fP fields of the file shall be marked
+for update between the call to a successful execution of
+\fIfprintf\fP() or \fIprintf\fP() and the next successful completion
+of a call to \fIfflush\fP() or \fIfclose\fP() on the same stream or
+a
+call to \fIexit\fP() or \fIabort\fP(). 
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIfprintf\fP() and \fIprintf\fP()
+functions shall return the number of bytes transmitted.
+.LP
+Upon successful completion, the \fIsprintf\fP() function shall return
+the number of bytes written to \fIs\fP, excluding the
+terminating null byte.
+.LP
+Upon successful completion, the \fIsnprintf\fP() function shall return
+the number of bytes that would be written to \fIs\fP
+had \fIn\fP been sufficiently large excluding the terminating null
+byte.
+.LP
+If an output error was encountered, these functions shall return a
+negative value.
+.LP
+If the value of \fIn\fP is zero on a call to \fIsnprintf\fP(), nothing
+shall be written, the number of bytes that would have
+been written had \fIn\fP been sufficiently large excluding the terminating
+null shall be returned, and \fIs\fP may be a null
+pointer.
+.SH ERRORS
+.LP
+For the conditions under which \fIfprintf\fP() and \fIprintf\fP()
+fail and may fail, refer to \fIfputc\fP() or \fIfputwc\fP() .
+.LP
+In addition, all forms of \fIfprintf\fP() may fail if:
+.TP 7
+.B EILSEQ
+A wide-character code that does not correspond to a valid character
+has been detected. 
+.TP 7
+.B EINVAL
+There are insufficient arguments. 
+.sp
+.LP
+The \fIprintf\fP() and \fIfprintf\fP() functions may fail if:
+.TP 7
+.B ENOMEM
+Insufficient storage space is available. 
+.sp
+.LP
+The \fIsnprintf\fP() function shall fail if:
+.TP 7
+.B EOVERFLOW
+The value of \fIn\fP is greater than {INT_MAX} or the number of bytes
+needed to hold the output excluding the terminating null is
+greater than {INT_MAX}. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Printing Language-Independent Date and Time
+.LP
+The following statement can be used to print date and time using a
+language-independent format:
+.sp
+.RS
+.nf
+
+\fBprintf(format, weekday, month, day, hour, min);
+\fP
+.fi
+.RE
+.LP
+For American usage, \fIformat\fP could be a pointer to the following
+string:
+.sp
+.RS
+.nf
+
+\fB"%s, %s %d, %d:%.2d\\n"
+\fP
+.fi
+.RE
+.LP
+This example would produce the following message:
+.sp
+.RS
+.nf
+
+\fBSunday, July 3, 10:02
+\fP
+.fi
+.RE
+.LP
+For German usage, \fIformat\fP could be a pointer to the following
+string:
+.sp
+.RS
+.nf
+
+\fB"%1$s, %3$d. %2$s, %4$d:%5$.2d\\n"
+\fP
+.fi
+.RE
+.LP
+This definition of \fIformat\fP would produce the following message:
+.sp
+.RS
+.nf
+
+\fBSonntag, 3. Juli, 10:02
+\fP
+.fi
+.RE
+.SS Printing File Information
+.LP
+The following example prints information about the type, permissions,
+and number of links of a specific file in a directory.
+.LP
+The first two calls to \fIprintf\fP() use data decoded from a previous
+\fIstat\fP() call.
+The user-defined \fIstrperm\fP() function shall return a string similar
+to the one at the beginning of the output for the
+following command:
+.sp
+.RS
+.nf
+
+\fBls -l
+\fP
+.fi
+.RE
+.LP
+The next call to \fIprintf\fP() outputs the owner's name if it is
+found using \fIgetpwuid\fP(); the \fIgetpwuid\fP() function shall
+return a \fBpasswd\fP structure from which the name of the user is
+extracted. If the user name is not found, the program instead
+prints out the numeric value of the user ID.
+.LP
+The next call prints out the group name if it is found using \fIgetgrgid\fP();
+\fIgetgrgid\fP() is very similar to \fIgetpwuid\fP() except that it
+shall return group information based on the group number. Once
+again, if the group is not found, the program prints the numeric value
+of the group for the entry.
+.LP
+The final call to \fIprintf\fP() prints the size of the file.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
+.sp
+
+char *strperm (mode_t);
+\&...
+struct stat statbuf;
+struct passwd *pwd;
+struct group *grp;
+\&...
+printf("%10.10s", strperm (statbuf.st_mode));
+printf("%4d", statbuf.st_nlink);
+.sp
+
+if ((pwd = getpwuid(statbuf.st_uid)) != NULL)
+    printf(" %-8.8s", pwd->pw_name);
+else
+    printf(" %-8ld", (long) statbuf.st_uid);
+.sp
+
+if ((grp = getgrgid(statbuf.st_gid)) != NULL)
+    printf(" %-8.8s", grp->gr_name);
+else
+    printf(" %-8ld", (long) statbuf.st_gid);
+.sp
+
+printf("%9jd", (intmax_t) statbuf.st_size);
+\&...
+\fP
+.fi
+.RE
+.SS Printing a Localized Date String
+.LP
+The following example gets a localized date string. The \fInl_langinfo\fP()
+function shall return the localized date string, which specifies the
+order and layout of the date. The \fIstrftime\fP() function takes
+this information and, using the \fBtm\fP structure for values,
+places the date and time information into \fIdatestring\fP. The \fIprintf\fP()
+function then outputs \fIdatestring\fP and the
+name of the entry.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <time.h>
+#include <langinfo.h>
+\&...
+struct dirent *dp;
+struct tm *tm;
+char datestring[256];
+\&...
+strftime(datestring, sizeof(datestring), nl_langinfo (D_T_FMT), tm);
+.sp
+
+printf(" %s %s\\n", datestring, dp->d_name);
+\&...
+\fP
+.fi
+.RE
+.SS Printing Error Information
+.LP
+The following example uses \fIfprintf\fP() to write error information
+to standard error.
+.LP
+In the first group of calls, the program tries to open the password
+lock file named \fBLOCKFILE\fP. If the file already exists,
+this is an error, as indicated by the O_EXCL flag on the \fIopen\fP()
+function. If the call
+fails, the program assumes that someone else is updating the password
+file, and the program exits.
+.LP
+The next group of calls saves a new password file as the current password
+file by creating a link between \fBLOCKFILE\fP and
+the new password file \fBPASSWDFILE\fP.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+#define PASSWDFILE "/etc/passwd"
+\&...
+int pfd;
+\&...
+if ((pfd = open(LOCKFILE, O_WRONLY | O_CREAT | O_EXCL,
+    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
+{
+    fprintf(stderr, "Cannot open /etc/ptmp. Try again later.\\n");
+    exit(1);
+}
+\&...
+if (link(LOCKFILE,PASSWDFILE) == -1) {
+    fprintf(stderr, "Link error: %s\\n", strerror(errno));
+    exit(1);
+}
+\&...
+\fP
+.fi
+.RE
+.SS Printing Usage Information
+.LP
+The following example checks to make sure the program has the necessary
+arguments, and uses \fIfprintf\fP() to print usage
+information if the expected number of arguments is not present.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <stdlib.h>
+\&...
+char *Options = "hdbtl";
+\&...
+if (argc < 2) {
+    fprintf(stderr, "Usage: %s -%s <file\\n", argv[0], Options); exit(1);
+}
+\&...
+\fP
+.fi
+.RE
+.SS Formatting a Decimal String
+.LP
+The following example prints a key and data pair on \fIstdout\fP.
+Note use of the \fB'*'\fP (asterisk) in the format string;
+this ensures the correct number of decimal places for the element
+based on the number of elements requested.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+\&...
+long i;
+char *keystr;
+int elementlen, len;
+\&...
+while (len < elementlen) {
+\&...
+    printf("%s Element%0*ld\\n", keystr, elementlen, i);
+\&...
+}
+\fP
+.fi
+.RE
+.SS Creating a Filename
+.LP
+The following example creates a filename using information from a
+previous \fIgetpwnam\fP() function that returned the HOME directory
+of the user.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+\&...
+char filename[PATH_MAX+1];
+struct passwd *pw;
+\&...
+sprintf(filename, "%s/%d.out", pw->pw_dir, getpid());
+\&...
+\fP
+.fi
+.RE
+.SS Reporting an Event
+.LP
+The following example loops until an event has timed out. The \fIpause\fP()
+function
+waits forever unless it receives a signal. The \fIfprintf\fP() statement
+should never occur due to the possible return values of
+\fIpause\fP().
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+\&...
+while (!event_complete) {
+\&...
+    if (pause() != -1 || errno != EINTR)
+        fprintf(stderr, "pause: unknown error: %s\\n", strerror(errno));
+}
+\&...
+\fP
+.fi
+.RE
+.SS Printing Monetary Information
+.LP
+The following example uses \fIstrfmon\fP() to convert a number and
+store it as a
+formatted monetary string named \fIconvbuf\fP. If the first number
+is printed, the program prints the format and the description;
+otherwise, it just prints the number.
+.sp
+.RS
+.nf
+
+\fB#include <monetary.h>
+#include <stdio.h>
+\&...
+struct tblfmt {
+    char *format;
+    char *description;
+};
+.sp
+
+struct tblfmt table[] = {
+    { "%n", "default formatting" },
+    { "%11n", "right align within an 11 character field" },
+    { "%#5n", "aligned columns for values up to 99999" },
+    { "%=*#5n", "specify a fill character" },
+    { "%=0#5n", "fill characters do not use grouping" },
+    { "%^#5n", "disable the grouping separator" },
+    { "%^#5.0n", "round off to whole units" },
+    { "%^#5.4n", "increase the precision" },
+    { "%(#5n", "use an alternative pos/neg style" },
+    { "%!(#5n", "disable the currency symbol" },
+};
+\&...
+float input[3];
+int i, j;
+char convbuf[100];
+\&...
+strfmon(convbuf, sizeof(convbuf), table[i].format, input[j]);
+.sp
+
+if (j == 0) {
+    printf("%s  %s  %s\\n", table[i].format,
+        convbuf, table[i].description);
+}
+else {
+    printf("    %s\\n", convbuf);
+}
+\&...
+\fP
+.fi
+.RE
+.SS Printing Wide Characters
+.LP
+The following example prints a series of wide characters. Suppose
+that \fB"L`@`"\fP expands to three bytes:
+.sp
+.RS
+.nf
+
+\fBwchar_t wz [3] = L"@@";       // Zero-terminated
+wchar_t wn [3] = L"@@@";      // Unterminated
+.sp
+
+fprintf (stdout,"%ls", wz);   // Outputs 6 bytes
+fprintf (stdout,"%ls", wn);   // Undefined because wn has no terminator
+fprintf (stdout,"%4ls", wz);  // Outputs 3 bytes
+fprintf (stdout,"%4ls", wn);  // Outputs 3 bytes; no terminator needed
+fprintf (stdout,"%9ls", wz);  // Outputs 6 bytes
+fprintf (stdout,"%9ls", wn);  // Outputs 9 bytes; no terminator needed
+fprintf (stdout,"%10ls", wz); // Outputs 6 bytes
+fprintf (stdout,"%10ls", wn); // Undefined because wn has no terminator
+\fP
+.fi
+.RE
+.LP
+In the last line of the example, after processing three characters,
+nine bytes have been output. The fourth character must then
+be examined to determine whether it converts to one byte or more.
+If it converts to more than one byte, the output is only nine
+bytes. Since there is no fourth character in the array, the behavior
+is undefined.
+.SH APPLICATION USAGE
+.LP
+If the application calling \fIfprintf\fP() has any objects of type
+\fBwint_t\fP or \fBwchar_t\fP, it must also include the \fI<wchar.h>\fP
+header to have these objects defined.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfputc\fP() , \fIfscanf\fP() , \fIsetlocale\fP() , \fIstrfmon\fP()
+, \fIwcrtomb\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 7,
+Locale, \fI<stdio.h>\fP, \fI<wchar.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,169 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SEM_OPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" sem_open 
+.SH NAME
+sem_open \- initialize and open a named semaphore (\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <semaphore.h>
+.br
+.sp
+sem_t *sem_open(const char *\fP\fIname\fP\fB, int\fP \fIoflag\fP\fB,
+\&...); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsem_open\fP() function shall establish a connection between
+a named semaphore and a process. Following a call to
+\fIsem_open\fP() with semaphore name \fIname\fP, the process may reference
+the semaphore associated with \fIname\fP using the
+address returned from the call. This semaphore may be used in subsequent
+calls to \fIsem_wait\fP(), \fIsem_trywait\fP(), \fIsem_post\fP(),
+and \fIsem_close\fP(). The semaphore
+remains usable by this process until the semaphore is closed by a
+successful call to \fIsem_close\fP(), \fI_exit\fP(), or one of the
+\fIexec\fP functions.
+.LP
+The \fIoflag\fP argument controls whether the semaphore is created
+or merely accessed by the call to \fIsem_open\fP(). The
+following flag bits may be set in \fIoflag\fP:
+.TP 7
+O_CREAT
+This flag is used to create a semaphore if it does not already exist.
+If O_CREAT is set and the semaphore already exists, then
+O_CREAT has no effect, except as noted under O_EXCL. Otherwise, \fIsem_open\fP()
+creates a named semaphore. The O_CREAT flag
+requires a third and a fourth argument: \fImode\fP, which is of type
+\fBmode_t\fP, and \fIvalue\fP, which is of type
+\fBunsigned\fP. The semaphore is created with an initial value of
+\fIvalue\fP. Valid initial values for semaphores are less than
+or equal to {SEM_VALUE_MAX}. 
+.LP
+The user ID of the semaphore is set to the effective user ID of the
+process; the group ID of the semaphore is set to a system
+default group ID or to the effective group ID of the process. The
+permission bits of the semaphore are set to the value of the
+\fImode\fP argument except those set in the file mode creation mask
+of the process. When bits in \fImode\fP other than the file
+permission bits are specified, the effect is unspecified.
+.LP
+After the semaphore named \fIname\fP has been created by \fIsem_open\fP()
+with the O_CREAT flag, other processes can connect
+to the semaphore by calling \fIsem_open\fP() with the same value of
+\fIname\fP.
+.TP 7
+O_EXCL
+If O_EXCL and O_CREAT are set, \fIsem_open\fP() fails if the semaphore
+\fIname\fP exists. The check for the existence of the
+semaphore and the creation of the semaphore if it does not exist are
+atomic with respect to other processes executing
+\fIsem_open\fP() with O_EXCL and O_CREAT set. If O_EXCL is set and
+O_CREAT is not set, the effect is undefined. 
+.LP
+If flags other than O_CREAT and O_EXCL are specified in the \fIoflag\fP
+parameter, the effect is unspecified.
+.sp
+.LP
+The \fIname\fP argument points to a string naming a semaphore object.
+It is unspecified whether the name appears in the file
+system and is visible to functions that take pathnames as arguments.
+The \fIname\fP argument conforms to the construction rules
+for a pathname. If \fIname\fP begins with the slash character, then
+processes calling \fIsem_open\fP() with the same value of
+\fIname\fP shall refer to the same semaphore object, as long as that
+name has not been removed. If \fIname\fP does not begin with
+the slash character, the effect is implementation-defined. The interpretation
+of slash characters other than the leading slash
+character in \fIname\fP is implementation-defined.
+.LP
+If a process makes multiple successful calls to \fIsem_open\fP() with
+the same value for \fIname\fP, the same semaphore
+address shall be returned for each such successful call, provided
+that there have been no calls to \fIsem_unlink\fP() for this semaphore.
+.LP
+References to copies of the semaphore produce undefined results.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the \fIsem_open\fP() function shall return
+the address of the semaphore. Otherwise, it shall return
+a value of SEM_FAILED and set \fIerrno\fP to indicate the error. The
+symbol SEM_FAILED is defined in the \fI<semaphore.h>\fP header. No
+successful return from \fIsem_open\fP() shall return the
+value SEM_FAILED.
+.SH ERRORS
+.LP
+If any of the following conditions occur, the \fIsem_open\fP() function
+shall return SEM_FAILED and set \fIerrno\fP to the
+corresponding value:
+.TP 7
+.B EACCES
+The named semaphore exists and the permissions specified by \fIoflag\fP
+are denied, or the named semaphore does not exist and
+permission to create the named semaphore is denied.
+.TP 7
+.B EEXIST
+O_CREAT and O_EXCL are set and the named semaphore already exists.
+.TP 7
+.B EINTR
+The \fIsem_open\fP() operation was interrupted by a signal.
+.TP 7
+.B EINVAL
+The \fIsem_open\fP() operation is not supported for the given name,
+or O_CREAT was specified in \fIoflag\fP and \fIvalue\fP
+was greater than {SEM_VALUE_MAX}.
+.TP 7
+.B EMFILE
+Too many semaphore descriptors or file descriptors are currently in
+use by this process.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIname\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENFILE
+Too many semaphores are currently open in the system.
+.TP 7
+.B ENOENT
+O_CREAT is not set and the named semaphore does not exist.
+.TP 7
+.B ENOSPC
+There is insufficient space for the creation of the new named semaphore.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIsem_open\fP() function is part of the Semaphores option and
+need not be available on all implementations.
+.SH RATIONALE
+.LP
+Early drafts required an error return value of -1 with the type \fBsem_t
+*\fP for the \fIsem_open\fP() function, which is not
+guaranteed to be portable across implementations. The revised text
+provides the symbolic error code SEM_FAILED to eliminate the
+type conflict.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIsemctl\fP() , \fIsemget\fP() , \fIsemop\fP()
+, \fIsem_close\fP() , \fIsem_post\fP() , \fIsem_timedwait\fP() , \fIsem_trywait\fP()
+, \fIsem_unlink\fP() , \fIsem_wait\fP() , the Base Definitions volume
+of
+IEEE\ Std\ 1003.1-2001, \fI<semaphore.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

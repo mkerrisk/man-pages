@@ -1,0 +1,160 @@
+.\" Copyright (c) OpenBSD Group
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" Converted into a manpage again by Martin Schulze <joey@infodrom.org>
+.\"
+.\" Added -lutil remark, 030718
+.\"
+.TH OPENPTY 3  "2003-07-18" "BSD" "Linux Programmer's Manual"
+.SH NAME
+openpty, login_tty, forkpty \- tty utility functions
+.SH SYNOPSIS
+.B #include <pty.h>
+\ /* for openpty and forkpty */
+.br
+.B #include <utmp.h>
+/* for login_tty */
+.sp
+.BI "int openpty(int *" amaster ", int *" aslave ", char *" name ", struct termios *" termp ", struct winsize * " winp );
+.sp
+.BI "int login_tty(int " fd );
+.sp
+.BI "pid_t forkpty(int *" amaster ", char *" name ", struct termios *" termp ", struct winsize *" winp );
+.sp
+Link with -lutil.
+.SH DESCRIPTION
+The
+.B openpty()
+function finds an available pseudo-tty and returns file descriptors
+for the master and slave in
+.I amaster
+and
+.IR aslave .
+If
+.I name
+is not NULL, the filename of the slave is returned in
+.IR name .
+If
+.I termp
+is not NULL, the terminal parameters of the slave will be set to the
+values in
+.IR termp .
+If
+.I winp
+is not NULL, the window size of the slave will be set to the values in
+.IR winp .
+
+The
+.B login_tty()
+function prepares for a login on the tty
+.I fd
+(which may be a real tty device, or the slave of a pseudo-tty as
+returned by
+.BR openpty() )
+by creating a new session, making
+.I fd
+the controlling terminal for the current process, setting
+.I fd
+to be the standard input, output, and error streams of the current
+process, and closing
+.IR fd .
+
+The
+.B forkpty()
+function combines
+.BR openpty() ,
+.BR fork() ,
+and
+.B login_tty()
+to create a new process operating in a pseudo-tty.  The file
+descriptor of the master side of the pseudo-tty is returned in
+.IR amaster ,
+and the filename of the slave in
+.I name
+if it is not NULL.  The
+.I termp
+and
+.I winp
+parameters, if not NULL,
+will determine the terminal attributes and window size of the slave
+side of the pseudo-tty.
+.SH "RETURN VALUES"
+If a call to
+.BR openpty() ,
+.BR login_tty() ,
+or
+.B forkpty()
+is not successful, -1 is returned and
+.I errno
+is set to indicate the error.  Otherwise,
+.BR openpty() ,
+.BR login_tty() ,
+and the child process of
+.B forkpty()
+return 0, and the parent process of
+.B forkpty()
+returns the process ID of the child process.
+.SH ERRORS
+.B openpty()
+will fail if:
+.TP
+.B ENOENT
+There are no available ttys.
+.LP
+.B login_pty()
+will fail if
+.B ioctl()
+fails to set
+.I fd
+to the controlling terminal of the current process.
+.LP
+.B forkpty()
+will fail if either
+.B openpty()
+or
+.B fork()
+fails.
+.SH NOTE
+These functions are included in libutil, hence you'll need to add
+.B \-lutil
+to your compiler commandline.
+.SH FILES
+.I /dev/[pt]ty[pqrstuwxyzabcdePQRST][0123456789abcdef]
+.SH "CONFORMING TO"
+These are BSD functions, present in libc5 and glibc2.
+.SH BUGS
+Nobody knows how much space should be reserved for
+.IR name .
+So, calling
+.B openpty()
+or
+.B forkpty()
+with non-NULL
+.I name
+may not be secure.
+.SH "SEE ALSO"
+.BR fork (2)

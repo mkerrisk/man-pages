@@ -1,0 +1,146 @@
+.\" man2/sched_setaffinity.2 - sched_setaffinity and sched_getaffinity man page
+.\"
+.\" Copyright (C) 2002 Robert Love
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 2002-11-19 Robert Love <rml@tech9.net> - initial version
+.\" 2004-04-20 mtk - fixed description of return value
+.\" 2004-04-22 aeb - added glibc prototype history
+.\"
+.TH SCHED_SETAFFINITY 2 2004-04-22 "Linux" "Linux Programmer's Manual"
+.SH NAME
+sched_setaffinity, sched_getaffinity \- set and get a process's CPU affinity
+mask
+.SH SYNOPSIS
+.B #include <sched.h>
+.sp
+.BI "int sched_setaffinity(pid_t " pid ", unsigned int " len ,
+.BI "unsigned long *" mask );
+.sp
+.BI "int sched_getaffinity(pid_t " pid ", unsigned int " len ,
+.BI "unsigned long *" mask );
+.SH DESCRIPTION
+.B sched_setaffinity
+sets the CPU affinity mask of the process denoted by
+.IR pid .
+If
+.I pid
+is zero, then the current process is used.
+.sp
+The affinity mask is represented by the bitmask stored in
+.IR mask .
+The least significant bit corresponds to the first logical processor number on
+the system, while the most significant bit corresponds to the last logical
+processor number on the system.  A set bit corresponds to a legally schedulable
+CPU while an unset bit corresponds to an illegally schedulable CPU.  In other
+words, a process is bound to and will only run on processors whose
+corresponding bit is set.  Usually, all bits in the mask are set.
+.sp
+The argument
+.I len
+is the length (in bytes) of the data pointed to by
+.IR mask .
+Normally this is the size of a word on the system.  For compatibility with
+future versions of the Linux kernel, since this size can change, the bitmask
+supplied must be at least as large as the affinity mask stored in the kernel.
+.sp
+The function
+.B sched_getaffinity
+writes into the pointer supplied by
+.I mask
+that has size
+.I len
+the affinity mask of process
+.IR pid .
+If
+.I pid
+is zero, then the mask of the current process is returned.
+
+.SH "RETURN VALUE"
+On success,
+.B sched_setaffinity
+returns 0.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+
+On success,
+.B sched_getaffinity
+always returns the size (in bytes) of the affinity mask used by the kernel.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+
+.SH ERRORS
+.TP
+.B EFAULT
+A supplied memory address was invalid.
+.TP
+.B EINVAL
+The affinity bitmask 
+.I mask
+contains no processors that are physically on the system, or the length
+.I len
+is smaller than the size of the affinity mask used by the kernel.
+.TP
+.B EPERM
+The calling process does not have appropriate privileges.
+The process calling
+.BR sched_setaffinity
+needs an effective user ID equal to the user ID or effective user ID
+of the process identified by
+.IR pid ,
+or it must possess the
+.IR CAP_SYS_NICE
+capability.
+.TP
+.B ESRCH
+The process whose ID is \fIpid\fR could not be found.
+.SH "HISTORY"
+The affinity syscalls were introduced in Linux kernel 2.5.8.
+The library calls were introduced in glibc 2.3, and are still in
+glibc 2.3.2. Later glibc 2.3.2 development versions changed this
+interface to one without the
+.I len
+field, and still later versions reverted again. The glibc prototype is now
+.sp
+.nf
+/* Set the CPU affinity for a task */
+extern int sched_setaffinity (pid_t pid, size_t cpusetsize,
+                              const cpu_set_t *cpuset);
+.sp
+/* Get the CPU affinity for a task */
+extern int sched_getaffinity (pid_t pid, size_t cpusetsize,
+                              cpu_set_t *cpuset);
+.fi
+.SH "SEE ALSO"
+.BR getpriority (2),
+.BR nice (2),
+.BR sched_get_priority_max (2),
+.BR sched_get_priority_min (2),
+.BR sched_getscheduler (2),
+.BR sched_setscheduler (2),
+.BR setpriority (2),
+.BR capabilities (7)
+.PP
+.BR sched_setscheduler (2)
+has a description of the Linux scheduling scheme.

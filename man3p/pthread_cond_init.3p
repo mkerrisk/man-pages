@@ -1,0 +1,193 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_COND_DESTROY" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_cond_destroy 
+.SH NAME
+pthread_cond_destroy, pthread_cond_init \- destroy and initialize condition
+variables
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_cond_destroy(pthread_cond_t *\fP\fIcond\fP\fB);
+.br
+int pthread_cond_init(pthread_cond_t *restrict\fP \fIcond\fP\fB,
+.br
+\ \ \ \ \ \  const pthread_condattr_t *restrict\fP \fIattr\fP\fB);
+.br
+pthread_cond_t\fP \fIcond\fP \fB= PTHREAD_COND_INITIALIZER; \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpthread_cond_destroy\fP() function shall destroy the given
+condition variable specified by \fIcond\fP; the object
+becomes, in effect, uninitialized. An implementation may cause \fIpthread_cond_destroy\fP()
+to set the object referenced by
+\fIcond\fP to an invalid value. A destroyed condition variable object
+can be reinitialized using \fIpthread_cond_init\fP(); the
+results of otherwise referencing the object after it has been destroyed
+are undefined.
+.LP
+It shall be safe to destroy an initialized condition variable upon
+which no threads are currently blocked. Attempting to destroy
+a condition variable upon which other threads are currently blocked
+results in undefined behavior.
+.LP
+The \fIpthread_cond_init\fP() function shall initialize the condition
+variable referenced by \fIcond\fP with attributes
+referenced by \fIattr\fP. If \fIattr\fP is NULL, the default condition
+variable attributes shall be used; the effect is the same
+as passing the address of a default condition variable attributes
+object. Upon successful initialization, the state of the
+condition variable shall become initialized.
+.LP
+Only \fIcond\fP itself may be used for performing synchronization.
+The result of referring to copies of \fIcond\fP in calls to
+\fIpthread_cond_wait\fP(), \fIpthread_cond_timedwait\fP(), \fIpthread_cond_signal\fP(),
+\fIpthread_cond_broadcast\fP(), and \fIpthread_cond_destroy\fP() is
+undefined.
+.LP
+Attempting to initialize an already initialized condition variable
+results in undefined behavior.
+.LP
+In cases where default condition variable attributes are appropriate,
+the macro PTHREAD_COND_INITIALIZER can be used to
+initialize condition variables that are statically allocated. The
+effect shall be equivalent to dynamic initialization by a call to
+\fIpthread_cond_init\fP() with parameter \fIattr\fP specified as NULL,
+except that no error checks are performed.
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_cond_destroy\fP() and \fIpthread_cond_init\fP()
+functions shall return zero; otherwise, an error
+number shall be returned to indicate the error.
+.LP
+The [EBUSY] and [EINVAL] error checks, if implemented, shall act as
+if they were performed immediately at the beginning of
+processing for the function and caused an error return prior to modifying
+the state of the condition variable specified by
+\fIcond\fP.
+.SH ERRORS
+.LP
+The \fIpthread_cond_destroy\fP() function may fail if:
+.TP 7
+.B EBUSY
+The implementation has detected an attempt to destroy the object referenced
+by \fIcond\fP while it is referenced (for example,
+while being used in a \fIpthread_cond_wait\fP() or \fIpthread_cond_timedwait\fP())
+by another thread.
+.TP 7
+.B EINVAL
+The value specified by \fIcond\fP is invalid.
+.sp
+.LP
+The \fIpthread_cond_init\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+The system lacked the necessary resources (other than memory) to initialize
+another condition variable.
+.TP 7
+.B ENOMEM
+Insufficient memory exists to initialize the condition variable.
+.sp
+.LP
+The \fIpthread_cond_init\fP() function may fail if:
+.TP 7
+.B EBUSY
+The implementation has detected an attempt to reinitialize the object
+referenced by \fIcond\fP, a previously initialized, but
+not yet destroyed, condition variable.
+.TP 7
+.B EINVAL
+The value specified by \fIattr\fP is invalid.
+.sp
+.LP
+These functions shall not return an error code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+A condition variable can be destroyed immediately after all the threads
+that are blocked on it are awakened. For example,
+consider the following code:
+.sp
+.RS
+.nf
+
+\fBstruct list {
+    pthread_mutex_t lm;
+    ...
+}
+.sp
+
+struct elt {
+    key k;
+    int busy;
+    pthread_cond_t notbusy;
+    ...
+}
+.sp
+
+/* Find a list element and reserve it. */
+struct elt *
+list_find(struct list *lp, key k)
+{
+    struct elt *ep;
+.sp
+
+    pthread_mutex_lock(&lp->lm);
+    while ((ep = find_elt(l, k) != NULL) && ep->busy)
+        pthread_cond_wait(&ep->notbusy, &lp->lm);
+    if (ep != NULL)
+        ep->busy = 1;
+    pthread_mutex_unlock(&lp->lm);
+    return(ep);
+}
+.sp
+
+delete_elt(struct list *lp, struct elt *ep)
+{
+    pthread_mutex_lock(&lp->lm);
+    assert(ep->busy);
+    ... remove ep from list ...
+    ep->busy = 0;  /* Paranoid. */
+(A) pthread_cond_broadcast(&ep->notbusy);
+    pthread_mutex_unlock(&lp->lm);
+(B) pthread_cond_destroy(&rp->notbusy);
+    free(ep);
+}
+\fP
+.fi
+.RE
+.LP
+In this example, the condition variable and its list element may be
+freed (line B) immediately after all threads waiting for it
+are awakened (line A), since the mutex and the code ensure that no
+other thread can touch the element to be deleted.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+See \fIpthread_mutex_init\fP() ; a similar rationale applies to condition
+variables.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_cond_broadcast\fP() , \fIpthread_cond_signal\fP() , \fIpthread_cond_timedwait\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

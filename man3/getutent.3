@@ -1,0 +1,197 @@
+.\" Copyright 1995 Mark D. Roth (roth@uiuc.edu)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" References consulted:
+.\"     Linux libc source code
+.\"     Solaris manpages
+.\"
+.\" Modified Thu Jul 25 14:43:46 MET DST 1996 by Michael Haardt <michael@cantor.informatik.rwth-aachen.de>
+.\"
+.TH GETUTENT 3 1996-07-25 "" "Library functions"
+.SH NAME
+getutent, getutid, getutline, pututline, setutent, endutent, utmpname \- access utmp file entries
+.SH SYNOPSIS
+.B #include <utmp.h>
+.sp
+.B struct utmp *getutent(void);
+.br
+.BI "struct utmp *getutid(struct utmp *" ut );
+.br
+.BI "struct utmp *getutline(struct utmp *" ut );
+.sp
+.BI "struct utmp *pututline(struct utmp *" ut );
+.sp
+.B void setutent(void);
+.br
+.B void endutent(void);
+.sp
+.BI "void utmpname(const char *" file );
+.SH DESCRIPTION
+\fButmpname\fP() sets the name of the utmp-format file for the other utmp
+functions to access.  If \fButmpname\fP() is not used to set the filename
+before the other functions are used, they assume \fB_PATH_UTMP\fP, as
+defined in \fI<paths.h>\fP.
+.PP
+\fBsetutent\fP() rewinds the file pointer to the beginning of the utmp file.
+It is generally a Good Idea to call it before any of the other
+functions.
+.PP
+\fBendutent\fP() closes the utmp file.  It should be called when the user
+code is done accessing the file with the other functions.
+.PP
+\fBgetutent\fP() reads a line from the current file position in the utmp
+file.  It returns a pointer to a structure containing the fields of
+the line.
+.PP
+\fBgetutid\fP() searches forward from the current file position in the utmp
+file based upon \fIut\fP.  If \fIut\fP->ut_type is one of \fBRUN_LVL\fP,
+\fBBOOT_TIME\fP, \fBNEW_TIME\fP, or \fBOLD_TIME\fP, \fBgetutid\fP() will
+find the first entry whose \fIut_type\fP field matches \fIut\fP->ut_type.
+If \fIut\fP->ut_type is one of \fBINIT_PROCESS\fP, \fBLOGIN_PROCESS\fP,
+\fBUSER_PROCESS\fP, or \fBDEAD_PROCESS\fP, \fBgetutid\fP() will find the
+first entry whose ut_id field matches \fIut\fP->ut_id.
+.PP
+\fBgetutline\fP() searches forward from the current file position in the
+utmp file.  It scans entries whose ut_type is \fBUSER_PROCESS\fP
+or \fBLOGIN_PROCESS\fP and returns the first one whose ut_line field
+matches \fIut\fP->ut_line.
+.PP
+\fBpututline\fP() writes the utmp structure \fIut\fP into the utmp file.  It
+uses \fBgetutid\fP() to search for the proper place in the file to insert
+the new entry.  If it cannot find an appropriate slot for \fIut\fP,
+\fBpututline\fP() will append the new entry to the end of the file.
+.SH "RETURN VALUE"
+\fBgetutent\fP(), \fBgetutid\fP(), \fBgetutline\fP() and \fBpututline\fP()
+return a pointer to a \fBstruct utmp\fP on success, and NULL on failure.
+This \fBstruct utmp\fP is allocated in static storage, and may be
+overwritten by subsequent calls.
+.SH "REENTRANT VERSIONS"
+These above functions are not thread-safe. Glibc adds reentrant versions
+.sp
+.nf
+.BR "#define _GNU_SOURCE" "    /* or _SVID_SOURCE or _BSD_SOURCE */
+.B #include <utmp.h>
+.sp
+.BI "int getutent_r(struct utmp *" ubuf ", struct utmp **" ubufp );
+.sp
+.BI "int getutid_r(struct utmp *" ut ,
+.BI "              struct utmp *" ubuf ", struct utmp **" ubufp );
+.sp
+.BI "int getutline_r(struct utmp *" ut ,
+.BI "                struct utmp *" ubuf ", struct utmp **" ubufp );
+.fi
+.sp
+These functions are GNU extensions, analogs of the functions of the
+same name without the _r suffix. The
+.I ubuf
+parameter gives these functions a place to store their result.
+On success they return 0, and a pointer to the result is written in
+.RI * ubufp .
+On error these functions return \-1.
+.SH EXAMPLE
+The following example adds and removes a utmp record, assuming it is run
+from within a pseudo terminal.  For usage in a real application, you
+should check the return values of getpwuid() and ttyname().
+.PP
+.nf
+#include <string.h>
+#include <stdlib.h>
+#include <pwd.h>
+#include <unistd.h>
+#include <utmp.h>
+
+int main(int argc, char *argv[])
+{
+  struct utmp entry;
+
+  system("echo before adding entry:;who");
+
+  entry.ut_type=USER_PROCESS;
+  entry.ut_pid=getpid();
+  strcpy(entry.ut_line,ttyname(0)+strlen("/dev/"));
+  /* only correct for ptys named /dev/tty[pqr][0-9a-z] */
+  strcpy(entry.ut_id,ttyname(0)+strlen("/dev/tty"));
+  time(&entry.ut_time);
+  strcpy(entry.ut_user,getpwuid(getuid())->pw_name);
+  memset(entry.ut_host,0,UT_HOSTSIZE);
+  entry.ut_addr=0;
+  setutent();
+  pututline(&entry);
+
+  system("echo after adding entry:;who");
+
+  entry.ut_type=DEAD_PROCESS;
+  memset(entry.ut_line,0,UT_LINESIZE);
+  entry.ut_time=0;
+  memset(entry.ut_user,0,UT_NAMESIZE);
+  setutent();
+  pututline(&entry);
+
+  system("echo after removing entry:;who");
+
+  endutent();
+  return 0;
+}
+.fi
+.SH FILES
+/var/run/utmp	database of currently logged-in users
+.br
+/var/log/wtmp	database of past user logins
+.SH "CONFORMING TO"
+XPG 2, SVID 2, Linux FSSTND 1.2
+.LP
+In XPG2 and SVID2  the function \fIpututline()\fP is documented
+to return void, and that is what it does on many systems
+(AIX, HPUX, Linux libc5).
+HPUX introduces a new function \fI_pututline()\fP with the prototype
+given above for \fIpututline()\fP (also found in Linux libc5).
+.LP
+All these functions are obsolete now on non-Linux systems.
+POSIX 1003.1-2001, following XPG4.2,
+does not have any of these functions, but instead uses
+.sp
+.B #include <utmpx.h>
+.sp
+.B struct utmpx *getutxent(void);
+.br
+.B struct utmpx *getutxid(const struct utmpx *);
+.br
+.B struct utmpx *getutxline(const struct utmpx *);
+.br
+.B struct utmpx *pututxline(const struct utmpx *);
+.br
+.B void setutxent(void);
+.br
+.B void endutxent(void);
+.sp
+The \fIutmpx\fP structure is a superset of the \fIutmp\fP structure,
+with additional fields, and larger versions of the existing fields.
+The corresponding files are often
+.I /var/*/utmpx
+and
+.IR /var/*/wtmpx .
+.LP
+Linux glibc on the other hand does not use \fIutmpx\fP since its
+\fIutmp\fP structure is already large enough. The functions \fIgetutxent\fP
+etc. are aliases for \fIgetutent\fP etc.
+.SH "SEE ALSO"
+.BR utmp (5)

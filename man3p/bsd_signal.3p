@@ -1,0 +1,108 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "BSD_SIGNAL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" bsd_signal 
+.SH NAME
+bsd_signal \- simplified signal facilities
+.SH SYNOPSIS
+.LP
+\fB#include <signal.h>
+.br
+.sp
+void (*bsd_signal(int\fP \fIsig\fP\fB, void (*\fP\fIfunc\fP\fB)(int)))(int);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIbsd_signal\fP() function provides a partially compatible interface
+for programs written to historical system interfaces
+(see APPLICATION USAGE).
+.LP
+The function call \fIbsd_signal\fP(\fIsig\fP, \fIfunc\fP) shall be
+equivalent to the following:
+.sp
+.RS
+.nf
+
+\fBvoid (*bsd_signal(int sig, void (*func)(int)))(int)
+{
+    struct sigaction act, oact;
+.sp
+
+    act.sa_handler =\fP \fIfunc\fP\fB;
+    act.sa_flags = SA_RESTART;
+
+    sigemptyset(&act.sa_mask);
+    sigaddset(&act.sa_mask,\fP \fIsig\fP\fB);
+    if (sigaction(\fP\fIsig\fP\fB, &act, &oact) == -1)
+        return(SIG_ERR);
+
+    return(oact.sa_handler);
+}
+\fP
+.fi
+.RE
+.LP
+The handler function should be declared:
+.sp
+.RS
+.nf
+
+\fBvoid handler(int\fP \fIsig\fP\fB);
+\fP
+.fi
+.RE
+.LP
+where \fIsig\fP is the signal number. The behavior is undefined if
+\fIfunc\fP is a function that takes more than one argument,
+or an argument of a different type.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIbsd_signal\fP() shall return the previous
+action for \fIsig\fP. Otherwise, SIG_ERR shall be
+returned and \fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+Refer to \fIsigaction\fP() .
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+This function is a direct replacement for the BSD \fIsignal\fP() function
+for simple
+applications that are installing a single-argument signal handler
+function. If a BSD signal handler function is being installed
+that expects more than one argument, the application has to be modified
+to use \fIsigaction\fP(). The \fIbsd_signal\fP() function differs
+from \fIsignal\fP() in that the SA_RESTART flag is set and the SA_RESETHAND
+is clear when
+\fIbsd_signal\fP() is used. The state of these flags is not specified
+for \fIsignal\fP().
+.LP
+It is recommended that new applications use the \fIsigaction\fP()
+function.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIsigaction\fP() , \fIsigaddset\fP() , \fIsigemptyset\fP() , \fIsignal\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<signal.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

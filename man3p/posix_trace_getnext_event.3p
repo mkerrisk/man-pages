@@ -1,0 +1,222 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "POSIX_TRACE_GETNEXT_EVENT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" posix_trace_getnext_event 
+.SH NAME
+posix_trace_getnext_event, posix_trace_timedgetnext_event, posix_trace_trygetnext_event
+\- retrieve a trace event
+(\fBTRACING\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <sys/types.h>
+.br
+#include <trace.h>
+.br
+.sp
+int posix_trace_getnext_event(trace_id_t\fP \fItrid\fP\fB,
+.br
+\ \ \ \ \ \  struct posix_trace_event_info *restrict\fP \fIevent\fP\fB,
+.br
+\ \ \ \ \ \  void *restrict\fP \fIdata\fP\fB, size_t\fP \fInum_bytes\fP\fB,
+.br
+\ \ \ \ \ \  size_t *restrict\fP \fIdata_len\fP\fB, int *restrict\fP
+\fIunavailable\fP\fB);
+.br
+\fP
+.LP
+\fBint posix_trace_timedgetnext_event(trace_id_t\fP \fItrid\fP\fB,
+.br
+\ \ \ \ \ \  struct posix_trace_event_info *restrict\fP \fIevent\fP\fB,
+.br
+\ \ \ \ \ \  void *restrict\fP \fIdata\fP\fB, size_t\fP \fInum_bytes\fP\fB,
+.br
+\ \ \ \ \ \  size_t *restrict\fP \fIdata_len\fP\fB, int *restrict\fP
+\fIunavailable\fP\fB,
+.br
+\ \ \ \ \ \  const struct timespec *restrict\fP \fIabs_timeout\fP\fB);
+.br
+\fP
+.LP
+\fBint posix_trace_trygetnext_event(trace_id_t\fP \fItrid\fP\fB,
+.br
+\ \ \ \ \ \  struct posix_trace_event_info *restrict\fP \fIevent\fP\fB,
+.br
+\ \ \ \ \ \  void *restrict\fP \fIdata\fP\fB, size_t\fP \fInum_bytes\fP\fB,
+.br
+\ \ \ \ \ \  size_t *restrict\fP \fIdata_len\fP\fB, int *restrict\fP
+\fIunavailable\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIposix_trace_getnext_event\fP() function shall report a recorded
+trace event either from an active trace stream without
+log  
+\ or a pre-recorded trace stream identified by the \fItrid\fP argument.
+The \fIposix_trace_trygetnext_event\fP() function shall report a recorded
+trace event from an active trace stream
+without log identified by the \fItrid\fP argument.
+.LP
+The trace event information associated with the recorded trace event
+shall be copied by the function into the structure pointed
+to by the argument \fIevent\fP and the data associated with the trace
+event shall be copied into the buffer pointed to by the
+\fIdata\fP argument.
+.LP
+The \fIposix_trace_getnext_event\fP() function shall block if the
+\fItrid\fP argument identifies an active trace stream and
+there is currently no trace event ready to be retrieved. When returning,
+if a recorded trace event was reported, the variable
+pointed to by the \fIunavailable\fP argument shall be set to zero.
+Otherwise, the variable pointed to by the \fIunavailable\fP
+argument shall be set to a value different from zero.
+.LP
+\ The \fIposix_trace_timedgetnext_event\fP() function shall attempt
+to get another trace event from an active trace stream
+without log, as in the \fIposix_trace_getnext_event\fP() function.
+However, if no trace event is available from the trace stream,
+the implied wait shall be terminated when the timeout specified by
+the argument \fIabs_timeout\fP expires, and the function shall
+return the error [ETIMEDOUT].
+.LP
+The timeout shall expire when the absolute time specified by \fIabs_timeout\fP
+passes, as measured by the clock upon which
+timeouts are based (that is, when the value of that clock equals or
+exceeds \fIabs_timeout\fP), or if the absolute time specified
+by \fIabs_timeout\fP has already passed at the time of the call. 
+.LP
+\ If the Timers option is supported, the timeout shall be based on
+the CLOCK_REALTIME clock; if the Timers option
+is not supported, the timeout shall be based on the system clock as
+returned by the \fItime\fP() function. The resolution of the timeout
+shall be the resolution of the clock on which it
+is based. The \fBtimespec\fP data type is defined in the \fI<time.h>\fP
+header. 
+.LP
+Under no circumstance shall the function fail with a timeout if a
+trace event is immediately available from the trace stream. The
+validity of the \fIabs_timeout\fP argument need not be checked if
+a trace event is immediately available from the trace
+stream.
+.LP
+The behavior of this function for a pre-recorded trace stream is unspecified.
+.LP
+The \fIposix_trace_trygetnext_event\fP() function shall not block.
+\ This function shall return an error if the \fItrid\fP
+argument identifies a pre-recorded trace stream.  If a recorded
+trace event was reported, the variable pointed to by the \fIunavailable\fP
+argument shall be set to zero. Otherwise, if no trace
+event was reported, the variable pointed to by the \fIunavailable\fP
+argument shall be set to a value different from zero.
+.LP
+The argument \fInum_bytes\fP shall be the size of the buffer pointed
+to by the \fIdata\fP argument. The argument
+\fIdata_len\fP reports to the application the length in bytes of the
+data record just transferred. If \fInum_bytes\fP is greater
+than or equal to the size of the data associated with the trace event
+pointed to by the \fIevent\fP argument, all the recorded
+data shall be transferred. In this case, the \fItruncation-status\fP
+member of the trace event structure shall be either
+POSIX_TRACE_NOT_TRUNCATED, if the trace event data was recorded without
+truncation while tracing, or POSIX_TRACE_TRUNCATED_RECORD,
+if the trace event data was truncated when it was recorded. If the
+\fInum_bytes\fP argument is less than the length of recorded
+trace event data, the data transferred shall be truncated to a length
+of \fInum_bytes\fP, the value stored in the variable pointed
+to by \fIdata_len\fP shall be equal to \fInum_bytes\fP, and the \fItruncation-status\fP
+member of the \fIevent\fP structure
+argument shall be set to POSIX_TRACE_TRUNCATED_READ (see the \fBposix_trace_event_info\fP
+structure defined in \fI<trace.h>\fP).
+.LP
+The report of a trace event shall be sequential starting from the
+oldest recorded trace event. Trace events shall be reported in
+the order in which they were generated, up to an implementation-defined
+time resolution that causes the ordering of trace events
+occurring very close to each other to be unknown. Once reported, a
+trace event cannot be reported again from an active trace
+stream. Once a trace event is reported from an active trace stream
+without log, the trace stream shall make the resources
+associated with that trace event available to record future generated
+trace events.
+.SH RETURN VALUE
+.LP
+Upon successful completion, these functions shall return a value of
+zero. Otherwise, they shall return the corresponding error
+number.
+.LP
+If successful, these functions store:
+.IP " *" 3
+The recorded trace event in the object pointed to by \fIevent\fP
+.LP
+.IP " *" 3
+The trace event information associated with the recorded trace event
+in the object pointed to by \fIdata\fP
+.LP
+.IP " *" 3
+The length of this trace event information in the object pointed to
+by \fIdata_len\fP
+.LP
+.IP " *" 3
+The value of zero in the object pointed to by \fIunavailable\fP
+.LP
+.SH ERRORS
+.LP
+These functions shall fail if:
+.TP 7
+.B EINVAL
+The trace stream identifier argument \fItrid\fP is invalid.
+.sp
+.LP
+The \fIposix_trace_getnext_event\fP() and \fIposix_trace_timedgetnext_event\fP()
+functions shall fail if:
+.TP 7
+.B EINTR
+The operation was interrupted by a signal, and so the call had no
+effect.
+.sp
+.LP
+The \fIposix_trace_trygetnext_event\fP() function shall fail if:
+.TP 7
+.B EINVAL
+The trace stream identifier argument \fItrid\fP does not correspond
+to an active trace stream.
+.sp
+.LP
+The \fIposix_trace_timedgetnext_event\fP() function shall fail if:
+.TP 7
+.B EINVAL
+There is no trace event immediately available from the trace stream,
+and the \fItimeout\fP argument is invalid.
+.TP 7
+.B ETIMEDOUT
+No trace event was available from the trace stream before the specified
+timeout \fItimeout\fP expired.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIposix_trace_create\fP() , \fIposix_trace_open\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<sys/types.h>\fP, \fI<trace.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

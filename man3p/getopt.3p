@@ -1,0 +1,321 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETOPT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getopt 
+.SH NAME
+getopt, optarg, opterr, optind, optopt \- command option parsing
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int getopt(int\fP \fIargc\fP\fB, char * const\fP \fIargv\fP\fB[],
+const char *\fP\fIoptstring\fP\fB);
+.br
+extern char *optarg;
+.br
+extern int optind, opterr, optopt;
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetopt\fP() function is a command-line parser that shall follow
+Utility Syntax Guidelines 3, 4, 5, 6, 7, 9, and 10 in
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, Section 12.2,
+Utility Syntax Guidelines.
+.LP
+The parameters \fIargc\fP and \fIargv\fP are the argument count and
+argument array as passed to \fImain\fP() (see \fIexec\fP() ). The
+argument \fIoptstring\fP is a string of recognized
+option characters; if a character is followed by a colon, the option
+takes an argument. All option characters allowed by Utility
+Syntax Guideline 3 are allowed in \fIoptstring\fP. The implementation
+may accept other characters as an extension.
+.LP
+The variable \fIoptind\fP is the index of the next element of the
+\fIargv\fP[] vector to be processed. It shall be initialized
+to 1 by the system, and \fIgetopt\fP() shall update it when it finishes
+with each element of \fIargv\fP[]. When an element of
+\fIargv\fP[] contains multiple option characters, it is unspecified
+how \fIgetopt\fP() determines which options have already been
+processed.
+.LP
+The \fIgetopt\fP() function shall return the next option character
+(if one is found) from \fIargv\fP that matches a character
+in \fIoptstring\fP, if there is one that matches. If the option takes
+an argument, \fIgetopt\fP() shall set the variable
+\fIoptarg\fP to point to the option-argument as follows:
+.IP " 1." 4
+If the option was the last character in the string pointed to by an
+element of \fIargv\fP, then \fIoptarg\fP shall contain the
+next element of \fIargv\fP, and \fIoptind\fP shall be incremented
+by 2. If the resulting value of \fIoptind\fP is greater than
+\fIargc\fP, this indicates a missing option-argument, and \fIgetopt\fP()
+shall return an error indication.
+.LP
+.IP " 2." 4
+Otherwise, \fIoptarg\fP shall point to the string following the option
+character in that element of \fIargv\fP, and
+\fIoptind\fP shall be incremented by 1.
+.LP
+.LP
+If, when \fIgetopt\fP() is called:
+.sp
+.RS
+.nf
+
+\fIargv\fP\fB[optind]\fP  is a null pointer\fB*\fP
+\fIargv\fP\fB[optind]\fP  is not the character \fB- \fP 
+\fIargv\fP\fB[optind]\fP  points to the string \fB"-"\fP
+.fi
+.RE
+.LP
+\fIgetopt\fP() shall return -1 without changing \fIoptind\fP. If:
+.sp
+.RS
+.nf
+
+\fIargv\fP\fB[optind] \fP  points to the string \fB"--"
+\fP
+.fi
+.RE
+.LP
+\fIgetopt\fP() shall return -1 after incrementing \fIoptind\fP.
+.LP
+If \fIgetopt\fP() encounters an option character that is not contained
+in \fIoptstring\fP, it shall return the question-mark (
+\fB'?'\fP ) character. If it detects a missing option-argument, it
+shall return the colon character ( \fB':'\fP ) if the
+first character of \fIoptstring\fP was a colon, or a question-mark
+character ( \fB'?'\fP ) otherwise. In either case,
+\fIgetopt\fP() shall set the variable \fIoptopt\fP to the option character
+that caused the error. If the application has not set
+the variable \fIopterr\fP to 0 and the first character of \fIoptstring\fP
+is not a colon, \fIgetopt\fP() shall also print a
+diagnostic message to \fIstderr\fP in the format specified for the
+\fIgetopts\fP
+utility.
+.LP
+The \fIgetopt\fP() function need not be reentrant. A function that
+is not required to be reentrant is not required to be
+thread-safe.
+.SH RETURN VALUE
+.LP
+The \fIgetopt\fP() function shall return the next option character
+specified on the command line.
+.LP
+A colon ( \fB':'\fP ) shall be returned if \fIgetopt\fP() detects
+a missing argument and the first character of
+\fIoptstring\fP was a colon ( \fB':'\fP ).
+.LP
+A question mark ( \fB'?'\fP ) shall be returned if \fIgetopt\fP()
+encounters an option character not in \fIoptstring\fP or
+detects a missing argument and the first character of \fIoptstring\fP
+was not a colon ( \fB':'\fP ).
+.LP
+Otherwise, \fIgetopt\fP() shall return -1 when all command line options
+are parsed.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Parsing Command Line Options
+.LP
+The following code fragment shows how you might process the arguments
+for a utility that can take the mutually-exclusive options
+\fIa\fP and \fIb\fP and the options \fIf\fP and \fIo\fP, both of which
+require arguments:
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+int
+main(int argc, char *argv[ ])
+{
+    int c;
+    int bflg, aflg, errflg;
+    char *ifile;
+    char *ofile;
+    extern char *optarg;
+    extern int optind, optopt;
+    . . .
+    while ((c = getopt(argc, argv, ":abf:o:")) != -1) {
+        switch(c) {
+        case 'a':
+            if (bflg)
+                errflg++;
+            else
+                aflg++;
+            break;
+        case 'b':
+            if (aflg)
+                errflg++;
+            else {
+                bflg++;
+                bproc();
+            }
+            break;
+        case 'f':
+            ifile = optarg;
+            break;
+        case 'o':
+            ofile = optarg;
+            break;
+            case ':':       /* -f or -o without operand */
+                    fprintf(stderr,
+                            "Option -%c requires an operand\\n", optopt);
+                    errflg++;
+                    break;
+        case '?':
+                    fprintf(stderr,
+                            "Unrecognized option: -%c\\n", optopt);
+            errflg++;
+        }
+    }
+    if (errflg) {
+        fprintf(stderr, "usage: . . . ");
+        exit(2);
+    }
+    for ( ; optind < argc; optind++) {
+        if (access(argv[optind], R_OK)) {
+    . . .
+}
+\fP
+.fi
+.RE
+.LP
+This code accepts any of the following as equivalent:
+.sp
+.RS
+.nf
+
+\fBcmd -ao arg path path
+cmd -a -o arg path path
+cmd -o arg -a path path
+cmd -a -o arg -- path path
+cmd -a -oarg path path
+cmd -aoarg path path
+\fP
+.fi
+.RE
+.SS Checking Options and Arguments
+.LP
+The following example parses a set of command line options and prints
+messages to standard output for each option and argument
+that it encounters.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+#include <stdio.h>
+\&...
+int c;
+char *filename;
+extern char *optarg;
+extern int optind, optopt, opterr;
+\&...
+while ((c = getopt(argc, argv, ":abf:")) != -1) {
+    switch(c) {
+    case 'a':
+        printf("a is set\\n");
+        break;
+    case 'b':
+        printf("b is set\\n");
+        break;
+    case 'f':
+        filename = optarg;
+        printf("filename is %s\\n", filename);
+        break;
+    case ':':
+        printf("-%c without filename\\n", optopt);
+        break;
+    case '?':
+        printf("unknown arg %c\\n", optopt);
+        break;
+    }
+}
+\fP
+.fi
+.RE
+.SS Selecting Options from the Command Line
+.LP
+The following example selects the type of database routines the user
+wants to use based on the \fIOptions\fP argument.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+#include <string.h>
+\&...
+char *Options = "hdbtl";
+\&...
+int dbtype, i;
+char c;
+char *st;
+\&...
+dbtype = 0;
+while ((c = getopt(argc, argv, Options)) != -1) {
+    if ((st = strchr(Options, c)) != NULL) {
+        dbtype = st - Options;
+        break;
+    }
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIgetopt\fP() function is only required to support option characters
+included in Utility Syntax Guideline 3. Many
+historical implementations of \fIgetopt\fP() support other characters
+as options. This is an allowed extension, but applications
+that use extensions are not maximally portable. Note that support
+for multi-byte option characters is only possible when such
+characters can be represented as type \fBint\fP.
+.SH RATIONALE
+.LP
+The \fIoptopt\fP variable represents historical practice and allows
+the application to obtain the identity of the invalid
+option.
+.LP
+The description has been written to make it clear that \fIgetopt\fP(),
+like the \fIgetopts\fP utility, deals with option-arguments whether
+separated from the option by
+<blank>s or not. Note that the requirements on \fIgetopt\fP() and
+\fIgetopts\fP are
+more stringent than the Utility Syntax Guidelines.
+.LP
+The \fIgetopt\fP() function shall return -1, rather than EOF, so that
+\fI<stdio.h>\fP is not required.
+.LP
+The special significance of a colon as the first character of \fIoptstring\fP
+makes \fIgetopt\fP() consistent with the \fIgetopts\fP utility. It
+allows an application to make a distinction between a missing
+argument and an incorrect option letter without having to examine
+the option letter. It is true that a missing argument can only be
+detected in one case, but that is a case that has to be considered.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP, the Shell and Utilities
+volume of
+IEEE\ Std\ 1003.1-2001
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

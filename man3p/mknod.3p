@@ -1,0 +1,207 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "MKNOD" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" mknod 
+.SH NAME
+mknod \- make a directory, a special file, or a regular file
+.SH SYNOPSIS
+.LP
+\fB#include <sys/stat.h>
+.br
+.sp
+int mknod(const char *\fP\fIpath\fP\fB, mode_t\fP \fImode\fP\fB, dev_t\fP
+\fIdev\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fImknod\fP() function shall create a new file named by the pathname
+to which the argument \fIpath\fP points.
+.LP
+The file type for \fIpath\fP is OR'ed into the \fImode\fP argument,
+and the application shall select one of the following
+symbolic constants:
+.TS C
+center; l l.
+\fBName\fP	\fBDescription\fP
+S_IFIFO	FIFO-special
+S_IFCHR	Character-special (non-portable)
+S_IFDIR	Directory (non-portable)
+S_IFBLK	Block-special (non-portable)
+S_IFREG	Regular (non-portable)
+.TE
+.LP
+The only portable use of \fImknod\fP() is to create a FIFO-special
+file. If \fImode\fP is not S_IFIFO or \fIdev\fP is not 0,
+the behavior of \fImknod\fP() is unspecified.
+.LP
+The permissions for the new file are OR'ed into the \fImode\fP argument,
+and may be selected from any combination of the
+following symbolic constants:
+.TS C
+center; l2 l.
+\fBName\fP	\fBDescription\fP
+S_ISUID	Set user ID on execution.
+S_ISGID	Set group ID on execution.
+S_IRWXU	Read, write, or execute (search) by owner.
+S_IRUSR	Read by owner.
+S_IWUSR	Write by owner.
+S_IXUSR	Execute (search) by owner.
+S_IRWXG	Read, write, or execute (search) by group.
+S_IRGRP	Read by group.
+S_IWGRP	Write by group.
+S_IXGRP	Execute (search) by group.
+S_IRWXO	Read, write, or execute (search) by others.
+S_IROTH	Read by others.
+S_IWOTH	Write by others.
+S_IXOTH	Execute (search) by others.
+S_ISVTX	On directories, restricted deletion flag.
+.TE
+.LP
+The user ID of the file shall be initialized to the effective user
+ID of the process. The group ID of the file shall be
+initialized to either the effective group ID of the process or the
+group ID of the parent directory. Implementations shall provide
+a way to initialize the file's group ID to the group ID of the parent
+directory. Implementations may, but need not, provide an
+implementation-defined way to initialize the file's group ID to the
+effective group ID of the calling process. The owner, group,
+and other permission bits of \fImode\fP shall be modified by the file
+mode creation mask of the process. The \fImknod\fP()
+function shall clear each bit whose corresponding bit in the file
+mode creation mask of the process is set.
+.LP
+If \fIpath\fP names a symbolic link, \fImknod\fP() shall fail and
+set \fIerrno\fP to [EEXIST].
+.LP
+Upon successful completion, \fImknod\fP() shall mark for update the
+\fIst_atime\fP, \fIst_ctime\fP, and \fIst_mtime\fP
+fields of the file. Also, the \fIst_ctime\fP and \fIst_mtime\fP fields
+of the directory that contains the new entry shall be
+marked for update.
+.LP
+Only a process with appropriate privileges may invoke \fImknod\fP()
+for file types other than FIFO-special.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fImknod\fP() shall return 0. Otherwise,
+it shall return -1, the new file shall not be created, and
+\fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fImknod\fP() function shall fail if:
+.TP 7
+.B EACCES
+A component of the path prefix denies search permission, or write
+permission is denied on the parent directory.
+.TP 7
+.B EEXIST
+The named file exists.
+.TP 7
+.B EINVAL
+An invalid argument exists.
+.TP 7
+.B EIO
+An I/O error occurred while accessing the file system.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of a pathname exceeds {PATH_MAX} or a pathname component
+is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of the path prefix specified by \fIpath\fP does not name
+an existing directory or \fIpath\fP is an empty
+string.
+.TP 7
+.B ENOSPC
+The directory that would contain the new file cannot be extended or
+the file system is out of file allocation resources.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B EPERM
+The invoking process does not have appropriate privileges and the
+file type is not FIFO-special.
+.TP 7
+.B EROFS
+The directory in which the file is to be created is located on a read-only
+file system.
+.sp
+.LP
+The \fImknod\fP() function may fail if:
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+Pathname resolution of a symbolic link produced an intermediate result
+whose length exceeds {PATH_MAX}.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Creating a FIFO Special File
+.LP
+The following example shows how to create a FIFO special file named
+\fB/home/cnd/mod_done\fP, with read/write permissions for
+owner, and with read permissions for group and others.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <sys/stat.h>
+.sp
+
+dev_t dev;
+int   status;
+\&...
+status  = mknod("/home/cnd/mod_done", S_IFIFO | S_IWUSR |
+    S_IRUSR | S_IRGRP | S_IROTH, dev);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fImkfifo\fP() function is preferred over this function for making
+FIFO special
+files.
+.SH RATIONALE
+.LP
+The POSIX.1-1990 standard required that the group ID of a newly created
+file be set to the group ID of its parent directory or
+to the effective group ID of the creating process. FIPS 151-2 required
+that implementations provide a way to have the group ID be
+set to the group ID of the containing directory, but did not prohibit
+implementations also supporting a way to set the group ID to
+the effective group ID of the creating process. Conforming applications
+should not assume which group ID will be used. If it
+matters, an application can use \fIchown\fP() to set the group ID
+after the file is created,
+or determine under what conditions the implementation will set the
+desired group ID.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIchmod\fP() , \fIcreat\fP() , \fIexec\fP() , \fImkdir\fP() , \fImkfifo\fP()
+,
+\fIopen\fP() , \fIstat\fP() , \fIumask\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/stat.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,132 @@
+.\" Copyright (c) 1983, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     $Id: listen.2,v 1.6 1999/05/18 14:10:32 freitag Exp $
+.\"
+.\" Modified Fri Jul 23 22:07:54 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified 950727 by aeb, following a suggestion by Urs Thuermann
+.\" <urs@isnogud.escape.de>
+.\" Modified Tue Oct 22 08:11:14 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1998 by Andi Kleen 
+.\" Modified 11 May 2001 by Sam Varshavchik <mrsam@courier-mta.com>
+.\"
+.TH LISTEN 2 1993-07-23 "BSD Man Page" "Linux Programmer's Manual"
+.SH NAME
+listen \- listen for connections on a socket
+.SH SYNOPSIS
+.B #include <sys/socket.h>
+.sp
+.BI "int listen(int " s ", int " backlog );
+.SH DESCRIPTION
+To accept connections, a socket is first created with
+.BR socket (2),
+a willingness to accept incoming connections and a queue limit for incoming
+connections are specified with
+.BR listen ,
+and then the connections are
+accepted with
+.BR accept (2).
+The
+.B listen
+call applies only to sockets of type
+.B SOCK_STREAM
+or
+.BR SOCK_SEQPACKET .
+.PP
+The
+.I backlog
+parameter defines the maximum length the queue of pending connections may
+grow to.  If a connection request arrives with the queue full the client
+may receive an error with an indication of
+.B ECONNREFUSED
+or, if the underlying protocol supports retransmission, the request may be
+ignored so that retries succeed.
+.SH NOTES
+The behaviour of the 
+.I backlog 
+parameter on TCP sockets changed with Linux 2.2.
+Now it specifies the queue length for 
+.I completely 
+established sockets waiting to be accepted, instead of the number of incomplete
+connection requests. The maximum length of the queue for incomplete sockets
+can be set using the 
+.B tcp_max_syn_backlog
+sysctl.
+When syncookies are enabled there is no logical maximum 
+length and this sysctl setting is ignored.
+See 
+.BR tcp (7)
+for more information.
+
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EADDRINUSE
+Another socket is already listening on the same port.
+.TP
+.B EBADF
+The argument
+.I s
+is not a valid descriptor.
+.TP
+.B ENOTSOCK
+The argument
+.I s
+is not a socket.
+.TP
+.B EOPNOTSUPP
+The socket is not of a type that supports the
+.B listen 
+operation.
+.SH "CONFORMING TO"
+Single Unix, 4.4BSD, POSIX 1003.1g draft. The
+.B listen
+function call first appeared in 4.2BSD. 
+.SH BUGS
+If the socket is of type 
+.BR AF_INET , 
+and the
+.I backlog
+argument is greater
+than the constant 
+.B SOMAXCONN 
+(128 in Linux 2.0 & 2.2), it is silently truncated
+to 
+.BR SOMAXCONN . 
+Don't rely on this value in portable applications since BSD
+(and some BSD-derived systems) limit the backlog to 5.
+.SH "SEE ALSO"
+.BR accept (2),
+.BR connect (2),
+.BR socket (2)

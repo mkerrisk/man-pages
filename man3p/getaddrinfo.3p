@@ -1,0 +1,312 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FREEADDRINFO" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" freeaddrinfo 
+.SH NAME
+freeaddrinfo, getaddrinfo \- get address information
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+#include <netdb.h>
+.br
+.sp
+void freeaddrinfo(struct addrinfo *\fP\fIai\fP\fB);
+.br
+int getaddrinfo(const char *restrict\fP \fInodename\fP\fB,
+.br
+\ \ \ \ \ \  const char *restrict\fP \fIservname\fP\fB,
+.br
+\ \ \ \ \ \  const struct addrinfo *restrict\fP \fIhints\fP\fB,
+.br
+\ \ \ \ \ \  struct addrinfo **restrict\fP \fIres\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIfreeaddrinfo\fP() function shall free one or more \fBaddrinfo\fP
+structures returned by \fIgetaddrinfo\fP(), along
+with any additional storage associated with those structures. If the
+\fIai_next\fP field of the structure is not null, the entire
+list of structures shall be freed. The \fIfreeaddrinfo\fP() function
+shall support the freeing of arbitrary sublists of an
+\fBaddrinfo\fP list originally returned by \fIgetaddrinfo\fP().
+.LP
+The \fIgetaddrinfo\fP() function shall translate the name of a service
+location (for example, a host name) and/or a service
+name and shall return a set of socket addresses and associated information
+to be used in creating a socket with which to address
+the specified service. 
+.TP 7
+\fBNote:\fP
+In many cases it is implemented by the Domain Name System, as documented
+in RFC\ 1034, RFC\ 1035, and
+RFC\ 1886.
+.sp
+.LP
+The \fIfreeaddrinfo\fP() and \fIgetaddrinfo\fP() functions shall be
+thread-safe.
+.LP
+The \fInodename\fP and \fIservname\fP arguments are either null pointers
+or pointers to null-terminated strings. One or both
+of these two arguments shall be supplied by the application as a non-null
+pointer.
+.LP
+The format of a valid name depends on the address family or families.
+If a specific family is not given and the name could be
+interpreted as valid within multiple supported families, the implementation
+shall attempt to resolve the name in all supported
+families and, in absence of errors, one or more results shall be returned.
+.LP
+If the \fInodename\fP argument is not null, it can be a descriptive
+name or can be an address string. If the specified address
+family is AF_INET,   \ AF_INET6,  or AF_UNSPEC, valid
+descriptive names include host names. If the specified address family
+is AF_INET or AF_UNSPEC, address strings using Internet
+standard dot notation as specified in \fIinet_addr\fP() are valid.
+.LP
+If the specified address family is AF_INET6 or AF_UNSPEC, standard
+IPv6 text forms described in \fIinet_ntop\fP() are valid. 
+.LP
+If \fInodename\fP is not null, the requested service location is named
+by \fInodename\fP; otherwise, the requested service
+location is local to the caller.
+.LP
+If \fIservname\fP is null, the call shall return network-level addresses
+for the specified \fInodename.\fP If \fIservname\fP
+is not null, it is a null-terminated character string identifying
+the requested service. This can be either a descriptive name or a
+numeric representation suitable for use with the address family or
+families. If the specified address family is AF_INET,  
+\ AF_INET6,  or AF_UNSPEC, the service can be specified as a
+string specifying a decimal port number.
+.LP
+If the \fIhints\fP argument is not null, it refers to a structure
+containing input values that may direct the operation by
+providing options and by limiting the returned information to a specific
+socket type, address family, and/or protocol. In this
+\fIhints\fP structure every member other than \fIai_flags\fP, \fIai_family\fP,
+\fIai_socktype\fP, and \fIai_protocol\fP shall
+be set to zero or a null pointer. A value of AF_UNSPEC for \fIai_family\fP
+means that the caller shall accept any address family.
+A value of zero for \fIai_socktype\fP means that the caller shall
+accept any socket type. A value of zero for \fIai_protocol\fP
+means that the caller shall accept any protocol. If \fIhints\fP is
+a null pointer, the behavior shall be as if it referred to a
+structure containing the value zero for the \fIai_flags\fP, \fIai_socktype\fP,
+and \fIai_protocol\fP fields, and AF_UNSPEC for
+the \fIai_family\fP field.
+.LP
+The \fIai_flags\fP field to which the \fIhints\fP parameter points
+shall be set to zero or be the bitwise-inclusive OR of one
+or more of the values AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST, AI_NUMERICSERV,
+AI_V4MAPPED, AI_ALL, and AI_ADDRCONFIG.
+.LP
+If the AI_PASSIVE flag is specified, the returned address information
+shall be suitable for use in binding a socket for
+accepting incoming connections for the specified service. In this
+case, if the \fInodename\fP argument is null, then the IP
+address portion of the socket address structure shall be set to INADDR_ANY
+for an IPv4 address or IN6ADDR_ANY_INIT for an IPv6
+address. If the AI_PASSIVE flag is not specified, the returned address
+information shall be suitable for a call to \fIconnect\fP() (for a
+connection-mode protocol) or for a call to \fIconnect\fP(), \fIsendto\fP(),
+or \fIsendmsg\fP() (for a connectionless protocol). In this case,
+if the \fInodename\fP argument is
+null, then the IP address portion of the socket address structure
+shall be set to the loopback address. The AI_PASSIVE flag shall
+be ignored if the \fInodename\fP argument is not null.
+.LP
+If the AI_CANONNAME flag is specified and the \fInodename\fP argument
+is not null, the function shall attempt to determine the
+canonical name corresponding to \fInodename\fP (for example, if \fInodename\fP
+is an alias or shorthand notation for a complete
+name). 
+.TP 7
+\fBNote:\fP
+Since different implementations use different conceptual models, the
+terms ``canonical name'' and ``alias'' cannot be precisely
+defined for the general case. However, Domain Name System implementations
+are expected to interpret them as they are used in
+RFC\ 1034. 
+.LP
+A numeric host address string is not a ``name'', and thus does not
+have a ``canonical name'' form; no address to host name
+translation is performed. See below for handling of the case where
+a canonical name cannot be obtained.
+.sp
+.LP
+If the AI_NUMERICHOST flag is specified, then a non-null \fInodename\fP
+string supplied shall be a numeric host address string.
+Otherwise, an [EAI_NONAME] error is returned. This flag shall prevent
+any type of name resolution service (for example, the DNS)
+from being invoked.
+.LP
+If the AI_NUMERICSERV flag is specified, then a non-null \fIservname\fP
+string supplied shall be a numeric port string.
+Otherwise, an [EAI_NONAME] error shall be returned. This flag shall
+prevent any type of name resolution service (for example, NIS+)
+from being invoked.
+.LP
+If the AI_V4MAPPED flag is specified along with an \fIai_family\fP
+of AF_INET6, then \fIgetaddrinfo\fP() shall return IPv4-mapped
+IPv6 addresses on finding no matching IPv6 addresses ( \fIai_addrlen\fP
+shall be 16). The AI_V4MAPPED flag shall be ignored unless
+\fIai_family\fP equals AF_INET6. If the AI_ALL flag is used with the
+AI_V4MAPPED flag, then \fIgetaddrinfo\fP() shall return all
+matching IPv6 and IPv4 addresses. The AI_ALL flag without the AI_V4MAPPED
+flag is ignored. 
+.LP
+If the AI_ADDRCONFIG flag is specified, IPv4 addresses shall be returned
+only if an IPv4 address is configured on the local
+system,   \ and IPv6 addresses shall be returned only if an IPv6 address
+is configured on the local system. 
+.LP
+The \fIai_socktype\fP field to which argument \fIhints\fP points specifies
+the socket type for the service, as defined in \fIsocket\fP() . If
+a specific socket type is not given (for example, a value of zero)
+and the service name
+could be interpreted as valid with multiple supported socket types,
+the implementation shall attempt to resolve the service name
+for all supported socket types and, in the absence of errors, all
+possible results shall be returned. A non-zero socket type value
+shall limit the returned information to values with the specified
+socket type.
+.LP
+If the \fIai_family\fP field to which \fIhints\fP points has the value
+AF_UNSPEC, addresses shall be returned for use with any
+address family that can be used with the specified \fInodename\fP
+and/or \fIservname\fP. Otherwise, addresses shall be returned
+for use only with the specified address family. If \fIai_family\fP
+is not AF_UNSPEC and \fIai_protocol\fP is not zero, then
+addresses are returned for use only with the specified address family
+and protocol; the value of \fIai_protocol\fP shall be
+interpreted as in a call to the \fIsocket\fP() function with the corresponding
+values of
+\fIai_family\fP and \fIai_protocol\fP.
+.SH RETURN VALUE
+.LP
+A zero return value for \fIgetaddrinfo\fP() indicates successful completion;
+a non-zero return value indicates failure. The
+possible values for the failures are listed in the ERRORS section.
+.LP
+Upon successful return of \fIgetaddrinfo\fP(), the location to which
+\fIres\fP points shall refer to a linked list of
+\fBaddrinfo\fP structures, each of which shall specify a socket address
+and information for use in creating a socket with which to
+use that socket address. The list shall include at least one \fBaddrinfo\fP
+structure. The \fIai_next\fP field of each structure
+contains a pointer to the next structure on the list, or a null pointer
+if it is the last structure on the list. Each structure on
+the list shall include values for use with a call to the \fIsocket\fP()
+function, and a
+socket address for use with the \fIconnect\fP() function or, if the
+AI_PASSIVE flag was
+specified, for use with the \fIbind\fP() function. The fields \fIai_family\fP,
+\fIai_socktype\fP, and \fIai_protocol\fP shall be usable as the arguments
+to the \fIsocket\fP() function to create a socket suitable for use
+with the returned address. The fields
+\fIai_addr\fP and \fIai_addrlen\fP are usable as the arguments to
+the \fIconnect\fP() or
+\fIbind\fP() functions with such a socket, according to the AI_PASSIVE
+flag.
+.LP
+If \fInodename\fP is not null, and if requested by the AI_CANONNAME
+flag, the \fIai_canonname\fP field of the first returned
+\fBaddrinfo\fP structure shall point to a null-terminated string containing
+the canonical name corresponding to the input
+\fInodename\fP; if the canonical name is not available, then \fIai_canonname\fP
+shall refer to the \fInodename\fP argument or a
+string with the same contents. The contents of the \fIai_flags\fP
+field of the returned structures are undefined.
+.LP
+All fields in socket address structures returned by \fIgetaddrinfo\fP()
+that are not filled in through an explicit argument
+(for example, \fIsin6_flowinfo\fP) shall be set to zero. 
+.TP 7
+\fBNote:\fP
+This makes it easier to compare socket address structures.
+.sp
+.SH ERRORS
+.LP
+The \fIgetaddrinfo\fP() function shall fail and return the corresponding
+value if:
+.TP 7
+.B EAI_AGAIN
+The name could not be resolved at this time. Future attempts may succeed.
+.TP 7
+.B EAI_BADFLAGS
+.sp
+The \fIflags\fP parameter had an invalid value.
+.TP 7
+.B EAI_FAIL
+A non-recoverable error occurred when attempting to resolve the name.
+.TP 7
+.B EAI_FAMILY
+The address family was not recognized.
+.TP 7
+.B EAI_MEMORY
+There was a memory allocation failure when trying to allocate storage
+for the return value.
+.TP 7
+.B EAI_NONAME
+The name does not resolve for the supplied parameters. 
+.LP
+Neither \fInodename\fP nor \fIservname\fP were supplied. At least
+one of these shall be supplied.
+.TP 7
+.B EAI_SERVICE
+The service passed was not recognized for the specified socket type.
+.TP 7
+.B EAI_SOCKTYPE
+.sp
+The intended socket type was not recognized.
+.TP 7
+.B EAI_SYSTEM
+A system error occurred; the error code can be found in \fIerrno\fP.
+.TP 7
+.B EAI_OVERFLOW
+.sp
+An argument buffer overflowed.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If the caller handles only TCP and not UDP, for example, then the
+\fIai_protocol\fP member of the \fIhints\fP structure should
+be set to IPPROTO_TCP when \fIgetaddrinfo\fP() is called.
+.LP
+If the caller handles only IPv4 and not IPv6, then the \fIai_family\fP
+member of the \fIhints\fP structure should be set to
+AF_INET when \fIgetaddrinfo\fP() is called.
+.LP
+The term ``canonical name'' is misleading; it is taken from the Domain
+Name System (RFC\ 2181). It should be noted that the
+canonical name is a result of alias processing, and not necessarily
+a unique attribute of a host, address, or set of addresses. See
+RFC\ 2181 for more discussion of this in the Domain Name System context.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIconnect\fP() , \fIgai_strerror\fP() , \fIgethostbyaddr\fP() , \fIgetnameinfo\fP()
+, \fIgetservbyname\fP() , \fIsocket\fP() , the Base Definitions volume
+of
+IEEE\ Std\ 1003.1-2001, \fI<netdb.h>\fP, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

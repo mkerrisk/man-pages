@@ -1,0 +1,244 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "TDELETE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" tdelete 
+.SH NAME
+tdelete, tfind, tsearch, twalk \- manage a binary search tree
+.SH SYNOPSIS
+.LP
+\fB#include <search.h>
+.br
+.sp
+void *tdelete(const void *restrict\fP \fIkey\fP\fB, void **restrict\fP
+\fIrootp\fP\fB,
+.br
+\ \ \ \ \ \  int(*\fP\fIcompar\fP\fB)(const void *, const void *));
+.br
+void *tfind(const void *\fP\fIkey\fP\fB, void *const *\fP\fIrootp\fP\fB,
+.br
+\ \ \ \ \ \  int(*\fP\fIcompar\fP\fB)(const void *, const void *));
+.br
+void *tsearch(const void *\fP\fIkey\fP\fB, void **\fP\fIrootp\fP\fB,
+.br
+\ \ \ \ \ \  int (*\fP\fIcompar\fP\fB)(const void *, const void *));
+.br
+void twalk(const void *\fP\fIroot\fP\fB,
+.br
+\ \ \ \ \ \  void (*\fP\fIaction\fP\fB)(const void *, VISIT, int));
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fItdelete\fP(), \fItfind\fP(), \fItsearch\fP(), and \fItwalk\fP()
+functions manipulate binary search trees. Comparisons
+are made with a user-supplied routine, the address of which is passed
+as the \fIcompar\fP argument. This routine is called with
+two arguments, which are the pointers to the elements being compared.
+The application shall ensure that the user-supplied routine
+returns an integer less than, equal to, or greater than 0, according
+to whether the first argument is to be considered less than,
+equal to, or greater than the second argument. The comparison function
+need not compare every byte, so arbitrary data may be
+contained in the elements in addition to the values being compared.
+.LP
+The \fItsearch\fP() function shall build and access the tree. The
+\fIkey\fP argument is a pointer to an element to be accessed
+or stored. If there is a node in the tree whose element is equal to
+the value pointed to by \fIkey\fP, a pointer to this found
+node shall be returned. Otherwise, the value pointed to by \fIkey\fP
+shall be inserted (that is, a new node is created and the
+value of \fIkey\fP is copied to this node), and a pointer to this
+node returned. Only pointers are copied, so the application
+shall ensure that the calling routine stores the data. The \fIrootp\fP
+argument points to a variable that points to the root node
+of the tree. A null pointer value for the variable pointed to by \fIrootp\fP
+denotes an empty tree; in this case, the variable
+shall be set to point to the node which shall be at the root of the
+new tree.
+.LP
+Like \fItsearch\fP(), \fItfind\fP() shall search for a node in the
+tree, returning a pointer to it if found. However, if it is
+not found, \fItfind\fP() shall return a null pointer. The arguments
+for \fItfind\fP() are the same as for \fItsearch\fP().
+.LP
+The \fItdelete\fP() function shall delete a node from a binary search
+tree. The arguments are the same as for \fItsearch\fP().
+The variable pointed to by \fIrootp\fP shall be changed if the deleted
+node was the root of the tree. The \fItdelete\fP()
+function shall return a pointer to the parent of the deleted node,
+or a null pointer if the node is not found.
+.LP
+The \fItwalk\fP() function shall traverse a binary search tree. The
+\fIroot\fP argument is a pointer to the root node of the
+tree to be traversed. (Any node in a tree may be used as the root
+for a walk below that node.) The argument \fIaction\fP is the
+name of a routine to be invoked at each node. This routine is, in
+turn, called with three arguments. The first argument shall be
+the address of the node being visited. The structure pointed to by
+this argument is unspecified and shall not be modified by the
+application, but it shall be possible to cast a pointer-to-node into
+a pointer-to-pointer-to-element to access the element stored
+in the node. The second argument shall be a value from an enumeration
+data type:
+.sp
+.RS
+.nf
+
+\fBtypedef enum { preorder, postorder, endorder, leaf } VISIT;
+\fP
+.fi
+.RE
+.LP
+(defined in \fI<search.h>\fP), depending on whether this is the first,
+second, or
+third time that the node is visited (during a depth-first, left-to-right
+traversal of the tree), or whether the node is a leaf. The
+third argument shall be the level of the node in the tree, with the
+root being level 0.
+.LP
+If the calling function alters the pointer to the root, the result
+is undefined.
+.SH RETURN VALUE
+.LP
+If the node is found, both \fItsearch\fP() and \fItfind\fP() shall
+return a pointer to it. If not, \fItfind\fP() shall return
+a null pointer, and \fItsearch\fP() shall return a pointer to the
+inserted item.
+.LP
+A null pointer shall be returned by \fItsearch\fP() if there is not
+enough space available to create a new node.
+.LP
+A null pointer shall be returned by \fItdelete\fP(), \fItfind\fP(),
+and \fItsearch\fP() if \fIrootp\fP is a null pointer on
+entry.
+.LP
+The \fItdelete\fP() function shall return a pointer to the parent
+of the deleted node, or a null pointer if the node is not
+found.
+.LP
+The \fItwalk\fP() function shall not return a value.
+.SH ERRORS
+.LP
+No errors are defined.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following code reads in strings and stores structures containing
+a pointer to each string and a count of its length. It then
+walks the tree, printing out the stored strings and their lengths
+in alphabetical order.
+.sp
+.RS
+.nf
+
+\fB#include <search.h>
+#include <string.h>
+#include <stdio.h>
+.sp
+
+#define STRSZ    10000
+#define NODSZ    500
+.sp
+
+struct node {      /* Pointers to these are stored in the tree. */
+    char    *string;
+    int     length;
+};
+.sp
+
+char   string_space[STRSZ];  /* Space to store strings. */
+struct node nodes[NODSZ];    /* Nodes to store. */
+void  *root = NULL;          /* This points to the root. */
+.sp
+
+int main(int argc, char *argv[])
+{
+    char   *strptr = string_space;
+    struct node    *nodeptr = nodes;
+    void   print_node(const void *, VISIT, int);
+    int    i = 0, node_compare(const void *, const void *);
+.sp
+
+    while (gets(strptr) != NULL && i++ < NODSZ)  {
+        /* Set node. */
+        nodeptr->string = strptr;
+        nodeptr->length = strlen(strptr);
+        /* Put node into the tree. */
+        (void) tsearch((void *)nodeptr, (void **)&root,
+            node_compare);
+        /* Adjust pointers, so we do not overwrite tree. */
+        strptr += nodeptr->length + 1;
+        nodeptr++;
+    }
+    twalk(root, print_node);
+    return 0;
+}
+.sp
+
+/*
+ *  This routine compares two nodes, based on an
+ *  alphabetical ordering of the string field.
+ */
+int
+node_compare(const void *node1, const void *node2)
+{
+    return strcmp(((const struct node *) node1)->string,
+        ((const struct node *) node2)->string);
+}
+.sp
+
+/*
+ *  This routine prints out a node, the second time
+ *  twalk encounters it or if it is a leaf.
+ */
+void
+print_node(const void *ptr, VISIT order, int level)
+{
+    const struct node *p = *(const struct node **) ptr;
+.sp
+
+    if (order == postorder || order == leaf)  {
+        (void) printf("string = %s,  length = %d\\n",
+            p->string, p->length);
+    }
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIroot\fP argument to \fItwalk\fP() is one level of indirection
+less than the \fIrootp\fP arguments to \fItdelete\fP()
+and \fItsearch\fP().
+.LP
+There are two nomenclatures used to refer to the order in which tree
+nodes are visited. The \fItsearch\fP() function uses
+\fBpreorder\fP, \fBpostorder\fP, and \fBendorder\fP to refer respectively
+to visiting a node before any of its children, after
+its left child and before its right, and after both its children.
+The alternative nomenclature uses \fBpreorder\fP,
+\fBinorder\fP, and \fBpostorder\fP to refer to the same visits, which
+could result in some confusion over the meaning of
+\fBpostorder\fP.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIhcreate\fP() , \fIlsearch\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<search.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

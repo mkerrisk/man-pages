@@ -1,0 +1,417 @@
+.\" Copyright (c) 1990, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" This code is derived from software contributed to Berkeley by
+.\" Chris Torek and the American National Standards Committee X3,
+.\" on Information Processing Systems.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     @(#)scanf.3	6.14 (Berkeley) 1/8/93
+.\"
+.\" Converted for Linux, Mon Nov 29 15:22:01 1993, faith@cs.unc.edu
+.\" modified to resemble the GNU libio setup used in the Linux libc 
+.\" used in versions 4.x (x>4) and 5   Helmut.Geyer@iwr.uni-heidelberg.de
+.\" Modified, aeb, 970121
+.\"
+.TH SCANF 3  1995-11-01 "LINUX MANPAGE" "Linux Programmer's Manual"
+.SH NAME
+scanf, fscanf, sscanf, vscanf, vsscanf, vfscanf \- input format conversion
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.na
+.BI "int scanf(const char *" format ", ..." );
+.br
+.BI "int fscanf(FILE *" stream ", const char *" format ", ..." );
+.br
+.BI "int sscanf(const char *" str ", const char *" format ", ..." );
+.sp
+.B #include <stdarg.h>
+.BI "int vscanf(const char *" format ", va_list " ap );
+.br
+.BI "int vsscanf(const char *" str ", const char *" format ", va_list " ap );
+.br
+.BI "int vfscanf(FILE *" stream ", const char *" format ", va_list " ap );
+.ad
+.SH DESCRIPTION
+The
+.B scanf
+family of functions scans input according to a
+.I format
+as described below.  This format may contain
+.IR "conversion specifiers" ;
+the results from such conversions, if any, are stored through the
+.I pointer
+arguments.  The
+.B scanf
+function reads input from the standard input stream
+.IR stdin ,
+.B fscanf
+reads input from the stream pointer
+.IR stream ,
+and
+.B sscanf
+reads its input from the character string pointed to by
+.IR str .
+.PP
+The
+.B vfscanf
+function is analogous to
+.BR vfprintf (3)
+and reads input from the stream pointer
+.I stream
+using a variable argument list of pointers (see
+.BR stdarg (3).
+The
+.B vscanf
+function scans a variable argument list from the standard input and the
+.B vsscanf
+function scans it from a string; these are analogous to the
+.B vprintf
+and
+.B vsprintf
+functions respectively.
+.PP
+Each successive
+.I pointer
+argument must correspond properly with each successive conversion specifier
+(but see `suppression' below).  All conversions are introduced by the
+.B %
+(percent sign) character.  The
+.I format
+string may also contain other characters.  White space (such as blanks,
+tabs, or newlines) in the
+.I format
+string match any amount of white space, including none, in the input.
+Everything else matches only itself.  Scanning stops when an input
+character does not match such a format character.  Scanning also stops when
+an input conversion cannot be made (see below).
+.SH CONVERSIONS
+Following the
+.B %
+character introducing a conversion there may be a number of
+.I flag
+characters, as follows:
+.TP
+.B *
+Suppresses assignment.  The conversion that follows occurs as usual, but no
+pointer is used; the result of the conversion is simply discarded.
+.TP
+.B a 
+(glibc) Indicates that the conversion will be 
+.BR s ,
+the needed memory space for the string will be malloc'ed  and
+the pointer to it will be assigned to the  
+.I  char
+pointer variable, which does not have to be initialized before.
+This flag does not exist in 
+.IR "ANSI C"
+(C89) and has a different meaning in C99.
+.TP
+.B a
+(C99) Equivalent to
+.BR f .
+.TP
+.B h
+Indicates that the conversion will be one of
+.B dioux
+or
+.B n
+and the next pointer is a pointer to a
+.I short  int
+(rather than
+.IR int ).
+.TP
+.B l
+Indicates either that the conversion will be one of
+.B dioux
+or
+.B n
+and the next pointer is a pointer to a
+.I long  int
+(rather than
+.IR int ),
+or that the conversion will be one of
+.B efg
+and the next pointer is a pointer to
+.I double
+(rather than
+.IR float ).
+Specifying two 
+.B l
+flags is equivalent to the 
+.B L
+flag.
+.TP
+.B L
+Indicates that the conversion will be either
+.B efg
+and the next pointer is a pointer to
+.IR "long double" 
+or the conversion will be 
+.B dioux
+and the next pointer is a pointer to
+.IR "long long" .
+(Note that long long is not an 
+.I ANSI C 
+type. Any program using this will not be portable to all
+architectures).
+.TP
+.B q
+equivalent to L. 
+This flag does not exist in 
+.IR "ANSI C" .
+.PP
+In addition to these flags, there may be an optional maximum field width,
+expressed as a decimal integer, between the
+.B %
+and the conversion.  If no width is given, a default of `infinity' is used
+(with one exception, below); otherwise at most this many characters are
+scanned in processing the conversion.  Before conversion begins, most
+conversions skip white space; this white space is not counted against the
+field width.
+.PP
+The following conversions are available:
+.TP
+.B %
+Matches a literal `%'.  That is, `%\&%' in the format string matches a
+single input `%' character.  No conversion is done, and assignment does not
+occur.
+.TP
+.B d
+Matches an optionally signed decimal integer;
+the next pointer must be a pointer to
+.IR int .
+.TP
+.B D
+Equivalent to
+.BR ld ;
+this exists only for backwards compatibility.
+(Note: thus only in libc4. In libc5 and glibc the %D is
+silently ignored, causing old programs to fail mysteriously.)
+.TP
+.B i
+Matches an optionally signed integer; the next pointer must be a pointer to
+.IR int .
+The integer is read in base 16 if it begins with `0x' or `0X', in base 8 if
+it begins with `0', and in base 10 otherwise.  Only characters that
+correspond to the base are used.
+.TP
+.B o
+Matches an unsigned octal integer; the next pointer must be a pointer to
+.IR "unsigned int" .
+.TP
+.B u
+Matches an unsigned decimal integer; the next pointer must be a
+pointer to
+.IR "unsigned int" .
+.TP
+.B x
+Matches an unsigned hexadecimal integer; the next pointer must
+be a pointer to
+.IR "unsigned int" .
+.TP
+.B X
+Equivalent to
+.BR x .
+.TP
+.B f
+Matches an optionally signed floating-point number; the next pointer must
+be a pointer to
+.IR float .
+.TP
+.B e
+Equivalent to
+.BR f .
+.TP
+.B g
+Equivalent to
+.BR f .
+.TP
+.B E
+Equivalent to
+.BR f .
+.TP
+.B s
+Matches a sequence of non-white-space characters; the next pointer must be
+a pointer to
+.IR char ,
+and the array must be large enough to accept all the sequence and the
+terminating
+.B NUL
+character.  The input string stops at white space or at the maximum field
+width, whichever occurs first.
+.TP
+.B c
+Matches a sequence of
+.I width
+count characters (default 1); the next pointer must be a pointer to
+.IR char ,
+and there must be enough room for all the characters (no terminating
+.B NUL
+is added).  The usual skip of leading white space is suppressed.  To skip
+white space first, use an explicit space in the format.
+.TP
+.B \&[
+Matches a nonempty sequence of characters from the specified set of
+accepted characters; the next pointer must be a pointer to
+.IR char ,
+and there must be enough room for all the characters in the string, plus a
+terminating
+.B NUL
+character.  The usual skip of leading white space is suppressed.  The
+string is to be made up of characters in (or not in) a particular set; the
+set is defined by the characters between the open bracket
+.B [
+character and a close bracket
+.B ]
+character.  The set
+.I excludes
+those characters if the first character after the open bracket is a
+circumflex
+.BR ^ .
+To include a close bracket in the set, make it the first character after
+the open bracket or the circumflex; any other position will end the set.
+The hyphen character
+.B -
+is also special; when placed between two other characters, it adds all
+intervening characters to the set.  To include a hyphen, make it the last
+character before the final close bracket.  For instance, `[^]0-9-]' means
+the set `everything except close bracket, zero through nine, and hyphen'.
+The string ends with the appearance of a character not in the (or, with a
+circumflex, in) set or when the field width runs out.
+.TP
+.B p
+Matches a pointer value (as printed by `%p' in
+.BR printf (3);
+the next pointer must be a pointer to
+.IR void .
+.TP
+.B n
+Nothing is expected; instead, the number of characters consumed thus far
+from the input is stored through the next pointer, which must be a pointer
+to
+.IR int .
+This is
+.I not
+a conversion, although it can be suppressed with the
+.B *
+flag.
+The C standard says: `Execution of a %n directive does not increment
+the assignment count returned at the completion of execution'
+but the Corrigendum seems to contradict this. Probably it is wise
+not to make any assumptions on the effect of %n conversions on
+the return value.
+
+.PP
+.SH "RETURN VALUE"
+These functions return the number of input items assigned, which can be
+fewer than provided for, or even zero, in the event of a matching failure.
+Zero indicates that, while there was input available, no conversions were
+assigned; typically this is due to an invalid input character, such as an
+alphabetic character for a `%d' conversion.  The value
+.B EOF
+is returned if an input failure occurs before any conversion such as an
+end-of-file occurs. If an error or end-of-file occurs after conversion has
+begun, the number of conversions which were successfully completed is
+returned.
+.SH "SEE ALSO"
+.BR getc (3),
+.BR printf (3),
+.BR strtod (3),
+.BR strtol (3),
+.BR strtoul (3)
+.SH "CONFORMING TO"
+The functions
+.BR fscanf ,
+.BR scanf ,
+and
+.BR sscanf
+conform to ANSI X3.159-1989 (``ANSI C'').
+.PP
+The 
+.B q
+flag is the 
+.I BSD 4.4
+notation for 
+.IR "long long" ,
+while
+.B ll
+or the usage of
+.B L
+in integer conversions is the GNU notation.
+.PP
+The Linux version of these functions is based on the 
+.I GNU 
+.I libio
+library. Take a look at the 
+.I info
+documentation of 
+.I GNU
+.I libc (glibc-1.08)
+for a more concise description. 
+.SH BUGS
+All functions are fully ANSI X3.159-1989 conformant, but provide the 
+additional flags 
+.B q
+and
+.B a
+as well as an additional behaviour of the
+.B L
+and 
+.B l 
+flags. The latter may be considered to be a bug, as it changes the
+behaviour of flags defined in ANSI X3.159-1989.
+.PP
+Some combinations of flags defined by
+.I ANSI C
+are not making sense in 
+.IR "ANSI C" 
+(e.g. 
+.BR "%Ld" ).
+While they may have a well-defined behaviour on Linux, this need not
+to be so on other architectures. Therefore it usually is better to use
+flags that are not defined by 
+.I ANSI C
+at all, i.e. use 
+.B q
+instead of 
+.B L
+in combination with 
+.B diouxX
+conversions or 
+.BR ll .
+.PP
+The usage of
+.B q
+is not the same as on
+.IR "BSD 4.4" ,
+as it may be used in float conversions equivalently to 
+.BR L .

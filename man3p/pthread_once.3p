@@ -1,0 +1,144 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_ONCE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_once 
+.SH NAME
+pthread_once \- dynamic package initialization
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_once(pthread_once_t *\fP\fIonce_control\fP\fB,
+.br
+\ \ \ \ \ \  void (*\fP\fIinit_routine\fP\fB)(void));
+.br
+pthread_once_t\fP \fIonce_control\fP \fB= PTHREAD_ONCE_INIT; \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The first call to \fIpthread_once\fP() by any thread in a process,
+with a given \fIonce_control\fP, shall call the
+\fIinit_routine\fP with no arguments. Subsequent calls of \fIpthread_once\fP()
+with the same \fIonce_control\fP shall not call
+the \fIinit_routine\fP. On return from \fIpthread_once\fP(), \fIinit_routine\fP
+shall have completed. The \fIonce_control\fP
+parameter shall determine whether the associated initialization routine
+has been called.
+.LP
+The \fIpthread_once\fP() function is not a cancellation point. However,
+if \fIinit_routine\fP is a cancellation point and is
+canceled, the effect on \fIonce_control\fP shall be as if \fIpthread_once\fP()
+was never called.
+.LP
+The constant PTHREAD_ONCE_INIT is defined in the \fI<pthread.h>\fP
+header.
+.LP
+The behavior of \fIpthread_once\fP() is undefined if \fIonce_control\fP
+has automatic storage duration or is not initialized
+by PTHREAD_ONCE_INIT.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIpthread_once\fP() shall return zero;
+otherwise, an error number shall be returned to indicate
+the error.
+.SH ERRORS
+.LP
+The \fIpthread_once\fP() function may fail if:
+.TP 7
+.B EINVAL
+If either \fIonce_control\fP or \fIinit_routine\fP is invalid.
+.sp
+.LP
+The \fIpthread_once\fP() function shall not return an error code of
+[EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+Some C libraries are designed for dynamic initialization. That is,
+the global initialization for the library is performed when
+the first procedure in the library is called. In a single-threaded
+program, this is normally implemented using a static variable
+whose value is checked on entry to a routine, as follows:
+.sp
+.RS
+.nf
+
+\fBstatic int random_is_initialized = 0;
+extern int initialize_random();
+.sp
+
+int random_function()
+{
+    if (random_is_initialized == 0) {
+        initialize_random();
+        random_is_initialized = 1;
+    }
+    ... /* Operations performed after initialization. */
+}
+\fP
+.fi
+.RE
+.LP
+To keep the same structure in a multi-threaded program, a new primitive
+is needed. Otherwise, library initialization has to be
+accomplished by an explicit call to a library-exported initialization
+function prior to any use of the library.
+.LP
+For dynamic library initialization in a multi-threaded process, a
+simple initialization flag is not sufficient; the flag needs
+to be protected against modification by multiple threads simultaneously
+calling into the library. Protecting the flag requires the
+use of a mutex; however, mutexes have to be initialized before they
+are used. Ensuring that the mutex is only initialized once
+requires a recursive solution to this problem.
+.LP
+The use of \fIpthread_once\fP() not only supplies an implementation-guaranteed
+means of dynamic initialization, it provides an
+aid to the reliable construction of multi-threaded and realtime systems.
+The preceding example then becomes:
+.sp
+.RS
+.nf
+
+\fB#include <pthread.h>
+static pthread_once_t random_is_initialized = PTHREAD_ONCE_INIT;
+extern int initialize_random();
+.sp
+
+int random_function()
+{
+    (void) pthread_once(&random_is_initialized, initialize_random);
+    ... /* Operations performed after initialization. */
+}
+\fP
+.fi
+.RE
+.LP
+Note that a \fBpthread_once_t\fP cannot be an array because some compilers
+do not accept the construct
+\fB&<array_name>\fP.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+The Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,175 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "HCREATE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" hcreate 
+.SH NAME
+hcreate, hdestroy, hsearch \- manage hash search table
+.SH SYNOPSIS
+.LP
+\fB#include <search.h>
+.br
+.sp
+int hcreate(size_t\fP \fInel\fP\fB);
+.br
+void hdestroy(void);
+.br
+ENTRY *hsearch(ENTRY\fP \fIitem\fP\fB, ACTION\fP \fIaction\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIhcreate\fP(), \fIhdestroy\fP(), and \fIhsearch\fP() functions
+shall manage hash search tables.
+.LP
+The \fIhcreate\fP() function shall allocate sufficient space for the
+table, and the application shall ensure it is called
+before \fIhsearch\fP() is used. The \fInel\fP argument is an estimate
+of the maximum number of entries that the table shall
+contain. This number may be adjusted upward by the algorithm in order
+to obtain certain mathematically favorable circumstances.
+.LP
+The \fIhdestroy\fP() function shall dispose of the search table, and
+may be followed by another call to \fIhcreate\fP(). After
+the call to \fIhdestroy\fP(), the data can no longer be considered
+accessible.
+.LP
+The \fIhsearch\fP() function is a hash-table search routine. It shall
+return a pointer into a hash table indicating the
+location at which an entry can be found. The \fIitem\fP argument is
+a structure of type \fBENTRY\fP (defined in the \fI<search.h>\fP header)
+containing two pointers: \fIitem.key\fP points to the comparison
+key (a \fBchar *\fP), and \fIitem.data\fP (a \fBvoid *\fP) points
+to any other data to be associated with that key. The
+comparison function used by \fIhsearch\fP() is \fIstrcmp\fP(). The
+\fIaction\fP argument
+is a member of an enumeration type \fBACTION\fP indicating the disposition
+of the entry if it cannot be found in the table. ENTER
+indicates that the item should be inserted in the table at an appropriate
+point. FIND indicates that no entry should be made.
+Unsuccessful resolution is indicated by the return of a null pointer.
+.LP
+These functions need not be reentrant. A function that is not required
+to be reentrant is not required to be thread-safe.
+.SH RETURN VALUE
+.LP
+The \fIhcreate\fP() function shall return 0 if it cannot allocate
+sufficient space for the table; otherwise, it shall return
+non-zero.
+.LP
+The \fIhdestroy\fP() function shall not return a value.
+.LP
+The \fIhsearch\fP() function shall return a null pointer if either
+the action is FIND and the item could not be found or the
+action is ENTER and the table is full.
+.SH ERRORS
+.LP
+The \fIhcreate\fP() and \fIhsearch\fP() functions may fail if:
+.TP 7
+.B ENOMEM
+Insufficient storage space is available.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following example reads in strings followed by two numbers and
+stores them in a hash table, discarding duplicates. It then
+reads in strings and finds the matching entry in the hash table and
+prints it out.
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <search.h>
+#include <string.h>
+.sp
+
+struct info {        /* This is the info stored in the table */
+    int age, room;   /* other than the key. */
+};
+.sp
+
+#define NUM_EMPL    5000    /* # of elements in search table. */
+
+.sp
+
+int main(void)
+{
+    char string_space[NUM_EMPL*20];   /* Space to store strings. */
+    struct info info_space[NUM_EMPL]; /* Space to store employee info. */
+    char *str_ptr = string_space;     /* Next space in string_space. */
+    struct info *info_ptr = info_space;
+                                      /* Next space in info_space. */
+    ENTRY item;
+    ENTRY *found_item; /* Name to look for in table. */
+    char name_to_find[30];
+.sp
+
+    int i = 0;
+.sp
+
+    /* Create table; no error checking is performed. */
+    (void) hcreate(NUM_EMPL);
+    while (scanf("%s%d%d", str_ptr, &info_ptr->age,
+           &info_ptr->room) != EOF && i++ < NUM_EMPL) {
+.sp
+
+        /* Put information in structure, and structure in item. */
+        item.key = str_ptr;
+        item.data = info_ptr;
+        str_ptr += strlen(str_ptr) + 1;
+        info_ptr++;
+.sp
+
+        /* Put item into table. */
+        (void) hsearch(item, ENTER);
+    }
+.sp
+
+    /* Access table. */
+    item.key = name_to_find;
+    while (scanf("%s", item.key) != EOF) {
+        if ((found_item = hsearch(item, FIND)) != NULL) {
+.sp
+
+            /* If item is in the table. */
+            (void)printf("found %s, age = %d, room = %d\\n",
+                found_item->key,
+                ((struct info *)found_item->data)->age,
+                ((struct info *)found_item->data)->room);
+        } else
+            (void)printf("no such employee %s\\n", name_to_find);
+    }
+    return 0;
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIhcreate\fP() and \fIhsearch\fP() functions may use \fImalloc\fP()
+to allocate
+space.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIbsearch\fP() , \fIlsearch\fP() , \fImalloc\fP() , \fIstrcmp\fP()
+, \fItsearch\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<search.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,157 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETC_UNLOCKED" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getc_unlocked 
+.SH NAME
+getc_unlocked, getchar_unlocked, putc_unlocked, putchar_unlocked \-
+stdio with explicit client locking
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+int getc_unlocked(FILE *\fP\fIstream\fP\fB);
+.br
+int getchar_unlocked(void);
+.br
+int putc_unlocked(int\fP \fIc\fP\fB, FILE *\fP\fIstream\fP\fB);
+.br
+int putchar_unlocked(int\fP \fIc\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+Versions of the functions \fIgetc\fP(), \fIgetchar\fP(), \fIputc\fP(),
+and \fIputchar\fP() respectively named \fIgetc_unlocked\fP(), \fIgetchar_unlocked\fP(),
+\fIputc_unlocked\fP(), and \fIputchar_unlocked\fP() shall be provided
+which are functionally equivalent to the original versions,
+with the exception that they are not required to be implemented in
+a thread-safe manner. They may only safely be used within a
+scope protected by \fIflockfile\fP() (or \fIftrylockfile\fP()) and
+\fIfunlockfile\fP().
+These functions may safely be used in a multi-threaded program if
+and only if they are called while the invoking thread owns the (
+\fBFILE *\fP) object, as is the case after a successful call to the
+\fIflockfile\fP()
+or \fIftrylockfile\fP() functions.
+.SH RETURN VALUE
+.LP
+See \fIgetc\fP() , \fIgetchar\fP() , \fIputc\fP()
+, and \fIputchar\fP() .
+.SH ERRORS
+.LP
+See \fIgetc\fP() , \fIgetchar\fP() , \fIputc\fP()
+, and \fIputchar\fP() .
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+Since they may be implemented as macros, \fIgetc_unlocked\fP() and
+\fIputc_unlocked\fP() may treat incorrectly a \fIstream\fP
+argument with side effects. In particular, \fIgetc_unlocked\fP(*f++)
+and \fIputc_unlocked\fP(*f++) do not necessarily work as
+expected. Therefore, use of these functions in such situations should
+be preceded by the following statement as appropriate:
+.sp
+.RS
+.nf
+
+\fB#undef getc_unlocked
+#undef putc_unlocked
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+Some I/O functions are typically implemented as macros for performance
+reasons (for example, \fIputc\fP() and \fIgetc\fP()). For safety,
+they need to be
+synchronized, but it is often too expensive to synchronize on every
+character. Nevertheless, it was felt that the safety concerns
+were more important; consequently, the \fIgetc\fP(), \fIgetchar\fP(),
+\fIputc\fP(), and \fIputchar\fP() functions are required to be thread-safe.
+However, unlocked versions are also
+provided with names that clearly indicate the unsafe nature of their
+operation but can be used to exploit their higher performance.
+These unlocked versions can be safely used only within explicitly
+locked program regions, using exported locking primitives. In
+particular, a sequence such as:
+.sp
+.RS
+.nf
+
+\fBflockfile(fileptr);
+putc_unlocked('1', fileptr);
+putc_unlocked('\\n', fileptr);
+fprintf(fileptr, "Line 2\\n");
+funlockfile(fileptr);
+\fP
+.fi
+.RE
+.LP
+is permissible, and results in the text sequence:
+.sp
+.RS
+.nf
+
+\fB1
+Line 2
+\fP
+.fi
+.RE
+.LP
+being printed without being interspersed with output from other threads.
+.LP
+It would be wrong to have the standard names such as \fIgetc\fP(),
+\fIputc\fP(), and so on, map to the "faster, but unsafe" rather than
+the "slower, but safe''
+versions. In either case, you would still want to inspect all uses
+of \fIgetc\fP(), \fIputc\fP(), and so on, by hand when converting
+existing code. Choosing the safe bindings as the
+default, at least, results in correct code and maintains the "atomicity
+at the function" invariant. To do otherwise would
+introduce gratuitous synchronization errors into converted code. Other
+routines that modify the \fIstdio\fP ( \fBFILE *\fP)
+structures or buffers are also safely synchronized.
+.LP
+Note that there is no need for functions of the form \fIgetc_locked\fP(),
+\fIputc_locked\fP(), and so on, since this is the
+functionality of \fIgetc\fP(), \fIputc\fP(), \fIet
+al\fP. It would be inappropriate to use a feature test macro to switch
+a macro definition of \fIgetc\fP() between \fIgetc_locked\fP() and
+\fIgetc_unlocked\fP(), since the ISO\ C standard
+requires an actual function to exist, a function whose behavior could
+not be changed by the feature test macro. Also, providing
+both the \fIxxx_locked\fP() and \fIxxx_unlocked\fP() forms leads to
+the confusion of whether the suffix describes the behavior of
+the function or the circumstances under which it should be used.
+.LP
+Three additional routines, \fIflockfile\fP(), \fIftrylockfile\fP(),
+and \fIfunlockfile\fP()
+(which may be macros), are provided to allow the user to delineate
+a sequence of I/O statements that are executed
+synchronously.
+.LP
+The \fIungetc\fP() function is infrequently called relative to the
+other
+functions/macros so no unlocked variation is needed.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetc\fP() , \fIgetchar\fP() , \fIputc\fP() , \fIputchar\fP() ,
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<stdio.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

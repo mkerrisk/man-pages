@@ -1,0 +1,369 @@
+.\" Copyright 1993 Giorgio Ciucci (giorgio@crcc.it)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Tue Oct 22 17:53:56 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Fri Jun 19 10:59:15 1998 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified Sun Feb 18 01:59:29 2001 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified 20 Dec 2001, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 21 Dec 2001, aeb
+.\" Modified 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on CAP_IPC_OWNER requirement
+.\" Modified 17 Jun 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on CAP_SYS_ADMIN requirement for IPC_SET and IPC_RMID
+.\"
+.TH SEMCTL 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual" 
+.SH NAME
+semctl \- semaphore control operations
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <sys/ipc.h>
+.B #include <sys/sem.h>
+.sp
+.BI "int semctl(int " semid ", int " semnum ", int " cmd ", ...);"
+.fi
+.SH DESCRIPTION
+The function
+.B semctl
+performs the control operation specified by
+.I cmd
+on the semaphore set identified by
+.IR semid ,
+or on the
+.IR semnum -th
+semaphore of that set.
+(Semaphores are numbered starting at 0.)
+.PP
+This function has three or four arguments. When there
+are four, the call is
+.BI semctl( semid , semnum , cmd , arg );
+where the fourth argument
+.I arg
+has a type
+.B union semun
+defined as follows:
+
+.nf
+#if defined(__GNU_LIBRARY__) && !defined(_SEM_SEMUN_UNDEFINED)
+/* union semun is defined by including <sys/sem.h> */
+#else
+/* according to X/OPEN we have to define it ourselves */
+union semun {
+      int val;                  /* value for SETVAL */
+      struct semid_ds *buf;     /* buffer for IPC_STAT, IPC_SET */
+      unsigned short *array;    /* array for GETALL, SETALL */
+                                /* Linux specific part: */
+      struct seminfo *__buf;    /* buffer for IPC_INFO */
+};
+#endif
+.fi
+.PP
+Legal values for
+.I cmd
+are:
+.TP 12
+.B IPC_STAT
+Copy info from the semaphore set data structure
+into the structure pointed to by
+.IB arg .buf \fR.
+The argument
+.I semnum
+is ignored.
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B IPC_SET
+Write the values of some members of the
+.B semid_ds
+structure pointed to by
+.IB arg .buf
+to the semaphore set data structure, updating also its
+.B sem_ctime
+member.
+Considered members from the user supplied
+.B "struct semid_ds"
+pointed to by
+.IB arg .buf
+are
+.nf
+.sp
+.ft B
+	sem_perm.uid
+	sem_perm.gid
+	sem_perm.mode	\fR/* only lowest 9-bits */\fP
+.fi
+.ft R
+.sp
+The effective user\-ID of the calling process must be that of the
+super\-user, or match the creator or owner of the semaphore set.
+The argument
+.I semnum
+is ignored.
+.TP
+.B IPC_RMID
+Immediately remove the semaphore set and its data structures
+awakening all waiting processes (with an error return and
+.B errno
+set to
+.BR EIDRM ).
+The effective user\-ID of the calling process must be that of the
+super\-user, or match the creator or owner of the semaphore set.
+The argument
+.I semnum
+is ignored.
+.TP
+.B GETALL
+Return
+.B semval
+for all semaphores of the set into
+.IB arg .array \fR.
+The argument
+.I semnum
+is ignored.
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B GETNCNT
+The system call returns the value of
+.B semncnt
+for the
+.IR semnum \-th
+semaphore of the set
+(i.e. the number of processes waiting for an increase of
+.B semval
+for the
+.IR semnum \-th
+semaphore of the set).
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B GETPID
+The system call returns the value of
+.B sempid
+for the
+.IR semnum \-th
+semaphore of the set
+(i.e. the pid of the process that executed the last
+.B semop
+call for the
+.IR semnum \-th
+semaphore of the set).
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B GETVAL
+The system call returns the value of
+.B semval
+for the
+.IR semnum \-th
+semaphore of the set.
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B GETZCNT
+The system call returns the value of
+.B semzcnt
+for the
+.IR semnum \-th
+semaphore of the set
+(i.e. the number of processes waiting for
+.B semval
+of the
+.IR semnum \-th
+semaphore of the set to become 0).
+The calling process must have read access privileges on the semaphore set.
+.TP
+.B SETALL
+Set
+.B semval
+for all semaphores of the set using
+.IB arg .array ,
+updating also the
+.B sem_ctime
+member of the
+.B semid_ds
+structure associated to the set.
+Undo entries are cleared for altered semaphores in all processes.
+Processes sleeping on the wait queue are awakened if some
+.B semval
+becomes 0 or increases.
+The argument
+.I semnum
+is ignored.
+The calling process must have alter access privileges on the semaphore set.
+.TP
+.B SETVAL
+Set the value of
+.B semval
+to
+.IB arg .val
+for the
+.IR semnum \-th
+semaphore of the set, updating also the
+.B sem_ctime
+member of the
+.B semid_ds
+structure associated to the set.
+Undo entries are cleared for altered semaphores in all processes.
+Processes sleeping on the wait queue are awakened if
+.B semval
+becomes 0 or increases.
+The calling process must have alter access privileges on the semaphore set.
+.SH "RETURN VALUE"
+On failure
+.B semctl
+returns
+.B \-1
+with
+.B errno
+indicating the error.
+Otherwise the system call returns a nonnegative value depending on
+.I cmd
+as follows:
+.TP 11
+.B GETNCNT
+the value of
+.BR semncnt .
+.TP
+.B GETPID
+the value of
+.BR sempid .
+.TP
+.B GETVAL
+the value of
+.BR semval .
+.TP
+.B GETZCNT
+the value of
+.BR semzcnt .
+.LP
+All other
+.I cmd
+values return 0 on success.
+.SH ERRORS
+On failure,
+.B errno
+will be set to one of the following:
+.TP 11
+.B EACCES
+The argument
+.I cmd
+has one of the values
+.BR GETALL ,
+.BR GETPID ,
+.BR GETVAL ,
+.BR GETNCNT ,
+.BR GETZCNT ,
+.BR IPC_STAT ,
+.BR SEM_STAT ,
+.BR SETALL ,
+or
+.B SETVAL
+and the calling process does not have the required
+permissions on the semaphore set and does not have the
+.B CAP_IPC_OWNER
+capability.
+.TP
+.B EFAULT
+The address pointed to by
+.IB arg .buf
+or
+.IB arg .array
+isn't accessible.
+.TP
+.B EIDRM
+The semaphore set was removed.
+.TP
+.B EINVAL
+Invalid value for
+.I cmd
+or
+.IR semid .
+.TP
+.B EPERM
+The argument
+.I cmd
+has value
+.B IPC_SET
+or
+.B IPC_RMID
+but the but the effective user ID of the calling process is not the creator
+(as found in
+.IR sem_perm.cuid )
+or the owner
+(as found in
+.IR sem_perm.uid )
+of the semaphore set,
+and the process does not have the
+.B CAP_SYS_ADMIN
+capability.
+.TP
+.B ERANGE
+The argument
+.I cmd
+has value
+.B SETALL
+or
+.B SETVAL
+and the value to which
+.B semval
+has to be set (for some semaphore of the set) is less than 0
+or greater than the implementation value
+.BR SEMVMX .
+.SH NOTES
+The
+.BR IPC_INFO ,
+.BR SEM_STAT
+and
+.B SEM_INFO
+control calls are used by the
+.BR ipcs (8)
+program to provide information on allocated resources.
+In the future these can be modified as needed or moved to a proc file system
+interface.
+.LP
+Various fields in a \fIstruct semid_ds\fP were shorts under Linux 2.2
+and have become longs under Linux 2.4. To take advantage of this,
+a recompilation under glibc-2.1.91 or later should suffice.
+(The kernel distinguishes old and new calls by a IPC_64 flag in
+.IR cmd .)
+.PP
+The following system limit on semaphore sets affects a
+.B semctl
+call:
+.TP 11
+.B SEMVMX
+Maximum value for
+.BR semval :
+implementation dependent (32767).
+.LP
+For greater portability it is best to always call
+.B semctl
+with four arguments.
+.LP
+Under Linux, the function
+.B semctl
+is not a system call, but is implemented via the system call
+.BR ipc (2).
+.SH "CONFORMING TO"
+SVr4, SVID.  SVr4 documents more error conditions EINVAL and EOVERFLOW.
+.SH "SEE ALSO"
+.BR ipc (2),
+.BR semget (2),
+.BR semop (2),
+.BR ipc (5),
+.BR capabilities (7)

@@ -1,0 +1,140 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) Markus Kuhn, 1996
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 1996-04-10  Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
+.\"             First version written
+.\" Modified, 2004-10-24, aeb
+.TH NANOSLEEP 2 2004-10-24 "Linux 2.6.9" "Linux Programmer's Manual"
+.SH NAME
+nanosleep \- pause execution for a specified time
+.SH SYNOPSIS
+.B #include <time.h>
+.sp
+\fBint nanosleep(const struct timespec *\fIreq\fB, struct timespec *\fIrem\fB);
+.fi
+.SH DESCRIPTION
+.B nanosleep
+delays the execution of the program for at least the time specified in
+.IR *req .
+The function can return earlier if a signal has been delivered to the
+process. In this case, it returns \-1, sets \fIerrno\fR to
+.BR EINTR ,
+and writes the
+remaining time into the structure pointed to by
+.IR rem
+unless 
+.I rem
+is
+.BR NULL .
+The value of
+.I *rem
+can then be used to call 
+.B nanosleep
+again and complete the specified pause.
+
+The structure
+.I timespec
+is used to specify intervals of time with nanosecond precision. It is
+specified in
+.I <time.h>
+and has the form
+.sp
+.RS
+.nf
+.ne 12
+.ta 8n 16n 32n
+struct timespec
+{
+	time_t	tv_sec;			/* seconds */
+	long	tv_nsec;		/* nanoseconds */
+};
+.ta
+.fi
+.RE
+.PP
+The value of the nanoseconds field must be in the range 0 to 999999999.
+
+Compared to
+.BR sleep  (3)
+and
+.BR usleep (3),
+.B nanosleep
+has the advantage of not affecting any signals, it is standardized by
+POSIX, it provides higher timing resolution, and it allows to continue
+a sleep that has been interrupted by a signal more easily.
+.SH ERRORS
+In case of an error or exception, the
+.B nanosleep
+system call returns \-1 instead of 0 and sets
+.I errno
+to one of the following values:
+.TP
+.B EFAULT
+Problem with copying information from user space.
+.TP
+.B EINTR
+The pause has been interrupted by a non-blocked signal that was
+delivered to the process. The remaining sleep time has been written
+into *\fIrem\fR so that the process can easily call
+.B nanosleep
+again and continue with the pause.
+.TP
+.B EINVAL
+The value in the
+.I tv_nsec
+field was not in the range 0 to 999999999 or
+.I tv_sec
+was negative.
+.SH BUGS
+The current implementation of
+.B nanosleep
+is based on the normal kernel timer mechanism, which has a resolution
+of 1/\fIHZ\fR\ s (i.e, 10\ ms on Linux/i386 and 1\ ms on Linux/Alpha).
+Therefore,
+.B nanosleep
+pauses always for at least the specified time, however it can take up
+to 10 ms longer than specified until the process becomes runnable
+again. For the same reason, the value returned in case of a delivered
+signal in *\fIrem\fR is usually rounded to the next larger multiple of
+1/\fIHZ\fR\ s.
+
+.SS "Old behaviour"
+In order to support applications requiring much more precise pauses
+(e.g., in order to control some time-critical hardware),
+.B nanosleep
+would handle pauses of up to 2\ ms by busy waiting with microsecond
+precision when called from a process scheduled under a real-time policy
+like
+.I SCHED_FIFO
+or
+.IR SCHED_RR .
+This special extension was removed in kernel 2.5.39, hence is still present in
+current 2.4 kernels, but not in 2.6 kernels.
+.SH "CONFORMING TO"
+POSIX.1b (formerly POSIX.4).
+.SH "SEE ALSO"
+.BR sched_setscheduler (2),
+.BR timer_create (2),
+.BR sleep (3),
+.BR usleep (3)

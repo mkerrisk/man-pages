@@ -1,0 +1,2952 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PAX" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pax 
+.SH NAME
+pax \- portable archive interchange
+.SH SYNOPSIS
+.LP
+\fBpax\fP \fB[\fP\fB-cdnv\fP\fB][\fP\fB-H|-L\fP\fB][\fP\fB-f\fP \fIarchive\fP\fB][\fP\fB-s\fP
+\fIreplstr\fP\fB]\fP\fB...\fP\fB[\fP\fIpattern\fP\fB...\fP\fB]\fP\fB
+.br
+.sp
+pax -r\fP\fB[\fP\fB-cdiknuv\fP\fB][\fP\fB-H|-L\fP\fB][\fP\fB-f\fP
+\fIarchive\fP\fB][\fP\fB-o\fP
+\fIoptions\fP\fB]\fP\fB...\fP\fB[\fP\fB-p\fP \fIstring\fP\fB]\fP\fB...
+.br
+\ \ \ \ \ \ \fP \fB[\fP\fB-s\fP
+\fIreplstr\fP\fB]\fP\fB...\fP\fB[\fP\fIpattern\fP\fB...\fP\fB]\fP\fB
+.br
+.sp
+pax -w\fP\fB[\fP\fB-dituvX\fP\fB][\fP\fB-H|-L\fP\fB][\fP\fB-b\fP
+\fIblocksize\fP\fB][[\fP\fB-a\fP\fB][\fP\fB-f\fP \fIarchive\fP\fB][\fP\fB-o\fP
+\fIoptions\fP\fB]\fP\fB...
+.br
+\ \ \ \ \ \ \fP \fB[\fP\fB-s\fP \fIreplstr\fP\fB]\fP\fB...\fP\fB[\fP\fB-x\fP
+\fIformat\fP\fB][\fP\fIfile\fP\fB...\fP\fB]\fP\fB
+.br
+.sp
+pax -r -w\fP\fB[\fP\fB-diklntuvX\fP\fB][\fP\fB-H|-L\fP\fB][\fP\fB-p\fP
+\fIstring\fP\fB]\fP\fB...\fP\fB[\fP\fB-s\fP \fIreplstr\fP\fB]\fP\fB...
+.br
+\ \ \ \ \ \ \fP \fB[\fP\fIfile\fP\fB...\fP\fB]\fP \fIdirectory\fP\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpax\fP utility shall read, write, and write lists of the members
+of archive files and copy directory hierarchies. A
+variety of archive formats shall be supported; see the \fB-x\fP \fIformat\fP
+option.
+.LP
+The action to be taken depends on the presence of the \fB-r\fP and
+\fB-w\fP options. The four combinations of \fB-r\fP and
+\fB-w\fP are referred to as the four modes of operation: \fBlist\fP,
+\fBread\fP, \fBwrite\fP, and \fBcopy\fP modes,
+corresponding respectively to the four forms shown in the SYNOPSIS
+section.
+.TP 7
+\fBlist\fP
+In \fBlist\fP mode (when neither \fB-r\fP nor \fB-w\fP are specified),
+\fIpax\fP shall write the names of the members of
+the archive file read from the standard input, with pathnames matching
+the specified patterns, to standard output. If a named file
+is of type directory, the file hierarchy rooted at that file shall
+be listed as well.
+.TP 7
+\fBread\fP
+In \fBread\fP mode (when \fB-r\fP is specified, but \fB-w\fP is not),
+\fIpax\fP shall extract the members of the archive
+file read from the standard input, with pathnames matching the specified
+patterns. If an extracted file is of type directory, the
+file hierarchy rooted at that file shall be extracted as well. The
+extracted files shall be created performing pathname resolution
+with the directory in which \fIpax\fP was invoked as the current working
+directory. 
+.LP
+If an attempt is made to extract a directory when the directory already
+exists, this shall not be considered an error. If an
+attempt is made to extract a FIFO when the FIFO already exists, this
+shall not be considered an error.
+.LP
+The ownership, access, and modification times, and file mode of the
+restored files are discussed under the \fB-p\fP option.
+.TP 7
+\fBwrite\fP
+In \fBwrite\fP mode (when \fB-w\fP is specified, but \fB-r\fP is not),
+\fIpax\fP shall write the contents of the
+\fIfile\fP operands to the standard output in an archive format. If
+no \fIfile\fP operands are specified, a list of files to
+copy, one per line, shall be read from the standard input. A file
+of type directory shall include all of the files in the file
+hierarchy rooted at the file.
+.TP 7
+\fBcopy\fP
+In \fBcopy\fP mode (when both \fB-r\fP and \fB-w\fP are specified),
+\fIpax\fP shall copy the \fIfile\fP operands to the
+destination directory. 
+.LP
+If no \fIfile\fP operands are specified, a list of files to copy,
+one per line, shall be read from the standard input. A file
+of type directory shall include all of the files in the file hierarchy
+rooted at the file.
+.LP
+The effect of the \fBcopy\fP shall be as if the copied files were
+written to an archive file and then subsequently extracted,
+except that there may be hard links between the original and the copied
+files. If the destination directory is a subdirectory of
+one of the files to be copied, the results are unspecified. If the
+destination directory is a file of a type not defined by the
+System Interfaces volume of IEEE\ Std\ 1003.1-2001, the results are
+implementation-defined; otherwise, it shall be an error
+for the file named by the \fIdirectory\fP operand not to exist, not
+be writable by the user, or not be a file of type
+directory.
+.sp
+.LP
+In \fBread\fP or \fBcopy\fP modes, if intermediate directories are
+necessary to extract an archive member, \fIpax\fP shall
+perform actions equivalent to the \fImkdir\fP() function defined in
+the System Interfaces
+volume of IEEE\ Std\ 1003.1-2001, called with the following arguments:
+.IP " *" 3
+The intermediate directory used as the \fIpath\fP argument
+.LP
+.IP " *" 3
+The value of the bitwise-inclusive OR of S_IRWXU, S_IRWXG, and S_IRWXO
+as the \fImode\fP argument
+.LP
+.LP
+If any specified \fIpattern\fP or \fIfile\fP operands are not matched
+by at least one file or archive member, \fIpax\fP shall
+write a diagnostic message to standard error for each one that did
+not match and exit with a non-zero exit status.
+.LP
+The archive formats described in the EXTENDED DESCRIPTION section
+shall be automatically detected on input. The default output
+archive format shall be implementation-defined.
+.LP
+A single archive can span multiple files. The \fIpax\fP utility shall
+determine, in an implementation-defined manner, what file
+to read or write as the next file.
+.LP
+If the selected archive format supports the specification of linked
+files, it shall be an error if these files cannot be linked
+when the archive is extracted. For archive formats that do not store
+file contents with each name that causes a hard link, if the
+file that contains the data is not extracted during this \fIpax\fP
+session, either the data shall be restored from the original
+file, or a diagnostic message shall be displayed with the name of
+a file that can be used to extract the data. In traversing
+directories, \fIpax\fP shall detect infinite loops; that is, entering
+a previously visited directory that is an ancestor of the
+last file visited. When it detects an infinite loop, \fIpax\fP shall
+write a diagnostic message to standard error and shall
+terminate.
+.SH OPTIONS
+.LP
+The \fIpax\fP utility shall conform to the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines,
+except that the order of presentation of the
+\fB-o\fP, \fB-p\fP, and \fB-s\fP options is significant.
+.LP
+The following options shall be supported:
+.TP 7
+\fB-r\fP
+Read an archive file from standard input.
+.TP 7
+\fB-w\fP
+Write files to the standard output in the specified archive format.
+.TP 7
+\fB-a\fP
+Append files to the end of the archive. It is implementation-defined
+which devices on the system support appending. Additional
+file formats unspecified by this volume of IEEE\ Std\ 1003.1-2001
+may impose restrictions on appending.
+.TP 7
+\fB-b\ \fP \fIblocksize\fP
+Block the output at a positive decimal integer number of bytes per
+write to the archive file. Devices and archive formats may
+impose restrictions on blocking. Blocking shall be automatically determined
+on input. Conforming applications shall not specify a
+\fIblocksize\fP value larger than 32256. Default blocking when creating
+archives depends on the archive format. (See the \fB-x\fP
+option below.)
+.TP 7
+\fB-c\fP
+Match all file or archive members except those specified by the \fIpattern\fP
+or \fIfile\fP operands.
+.TP 7
+\fB-d\fP
+Cause files of type directory being copied or archived or archive
+members of type directory being extracted or listed to match
+only the file or archive member itself and not the file hierarchy
+rooted at the file.
+.TP 7
+\fB-f\ \fP \fIarchive\fP
+Specify the pathname of the input or output archive, overriding the
+default standard input (in \fBlist\fP or \fBread\fP
+modes) or standard output ( \fBwrite\fP mode).
+.TP 7
+\fB-H\fP
+If a symbolic link referencing a file of type directory is specified
+on the command line, \fIpax\fP shall archive the file
+hierarchy rooted in the file referenced by the link, using the name
+of the link as the root of the file hierarchy. Otherwise, if a
+symbolic link referencing a file of any other file type which \fIpax\fP
+can normally archive is specified on the command line,
+then \fIpax\fP shall archive the file referenced by the link, using
+the name of the link. The default behavior shall be to archive
+the symbolic link itself.
+.TP 7
+\fB-i\fP
+Interactively rename files or archive members. For each archive member
+matching a \fIpattern\fP operand or file matching a
+\fIfile\fP operand, a prompt shall be written to the file \fB/dev/tty\fP.
+The prompt shall contain the name of the file or
+archive member, but the format is otherwise unspecified. A line shall
+then be read from \fB/dev/tty\fP. If this line is blank, the
+file or archive member shall be skipped. If this line consists of
+a single period, the file or archive member shall be processed
+with no modification to its name. Otherwise, its name shall be replaced
+with the contents of the line. The \fIpax\fP utility shall
+immediately exit with a non-zero exit status if end-of-file is encountered
+when reading a response or if \fB/dev/tty\fP cannot be
+opened for reading and writing. 
+.LP
+The results of extracting a hard link to a file that has been renamed
+during extraction are unspecified.
+.TP 7
+\fB-k\fP
+Prevent the overwriting of existing files.
+.TP 7
+\fB-l\fP
+(The letter ell.) In \fBcopy\fP mode, hard links shall be made between
+the source and destination file hierarchies whenever
+possible. If specified in conjunction with \fB-H\fP or \fB-L\fP, when
+a symbolic link is encountered, the hard link created in
+the destination file hierarchy shall be to the file referenced by
+the symbolic link. If specified when neither \fB-H\fP nor
+\fB-L\fP is specified, when a symbolic link is encountered, the implementation
+shall create a hard link to the symbolic link in
+the source file hierarchy or copy the symbolic link to the destination.
+.TP 7
+\fB-L\fP
+If a symbolic link referencing a file of type directory is specified
+on the command line or encountered during the traversal of
+a file hierarchy, \fIpax\fP shall archive the file hierarchy rooted
+in the file referenced by the link, using the name of the link
+as the root of the file hierarchy. Otherwise, if a symbolic link referencing
+a file of any other file type which \fIpax\fP can
+normally archive is specified on the command line or encountered during
+the traversal of a file hierarchy, \fIpax\fP shall archive
+the file referenced by the link, using the name of the link. The default
+behavior shall be to archive the symbolic link
+itself.
+.TP 7
+\fB-n\fP
+Select the first archive member that matches each \fIpattern\fP operand.
+No more than one archive member shall be matched for
+each pattern (although members of type directory shall still match
+the file hierarchy rooted at that file).
+.TP 7
+\fB-o\ \fP \fIoptions\fP
+Provide information to the implementation to modify the algorithm
+for extracting or writing files. The value of \fIoptions\fP
+shall consist of one or more comma-separated keywords of the form:
+.sp
+.RS
+.nf
+
+\fIkeyword\fP\fB[[\fP\fB:\fP\fB]\fP\fB=\fP\fIvalue\fP\fB][\fP\fB,\fP\fIkeyword\fP\fB[[\fP\fB:\fP\fB]\fP\fB=\fP\fIvalue\fP\fB]\fP\fB, ...\fP\fB]\fP
+.fi
+.RE
+.LP
+Some keywords apply only to certain file formats, as indicated with
+each description. Use of keywords that are inapplicable to
+the file format being processed produces undefined results.
+.LP
+Keywords in the \fIoptions\fP argument shall be a string that would
+be a valid portable filename as described in the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, Section 3.276, Portable
+Filename Character Set. 
+.TP 7
+\fBNote:\fP
+.RS
+Keywords are not expected to be filenames, merely to follow the same
+character composition rules as portable filenames.
+.RE
+.sp
+.LP
+Keywords can be preceded with white space. The \fIvalue\fP field shall
+consist of zero or more characters; within \fIvalue\fP,
+the application shall precede any literal comma with a backslash,
+which shall be ignored, but preserves the comma as part of
+\fIvalue\fP. A comma as the final character, or a comma followed solely
+by white space as the final characters, in \fIoptions\fP
+shall be ignored. Multiple \fB-o\fP options can be specified; if keywords
+given to these multiple \fB-o\fP options conflict, the
+keywords and values appearing later in command line sequence shall
+take precedence and the earlier shall be silently ignored. The
+following keyword values of \fIoptions\fP shall be supported for the
+file formats as indicated:
+.TP 7
+\fBdelete\fP=\fIpattern\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fBpax\fP format.) When used in \fBwrite\fP
+or \fBcopy\fP mode, \fIpax\fP shall omit from
+extended header records that it produces any keywords matching the
+string pattern. When used in \fBread\fP or \fBlist\fP mode,
+\fIpax\fP shall ignore any keywords matching the string pattern in
+the extended header records. In both cases, matching shall be
+performed using the pattern matching notation described in \fIPatterns
+Matching a Single
+Character\fP and \fIPatterns Matching Multiple Characters\fP . For
+example: 
+.sp
+.RS
+.nf
+
+\fB-o\fP \fBdelete\fP\fB=\fP\fIsecurity\fP\fB.*
+\fP
+.fi
+.RE
+.LP
+would suppress security-related information. See pax Extended Header
+for extended header record
+keyword usage.
+.RE
+.TP 7
+\fBexthdr.name\fP=\fIstring\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fBpax\fP format.) This keyword allows
+user control over the name that is written into the
+\fBustar\fP header blocks for the extended header produced under the
+circumstances described in pax
+Header Block . The name shall be the contents of \fIstring\fP, after
+the following character substitutions have been made: 
+.TS C
+center; l lw(40).
+\fB\fIstring\fP\fP	T{
+.na
+\fB\ \fP
+.ad
+T}
+\fBIncludes:\fP	T{
+.na
+\fBReplaced By:\fP
+.ad
+T}
+%d	T{
+.na
+The directory name of the file, equivalent to the result of the \fIdirname\fP utility on the translated pathname.
+.ad
+T}
+%f	T{
+.na
+The filename of the file, equivalent to the result of the \fIbasename\fP utility on the translated pathname.
+.ad
+T}
+%p	T{
+.na
+The process ID of the \fIpax\fP process.
+.ad
+T}
+%%	T{
+.na
+A \fB'%'\fP character.
+.ad
+T}
+.TE
+.LP
+Any other \fB'%'\fP characters in \fIstring\fP produce undefined results.
+.LP
+If no \fB-o\fP \fBexthdr.name=\fP \fIstring\fP is specified, \fIpax\fP
+shall use the following default value:
+.sp
+.RS
+.nf
+
+\fB%d/PaxHeaders.%p/%f
+\fP
+.fi
+.RE
+.RE
+.TP 7
+\fBglobexthdr.name\fP=\fIstring\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fBpax\fP format.) When used in \fBwrite\fP
+or \fBcopy\fP mode with the appropriate options,
+\fIpax\fP shall create global extended header records with \fBustar\fP
+header blocks that will be treated as regular files by
+previous versions of \fIpax\fP. This keyword allows user control over
+the name that is written into the \fBustar\fP header blocks
+for global extended header records. The name shall be the contents
+of string, after the following character substitutions have been
+made: 
+.TS C
+center; l lw(40).
+\fB\fIstring\fP\fP	T{
+.na
+\fB\ \fP
+.ad
+T}
+\fBIncludes:\fP	T{
+.na
+\fBReplaced By:\fP
+.ad
+T}
+%n	T{
+.na
+An integer that represents the sequence number of the global extended header record in the archive, starting at 1.
+.ad
+T}
+%p	T{
+.na
+The process ID of the \fIpax\fP process.
+.ad
+T}
+%%	T{
+.na
+A \fB'%'\fP character.
+.ad
+T}
+.TE
+.LP
+Any other \fB'%'\fP characters in \fIstring\fP produce undefined results.
+.LP
+If no \fB-o\fP \fBglobexthdr.name=\fP \fIstring\fP is specified, \fIpax\fP
+shall use the following default value:
+.sp
+.RS
+.nf
+
+\fB$TMPDIR/GlobalHead.%p.%n
+\fP
+.fi
+.RE
+.LP
+where $ \fITMPDIR\fP represents the value of the \fITMPDIR\fP environment
+variable. If \fITMPDIR\fP is not set, \fIpax\fP
+shall use \fB/tmp\fP.
+.RE
+.TP 7
+\fBinvalid\fP=\fIaction\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fBpax\fP format.) This keyword allows
+user control over the action \fIpax\fP takes upon
+encountering values in an extended header record that, in \fBread\fP
+or \fBcopy\fP mode, are invalid in the destination hierarchy
+or, in \fBlist\fP mode, cannot be written in the codeset and current
+locale of the implementation. The following are invalid
+values that shall be recognized by \fIpax\fP: 
+.RS
+.IP " *" 3
+In \fBread\fP or \fBcopy\fP mode, a filename or link name that contains
+character encodings invalid in the destination
+hierarchy. (For example, the name may contain embedded NULs.)
+.LP
+.IP " *" 3
+In \fBread\fP or \fBcopy\fP mode, a filename or link name that is
+longer than the maximum allowed in the destination hierarchy
+(for either a pathname component or the entire pathname).
+.LP
+.IP " *" 3
+In \fBlist\fP mode, any character string value (filename, link name,
+user name, and so on) that cannot be written in the
+codeset and current locale of the implementation.
+.LP
+.RE
+.LP
+The following mutually-exclusive values of the \fIaction\fP argument
+are supported:
+.TP 7
+\fBbypass\fP
+.RS
+In \fBread\fP or \fBcopy\fP mode, \fIpax\fP shall bypass the file,
+causing no change to the destination hierarchy. In
+\fBlist\fP mode, \fIpax\fP shall write all requested valid values
+for the file, but its method for writing invalid values is
+unspecified.
+.RE
+.TP 7
+\fBrename\fP
+.RS
+In \fBread\fP or \fBcopy\fP mode, \fIpax\fP shall act as if the \fB-i\fP
+option were in effect for each file with invalid
+filename or link name values, allowing the user to provide a replacement
+name interactively. In \fBlist\fP mode, \fIpax\fP shall
+behave identically to the \fBbypass\fP action.
+.RE
+.TP 7
+\fBUTF-8\fP
+.RS
+When used in \fBread\fP, \fBcopy\fP, or \fBlist\fP mode and a filename,
+link name, owner name, or any other field in an
+extended header record cannot be translated from the \fBpax\fP UTF-8
+codeset format to the codeset and current locale of the
+implementation, \fIpax\fP shall use the actual UTF-8 encoding for
+the name.
+.RE
+.TP 7
+\fBwrite\fP
+.RS
+In \fBread\fP or \fBcopy\fP mode, \fIpax\fP shall write the file,
+translating or truncating the name, regardless of whether
+this may overwrite an existing file with a valid name. In \fBlist\fP
+mode, \fIpax\fP shall behave identically to the
+\fBbypass\fP action.
+.RE
+.sp
+.LP
+If no \fB-o\fP \fBinvalid=\fP option is specified, \fIpax\fP shall
+act as if \fB-o\fP \fBinvalid=\fP \fBbypass\fP were
+specified. Any overwriting of existing files that may be allowed by
+the \fB-o\fP \fBinvalid=\fP actions shall be subject to
+permission ( \fB-p\fP) and modification time ( \fB-u\fP) restrictions,
+and shall be suppressed if the \fB-k\fP option is also
+specified.
+.RE
+.TP 7
+\fBlinkdata\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fBpax\fP format.) In \fBwrite\fP
+mode, \fIpax\fP shall write the contents of a file to the
+archive even when that file is merely a hard link to a file whose
+contents have already been written to the archive.
+.RE
+.TP 7
+\fBlistopt\fP=\fIformat\fP
+.RS
+.sp
+This keyword specifies the output format of the table of contents
+produced when the \fB-v\fP option is specified in \fBlist\fP
+mode. See List Mode Format Specifications . To avoid ambiguity, the
+\fBlistopt=\fP \fIformat\fP
+shall be the only or final \fBkeyword=\fP \fIvalue\fP pair in a \fB-o\fP
+option-argument; all characters in the remainder of the
+option-argument shall be considered part of the format string. When
+multiple \fB-o\fP \fBlistopt=\fP \fIformat\fP options are
+specified, the format strings shall be considered a single, concatenated
+string, evaluated in command line order.
+.RE
+.TP 7
+\fBtimes\fP
+.RS
+.sp
+(Applicable only to the \fB-x\fP \fIpax\fP format.) When used in \fBwrite\fP
+or \fBcopy\fP mode, \fIpax\fP shall include
+\fBatime\fP, \fBctime\fP, and \fBmtime\fP extended header records
+for each file. See pax Extended
+Header File Times .
+.RE
+.sp
+.LP
+In addition to these keywords, if the \fB-x\fP \fIpax\fP format is
+specified, any of the keywords and values defined in pax Extended
+Header , including implementation extensions, can be used in \fB-o\fP
+option-arguments,
+in either of two modes:
+.TP 7
+\fBkeyword\fP=\fIvalue\fP
+.RS
+.sp
+When used in \fBwrite\fP or \fBcopy\fP mode, these keyword/value pairs
+shall be included at the beginning of the archive as
+\fBtypeflag\fP \fBg\fP global extended header records. When used in
+\fBread\fP or \fBlist\fP mode, these keyword/value pairs
+shall act as if they had been at the beginning of the archive as \fBtypeflag\fP
+\fBg\fP global extended header records.
+.RE
+.TP 7
+\fBkeyword\fP:=\fIvalue\fP
+.RS
+.sp
+When used in \fBwrite\fP or \fBcopy\fP mode, these keyword/value pairs
+shall be included as records at the beginning of a
+\fBtypeflag\fP \fBx\fP extended header for each file. (This shall
+be equivalent to the equal-sign form except that it creates no
+\fBtypeflag\fP \fBg\fP global extended header records.) When used
+in \fBread\fP or \fBlist\fP mode, these keyword/value pairs
+shall act as if they were included as records at the end of each extended
+header; thus, they shall override any global or
+file-specific extended header record keywords of the same names. For
+example, in the command: 
+.sp
+.RS
+.nf
+
+\fBpax -r -o "
+gname:=mygroup,
+" <archive
+\fP
+.fi
+.RE
+.LP
+the group name will be forced to a new value for all files read from
+the archive.
+.RE
+.sp
+.LP
+The precedence of \fB-o\fP keywords over various fields in the archive
+is described in pax Extended
+Header Keyword Precedence .
+.TP 7
+\fB-p\ \fP \fIstring\fP
+Specify one or more file characteristic options (privileges). The
+\fIstring\fP option-argument shall be a string specifying
+file characteristics to be retained or discarded on extraction. The
+string shall consist of the specification characters \fBa\fP
+, \fBe\fP , \fBm\fP , \fBo\fP , and \fBp\fP . Other implementation-defined
+characters can be included. Multiple
+characteristics can be concatenated within the same string and multiple
+\fB-p\fP options can be specified. The meaning of the
+specification characters are as follows: 
+.TP 7
+\fBa\fP
+.RS
+Do not preserve file access times.
+.RE
+.TP 7
+\fBe\fP
+.RS
+Preserve the user ID, group ID, file mode bits (see the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, Section 3.168, File Mode Bits),
+access time, modification time, and any other
+implementation-defined file characteristics.
+.RE
+.TP 7
+\fBm\fP
+.RS
+Do not preserve file modification times.
+.RE
+.TP 7
+\fBo\fP
+.RS
+Preserve the user ID and group ID.
+.RE
+.TP 7
+\fBp\fP
+.RS
+Preserve the file mode bits. Other implementation-defined file mode
+attributes may be preserved.
+.RE
+.sp
+.LP
+In the preceding list, "preserve" indicates that an attribute stored
+in the archive shall be given to the extracted file,
+subject to the permissions of the invoking process. The access and
+modification times of the file shall be preserved unless
+otherwise specified with the \fB-p\fP option or not stored in the
+archive. All attributes that are not preserved shall be
+determined as part of the normal file creation action (see \fIFile
+Read, Write, and
+Creation\fP ).
+.LP
+If neither the \fBe\fP nor the \fBo\fP specification character is
+specified, or the user ID and group ID are not preserved
+for any reason, \fIpax\fP shall not set the S_ISUID and S_ISGID bits
+of the file mode.
+.LP
+If the preservation of any of these items fails for any reason, \fIpax\fP
+shall write a diagnostic message to standard error.
+Failure to preserve these items shall affect the final exit status,
+but shall not cause the extracted file to be deleted.
+.LP
+If file characteristic letters in any of the \fIstring\fP option-arguments
+are duplicated or conflict with each other, the ones
+given last shall take precedence. For example, if \fB-p\fP \fBeme\fP
+is specified, file modification times are preserved.
+.TP 7
+\fB-s\ \fP \fIreplstr\fP
+Modify file or archive member names named by \fIpattern\fP or \fIfile\fP
+operands according to the substitution expression
+\fIreplstr\fP, using the syntax of the \fIed\fP utility. The concepts
+of "address" and
+"line" are meaningless in the context of the \fIpax\fP utility, and
+shall not be supplied. The format shall be: 
+.sp
+.RS
+.nf
+
+\fB-s /\fP\fIold\fP\fB/\fP\fInew\fP\fB/\fP\fB[\fP\fBgp\fP\fB]\fP
+.fi
+.RE
+.LP
+where as in \fIed\fP, \fIold\fP is a basic regular expression and
+\fInew\fP can contain an
+ampersand, \fB'\\n'\fP (where \fIn\fP is a digit) backreferences,
+or subexpression matching. The \fIold\fP string shall also be
+permitted to contain <newline>s.
+.LP
+Any non-null character can be used as a delimiter ( \fB'/'\fP shown
+here). Multiple \fB-s\fP expressions can be specified;
+the expressions shall be applied in the order specified, terminating
+with the first successful substitution. The optional trailing
+\fB'g'\fP is as defined in the \fIed\fP utility. The optional trailing
+\fB'p'\fP shall
+cause successful substitutions to be written to standard error. File
+or archive member names that substitute to the empty string
+shall be ignored when reading and writing archives.
+.TP 7
+\fB-t\fP
+When reading files from the file system, and if the user has the permissions
+required by \fIutime\fP() to do so, set the access time of each file
+read to the access time that it had before
+being read by \fIpax\fP.
+.TP 7
+\fB-u\fP
+Ignore files that are older (having a less recent file modification
+time) than a pre-existing file or archive member with the
+same name. In \fBread\fP mode, an archive member with the same name
+as a file in the file system shall be extracted if the archive
+member is newer than the file. In \fBwrite\fP mode, an archive file
+member with the same name as a file in the file system shall
+be superseded if the file is newer than the archive member. If \fB-a\fP
+is also specified, this is accomplished by appending to
+the archive; otherwise, it is unspecified whether this is accomplished
+by actual replacement in the archive or by appending to the
+archive. In \fBcopy\fP mode, the file in the destination hierarchy
+shall be replaced by the file in the source hierarchy or by a
+link to the file in the source hierarchy if the file in the source
+hierarchy is newer.
+.TP 7
+\fB-v\fP
+In \fBlist\fP mode, produce a verbose table of contents (see the STDOUT
+section). Otherwise, write archive member pathnames to
+standard error (see the STDERR section).
+.TP 7
+\fB-x\ \fP \fIformat\fP
+Specify the output archive format. The \fIpax\fP utility shall support
+the following formats: 
+.TP 7
+\fBcpio\fP
+.RS
+The \fBcpio\fP interchange format; see the EXTENDED DESCRIPTION section.
+The default \fIblocksize\fP for this format for
+character special archive files shall be 5120. Implementations shall
+support all \fIblocksize\fP values less than or equal to
+32256 that are multiples of 512.
+.RE
+.TP 7
+\fBpax\fP
+.RS
+The \fBpax\fP interchange format; see the EXTENDED DESCRIPTION section.
+The default \fIblocksize\fP for this format for
+character special archive files shall be 5120. Implementations shall
+support all \fIblocksize\fP values less than or equal to
+32256 that are multiples of 512.
+.RE
+.TP 7
+\fBustar\fP
+.RS
+The \fBtar\fP interchange format; see the EXTENDED DESCRIPTION section.
+The default \fIblocksize\fP for this format for
+character special archive files shall be 10240. Implementations shall
+support all \fIblocksize\fP values less than or equal to
+32256 that are multiples of 512.
+.RE
+.sp
+.LP
+Implementation-defined formats shall specify a default block size
+as well as any other block sizes supported for character
+special archive files.
+.LP
+Any attempt to append to an archive file in a format different from
+the existing archive format shall cause \fIpax\fP to exit
+immediately with a non-zero exit status.
+.LP
+In \fBcopy\fP mode, if no \fB-x\fP format is specified, \fIpax\fP
+shall behave as if \fB-x\fP \fIpax\fP were specified.
+.TP 7
+\fB-X\fP
+When traversing the file hierarchy specified by a pathname, \fIpax\fP
+shall not descend into directories that have a different
+device ID ( \fIst_dev\fP; see the System Interfaces volume of IEEE\ Std\ 1003.1-2001,
+\fIstat\fP()).
+.sp
+.LP
+The options that operate on the names of files or archive members
+( \fB-c\fP, \fB-i\fP, \fB-n\fP, \fB-s\fP, \fB-u\fP, and
+\fB-v\fP) shall interact as follows. In \fBread\fP mode, the archive
+members shall be selected based on the user-specified
+\fIpattern\fP operands as modified by the \fB-c\fP, \fB-n\fP, and
+\fB-u\fP options. Then, any \fB-s\fP and \fB-i\fP options
+shall modify, in that order, the names of the selected files. The
+\fB-v\fP option shall write names resulting from these
+modifications.
+.LP
+In \fBwrite\fP mode, the files shall be selected based on the user-specified
+pathnames as modified by the \fB-n\fP and
+\fB-u\fP options. Then, any \fB-s\fP and \fB-i\fP options shall modify,
+in that order, the names of these selected files. The
+\fB-v\fP option shall write names resulting from these modifications.
+.LP
+If both the \fB-u\fP and \fB-n\fP options are specified, \fIpax\fP
+shall not consider a file selected unless it is newer than
+the file to which it is compared.
+.SS List Mode Format Specifications
+.LP
+In \fBlist\fP mode with the \fB-o\fP \fBlistopt=\fP \fIformat\fP option,
+the \fIformat\fP argument shall be applied for
+each selected file. The \fIpax\fP utility shall append a <newline>
+to the \fBlistopt\fP output for each selected file. The
+\fIformat\fP argument shall be used as the \fIformat\fP string described
+in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 5, File Format Notation, with the
+exceptions 1.
+through 5. defined in the EXTENDED DESCRIPTION section of \fIprintf\fP,
+plus the following
+exceptions:
+.TP 7
+6.
+The sequence ( \fIkeyword\fP) can occur before a format conversion
+specifier. The conversion argument is defined by the value
+of \fIkeyword\fP. The implementation shall support the following keywords:
+.RS
+.IP " *" 3
+Any of the Field Name entries in ustar Header Block and Octet-Oriented
+cpio
+Archive Entry . The implementation may support the \fIcpio\fP keywords
+without the leading \fBc_\fP in addition to the form
+required by Values for cpio c_mode Field .
+.LP
+.IP " *" 3
+Any keyword defined for the extended header in pax Extended Header
+\&.
+.LP
+.IP " *" 3
+Any keyword provided as an implementation-defined extension within
+the extended header defined in pax Extended Header .
+.LP
+.RE
+.LP
+For example, the sequence \fB"%(charset)s"\fP is the string value
+of the name of the character set in the extended
+header.
+.LP
+The result of the keyword conversion argument shall be the value from
+the applicable header field or extended header, without
+any trailing NULs.
+.LP
+All keyword values used as conversion arguments shall be translated
+from the UTF-8 encoding to the character set appropriate for
+the local file system, user database, and so on, as applicable.
+.TP 7
+7.
+An additional conversion specifier character, \fBT\fP , shall be used
+to specify time formats. The \fBT\fP conversion
+specifier character can be preceded by the sequence ( \fIkeyword=\fP
+\fIsubformat\fP), where \fIsubformat\fP is a date format as
+defined by \fIdate\fP operands. The default \fIkeyword\fP shall be
+\fBmtime\fP and the
+default subformat shall be: 
+.sp
+.RS
+.nf
+
+\fB%b %e %H:%M %Y
+\fP
+.fi
+.RE
+.TP 7
+8.
+An additional conversion specifier character, \fBM\fP , shall be used
+to specify the file mode string as defined in \fIls\fP Standard Output.
+If ( \fIkeyword\fP) is omitted, the \fBmode\fP keyword shall be used.
+For
+example, \fB%.1M\fP writes the single character corresponding to the
+<\fIentry\ type\fP> field of the \fIls\fP \fB-l\fP command.
+.TP 7
+9.
+An additional conversion specifier character, \fBD\fP , shall be used
+to specify the device for block or special files, if
+applicable, in an implementation-defined format. If not applicable,
+and ( \fIkeyword\fP) is specified, then this conversion shall
+be equivalent to \fB%(\fP\fIkeyword\fP\fB)u\fP. If not applicable,
+and ( \fIkeyword\fP) is omitted, then this conversion
+shall be equivalent to <space>.
+.TP 7
+10.
+An additional conversion specifier character, \fBF\fP , shall be used
+to specify a pathname. The \fBF\fP conversion
+character can be preceded by a sequence of comma-separated keywords:
+.sp
+.RS
+.nf
+
+\fB(\fP\fIkeyword\fP\fB[\fP\fB,\fP\fIkeyword\fP\fB]\fP \fB... )
+\fP
+.fi
+.RE
+.LP
+The values for all the keywords that are non-null shall be concatenated
+together, each separated by a \fB'/'\fP . The default
+shall be ( \fBpath\fP) if the keyword \fBpath\fP is defined; otherwise,
+the default shall be ( \fBprefix\fP, \fBname\fP).
+.TP 7
+11.
+An additional conversion specifier character, \fBL\fP , shall be used
+to specify a symbolic line expansion. If the current
+file is a symbolic link, then \fB%L\fP shall expand to: 
+.sp
+.RS
+.nf
+
+\fB"%s -> %s", <\fP\fIvalue of keyword\fP\fB>, <\fP\fIcontents of link\fP\fB>
+\fP
+.fi
+.RE
+.LP
+Otherwise, the \fB%L\fP conversion specification shall be the equivalent
+of \fB%F\fP .
+.sp
+.SH OPERANDS
+.LP
+The following operands shall be supported:
+.TP 7
+\fIdirectory\fP
+The destination directory pathname for \fBcopy\fP mode.
+.TP 7
+\fIfile\fP
+A pathname of a file to be copied or archived.
+.TP 7
+\fIpattern\fP
+A pattern matching one or more pathnames of archive members. A pattern
+must be given in the name-generating notation of the
+pattern matching notation in \fIPattern Matching Notation\fP , including
+the filename
+expansion rules in \fIPatterns Used for Filename Expansion\fP . The
+default, if no
+\fIpattern\fP is specified, is to select all members in the archive.
+.sp
+.SH STDIN
+.LP
+In \fBwrite\fP mode, the standard input shall be used only if no \fIfile\fP
+operands are specified. It shall be a text file
+containing a list of pathnames, one per line, without leading or trailing
+<blank>s.
+.LP
+In \fBlist\fP and \fBread\fP modes, if \fB-f\fP is not specified,
+the standard input shall be an archive file.
+.LP
+Otherwise, the standard input shall not be used.
+.SH INPUT FILES
+.LP
+The input file named by the \fIarchive\fP option-argument, or standard
+input when the archive is read from there, shall be a
+file formatted according to one of the specifications in the EXTENDED
+DESCRIPTION section or some other implementation-defined
+format.
+.LP
+The file \fB/dev/tty\fP shall be used to write prompts and read responses.
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIpax\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_COLLATE\fP
+.sp
+Determine the locale for the behavior of ranges, equivalence classes,
+and multi-character collating elements used in the pattern
+matching expressions for the \fIpattern\fP operand, the basic regular
+expression for the \fB-s\fP option, and the extended
+regular expression defined for the \fByesexpr\fP locale keyword in
+the \fILC_MESSAGES\fP category.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments and input files), the
+behavior of character classes used in the extended regular
+expression defined for the \fByesexpr\fP locale keyword in the \fILC_MESSAGES\fP
+category, and pattern matching.
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale for the processing of affirmative responses that
+should be used to affect the format and contents of
+diagnostic messages written to standard error.
+.TP 7
+\fILC_TIME\fP
+Determine the format and contents of date and time strings when the
+\fB-v\fP option is specified.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.TP 7
+\fITMPDIR\fP
+Determine the pathname that provides part of the default global extended
+header record file, as described for the \fB-o\fP
+\fBglobexthdr=\fP keyword in the OPTIONS section.
+.TP 7
+\fITZ\fP
+Determine the timezone used to calculate date and time strings when
+the \fB-v\fP option is specified. If \fITZ\fP is unset or
+null, an unspecified default timezone shall be used.
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+In \fBwrite\fP mode, if \fB-f\fP is not specified, the standard output
+shall be the archive formatted according to one of the
+specifications in the EXTENDED DESCRIPTION section, or some other
+implementation-defined format (see \fB-x\fP \fIformat\fP).
+.LP
+In \fBlist\fP mode, when the \fB-o\fP \fBlistopt\fP= \fIformat\fP
+has been specified, the selected archive members shall be
+written to standard output using the format described under List Mode
+Format Specifications . In
+\fBlist\fP mode without the \fB-o\fP \fBlistopt\fP= \fIformat\fP option,
+the table of contents of the selected archive members
+shall be written to standard output using the following format:
+.sp
+.RS
+.nf
+
+\fB"%s\\n", <\fP\fIpathname\fP\fB>
+\fP
+.fi
+.RE
+.LP
+If the \fB-v\fP option is specified in \fBlist\fP mode, the table
+of contents of the selected archive members shall be written
+to standard output using the following formats.
+.LP
+For pathnames representing hard links to previous members of the archive:
+.sp
+.RS
+.nf
+
+\fB"%s == %s\\n", <\fP\fIls\fP \fB-l\fP \fIlisting\fP\fB>, <\fP\fIlinkname\fP\fB>
+\fP
+.fi
+.RE
+.LP
+For all other pathnames:
+.sp
+.RS
+.nf
+
+\fB"%s\\n", <\fP\fIls\fP \fB-l\fP \fIlisting\fP\fB>
+\fP
+.fi
+.RE
+.LP
+where <\fIls\ \fP -l\ \fIlisting\fP> shall be the format specified
+by the \fIls\fP utility with the \fB-l\fP option. When writing pathnames
+in this format, it is unspecified
+what is written for fields for which the underlying archive format
+does not have the correct information, although the correct
+number of <blank>-separated fields shall be written.
+.LP
+In \fBlist\fP mode, standard output shall not be buffered more than
+a line at a time.
+.SH STDERR
+.LP
+If \fB-v\fP is specified in \fBread\fP, \fBwrite\fP, or \fBcopy\fP
+modes, \fIpax\fP shall write the pathnames it processes
+to the standard error output using the following format:
+.sp
+.RS
+.nf
+
+\fB"%s\\n", <\fP\fIpathname\fP\fB>
+\fP
+.fi
+.RE
+.LP
+These pathnames shall be written as soon as processing is begun on
+the file or archive member, and shall be flushed to standard
+error. The trailing <newline>, which shall not be buffered, is written
+when the file has been read or written.
+.LP
+If the \fB-s\fP option is specified, and the replacement string has
+a trailing \fB'p'\fP , substitutions shall be written to
+standard error in the following format:
+.sp
+.RS
+.nf
+
+\fB"%s >> %s\\n", <\fP\fIoriginal pathname\fP\fB>, <\fP\fInew pathname\fP\fB>
+\fP
+.fi
+.RE
+.LP
+In all operating modes of \fIpax\fP, optional messages of unspecified
+format concerning the input archive format and volume
+number, the number of files, blocks, volumes, and media parts as well
+as other diagnostic messages may be written to standard
+error.
+.LP
+In all formats, for both standard output and standard error, it is
+unspecified how non-printable characters in pathnames or link
+names are written.
+.LP
+When \fIpax\fP is in \fBread\fP mode or \fBlist\fP mode, using the
+\fB-x\fP \fBpax\fP archive format, and a filename, link
+name, owner name, or any other field in an extended header record
+cannot be translated from the \fBpax\fP UTF-8 codeset format to
+the codeset and current locale of the implementation, \fIpax\fP shall
+write a diagnostic message to standard error, shall process
+the file as described for the \fB-o\fP \fBinvalid=\fP option, and
+then shall process the next file in the archive.
+.SH OUTPUT FILES
+.LP
+In \fBread\fP mode, the extracted output files shall be of the archived
+file type. In \fBcopy\fP mode, the copied output files
+shall be the type of the file being copied. In either mode, existing
+files in the destination hierarchy shall be overwritten only
+when all permission ( \fB-p\fP), modification time ( \fB-u\fP), and
+invalid-value ( \fB-o\fP \fBinvalid\fP=) tests allow
+it.
+.LP
+In \fBwrite\fP mode, the output file named by the \fB-f\fP option-argument
+shall be a file formatted according to one of the
+specifications in the EXTENDED DESCRIPTION section, or some other
+implementation-defined format.
+.SH EXTENDED DESCRIPTION
+.SS pax Interchange Format
+.LP
+A \fIpax\fP archive tape or file produced in the \fB-x\fP \fBpax\fP
+format shall contain a series of blocks. The physical
+layout of the archive shall be identical to the \fBustar\fP format
+described in ustar Interchange
+Format . Each file archived shall be represented by the following
+sequence:
+.IP " *" 3
+An optional header block with extended header records. This header
+block is of the form described in pax Header Block , with a \fItypeflag\fP
+value of \fBx\fP or \fBg\fP. The extended header records,
+described in pax Extended Header , shall be included as the data for
+this header block.
+.LP
+.IP " *" 3
+A header block that describes the file. Any fields in the preceding
+optional extended header shall override the associated
+fields in this header block for this file.
+.LP
+.IP " *" 3
+Zero or more blocks that contain the contents of the file.
+.LP
+.LP
+At the end of the archive file there shall be two 512-byte blocks
+filled with binary zeros, interpreted as an end-of-archive
+indicator.
+.LP
+A schematic of an example archive with global extended header records
+and two actual files is shown in pax
+Format Archive Example . In the example, the second file in the archive
+has no extended header preceding it, presumably because
+it has no need for extended attributes.
+.TP 7
+.sp
+.sp
+.ce 1
+\fBFigure: pax Format Archive Example\fP
+.SS pax Header Block
+.LP
+The \fBpax\fP header block shall be identical to the \fBustar\fP header
+block described in ustar
+Interchange Format , except that two additional \fItypeflag\fP values
+are defined:
+.TP 7
+\fBx\fP
+Represents extended header records for the following file in the archive
+(which shall have its own \fBustar\fP header block).
+The format of these extended header records shall be as described
+in pax Extended Header .
+.TP 7
+\fBg\fP
+Represents global extended header records for the following files
+in the archive. The format of these extended header records
+shall be as described in pax Extended Header . Each value shall affect
+all subsequent files that do
+not override that value in their own extended header record and until
+another global extended header record is reached that
+provides another value for the same field. The \fItypeflag\fP \fBg\fP
+global headers should not be used with interchange media
+that could suffer partial data loss in transporting the archive.
+.sp
+.LP
+For both of these types, the \fIsize\fP field shall be the size of
+the extended header records in octets. The other fields in
+the header block are not meaningful to this version of the \fIpax\fP
+utility. However, if this archive is read by a \fIpax\fP
+utility conforming to the ISO\ POSIX-2:1993 standard, the header block
+fields are used to create a regular file that contains
+the extended header records as data. Therefore, header block field
+values should be selected to provide reasonable file access to
+this regular file.
+.LP
+A further difference from the \fBustar\fP header block is that data
+blocks for files of \fItypeflag\fP 1 (the digit one) (hard
+link) may be included, which means that the size field may be greater
+than zero. Archives created by \fIpax\fP \fB-o\fP
+\fBlinkdata\fP shall include these data blocks with the hard links.
+.SS pax Extended Header
+.LP
+A \fBpax\fP extended header contains values that are inappropriate
+for the \fBustar\fP header block because of limitations in
+that format: fields requiring a character encoding other than that
+described in the ISO/IEC\ 646:1991 standard, fields
+representing file attributes not described in the \fBustar\fP header,
+and fields whose format or length do not fit the
+requirements of the \fBustar\fP header. The values in an extended
+header add attributes to the following file (or files; see the
+description of the \fItypeflag\fP \fBg\fP header block) or override
+values in the following header block(s), as indicated in the
+following list of keywords.
+.LP
+An extended header shall consist of one or more records, each constructed
+as follows:
+.sp
+.RS
+.nf
+
+\fB"%d %s=%s\\n", <\fP\fIlength\fP\fB>, <\fP\fIkeyword\fP\fB>, <\fP\fIvalue\fP\fB>
+\fP
+.fi
+.RE
+.LP
+The extended header records shall be encoded according to the ISO/IEC\ 10646-1:2000
+standard (UTF-8). The
+<\fIlength\fP> field, <blank>, equals sign, and <newline> shown shall
+be limited to the portable character set,
+as encoded in UTF-8. The <\fIkeyword\fP> and <\fIvalue\fP> fields
+can be any UTF-8 characters. The
+<\fIlength\fP> field shall be the decimal length of the extended header
+record in octets, including the trailing
+<newline>.
+.LP
+The <\fIkeyword\fP> field shall be one of the entries from the following
+list or a keyword provided as an implementation
+extension. Keywords consisting entirely of lowercase letters, digits,
+and periods are reserved for future standardization. A
+keyword shall not include an equals sign. (In the following list,
+the notations "file(s)" or "block(s)" is used to acknowledge
+that a keyword affects the following single file after a \fItypeflag\fP
+\fBx\fP extended header, but possibly multiple files
+after \fItypeflag\fP \fBg\fP. Any requirements in the list for \fIpax\fP
+to include a record when in \fBwrite\fP or \fBcopy\fP
+mode shall apply only when such a record has not already been provided
+through the use of the \fB-o\fP option. When used in
+\fBcopy\fP mode, \fIpax\fP shall behave as if an archive had been
+created with applicable extended header records and then
+extracted.)
+.TP 7
+\fBatime\fP
+The file access time for the following file(s), equivalent to the
+value of the \fIst_atime\fP member of the \fBstat\fP
+structure for a file, as described by the \fIstat\fP() function. The
+access time shall be
+restored if the process has the appropriate privilege required to
+do so. The format of the <\fIvalue\fP> shall be as
+described in pax Extended Header File Times .
+.TP 7
+\fBcharset\fP
+The name of the character set used to encode the data in the following
+file(s). The entries in the following table are defined
+to refer to known standards; additional names may be agreed on between
+the originator and recipient. 
+.TS C
+center; l2 l.
+\fB<value>\fP	\fBFormal Standard\fP
+ISO-IR 646 1990	ISO/IEC 646:1990
+ISO-IR 8859 1 1998	ISO/IEC 8859-1:1998
+ISO-IR 8859 2 1999	ISO/IEC 8859-2:1999
+ISO-IR 8859 3 1999	ISO/IEC 8859-3:1999
+ISO-IR 8859 4 1998	ISO/IEC 8859-4:1998
+ISO-IR 8859 5 1999	ISO/IEC 8859-5:1999
+ISO-IR 8859 6 1999	ISO/IEC 8859-6:1999
+ISO-IR 8859 7 1987	ISO/IEC 8859-7:1987
+ISO-IR 8859 8 1999	ISO/IEC 8859-8:1999
+ISO-IR 8859 9 1999	ISO/IEC 8859-9:1999
+ISO-IR 8859 10 1998	ISO/IEC 8859-10:1998
+ISO-IR 8859 13 1998	ISO/IEC 8859-13:1998
+ISO-IR 8859 14 1998	ISO/IEC 8859-14:1998
+ISO-IR 8859 15 1999	ISO/IEC 8859-15:1999
+ISO-IR 10646 2000	ISO/IEC 10646:2000
+ISO-IR 10646 2000 UTF-8	ISO/IEC 10646, UTF-8 encoding
+BINARY	None.
+.TE
+.LP
+The encoding is included in an extended header for information only;
+when \fIpax\fP is used as described in
+IEEE\ Std\ 1003.1-2001, it shall not translate the file data into
+any other encoding. The \fBBINARY\fP entry indicates
+unencoded binary data.
+.LP
+When used in \fBwrite\fP or \fBcopy\fP mode, it is implementation-defined
+whether \fIpax\fP includes a \fBcharset\fP
+extended header record for a file.
+.TP 7
+\fBcomment\fP
+A series of characters used as a comment. All characters in the <\fIvalue\fP>
+field shall be ignored by \fIpax\fP.
+.TP 7
+\fBctime\fP
+The file creation time for the following file(s), equivalent to the
+value of the \fIst_ctime\fP member of the \fBstat\fP
+structure for a file, as described by the \fIstat\fP() function. The
+creation time shall be
+restored if the process has the appropriate privilege required to
+do so. The format of the <\fIvalue\fP> shall be as
+described in pax Extended Header File Times .
+.TP 7
+\fBgid\fP
+The group ID of the group that owns the file, expressed as a decimal
+number using digits from the ISO/IEC\ 646:1991
+standard. This record shall override the \fIgid\fP field in the following
+header block(s). When used in \fBwrite\fP or
+\fBcopy\fP mode, \fIpax\fP shall include a \fIgid\fP extended header
+record for each file whose group ID is greater than 2097151
+(octal 7777777).
+.TP 7
+\fBgname\fP
+The group of the file(s), formatted as a group name in the group database.
+This record shall override the \fIgid\fP and
+\fIgname\fP fields in the following header block(s), and any \fIgid\fP
+extended header record. When used in \fBread\fP,
+\fBcopy\fP, or \fBlist\fP mode, \fIpax\fP shall translate the name
+from the UTF-8 encoding in the header record to the character
+set appropriate for the group database on the receiving system. If
+any of the UTF-8 characters cannot be translated, and if the
+\fB-o\fP \fBinvalid=\fP UTF-8 option is not specified, the results
+are implementation-defined. When used in \fBwrite\fP or
+\fBcopy\fP mode, \fIpax\fP shall include a \fBgname\fP extended header
+record for each file whose group name cannot be
+represented entirely with the letters and digits of the portable character
+set.
+.TP 7
+\fBlinkpath\fP
+The pathname of a link being created to another file, of any type,
+previously archived. This record shall override the
+\fIlinkname\fP field in the following \fBustar\fP header block(s).
+The following \fBustar\fP header block shall determine the
+type of link created. If \fItypeflag\fP of the following header block
+is 1, it shall be a hard link. If \fItypeflag\fP is 2, it
+shall be a symbolic link and the \fBlinkpath\fP value shall be the
+contents of the symbolic link. The \fIpax\fP utility shall
+translate the name of the link (contents of the symbolic link) from
+the UTF-8 encoding to the character set appropriate for the
+local file system. When used in \fBwrite\fP or \fBcopy\fP mode, \fIpax\fP
+shall include a \fBlinkpath\fP extended header record
+for each link whose pathname cannot be represented entirely with the
+members of the portable character set other than NUL.
+.TP 7
+\fBmtime\fP
+The file modification time of the following file(s), equivalent to
+the value of the \fIst_mtime\fP member of the \fBstat\fP
+structure for a file, as described in the \fIstat\fP() function. This
+record shall override
+the \fImtime\fP field in the following header block(s). The modification
+time shall be restored if the process has the appropriate
+privilege required to do so. The format of the <\fIvalue\fP> shall
+be as described in pax
+Extended Header File Times .
+.TP 7
+\fBpath\fP
+The pathname of the following file(s). This record shall override
+the \fIname\fP and \fIprefix\fP fields in the following
+header block(s). The \fIpax\fP utility shall translate the pathname
+of the file from the UTF-8 encoding to the character set
+appropriate for the local file system. 
+.LP
+When used in \fBwrite\fP or \fBcopy\fP mode, \fIpax\fP shall include
+a \fIpath\fP extended header record for each file whose
+pathname cannot be represented entirely with the members of the portable
+character set other than NUL.
+.TP 7
+\fBrealtime.\fP\fIany\fP
+The keywords prefixed by "realtime." are reserved for future standardization.
+.TP 7
+\fBsecurity.\fP\fIany\fP
+The keywords prefixed by "security." are reserved for future standardization.
+.TP 7
+\fBsize\fP
+The size of the file in octets, expressed as a decimal number using
+digits from the ISO/IEC\ 646:1991 standard. This record
+shall override the \fIsize\fP field in the following header block(s).
+When used in \fBwrite\fP or \fBcopy\fP mode, \fIpax\fP
+shall include a \fIsize\fP extended header record for each file with
+a size value greater than 8589934591 (octal
+77777777777).
+.TP 7
+\fBuid\fP
+The user ID of the file owner, expressed as a decimal number using
+digits from the ISO/IEC\ 646:1991 standard. This record
+shall override the \fIuid\fP field in the following header block(s).
+When used in \fBwrite\fP or \fBcopy\fP mode, \fIpax\fP
+shall include a \fIuid\fP extended header record for each file whose
+owner ID is greater than 2097151 (octal 7777777).
+.TP 7
+\fBuname\fP
+The owner of the following file(s), formatted as a user name in the
+user database. This record shall override the \fIuid\fP
+and \fIuname\fP fields in the following header block(s), and any \fIuid\fP
+extended header record. When used in \fBread\fP,
+\fBcopy\fP, or \fBlist\fP mode, \fIpax\fP shall translate the name
+from the UTF-8 encoding in the header record to the character
+set appropriate for the user database on the receiving system. If
+any of the UTF-8 characters cannot be translated, and if the
+\fB-o\fP \fBinvalid=\fP UTF-8 option is not specified, the results
+are implementation-defined. When used in \fBwrite\fP or
+\fBcopy\fP mode, \fIpax\fP shall include a \fBuname\fP extended header
+record for each file whose user name cannot be
+represented entirely with the letters and digits of the portable character
+set.
+.sp
+.LP
+If the <\fIvalue\fP> field is zero length, it shall delete any header
+block field, previously entered extended header
+value, or global extended header value of the same name.
+.LP
+If a keyword in an extended header record (or in a \fB-o\fP option-argument)
+overrides or deletes a corresponding field in the
+\fBustar\fP header block, \fIpax\fP shall ignore the contents of that
+header block field.
+.LP
+Unlike the \fBustar\fP header block fields, NULs shall not delimit
+<\fIvalue\fP>s; all characters within the
+<\fIvalue\fP> field shall be considered data for the field. None of
+the length limitations of the \fBustar\fP header block
+fields in ustar Header Block shall apply to the extended header records.
+.SS pax Extended Header Keyword Precedence
+.LP
+This section describes the precedence in which the various header
+records and fields and command line options are selected to
+apply to a file in the archive. When \fIpax\fP is used in \fBread\fP
+or \fBlist\fP modes, it shall determine a file attribute in
+the following sequence:
+.IP " 1." 4
+If \fB-o\fP \fBdelete=\fP \fIkeyword-prefix\fP is used, the affected
+attributes shall be determined from step 7., if
+applicable, or ignored otherwise.
+.LP
+.IP " 2." 4
+If \fB-o\fP \fIkeyword\fP:= is used, the affected attributes shall
+be ignored.
+.LP
+.IP " 3." 4
+If \fB-o\fP \fIkeyword\fP \fB:=\fP \fIvalue\fP is used, the affected
+attribute shall be assigned the value.
+.LP
+.IP " 4." 4
+If there is a \fItypeflag\fP \fBx\fP extended header record, the affected
+attribute shall be assigned the
+<\fIvalue\fP>. When extended header records conflict, the last one
+given in the header shall take precedence.
+.LP
+.IP " 5." 4
+If \fB-o\fP \fIkeyword\fP \fB=\fP \fIvalue\fP is used, the affected
+attribute shall be assigned the value.
+.LP
+.IP " 6." 4
+If there is a \fItypeflag\fP \fBg\fP global extended header record,
+the affected attribute shall be assigned the
+<\fIvalue\fP>. When global extended header records conflict, the last
+one given in the global header shall take
+precedence.
+.LP
+.IP " 7." 4
+Otherwise, the attribute shall be determined from the \fBustar\fP
+header block.
+.LP
+.SS pax Extended Header File Times
+.LP
+The \fIpax\fP utility shall write an \fBmtime\fP record for each file
+in \fBwrite\fP or \fBcopy\fP modes if the file's
+modification time cannot be represented exactly in the \fBustar\fP
+header logical record described in ustar Interchange Format . This
+can occur if the time is out of \fBustar\fP range, or if the file
+system
+of the underlying implementation supports non-integer time granularities
+and the time is not an integer. All of these time records
+shall be formatted as a decimal representation of the time in seconds
+since the Epoch. If a period ( \fB'.'\fP ) decimal point
+character is present, the digits to the right of the point shall represent
+the units of a subsecond timing granularity, where the
+first digit is tenths of a second and each subsequent digit is a tenth
+of the previous digit. In \fBread\fP or \fBcopy\fP mode,
+the \fIpax\fP utility shall truncate the time of a file to the greatest
+value that is not greater than the input header file time.
+In \fBwrite\fP or \fBcopy\fP mode, the \fIpax\fP utility shall output
+a time exactly if it can be represented exactly as a
+decimal number, and otherwise shall generate only enough digits so
+that the same time shall be recovered if the file is extracted
+on a system whose underlying implementation supports the same time
+granularity.
+.SS ustar Interchange Format
+.LP
+A \fBustar\fP archive tape or file shall contain a series of logical
+records. Each logical record shall be a fixed-size logical
+record of 512 octets (see below). Although this format may be thought
+of as being stored on 9-track industry-standard 12.7 mm (0.5
+in) magnetic tape, other types of transportable media are not excluded.
+Each file archived shall be represented by a header logical
+record that describes the file, followed by zero or more logical records
+that give the contents of the file. At the end of the
+archive file there shall be two 512-octet logical records filled with
+binary zeros, interpreted as an end-of-archive indicator.
+.LP
+The logical records may be grouped for physical I/O operations, as
+described under the \fB-b\fP \fIblocksize\fP and \fB-x\fP
+\fBustar\fP options. Each group of logical records may be written
+with a single operation equivalent to the \fIwrite\fP() function.
+On magnetic tape, the result of this write shall be a single tape
+physical
+block. The last physical block shall always be the full size, so logical
+records after the two zero logical records may contain
+undefined data.
+.LP
+The header logical record shall be structured as shown in the following
+table. All lengths and offsets are in decimal.
+.br
+.sp
+.ce 1
+\fBTable: ustar Header Block\fP
+.TS C
+center; l l l.
+\fBField Name\fP	\fBOctet Offset\fP	\fBLength (in Octets)\fP
+\fIname\fP	0	100
+\fImode\fP	100	8
+\fIuid\fP	108	8
+\fIgid\fP	116	8
+\fIsize\fP	124	12
+\fImtime\fP	136	12
+\fIchksum\fP	148	8
+\fItypeflag\fP	156	1
+\fIlinkname\fP	157	100
+\fImagic\fP	257	6
+\fIversion\fP	263	2
+\fIuname\fP	265	32
+\fIgname\fP	297	32
+\fIdevmajor\fP	329	8
+\fIdevminor\fP	337	8
+\fIprefix\fP	345	155
+.TE
+.LP
+All characters in the header logical record shall be represented in
+the coded character set of the ISO/IEC\ 646:1991
+standard. For maximum portability between implementations, names should
+be selected from characters represented by the portable
+filename character set as octets with the most significant bit zero.
+If an implementation supports the use of characters outside of
+slash and the portable filename character set in names for files,
+users, and groups, one or more implementation-defined encodings
+of these characters shall be provided for interchange purposes.
+.LP
+However, the \fIpax\fP utility shall never create filenames on the
+local system that cannot be accessed via the procedures
+described in IEEE\ Std\ 1003.1-2001. If a filename is found on the
+medium that would create an invalid filename, it is
+implementation-defined whether the data from the file is stored on
+the file hierarchy and under what name it is stored. The
+\fIpax\fP utility may choose to ignore these files as long as it produces
+an error indicating that the file is being ignored.
+.LP
+Each field within the header logical record is contiguous; that is,
+there is no padding used. Each character on the archive
+medium shall be stored contiguously.
+.LP
+The fields \fImagic\fP, \fIuname\fP, and \fIgname\fP are character
+strings each terminated by a NUL character. The fields
+\fIname\fP, \fIlinkname\fP, and \fIprefix\fP are NUL-terminated character
+strings except when all characters in the array
+contain non-NUL characters including the last character. The \fIversion\fP
+field is two octets containing the characters
+\fB"00"\fP (zero-zero). The \fItypeflag\fP contains a single character.
+All other fields are leading zero-filled octal numbers
+using digits from the ISO/IEC\ 646:1991 standard IRV. Each numeric
+field is terminated by one or more <space> or NUL
+characters.
+.LP
+The \fIname\fP and the \fIprefix\fP fields shall produce the pathname
+of the file. A new pathname shall be formed, if
+\fIprefix\fP is not an empty string (its first character is not NUL),
+by concatenating \fIprefix\fP (up to the first NUL
+character), a slash character, and \fIname\fP; otherwise, \fIname\fP
+is used alone. In either case, \fIname\fP is terminated at
+the first NUL character. If \fIprefix\fP begins with a NUL character,
+it shall be ignored. In this manner, pathnames of at most
+256 characters can be supported. If a pathname does not fit in the
+space provided, \fIpax\fP shall notify the user of the error,
+and shall not store any part of the file-header or data-on the medium.
+.LP
+The \fIlinkname\fP field, described below, shall not use the \fIprefix\fP
+to produce a pathname. As such, a \fIlinkname\fP is
+limited to 100 characters. If the name does not fit in the space provided,
+\fIpax\fP shall notify the user of the error, and shall
+not attempt to store the link on the medium.
+.LP
+The \fImode\fP field provides 12 bits encoded in the ISO/IEC\ 646:1991
+standard octal digit representation. The encoded
+bits shall represent the following values:
+.br
+.sp
+.ce 1
+\fBTable: ustar \fImode\fP Field\fP
+.TS C
+center; l1 l1 lw(37).
+\fBBit Value\fP	\fBIEEE\ Std\ 1003.1-2001 Bit\fP	T{
+.na
+\fBDescription\fP
+.ad
+T}
+04000	S_ISUID	T{
+.na
+Set UID on execution.
+.ad
+T}
+02000	S_ISGID	T{
+.na
+Set GID on execution.
+.ad
+T}
+01000	<reserved>	T{
+.na
+Reserved for future standardization.
+.ad
+T}
+00400	S_IRUSR	T{
+.na
+Read permission for file owner class.
+.ad
+T}
+00200	S_IWUSR	T{
+.na
+Write permission for file owner class.
+.ad
+T}
+00100	S_IXUSR	T{
+.na
+Execute/search permission for file owner class.
+.ad
+T}
+00040	S_IRGRP	T{
+.na
+Read permission for file group class.
+.ad
+T}
+00020	S_IWGRP	T{
+.na
+Write permission for file group class.
+.ad
+T}
+00010	S_IXGRP	T{
+.na
+Execute/search permission for file group class.
+.ad
+T}
+00004	S_IROTH	T{
+.na
+Read permission for file other class.
+.ad
+T}
+00002	S_IWOTH	T{
+.na
+Write permission for file other class.
+.ad
+T}
+00001	S_IXOTH	T{
+.na
+Execute/search permission for file other class.
+.ad
+T}
+.TE
+.LP
+When appropriate privilege is required to set one of these mode bits,
+and the user restoring the files from the archive does not
+have the appropriate privilege, the mode bits for which the user does
+not have appropriate privilege shall be ignored. Some of the
+mode bits in the archive format are not mentioned elsewhere in this
+volume of IEEE\ Std\ 1003.1-2001. If the implementation
+does not support those bits, they may be ignored.
+.LP
+The \fIuid\fP and \fIgid\fP fields are the user and group ID of the
+owner and group of the file, respectively.
+.LP
+The \fIsize\fP field is the size of the file in octets. If the \fItypeflag\fP
+field is set to specify a file to be of type 1
+(a link) or 2 (a symbolic link), the \fIsize\fP field shall be specified
+as zero. If the \fItypeflag\fP field is set to specify a
+file of type 5 (directory), the \fIsize\fP field shall be interpreted
+as described under the definition of that record type. No
+data logical records are stored for types 1, 2, or 5. If the \fItypeflag\fP
+field is set to 3 (character special file), 4 (block
+special file), or 6 (FIFO), the meaning of the \fIsize\fP field is
+unspecified by this volume of IEEE\ Std\ 1003.1-2001,
+and no data logical records shall be stored on the medium. Additionally,
+for type 6, the \fIsize\fP field shall be ignored when
+reading. If the \fItypeflag\fP field is set to any other value, the
+number of logical records written following the header shall
+be ( \fIsize\fP+511)/512, ignoring any fraction in the result of the
+division.
+.LP
+The \fImtime\fP field shall be the modification time of the file at
+the time it was archived. It is the ISO/IEC\ 646:1991
+standard representation of the octal value of the modification time
+obtained from the \fIstat\fP() function.
+.LP
+The \fIchksum\fP field shall be the ISO/IEC\ 646:1991 standard IRV
+representation of the octal value of the simple sum of
+all octets in the header logical record. Each octet in the header
+shall be treated as an unsigned value. These values shall be
+added to an unsigned integer, initialized to zero, the precision of
+which is not less than 17 bits. When calculating the checksum,
+the \fIchksum\fP field is treated as if it were all spaces.
+.LP
+The \fItypeflag\fP field specifies the type of file archived. If a
+particular implementation does not recognize the type, or
+the user does not have appropriate privilege to create that type,
+the file shall be extracted as if it were a regular file if the
+file type is defined to have a meaning for the \fIsize\fP field that
+could cause data logical records to be written on the medium
+(see the previous description for \fIsize\fP). If conversion to a
+regular file occurs, the \fIpax\fP utility shall produce an
+error indicating that the conversion took place. All of the \fItypeflag\fP
+fields shall be coded in the ISO/IEC\ 646:1991
+standard IRV:
+.TP 7
+\fB0\fP
+Represents a regular file. For backwards-compatibility, a \fItypeflag\fP
+value of binary zero ( \fB'\\0'\fP ) should be
+recognized as meaning a regular file when extracting files from the
+archive. Archives written with this version of the archive file
+format create regular files with a \fItypeflag\fP value of the ISO/IEC\ 646:1991
+standard IRV \fB'0'\fP .
+.TP 7
+\fB1\fP
+Represents a file linked to another file, of any type, previously
+archived. Such files are identified by each file having the
+same device and file serial number. The linked-to name is specified
+in the \fIlinkname\fP field with a NUL-character terminator if
+it is less than 100 octets in length.
+.TP 7
+\fB2\fP
+Represents a symbolic link. The contents of the symbolic link shall
+be stored in the \fIlinkname\fP field.
+.TP 7
+\fB3,4\fP
+Represent character special files and block special files respectively.
+In this case the \fIdevmajor\fP and \fIdevminor\fP
+fields shall contain information defining the device, the format of
+which is unspecified by this volume of
+IEEE\ Std\ 1003.1-2001. Implementations may map the device specifications
+to their own local specification or may ignore
+the entry.
+.TP 7
+\fB5\fP
+Specifies a directory or subdirectory. On systems where disk allocation
+is performed on a directory basis, the \fIsize\fP
+field shall contain the maximum number of octets (which may be rounded
+to the nearest disk block allocation unit) that the
+directory may hold. A \fIsize\fP field of zero indicates no such limiting.
+Systems that do not support limiting in this manner
+should ignore the \fIsize\fP field.
+.TP 7
+\fB6\fP
+Specifies a FIFO special file. Note that the archiving of a FIFO file
+archives the existence of this file and not its
+contents.
+.TP 7
+\fB7\fP
+Reserved to represent a file to which an implementation has associated
+some high-performance attribute. Implementations without
+such extensions should treat this file as a regular file (type 0).
+.TP 7
+\fBA-Z\fP
+The letters \fB'A'\fP to \fB'Z'\fP , inclusive, are reserved for custom
+implementations. All other values are reserved
+for future versions of IEEE\ Std\ 1003.1-2001.
+.sp
+.LP
+Attempts to archive a socket using \fBustar\fP interchange format
+shall produce a diagnostic message. Handling of other file
+types is implementation-defined.
+.LP
+The \fImagic\fP field is the specification that this archive was output
+in this archive format. If this field contains
+\fBustar\fP (the five characters from the ISO/IEC\ 646:1991 standard
+IRV shown followed by NUL), the \fIuname\fP and
+\fIgname\fP fields shall contain the ISO/IEC\ 646:1991 standard IRV
+representation of the owner and group of the file,
+respectively (truncated to fit, if necessary). When the file is restored
+by a privileged, protection-preserving version of the
+utility, the user and group databases shall be scanned for these names.
+If found, the user and group IDs contained within these
+files shall be used rather than the values contained within the \fIuid\fP
+and \fIgid\fP fields.
+.SS cpio Interchange Format
+.LP
+The octet-oriented \fBcpio\fP archive format shall be a series of
+entries, each comprising a header that describes the file,
+the name of the file, and then the contents of the file.
+.LP
+An archive may be recorded as a series of fixed-size blocks of octets.
+This blocking shall be used only to make physical I/O
+more efficient. The last group of blocks shall always be at the full
+size.
+.LP
+For the octet-oriented \fBcpio\fP archive format, the individual entry
+information shall be in the order indicated and
+described by the following table; see also the \fI<cpio.h>\fP header.
+.br
+.sp
+.ce 1
+\fBTable: Octet-Oriented cpio Archive Entry\fP
+.TS C
+center; l2 l2 l.
+\fBHeader Field Name\fP	\fBLength (in Octets)\fP	\fBInterpreted as\fP
+\fIc_magic\fP	6	Octal number
+\fIc_dev\fP	6	Octal number
+\fIc_ino\fP	6	Octal number
+\fIc_mode\fP	6	Octal number
+\fIc_uid\fP	6	Octal number
+\fIc_gid\fP	6	Octal number
+\fIc_nlink\fP	6	Octal number
+\fIc_rdev\fP	6	Octal number
+\fIc_mtime\fP	11	Octal number
+\fIc_namesize\fP	6	Octal number
+\fIc_filesize\fP	11	Octal number
+\fBFilename Field Name\fP	\fBLength\fP	\fBInterpreted as\fP
+\fIc_name\fP	\fIc_namesize\fP	Pathname string
+\fBFile Data Field Name\fP	\fBLength\fP	\fBInterpreted as\fP
+\fIc_filedata\fP	\fIc_filesize\fP	Data
+.TE
+.SS cpio Header
+.LP
+For each file in the archive, a header as defined previously shall
+be written. The information in the header fields is written
+as streams of the ISO/IEC\ 646:1991 standard characters interpreted
+as octal numbers. The octal numbers shall be extended to
+the necessary length by appending the ISO/IEC\ 646:1991 standard IRV
+zeros at the most-significant-digit end of the number; the
+result is written to the most-significant digit of the stream of octets
+first. The fields shall be interpreted as follows:
+.TP 7
+\fIc_magic\fP
+Identify the archive as being a transportable archive by containing
+the identifying value \fB"070707"\fP .
+.TP 7
+\fIc_dev\fP,\ \fIc_ino\fP
+Contains values that uniquely identify the file within the archive
+(that is, no files contain the same pair of \fIc_dev\fP and
+\fIc_ino\fP values unless they are links to the same file). The values
+shall be determined in an unspecified manner.
+.TP 7
+\fIc_mode\fP
+Contains the file type and access permissions as defined in the following
+table.
+.br
+.sp
+.ce 1
+\fBTable: Values for cpio c_mode Field\fP
+.TS C
+center; l2 l2 l.
+\fBFile Permissions Name\fP	\fBValue\fP	\fBIndicates\fP
+C_IRUSR	000400	Read by owner
+C_IWUSR	000200	Write by owner
+C_IXUSR	000100	Execute by owner
+C_IRGRP	000040	Read by group
+C_IWGRP	000020	Write by group
+C_IXGRP	000010	Execute by group
+C_IROTH	000004	Read by others
+C_IWOTH	000002	Write by others
+C_IXOTH	000001	Execute by others
+C_ISUID	004000	Set \fIuid\fP
+C_ISGID	002000	Set \fIgid\fP
+C_ISVTX	001000	Reserved
+\fBFile Type Name\fP	\fBValue\fP	\fBIndicates\fP
+C_ISDIR	040000	Directory
+C_ISFIFO	010000	FIFO
+C_ISREG	0100000	Regular file
+C_ISLNK	0120000	Symbolic link
+C_ISBLK	060000	Block special file
+C_ISCHR	020000	Character special file
+C_ISSOCK	0140000	Socket
+C_ISCTG	0110000	Reserved
+.TE
+.LP
+Directories, FIFOs, symbolic links, and regular files shall be supported
+on a system conforming to this volume of
+IEEE\ Std\ 1003.1-2001; additional values defined previously are reserved
+for compatibility with existing systems.
+Additional file types may be supported; however, such files should
+not be written to archives intended to be transported to other
+systems.
+.TP 7
+\fIc_uid\fP
+Contains the user ID of the owner.
+.TP 7
+\fIc_gid\fP
+Contains the group ID of the group.
+.TP 7
+\fIc_nlink\fP
+Contains the number of links referencing the file at the time the
+archive was created.
+.TP 7
+\fIc_rdev\fP
+Contains implementation-defined information for character or block
+special files.
+.TP 7
+\fIc_mtime\fP
+Contains the latest time of modification of the file at the time the
+archive was created.
+.TP 7
+\fIc_namesize\fP
+Contains the length of the pathname, including the terminating NUL
+character.
+.TP 7
+\fIc_filesize\fP
+Contains the length of the file in octets. This shall be the length
+of the data section following the header structure.
+.sp
+.SS cpio Filename
+.LP
+The \fIc_name\fP field shall contain the pathname of the file. The
+length of this field in octets is the value of
+\fIc_namesize\fP.
+.LP
+If a filename is found on the medium that would create an invalid
+pathname, it is implementation-defined whether the data from
+the file is stored on the file hierarchy and under what name it is
+stored.
+.LP
+All characters shall be represented in the ISO/IEC\ 646:1991 standard
+IRV. For maximum portability between implementations,
+names should be selected from characters represented by the portable
+filename character set as octets with the most significant bit
+zero. If an implementation supports the use of characters outside
+the portable filename character set in names for files, users,
+and groups, one or more implementation-defined encodings of these
+characters shall be provided for interchange purposes. However,
+the \fIpax\fP utility shall never create filenames on the local system
+that cannot be accessed via the procedures described
+previously in this volume of IEEE\ Std\ 1003.1-2001. If a filename
+is found on the medium that would create an invalid
+filename, it is implementation-defined whether the data from the file
+is stored on the local file system and under what name it is
+stored. The \fIpax\fP utility may choose to ignore these files as
+long as it produces an error indicating that the file is being
+ignored.
+.SS cpio File Data
+.LP
+Following \fIc_name\fP, there shall be \fIc_filesize\fP octets of
+data. Interpretation of such data occurs in a manner
+dependent on the file. If \fIc_filesize\fP is zero, no data shall
+be contained in \fIc_filedata\fP.
+.LP
+When restoring from an archive:
+.IP " *" 3
+If the user does not have the appropriate privilege to create a file
+of the specified type, \fIpax\fP shall ignore the entry
+and write an error message to standard error.
+.LP
+.IP " *" 3
+Only regular files have data to be restored. Presuming a regular file
+meets any selection criteria that might be imposed on the
+format-reading utility by the user, such data shall be restored.
+.LP
+.IP " *" 3
+If a user does not have appropriate privilege to set a particular
+mode flag, the flag shall be ignored. Some of the mode flags
+in the archive format are not mentioned elsewhere in this volume of
+IEEE\ Std\ 1003.1-2001. If the implementation does not
+support those flags, they may be ignored.
+.LP
+.SS cpio Special Entries
+.LP
+FIFO special files, directories, and the trailer shall be recorded
+with \fIc_filesize\fP equal to zero. For other special
+files, \fIc_filesize\fP is unspecified by this volume of IEEE\ Std\ 1003.1-2001.
+The header for the next file entry in the
+archive shall be written directly after the last octet of the file
+entry preceding it. A header denoting the filename
+\fBTRAILER!!!\fP shall indicate the end of the archive; the contents
+of octets in the last block of the archive following such a
+header are undefined.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ 0
+All files were processed successfully.
+.TP 7
+>0
+An error occurred.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+If \fIpax\fP cannot create a file or a link when reading an archive
+or cannot find a file when writing an archive, or cannot
+preserve the user ID, group ID, or file mode when the \fB-p\fP option
+is specified, a diagnostic message shall be written to
+standard error and a non-zero exit status shall be returned, but processing
+shall continue. In the case where \fIpax\fP cannot
+create a link to a file, \fIpax\fP shall not, by default, create a
+second copy of the file.
+.LP
+If the extraction of a file from an archive is prematurely terminated
+by a signal or error, \fIpax\fP may have only partially
+extracted the file or (if the \fB-n\fP option was not specified) may
+have extracted a file of the same name as that specified by
+the user, but which is not the file the user wanted. Additionally,
+the file modes of extracted directories may have additional bits
+from the S_IRWXU mask set as well as incorrect modification and access
+times.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+The \fB-p\fP (privileges) option was invented to reconcile differences
+between historical \fItar\fP and \fIcpio\fP
+implementations. In particular, the two utilities use \fB-m\fP in
+diametrically opposed ways. The \fB-p\fP option also provides a
+consistent means of extending the ways in which future file attributes
+can be addressed, such as for enhanced security systems or
+high-performance files. Although it may seem complex, there are really
+two modes that are most commonly used:
+.TP 7
+\fB-p\ e\fP
+``Preserve everything". This would be used by the historical superuser,
+someone with all the appropriate privileges, to
+preserve all aspects of the files as they are recorded in the archive.
+The \fBe\fP flag is the sum of \fBo\fP and \fBp\fP, and
+other implementation-defined attributes.
+.TP 7
+\fB-p\ p\fP
+``Preserve" the file mode bits. This would be used by the user with
+regular privileges who wished to preserve aspects of the
+file other than the ownership. The file times are preserved by default,
+but two other flags are offered to disable these and use
+the time of extraction.
+.sp
+.LP
+The one pathname per line format of standard input precludes pathnames
+containing <newline>s. Although such pathnames
+violate the portable filename guidelines, they may exist and their
+presence may inhibit usage of \fIpax\fP within shell scripts.
+This problem is inherited from historical archive programs. The problem
+can be avoided by listing filename arguments on the command
+line instead of on standard input.
+.LP
+It is almost certain that appropriate privileges are required for
+\fIpax\fP to accomplish parts of this volume of
+IEEE\ Std\ 1003.1-2001. Specifically, creating files of type block
+special or character special, restoring file access
+times unless the files are owned by the user (the \fB-t\fP option),
+or preserving file owner, group, and mode (the \fB-p\fP
+option) all probably require appropriate privileges.
+.LP
+In \fBread\fP mode, implementations are permitted to overwrite files
+when the archive has multiple members with the same name.
+This may fail if permissions on the first version of the file do not
+permit it to be overwritten.
+.LP
+The \fBcpio\fP and \fBustar\fP formats can only support files up to
+8589934592 bytes (8 * 2^30) in size.
+.SH EXAMPLES
+.LP
+The following command:
+.sp
+.RS
+.nf
+
+\fBpax -w -f /dev/rmt/1m .
+\fP
+.fi
+.RE
+.LP
+copies the contents of the current directory to tape drive 1, medium
+density (assuming historical System V device naming
+procedures-the historical BSD device name would be \fB/dev/rmt9\fP).
+.LP
+The following commands:
+.sp
+.RS
+.nf
+
+\fBmkdir\fP \fInewdir\fP\fBpax -rw\fP \fIolddir newdir\fP
+.fi
+.RE
+.LP
+copy the \fIolddir\fP directory hierarchy to \fInewdir\fP.
+.sp
+.RS
+.nf
+
+\fBpax -r -s ',^//*usr//*,,' -f a.pax
+\fP
+.fi
+.RE
+.LP
+reads the archive \fBa.pax\fP, with all files rooted in \fB/usr\fP
+in the archive extracted relative to the current
+directory.
+.LP
+Using the option:
+.sp
+.RS
+.nf
+
+\fB-o listopt="%M %(atime)T %(size)D %(name)s"
+\fP
+.fi
+.RE
+.LP
+overrides the default output description in Standard Output and instead
+writes:
+.sp
+.RS
+.nf
+
+\fB-rw-rw--- Jan 12 15:53 1492 /usr/foo/bar
+\fP
+.fi
+.RE
+.LP
+Using the options:
+.sp
+.RS
+.nf
+
+\fB-o listopt='%L\\t%(size)D\\n%.7' \\
+-o listopt='(name)s\\n%(ctime)T\\n%T'
+\fP
+.fi
+.RE
+.LP
+overrides the default output description in Standard Output and instead
+writes:
+.sp
+.RS
+.nf
+
+\fB/usr/foo/bar -> /tmp   1492
+/usr/fo
+Jan 12 1991
+Jan 31 15:53
+\fP
+.fi
+.RE
+.SH RATIONALE
+.LP
+The \fIpax\fP utility was new for the ISO\ POSIX-2:1993 standard.
+It represents a peaceful compromise between advocates of
+the historical \fItar\fP and \fIcpio\fP utilities.
+.LP
+A fundamental difference between \fIcpio\fP and \fItar\fP was in the
+way directories were treated. The \fIcpio\fP utility did
+not treat directories differently from other files, and to select
+a directory and its contents required that each file in the
+hierarchy be explicitly specified. For \fItar\fP, a directory matched
+every file in the file hierarchy it rooted.
+.LP
+The \fIpax\fP utility offers both interfaces; by default, directories
+map into the file hierarchy they root. The \fB-d\fP
+option causes \fIpax\fP to skip any file not explicitly referenced,
+as \fIcpio\fP historically did. The \fItar\fP \fB-\fP
+\fIstyle\fP behavior was chosen as the default because it was believed
+that this was the more common usage and because \fItar\fP
+is the more commonly available interface, as it was historically provided
+on both System V and BSD implementations.
+.LP
+The data interchange format specification in this volume of IEEE\ Std\ 1003.1-2001
+requires that processes with
+"appropriate privileges" shall always restore the ownership and permissions
+of extracted files exactly as archived. If viewed
+from the historic equivalence between superuser and "appropriate privileges",
+there are two problems with this requirement.
+First, users running as superusers may unknowingly set dangerous permissions
+on extracted files. Second, it is needlessly limiting,
+in that superusers cannot extract files and own them as superuser
+unless the archive was created by the superuser. (It should be
+noted that restoration of ownerships and permissions for the superuser,
+by default, is historical practice in \fIcpio\fP, but not
+in \fItar\fP.) In order to avoid these two problems, the \fIpax\fP
+specification has an additional "privilege" mechanism, the
+\fB-p\fP option. Only a \fIpax\fP invocation with the privileges needed,
+and which has the \fB-p\fP option set using the
+\fBe\fP specification character, has the "appropriate privilege" to
+restore full ownership and permission information.
+.LP
+Note also that this volume of IEEE\ Std\ 1003.1-2001 requires that
+the file ownership and access permissions shall be
+set, on extraction, in the same fashion as the \fIcreat\fP() function
+when provided with the
+mode stored in the archive. This means that the file creation mask
+of the user is applied to the file permissions.
+.LP
+Users should note that directories may be created by \fIpax\fP while
+extracting files with permissions that are different from
+those that existed at the time the archive was created. When extracting
+sensitive information into a directory hierarchy that no
+longer exists, users are encouraged to set their file creation mask
+appropriately to protect these files during extraction.
+.LP
+The table of contents output is written to standard output to facilitate
+pipeline processing.
+.LP
+An early proposal had hard links displaying for all pathnames. This
+was removed because it complicates the output of the case
+where \fB-v\fP is not specified and does not match historical \fIcpio\fP
+usage. The hard-link information is available in the
+\fB-v\fP display.
+.LP
+The description of the \fB-l\fP option allows implementations to make
+hard links to symbolic links.
+IEEE\ Std\ 1003.1-2001 does not specify any way to create a hard link
+to a symbolic link, but many implementations provide
+this capability as an extension. If there are hard links to symbolic
+links when an archive is created, the implementation is
+required to archive the hard link in the archive (unless \fB-H\fP
+or \fB-L\fP is specified). When in \fBread\fP mode and in
+\fBcopy\fP mode, implementations supporting hard links to symbolic
+links should use them when appropriate.
+.LP
+The archive formats inherited from the POSIX.1-1990 standard have
+certain restrictions that have been brought along from
+historical usage. For example, there are restrictions on the length
+of pathnames stored in the archive. When \fIpax\fP is used in
+\fBcopy\fP( \fB-rw\fP) mode (copying directory hierarchies), the ability
+to use extensions from the \fB-x\fP \fBpax\fP format
+overcomes these restrictions.
+.LP
+The default \fIblocksize\fP value of 5120 bytes for \fIcpio\fP was
+selected because it is one of the standard block-size
+values for \fIcpio\fP, set when the \fB-B\fP option is specified.
+(The other default block-size value for \fIcpio\fP is 512
+bytes, and this was considered to be too small.) The default block
+value of 10240 bytes for \fItar\fP was selected because that is
+the standard block-size value for BSD \fItar\fP. The maximum block
+size of 32256 bytes (2**15-512 bytes)
+is the largest multiple of 512 bytes that fits into a signed 16-bit
+tape controller transfer register. There are known limitations
+in some historical systems that would prevent larger blocks from being
+accepted. Historical values were chosen to improve
+compatibility with historical scripts using \fIdd\fP or similar utilities
+to manipulate
+archives. Also, default block sizes for any file type other than character
+special file has been deleted from this volume of
+IEEE\ Std\ 1003.1-2001 as unimportant and not likely to affect the
+structure of the resulting archive.
+.LP
+Implementations are permitted to modify the block-size value based
+on the archive format or the device to which the archive is
+being written. This is to provide implementations with the opportunity
+to take advantage of special types of devices, and it should
+not be used without a great deal of consideration as it almost certainly
+decreases archive portability.
+.LP
+The intended use of the \fB-n\fP option was to permit extraction of
+one or more files from the archive without processing the
+entire archive. This was viewed by the standard developers as offering
+significant performance advantages over historical
+implementations. The \fB-n\fP option in early proposals had three
+effects; the first was to cause special characters in patterns
+to not be treated specially. The second was to cause only the first
+file that matched a pattern to be extracted. The third was to
+cause \fIpax\fP to write a diagnostic message to standard error when
+no file was found matching a specified pattern. Only the
+second behavior is retained by this volume of IEEE\ Std\ 1003.1-2001,
+for many reasons. First, it is in general not
+acceptable for a single option to have multiple effects. Second, the
+ability to make pattern matching characters act as normal
+characters is useful for parts of \fIpax\fP other than file extraction.
+Third, a finer degree of control over the special
+characters is useful because users may wish to normalize only a single
+special character in a single filename. Fourth, given a more
+general escape mechanism, the previous behavior of the \fB-n\fP option
+can be easily obtained using the \fB-s\fP option or a \fIsed\fP script.
+Finally, writing a diagnostic message when a pattern specified by
+the user is
+unmatched by any file is useful behavior in all cases.
+.LP
+In this version, the \fB-n\fP was removed from the \fBcopy\fP mode
+synopsis of \fIpax\fP; it is inapplicable because there
+are no pattern operands specified in this mode.
+.LP
+There is another method than \fIpax\fP for copying subtrees in IEEE\ Std\ 1003.1-2001
+described as part of the \fIcp\fP utility. Both methods are historical
+practice: \fIcp\fP
+provides a simpler, more intuitive interface, while \fIpax\fP offers
+a finer granularity of control. Each provides additional
+functionality to the other; in particular, \fIpax\fP maintains the
+hard-link structure of the hierarchy while \fIcp\fP does not. It is
+the intention of the standard developers that the results be similar
+(using
+appropriate option combinations in both utilities). The results are
+not required to be identical; there seemed insufficient gain to
+applications to balance the difficulty of implementations having to
+guarantee that the results would be exactly identical.
+.LP
+A single archive may span more than one file. It is suggested that
+implementations provide informative messages to the user on
+standard error whenever the archive file is changed.
+.LP
+The \fB-d\fP option (do not create intermediate directories not listed
+in the archive) found in early proposals was originally
+provided as a complement to the historic \fB-d\fP option of \fIcpio\fP.
+It has been deleted.
+.LP
+The \fB-s\fP option in early proposals specified a subset of the substitution
+command from the \fIed\fP utility. As there was no reason for only
+a subset to be supported, the \fB-s\fP option is now
+compatible with the current \fIed\fP specification. Since the delimiter
+can be any non-null
+character, the following usage with single spaces is valid:
+.sp
+.RS
+.nf
+
+\fBpax -s " foo bar " ...
+\fP
+.fi
+.RE
+.LP
+The \fB-t\fP description is worded so as to note that this may cause
+the access time update caused by some other activity
+(which occurs while the file is being read) to be overwritten.
+.LP
+The default behavior of \fIpax\fP with regard to file modification
+times is the same as historical implementations of
+\fItar\fP. It is not the historical behavior of \fIcpio\fP.
+.LP
+Because the \fB-i\fP option uses \fB/dev/tty\fP, utilities without
+a controlling terminal are not able to use this option.
+.LP
+The \fB-y\fP option, found in early proposals, has been deleted because
+a line containing a single period for the \fB-i\fP
+option has equivalent functionality. The special lines for the \fB-i\fP
+option (a single period and the empty line) are historical
+practice in \fIcpio\fP.
+.LP
+In early drafts, a \fB-e\fP \fIcharmap\fP option was included to increase
+portability of files between systems using different
+coded character sets. This option was omitted because it was apparent
+that consensus could not be formed for it. In this version,
+the use of UTF-8 should be an adequate substitute.
+.LP
+The \fB-k\fP option was added to address international concerns about
+the dangers involved in the character set transformations
+of \fB-e\fP (if the target character set were different from the source,
+the filenames might be transformed into names matching
+existing files) and also was made more general to protect files transferred
+between file systems with different {NAME_MAX} values
+(truncating a filename on a smaller system might also inadvertently
+overwrite existing files). As stated, it prevents any
+overwriting, even if the target file is older than the source. This
+version adds more granularity of options to solve this problem
+by introducing the \fB-o\fP \fBinvalid=\fP option-specifically the
+UTF-8 action. (Note that an existing file that is named with a
+UTF-8 encoding is still subject to overwriting in this case. The \fB-k\fP
+option closes that loophole.)
+.LP
+Some of the file characteristics referenced in this volume of IEEE\ Std\ 1003.1-2001
+might not be supported by some
+archive formats. For example, neither the \fBtar\fP nor \fBcpio\fP
+formats contain the file access time. For this reason, the
+\fBe\fP specification character has been provided, intended to cause
+all file characteristics specified in the archive to be
+retained.
+.LP
+It is required that extracted directories, by default, have their
+access and modification times and permissions set to the
+values specified in the archive. This has obvious problems in that
+the directories are almost certainly modified after being
+extracted and that directory permissions may not permit file creation.
+One possible solution is to create directories with the mode
+specified in the archive, as modified by the \fIumask\fP of the user,
+with sufficient
+permissions to allow file creation. After all files have been extracted,
+\fIpax\fP would then reset the access and modification
+times and permissions as necessary.
+.LP
+The list-mode formatting description borrows heavily from the one
+defined by the \fIprintf\fP utility. However, since there is no separate
+operand list to get conversion arguments,
+the format was extended to allow specifying the name of the conversion
+argument as part of the conversion specification.
+.LP
+The \fBT\fP conversion specifier allows time fields to be displayed
+in any of the date formats. Unlike the \fIls\fP utility, \fIpax\fP
+does not adjust the format when the date is less than six months in
+the
+past. This makes parsing the output more predictable.
+.LP
+The \fBD\fP conversion specifier handles the ability to display the
+major/minor or file size, as with \fIls\fP, by using \fB%-8(\fP\fIsize\fP\fB)D\fP.
+.LP
+The \fBL\fP conversion specifier handles the \fIls\fP display for
+symbolic links.
+.LP
+Conversion specifiers were added to generate existing known types
+used for \fIls\fP.
+.SS pax Interchange Format
+.LP
+The new POSIX data interchange format was developed primarily to satisfy
+international concerns that the \fBustar\fP and
+\fBcpio\fP formats did not provide for file, user, and group names
+encoded in characters outside a subset of the
+ISO/IEC\ 646:1991 standard. The standard developers realized that
+this new POSIX data interchange format should be very
+extensible because there were other requirements they foresaw in the
+near future:
+.IP " *" 3
+Support international character encodings and locale information
+.LP
+.IP " *" 3
+Support security information (ACLs, and so on)
+.LP
+.IP " *" 3
+Support future file types, such as realtime or contiguous files
+.LP
+.IP " *" 3
+Include data areas for implementation use
+.LP
+.IP " *" 3
+Support systems with words larger than 32 bits and timers with subsecond
+granularity
+.LP
+.LP
+The following were not goals for this format because these are better
+handled by separate utilities or are inappropriate for a
+portable format:
+.IP " *" 3
+Encryption
+.LP
+.IP " *" 3
+Compression
+.LP
+.IP " *" 3
+Data translation between locales and codesets
+.LP
+.IP " *" 3
+\fIinode\fP storage
+.LP
+.LP
+The format chosen to support the goals is an extension of the \fBustar\fP
+format. Of the two formats previously available, only
+the \fBustar\fP format was selected for extensions because:
+.IP " *" 3
+It was easier to extend in an upwards-compatible way. It offered version
+flags and header block type fields with room for future
+standardization. The \fBcpio\fP format, while possessing a more flexible
+file naming methodology, could not be extended without
+breaking some theoretical implementation or using a dummy filename
+that could be a legitimate filename.
+.LP
+.IP " *" 3
+Industry experience since the original " \fItar\fP wars" fought in
+developing the ISO\ POSIX-1 standard has clearly been
+in favor of the \fBustar\fP format, which is generally the default
+output format selected for \fIpax\fP implementations on new
+systems.
+.LP
+.LP
+The new format was designed with one additional goal in mind: reasonable
+behavior when an older \fItar\fP or \fIpax\fP utility
+happened to read an archive. Since the POSIX.1-1990 standard mandated
+that a "format-reading utility" had to treat unrecognized
+\fItypeflag\fP values as regular files, this allowed the format to
+include all the extended information in a pseudo-regular file
+that preceded each real file. An option is given that allows the archive
+creator to set up reasonable names for these files on the
+older systems. Also, the normative text suggests that reasonable file
+access values be used for this \fBustar\fP header block.
+Making these header files inaccessible for convenient reading and
+deleting would not be reasonable. File permissions of 600 or 700
+are suggested.
+.LP
+The \fBustar\fP \fItypeflag\fP field was used to accommodate the additional
+functionality of the new format rather than magic
+or version because the POSIX.1-1990 standard (and, by reference, the
+previous version of \fIpax\fP), mandated the behavior of the
+format-reading utility when it encountered an unknown \fItypeflag\fP,
+but was silent about the other two fields.
+.LP
+Early proposals of the first revision to IEEE\ Std\ 1003.1-2001 contained
+a proposed archive format that was based on
+compatibility with the standard for tape files (ISO\ 1001, similar
+to the format used historically on many mainframes and
+minicomputers). This format was overly complex and required considerable
+overhead in volume and header records. Furthermore, the
+standard developers felt that it would not be acceptable to the community
+of POSIX developers, so it was later changed to be a
+format more closely related to historical practice on POSIX systems.
+.LP
+The prefix and name split of pathnames in \fBustar\fP was replaced
+by the single path extended header record for
+simplicity.
+.LP
+The concept of a global extended header ( \fItypeflag\fP \fBg\fP)
+was controversial. If this were applied to an archive being
+recorded on magnetic tape, a few unreadable blocks at the beginning
+of the tape could be a serious problem; a utility attempting to
+extract as many files as possible from a damaged archive could lose
+a large percentage of file header information in this case.
+However, if the archive were on a reliable medium, such as a CD-ROM,
+the global extended header offers considerable potential size
+reductions by eliminating redundant information. Thus, the text warns
+against using the global method for unreliable media and
+provides a method for implanting global information in the extended
+header for each file, rather than in the \fItypeflag\fP
+\fBg\fP records.
+.LP
+No facility for data translation or filtering on a per-file basis
+is included because the standard developers could not invent
+an interface that would allow this in an efficient manner. If a filter,
+such as encryption or compression, is to be applied to all
+the files, it is more efficient to apply the filter to the entire
+archive as a single file. The standard developers considered
+interfaces that would invoke a shell script for each file going into
+or out of the archive, but the system overhead in this
+approach was considered to be too high.
+.LP
+One such approach would be to have \fBfilter=\fP records that give
+a pathname for an executable. When the program is invoked,
+the file and archive would be open for standard input/output and all
+the header fields would be available as environment variables
+or command-line arguments. The standard developers did discuss such
+schemes, but they were omitted from
+IEEE\ Std\ 1003.1-2001 due to concerns about excessive overhead. Also,
+the program itself would need to be in the archive
+if it were to be used portably.
+.LP
+There is currently no portable means of identifying the character
+set(s) used for a file in the file system. Therefore,
+\fIpax\fP has not been given a mechanism to generate charset records
+automatically. The only portable means of doing this is for
+the user to write the archive using the \fB-o\fP \fBcharset=\fP \fIstring\fP
+command line option. This assumes that all of the
+files in the archive use the same encoding. The "implementation-defined"
+text is included to allow for a system that can identify
+the encodings used for each of its files.
+.LP
+The table of standards that accompanies the charset record description
+is acknowledged to be very limited. Only a limited number
+of character set standards is reasonable for maximal interchange.
+Any character set is, of course, possible by prior agreement. It
+was suggested that EBCDIC be listed, but it was omitted because it
+is not defined by a formal standard. Formal standards, and then
+only those with reasonably large followings, can be included here,
+simply as a matter of practicality. The <\fIvalue\fP>s
+represent names of officially registered character sets in the format
+required by the ISO\ 2375:1985 standard.
+.LP
+The normal comma or <blank>-separated list rules are not followed
+in the case of keyword options to allow ease of argument
+parsing for \fIgetopts\fP.
+.LP
+Further information on character encodings is in pax Archive Character
+Set Encoding/Decoding
+\&.
+.LP
+The standard developers have reserved keyword name space for vendor
+extensions. It is suggested that the format to be used
+is:
+.sp
+.RS
+.nf
+
+\fIVENDOR.keyword\fP
+.fi
+.RE
+.LP
+where \fIVENDOR\fP is the name of the vendor or organization in all
+uppercase letters. It is further suggested that the keyword
+following the period be named differently than any of the standard
+keywords so that it could be used for future standardization, if
+appropriate, by omitting the \fIVENDOR\fP prefix.
+.LP
+The <\fIlength\fP> field in the extended header record was included
+to make it simpler to step through the records, even
+if a record contains an unknown format (to a particular \fIpax\fP)
+with complex interactions of special characters. It also
+provides a minor integrity checkpoint within the records to aid a
+program attempting to recover files from a damaged archive.
+.LP
+There are no extended header versions of the \fIdevmajor\fP and \fIdevminor\fP
+fields because the unspecified format
+\fBustar\fP header field should be sufficient. If they are not, vendor-specific
+extended keywords (such as \fIVENDOR.devmajor\fP)
+should be used.
+.LP
+Device and \fIi\fP-number labeling of files was not adopted from \fIcpio\fP;
+files are interchanged strictly on a symbolic
+name basis, as in \fBustar\fP.
+.LP
+Just as with the \fBustar\fP format descriptions, the new format makes
+no special arrangements for multi-volume archives. Each
+of the \fIpax\fP archive types is assumed to be inside a single POSIX
+file and splitting that file over multiple volumes
+(diskettes, tape cartridges, and so on), processing their labels,
+and mounting each in the proper sequence are considered to be
+implementation details that cannot be described portably.
+.LP
+The \fBpax\fP format is intended for interchange, not only for backup
+on a single (family of) systems. It is not as densely
+packed as might be possible for backup:
+.IP " *" 3
+It contains information as coded characters that could be coded in
+binary.
+.LP
+.IP " *" 3
+It identifies extended records with name fields that could be omitted
+in favor of a fixed-field layout.
+.LP
+.IP " *" 3
+It translates names into a portable character set and identifies locale-related
+information, both of which are probably
+unnecessary for backup.
+.LP
+.LP
+The requirements on restoring from an archive are slightly different
+from the historical wording, allowing for non-monolithic
+privilege to bring forward as much as possible. In particular, attributes
+such as "high performance file" might be broadly but
+not universally granted while set-user-ID or \fIchown\fP() might be
+much more restricted.
+There is no implication in IEEE\ Std\ 1003.1-2001 that the security
+information be honored after it is restored to the file
+hierarchy, in spite of what might be improperly inferred by the silence
+on that topic. That is a topic for another standard.
+.LP
+Links are recorded in the fashion described here because a link can
+be to any file type. It is desirable in general to be able
+to restore part of an archive selectively and restore all of those
+files completely. If the data is not associated with each link,
+it is not possible to do this. However, the data associated with a
+file can be large, and when selective restoration is not needed,
+this can be a significant burden. The archive is structured so that
+files that have no associated data can always be restored by
+the name of any link name of any link, and the user may choose whether
+data is recorded with each instance of a file that contains
+data. The format permits mixing of both types of links in a single
+archive; this can be done for special needs, and \fIpax\fP is
+expected to interpret such archives on input properly, despite the
+fact that there is no \fIpax\fP option that would force this
+mixed case on output. (When \fB-o\fP \fBlinkdata\fP is used, the output
+must contain the duplicate data, but the implementation
+is free to include it or omit it when \fB-o\fP \fBlinkdata\fP is not
+used.)
+.LP
+The time values are included as extended header records for those
+implementations needing more than the eleven octal digits
+allowed by the \fBustar\fP format. Portable file timestamps cannot
+be negative. If \fIpax\fP encounters a file with a negative
+timestamp in \fBcopy\fP or \fBwrite\fP mode, it can reject the file,
+substitute a non-negative timestamp, or generate a
+non-portable timestamp with a leading \fB'-'\fP . Even though some
+implementations can support finer file-time granularities
+than seconds, the normative text requires support only for seconds
+since the Epoch because the ISO\ POSIX-1 standard states
+them that way. The \fBustar\fP format includes only \fImtime\fP; the
+new format adds \fIatime\fP and \fIctime\fP for symmetry.
+The \fIatime\fP access time restored to the file system will be affected
+by the \fB-p\fP \fBa\fP and \fB-p\fP \fBe\fP options.
+The \fIctime\fP creation time (actually \fIinode\fP modification time)
+is described with "appropriate privilege" so that it can
+be ignored when writing to the file system. POSIX does not provide
+a portable means to change file creation time. Nothing is
+intended to prevent a non-portable implementation of \fIpax\fP from
+restoring the value.
+.LP
+The \fIgid\fP, \fIsize\fP, and \fIuid\fP extended header records were
+included to allow expansion beyond the sizes specified
+in the regular \fItar\fP header. New file system architectures are
+emerging that will exhaust the 12-digit size field. There are
+probably not many systems requiring more than 8 digits for user and
+group IDs, but the extended header values were included for
+completeness, allowing overrides for all of the decimal values in
+the \fItar\fP header.
+.LP
+The standard developers intended to describe the effective results
+of \fIpax\fP with regard to file ownerships and permissions;
+implementations are not restricted in timing or sequencing the restoration
+of such, provided the results are as specified.
+.LP
+Much of the text describing the extended headers refers to use in
+" \fBwrite\fP or \fBcopy\fP modes". The \fBcopy\fP mode
+references are due to the normative text: "The effect of the copy
+shall be as if the copied files were written to an archive file
+and then subsequently extracted ...". There is certainly no way to
+test whether \fIpax\fP is actually generating the extended
+headers in \fBcopy\fP mode, but the effects must be as if it had.
+.SS pax Archive Character Set Encoding/Decoding
+.LP
+There is a need to exchange archives of files between systems of different
+native codesets. Filenames, group names, and user
+names must be preserved to the fullest extent possible when an archive
+is read on the receiving platform. Translation of the
+contents of files is not within the scope of the \fIpax\fP utility.
+.LP
+There will also be the need to represent characters that are not available
+on the receiving platform. These unsupported
+characters cannot be automatically folded to the local set of characters
+due to the chance of collisions. This could result in
+overwriting previous extracted files from the archive or pre-existing
+files on the system.
+.LP
+For these reasons, the codeset used to represent characters within
+the extended header records of the \fIpax\fP archive must be
+sufficiently rich to handle all commonly used character sets. The
+fields requiring translation include, at a minimum, filenames,
+user names, group names, and link pathnames. Implementations may wish
+to have localized extended keywords that use non-portable
+characters.
+.LP
+The standard developers considered the following options:
+.IP " *" 3
+The archive creator specifies the well-defined name of the source
+codeset. The receiver must then recognize the codeset name and
+perform the appropriate translations to the destination codeset.
+.LP
+.IP " *" 3
+The archive creator includes within the archive the character mapping
+table for the source codeset used to encode extended
+header records. The receiver must then read the character mapping
+table and perform the appropriate translations to the destination
+codeset.
+.LP
+.IP " *" 3
+The archive creator translates the extended header records in the
+source codeset into a canonical form. The receiver must then
+perform the appropriate translations to the destination codeset.
+.LP
+.LP
+The approach that incorporates the name of the source codeset poses
+the problem of codeset name registration, and makes the
+archive useless to \fIpax\fP archive decoders that do not recognize
+that codeset.
+.LP
+Because parts of an archive may be corrupted, the standard developers
+felt that including the character map of the source
+codeset was too fragile. The loss of this one key component could
+result in making the entire archive useless. (The difference
+between this and the global extended header decision was that the
+latter has a workaround-duplicating extended header records on
+unreliable media-but this would be too burdensome for large character
+set maps.)
+.LP
+Both of the above approaches also put an undue burden on the \fIpax\fP
+archive receiver to handle the cross-product of all
+source and destination codesets.
+.LP
+To simplify the translation from the source codeset to the canonical
+form and from the canonical form to the destination
+codeset, the standard developers decided that the internal representation
+should be a stateless encoding. A stateless encoding is
+one where each codepoint has the same meaning, without regard to the
+decoder being in a specific state. An example of a stateful
+encoding would be the Japanese Shift-JIS; an example of a stateless
+encoding would be the ISO/IEC\ 646:1991 standard
+(equivalent to 7-bit ASCII).
+.LP
+For these reasons, the standard developers decided to adopt a canonical
+format for the representation of file information
+strings. The obvious, well-endorsed candidate is the ISO/IEC\ 10646-1:2000
+standard (based in part on Unicode), which can be
+used to represent the characters of virtually all standardized character
+sets. The standard developers initially agreed upon using
+UCS2 (16-bit Unicode) as the internal representation. This repertoire
+of characters provides a sufficiently rich set to represent
+all commonly-used codesets.
+.LP
+However, the standard developers found that the 16-bit Unicode representation
+had some problems. It forced the issue of
+standardizing byte ordering. The 2-byte length of each character made
+the extended header records twice as long for the case of
+strings coded entirely from historical 7-bit ASCII. For these reasons,
+the standard developers chose the UTF-8 defined in the
+ISO/IEC\ 10646-1:2000 standard. This multi-byte representation encodes
+UCS2 or UCS4 characters reliably and deterministically,
+eliminating the need for a canonical byte ordering. In addition, NUL
+octets and other characters possibly confusing to POSIX file
+systems do not appear, except to represent themselves. It was realized
+that certain national codesets take up more space after the
+encoding, due to their placement within the UCS range; it was felt
+that the usefulness of the encoding of the names outweighs the
+disadvantage of size increase for file, user, and group names.
+.LP
+The encoding of UTF-8 is as follows:
+.sp
+.RS
+.nf
+
+\fBUCS4 Hex Encoding  UTF-8 Binary Encoding
+.sp
+
+00000000-0000007F  0xxxxxxx
+00000080-000007FF  110xxxxx 10xxxxxx
+00000800-0000FFFF  1110xxxx 10xxxxxx 10xxxxxx
+00010000-001FFFFF  11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+00200000-03FFFFFF  111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+04000000-7FFFFFFF  1111110x 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+\fP
+.fi
+.RE
+.LP
+where each \fB'x'\fP represents a bit value from the character being
+translated.
+.SS ustar Interchange Format
+.LP
+The description of the \fBustar\fP format reflects numerous enhancements
+over pre-1988 versions of the historical \fItar\fP
+utility. The goal of these changes was not only to provide the functional
+enhancements desired, but also to retain compatibility
+between new and old versions. This compatibility has been retained.
+Archives written using the old archive format are compatible
+with the new format.
+.LP
+Implementors should be aware that the previous file format did not
+include a mechanism to archive directory type files. For this
+reason, the convention of using a filename ending with slash was adopted
+to specify a directory on the archive.
+.LP
+The total size of the \fIname\fP and \fIprefix\fP fields have been
+set to meet the minimum requirements for {PATH_MAX}. If a
+pathname will fit within the \fIname\fP field, it is recommended that
+the pathname be stored there without the use of the
+\fIprefix\fP field. Although the name field is known to be too small
+to contain {PATH_MAX} characters, the value was not changed
+in this version of the archive file format to retain backwards-compatibility,
+and instead the prefix was introduced. Also, because
+of the earlier version of the format, there is no way to remove the
+restriction on the \fIlinkname\fP field being limited in size
+to just that of the \fIname\fP field.
+.LP
+The \fIsize\fP field is required to be meaningful in all implementation
+extensions, although it could be zero. This is required
+so that the data blocks can always be properly counted.
+.LP
+It is suggested that if device special files need to be represented
+that cannot be represented in the standard format, that one
+of the extension types ( \fBA\fP- \fBZ\fP) be used, and that the additional
+information for the special file be represented as
+data and be reflected in the \fIsize\fP field.
+.LP
+Attempting to restore a special file type, where it is converted to
+ordinary data and conflicts with an existing filename, need
+not be specially detected by the utility. If run as an ordinary user,
+\fIpax\fP should not be able to overwrite the entries in,
+for example, \fB/dev\fP in any case (whether the file is converted
+to another type or not). If run as a privileged user, it should
+be able to do so, and it would be considered a bug if it did not.
+The same is true of ordinary data files and similarly named
+special files; it is impossible to anticipate the needs of the user
+(who could really intend to overwrite the file), so the
+behavior should be predictable (and thus regular) and rely on the
+protection system as required.
+.LP
+The value 7 in the \fItypeflag\fP field is intended to define how
+contiguous files can be stored in a \fBustar\fP archive.
+IEEE\ Std\ 1003.1-2001 does not require the contiguous file extension,
+but does define a standard way of archiving such
+files so that all conforming systems can interpret these file types
+in a meaningful and consistent manner. On a system that does
+not support extended file types, the \fIpax\fP utility should do the
+best it can with the file and go on to the next.
+.LP
+The file protection modes are those conventionally used by the \fIls\fP
+utility. This is
+extended beyond the usage in the ISO\ POSIX-2 standard to support
+the "shared text" or "sticky" bit. It is intended that
+the conformance document should not document anything beyond the existence
+of and support of such a mode. Further extensions are
+expected to these bits, particularly with overloading the set-user-ID
+and set-group-ID flags.
+.SS cpio Interchange Format
+.LP
+The reference to appropriate privilege in the \fBcpio\fP format refers
+to an error on standard output; the \fBustar\fP format
+does not make comparable statements.
+.LP
+The model for this format was the historical System V \fIcpio\fP \fB-c\fP
+data interchange format. This model documents the
+portable version of the \fBcpio\fP format and not the binary version.
+It has the flexibility to transfer data of any type
+described within IEEE\ Std\ 1003.1-2001, yet is extensible to transfer
+data types specific to extensions beyond
+IEEE\ Std\ 1003.1-2001 (for example, contiguous files). Because it
+describes existing practice, there is no question of
+maintaining upwards-compatibility.
+.SS cpio Header
+.LP
+There has been some concern that the size of the \fIc_ino\fP field
+of the header is too small to handle those systems that have
+very large \fIinode\fP numbers. However, the \fIc_ino\fP field in
+the header is used strictly as a hard-link resolution mechanism
+for archives. It is not necessarily the same value as the \fIinode\fP
+number of the file in the location from which that file is
+extracted.
+.LP
+The name \fIc_magic\fP is based on historical usage.
+.SS cpio Filename
+.LP
+For most historical implementations of the \fIcpio\fP utility, {PATH_MAX}
+octets can be used to describe the pathname without
+the addition of any other header fields (the NUL character would be
+included in this count). {PATH_MAX} is the minimum value for
+pathname size, documented as 256 bytes. However, an implementation
+may use \fIc_namesize\fP to determine the exact length of the
+pathname. With the current description of the \fI<cpio.h>\fP header,
+this pathname
+size can be as large as a number that is described in six octal digits.
+.LP
+Two values are documented under the \fIc_mode\fP field values to provide
+for extensibility for known file types:
+.TP 7
+\fB0110\ 000\fP
+Reserved for contiguous files. The implementation may treat the rest
+of the information for this archive like a regular file.
+If this file type is undefined, the implementation may create the
+file as a regular file.
+.sp
+.LP
+This provides for extensibility of the \fBcpio\fP format while allowing
+for the ability to read old archives. Files of an
+unknown type may be read as "regular files" on some implementations.
+On a system that does not support extended file types, the
+\fIpax\fP utility should do the best it can with the file and go on
+to the next.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIShell Command Language\fP , \fIcp\fP , \fIed\fP , \fIgetopts\fP
+, \fIls\fP , \fIprintf\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<cpio.h>\fP, the System Interfaces volume of IEEE\ Std\ 1003.1-2001,
+\fIchown\fP(), \fIcreat\fP(), \fImkdir\fP(), \fImkfifo\fP(), \fIstat\fP(),
+\fIutime\fP(), \fIwrite\fP()
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

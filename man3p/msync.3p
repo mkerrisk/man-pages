@@ -1,0 +1,139 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "MSYNC" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" msync 
+.SH NAME
+msync \- synchronize memory with physical storage
+.SH SYNOPSIS
+.LP
+\fB#include <sys/mman.h>
+.br
+.sp
+int msync(void *\fP\fIaddr\fP\fB, size_t\fP \fIlen\fP\fB, int\fP \fIflags\fP\fB);
+\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fImsync\fP() function shall write all modified data to permanent
+storage locations, if any, in those whole pages
+containing any part of the address space of the process starting at
+address \fIaddr\fP and continuing for \fIlen\fP bytes. If no
+such storage exists, \fImsync\fP() need not have any effect. If requested,
+the \fImsync\fP() function shall then invalidate
+cached copies of data.
+.LP
+The implementation shall require that \fIaddr\fP be a multiple of
+the page size as returned by \fIsysconf\fP().
+.LP
+For mappings to files, the \fImsync\fP() function shall ensure that
+all write operations are completed as defined for
+synchronized I/O data integrity completion. It is unspecified whether
+the implementation also writes out other file attributes.
+When the \fImsync\fP() function is called on MAP_PRIVATE mappings,
+any modified data shall not be written to the underlying object
+and shall not cause such data to be made visible to other processes.
+It is unspecified whether data in MAP_PRIVATE mappings has any
+permanent storage locations.   \ The effect of \fImsync\fP() on a
+shared memory object or a typed memory object is unspecified.
+The behavior of this function is unspecified if the mapping was not
+established by a call to \fImmap\fP().
+.LP
+The \fIflags\fP argument is constructed from the bitwise-inclusive
+OR of one or more of the following flags defined in the \fI<sys/mman.h>\fP
+header:
+.TS C
+center; l2 l.
+\fBSymbolic Constant\fP	\fBDescription\fP
+MS_ASYNC	Perform asynchronous writes.
+MS_SYNC	Perform synchronous writes.
+MS_INVALIDATE	Invalidate cached data.
+.TE
+.LP
+When MS_ASYNC is specified, \fImsync\fP() shall return immediately
+once all the write operations are initiated or queued for
+servicing; when MS_SYNC is specified, \fImsync\fP() shall not return
+until all write operations are completed as defined for
+synchronized I/O data integrity completion. Either MS_ASYNC or MS_SYNC
+is specified, but not both.
+.LP
+When MS_INVALIDATE is specified, \fImsync\fP() shall invalidate all
+cached copies of mapped data that are inconsistent with the
+permanent storage locations such that subsequent references shall
+obtain data that was consistent with the permanent storage
+locations sometime between the call to \fImsync\fP() and the first
+subsequent memory reference to the data.
+.LP
+If \fImsync\fP() causes any write to a file, the file's \fIst_ctime\fP
+and \fIst_mtime\fP fields shall be marked for
+update.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fImsync\fP() shall return 0; otherwise,
+it shall return -1 and set \fIerrno\fP to indicate the
+error.
+.SH ERRORS
+.LP
+The \fImsync\fP() function shall fail if:
+.TP 7
+.B EBUSY
+Some or all of the addresses in the range starting at \fIaddr\fP and
+continuing for \fIlen\fP bytes are locked, and
+MS_INVALIDATE is specified.
+.TP 7
+.B EINVAL
+The value of \fIflags\fP is invalid.
+.TP 7
+.B EINVAL
+The value of \fIaddr\fP is not a multiple of the page size {PAGESIZE}.
+.TP 7
+.B ENOMEM
+The addresses in the range starting at \fIaddr\fP and continuing for
+\fIlen\fP bytes are outside the range allowed for the
+address space of a process or specify one or more pages that are not
+mapped.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fImsync\fP() function is only supported if the Memory Mapped
+Files option and the Synchronized Input and Output option are
+supported, and thus need not be available on all implementations.
+.LP
+The \fImsync\fP() function should be used by programs that require
+a memory object to be in a known state; for example, in
+building transaction facilities.
+.LP
+Normal system activity can cause pages to be written to disk. Therefore,
+there are no guarantees that \fImsync\fP() is the only
+control over when pages are or are not written to disk.
+.SH RATIONALE
+.LP
+The \fImsync\fP() function writes out data in a mapped region to the
+permanent storage for the underlying object. The call to
+\fImsync\fP() ensures data integrity of the file.
+.LP
+After the data is written out, any cached data may be invalidated
+if the MS_INVALIDATE flag was specified. This is useful on
+systems that do not support read/write consistency.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fImmap\fP() , \fIsysconf\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/mman.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

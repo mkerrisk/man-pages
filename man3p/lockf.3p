@@ -1,0 +1,224 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "LOCKF" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" lockf 
+.SH NAME
+lockf \- record locking on files
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int lockf(int\fP \fIfildes\fP\fB, int\fP \fIfunction\fP\fB, off_t\fP
+\fIsize\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIlockf\fP() function shall lock sections of a file with advisory-mode
+locks. Calls to \fIlockf\fP() from other threads
+which attempt to lock the locked file section shall either return
+an error value or block until the section becomes unlocked. All
+the locks for a process are removed when the process terminates. Record
+locking with \fIlockf\fP() shall be supported for regular
+files and may be supported for other files.
+.LP
+The \fIfildes\fP argument is an open file descriptor. To establish
+a lock with this function, the file descriptor shall be
+opened with write-only permission (O_WRONLY) or with read/write permission
+(O_RDWR).
+.LP
+The \fIfunction\fP argument is a control value which specifies the
+action to be taken. The permissible values for
+\fIfunction\fP are defined in \fI<unistd.h>\fP as follows:
+.TS C
+center; l2 l.
+\fBFunction\fP	\fBDescription\fP
+F_ULOCK	Unlock locked sections.
+F_LOCK	Lock a section for exclusive use.
+F_TLOCK	Test and lock a section for exclusive use.
+F_TEST	Test a section for locks by other processes.
+.TE
+.LP
+F_TEST shall detect if a lock by another process is present on the
+specified section.
+.LP
+F_LOCK and F_TLOCK shall both lock a section of a file if the section
+is available.
+.LP
+F_ULOCK shall remove locks from a section of the file.
+.LP
+The \fIsize\fP argument is the number of contiguous bytes to be locked
+or unlocked. The section to be locked or unlocked starts
+at the current offset in the file and extends forward for a positive
+size or backward for a negative size (the preceding bytes up
+to but not including the current offset). If \fIsize\fP is 0, the
+section from the current offset through the largest possible
+file offset shall be locked (that is, from the current offset through
+the present or any future end-of-file). An area need not be
+allocated to the file to be locked because locks may exist past the
+end-of-file.
+.LP
+The sections locked with F_LOCK or F_TLOCK may, in whole or in part,
+contain or be contained by a previously locked section for
+the same process. When this occurs, or if adjacent locked sections
+would occur, the sections shall be combined into a single locked
+section. If the request would cause the number of locks to exceed
+a system-imposed limit, the request shall fail.
+.LP
+F_LOCK and F_TLOCK requests differ only by the action taken if the
+section is not available. F_LOCK shall block the calling
+thread until the section is available. F_TLOCK shall cause the function
+to fail if the section is already locked by another
+process.
+.LP
+File locks shall be released on first close by the locking process
+of any file descriptor for the file.
+.LP
+F_ULOCK requests may release (wholly or in part) one or more locked
+sections controlled by the process. Locked sections shall be
+unlocked starting at the current file offset through \fIsize\fP bytes
+or to the end-of-file if \fIsize\fP is (\fBoff_t\fP)0.
+When all of a locked section is not released (that is, when the beginning
+or end of the area to be unlocked falls within a locked
+section), the remaining portions of that section shall remain locked
+by the process. Releasing the center portion of a locked
+section shall cause the remaining locked beginning and end portions
+to become two separate locked sections. If the request would
+cause the number of locks in the system to exceed a system-imposed
+limit, the request shall fail.
+.LP
+A potential for deadlock occurs if the threads of a process controlling
+a locked section are blocked by accessing another
+process' locked section. If the system detects that deadlock would
+occur, \fIlockf\fP() shall fail with an [EDEADLK] error.
+.LP
+The interaction between \fIfcntl\fP() and \fIlockf\fP() locks is unspecified.
+.LP
+Blocking on a section shall be interrupted by any signal.
+.LP
+An F_ULOCK request in which \fIsize\fP is non-zero and the offset
+of the last byte of the requested section is the maximum
+value for an object of type \fBoff_t\fP, when the process has an existing
+lock in which \fIsize\fP is 0 and which includes the
+last byte of the requested section, shall be treated as a request
+to unlock from the start of the requested section with a size
+equal to 0. Otherwise, an F_ULOCK request shall attempt to unlock
+only the requested section.
+.LP
+Attempting to lock a section of a file that is associated with a buffered
+stream produces unspecified results.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIlockf\fP() shall return 0. Otherwise,
+it shall return -1, set \fIerrno\fP to indicate an error,
+and existing locks shall not be changed.
+.SH ERRORS
+.LP
+The \fIlockf\fP() function shall fail if:
+.TP 7
+.B EBADF
+The \fIfildes\fP argument is not a valid open file descriptor; or
+\fIfunction\fP is F_LOCK or F_TLOCK and \fIfildes\fP is
+not a valid file descriptor open for writing.
+.TP 7
+.B EACCES \fRor\fP EAGAIN
+.sp
+The \fIfunction\fP argument is F_TLOCK or F_TEST and the section is
+already locked by another process.
+.TP 7
+.B EDEADLK
+The \fIfunction\fP argument is F_LOCK and a deadlock is detected.
+.TP 7
+.B EINTR
+A signal was caught during execution of the function.
+.TP 7
+.B EINVAL
+The \fIfunction\fP argument is not one of F_LOCK, F_TLOCK, F_TEST,
+or F_ULOCK; or \fIsize\fP plus the current file offset is
+less than 0.
+.TP 7
+.B EOVERFLOW
+The offset of the first, or if \fIsize\fP is not 0 then the last,
+byte in the requested section cannot be represented
+correctly in an object of type \fBoff_t\fP.
+.sp
+.LP
+The \fIlockf\fP() function may fail if:
+.TP 7
+.B EAGAIN
+The \fIfunction\fP argument is F_LOCK or F_TLOCK and the file is mapped
+with \fImmap\fP().
+.TP 7
+.B EDEADLK \fRor\fP ENOLCK
+.sp
+The \fIfunction\fP argument is F_LOCK, F_TLOCK, or F_ULOCK, and the
+request would cause the number of locks to exceed a
+system-imposed limit.
+.TP 7
+.B EOPNOTSUPP \fRor\fP EINVAL
+.sp
+The implementation does not support the locking of files of the type
+indicated by the \fIfildes\fP argument.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Locking a Portion of a File
+.LP
+In the following example, a file named \fB/home/cnd/mod1\fP is being
+modified. Other processes that use locking are prevented
+from changing it during this process. Only the first 10000 bytes are
+locked, and the lock call fails if another process has any
+part of this area locked already.
+.sp
+.RS
+.nf
+
+\fB#include <fcntl.h>
+#include <unistd.h>
+.sp
+
+int fildes;
+int status;
+\&...
+fildes = open("/home/cnd/mod1", O_RDWR);
+status = lockf(fildes, F_TLOCK, (off_t)10000);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Record-locking should not be used in combination with the \fIfopen\fP(),
+\fIfread\fP(), \fIfwrite\fP(), and other \fIstdio\fP
+functions. Instead, the more primitive, non-buffered functions (such
+as \fIopen\fP()) should
+be used. Unexpected results may occur in processes that do buffering
+in the user address space. The process may later read/write
+data which is/was locked. The \fIstdio\fP functions are the most common
+source of unexpected buffering.
+.LP
+The \fIalarm\fP() function may be used to provide a timeout facility
+in applications
+requiring it.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIalarm\fP() , \fIchmod\fP() , \fIclose\fP() , \fIcreat\fP() , \fIfcntl\fP()
+, \fIfopen\fP() , \fImmap\fP() , \fIopen\fP() , \fIread\fP() , \fIwrite\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,128 @@
+.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\" Modified Sat Jul 24 17:51:15 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Modified 11 May 1998 by Joseph S. Myers (jsm28@cam.ac.uk)
+.\" Modified 14 May 2001, 23 Sep 2001 by aeb
+.\"
+.TH SYSTEM 3  2001-09-23 "" "Linux Programmer's Manual"
+.SH NAME
+system \- execute a shell command
+.SH SYNOPSIS
+.nf
+.B #include <stdlib.h>
+.sp
+.BI "int system(const char *" "string" );
+.fi
+.SH DESCRIPTION
+.B system()
+executes a command specified in
+.I string
+by calling
+.BR "/bin/sh -c"
+.IR string ,
+and returns after the command has been completed.
+During execution of the command,
+.B SIGCHLD
+will be blocked, and
+.B SIGINT
+and
+.B SIGQUIT
+will be ignored.
+.SH "RETURN VALUE"
+The value returned is \-1 on error (e.g. fork failed),
+and the return status of the command otherwise.
+This latter return status is in the format
+specified in
+.BR wait (2).
+Thus, the exit code of the command will be
+.IR WEXITSTATUS(status) .
+In case
+.B "/bin/sh"
+could not be executed, the exit status will be that of
+a command that does
+.IR exit(127) .
+.PP
+If the value of
+.I string
+is 
+.BR NULL ,
+.B system()
+returns nonzero if the shell is available, and zero if not.
+.PP
+.B system()
+does not affect the wait status of any other children.
+.SH "CONFORMING TO"
+ANSI C, POSIX.2, BSD 4.3
+.SH NOTES
+.PP
+As mentioned,
+.B system()
+ignores SIGINT and SIGQUIT.  This may make programs that call it
+from a loop uninterruptable, unless they take care themselves
+to check the exit status of the child. E.g.
+.br
+.nf
+
+    while(something) {
+        int ret = system("foo");
+
+        if (WIFSIGNALED(ret) &&
+            (WTERMSIG(ret) == SIGINT || WTERMSIG(ret) == SIGQUIT))
+                break;
+    }
+.fi
+.PP
+Do not use
+.B system()
+from a program with suid or sgid privileges, because strange values for
+some environment variables might be used to subvert system integrity.
+Use the
+.BR exec (3)
+family of functions instead, but not
+.BR execlp (3)
+or
+.BR execvp (3).
+.B system()
+will not, in fact, work properly from programs with suid or sgid
+privileges on systems on which
+.B /bin/sh
+is bash version 2, since bash 2 drops privileges on startup.
+(Debian uses a modified bash which does not do this when invoked as
+.BR sh .)
+.PP
+The check for the availability of
+.B /bin/sh
+is not actually performed; it is always assumed to be available.  ISO
+C specifies the check, but POSIX.2 specifies that the return shall
+always be non-zero, since a system without the shell is not
+conforming, and it is this that is implemented.
+.PP
+It is possible for the shell command to return 127, so that code is not
+a sure indication that the
+.B execve()
+call failed.
+.SH "SEE ALSO"
+.BR sh (1),
+.BR signal (2),
+.BR wait (2),
+.BR exec (3)

@@ -1,0 +1,180 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright 1993 Rickard E. Faith (faith@cs.unc.edu) and 
+.\" 2002 Michael Kerrisk
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Fri Jan 31 16:26:07 1997 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Fri Dec 11 17:57:27 1998 by Jamie Lokier <jamie@imbolc.ucc.ie>
+.\" Modified 24 Apr 2002 by Michael Kerrisk <mtk16@ext.cannterbury.ac.nz>
+.\"	Substantial rewrites and additions
+.\"
+.TH FLOCK 2 2002-04-24 Linux "Linux Programmer's Manual"
+.SH NAME
+flock \- apply or remove an advisory lock on an open file
+.SH SYNOPSIS
+.B #include <sys/file.h>
+.sp
+.BR "int flock(int " fd ", int " operation );
+.SH DESCRIPTION
+Apply or remove an advisory lock on the open file specified by
+.IR fd .
+The parameter
+.I operation
+is one of the following:
+.RS
+.sp
+.TP 1.0i
+.B LOCK_SH
+Place a shared lock.
+More than one process may hold a shared lock for a given file
+at a given time.
+.TP
+.B LOCK_EX
+Place an exclusive lock.
+Only one process may hold an exclusive lock for a given
+file at a given time.
+.TP
+.B LOCK_UN
+Remove an existing lock held by this process.
+.sp
+.RE
+
+A call to
+.BR flock ()
+may block if an incompatible lock is held by another process.
+To make a non-blocking request, include
+.B LOCK_NB
+(by
+.IR OR ing)
+with any of the above operations.
+
+A single file may not simultaneously have both shared and exclusive locks.
+
+Locks created by
+.BR flock ()
+are associated with a file, or, more precisely, an open file table entry.
+This means that duplicate file descriptors (created by, for example,
+.BR fork "(2) or " dup (2))
+refer to the same lock, and this lock may be modified
+or released using any of these descriptors.
+Furthermore, the lock is released either by an explicit
+.B LOCK_UN
+operation on any of these duplicate descriptors, or when all
+such descriptors have been closed.
+
+A process may only hold one type of lock (shared or exclusive)
+on a file.
+Subsequent
+.BR flock ()
+calls on an already locked file will convert an existing lock to the new
+lock mode.
+
+Locks created by
+.BR flock ()
+are preserved across an
+.BR execve (2).
+
+A shared or exclusive lock can be placed on a file regardless of the
+mode in which the file was opened.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+.I fd
+is not a not an open file descriptor.
+.TP
+.B EINTR
+While waiting to acquire a lock, the call was interrupted by
+delivery of a signal caught by a handler.
+.TP
+.B EINVAL
+.I operation
+is invalid.
+.TP
+.B ENOLCK
+The kernel ran out of memory for allocating lock records.
+.TP
+.B EWOULDBLOCK
+The file is locked and the
+.B LOCK_NB
+flag was selected.
+.SH "CONFORMING TO"
+4.4BSD (the
+.BR flock (2)
+call first appeared in 4.2BSD).
+A version of
+.BR flock (2),
+possibly implemented in terms of
+.BR fcntl (2),
+appears on most Unices.
+.SH NOTES
+.BR flock (2)
+does not lock files over NFS.  Use
+.BR fcntl (2)
+instead: that does work over NFS, given a sufficiently recent version of
+Linux and a server which supports locking.
+.PP
+Since kernel 2.0,
+.BR flock (2)
+is implemented as a system call in its own right rather
+than being emulated in the GNU C library as a call to
+.BR fcntl (2).
+This yields true BSD semantics:
+there is no interaction between the types of lock
+placed by
+.BR flock (2)
+and
+.BR fcntl (2),
+and
+.BR flock (2)
+does not detect deadlock.
+.PP
+.BR flock (2)
+places advisory locks only; given suitable permissions on a file,
+a process is free to ignore the use of
+.BR flock (2)
+and perform I/O on the file.
+.PP
+.BR flock (2)
+and
+.BR fcntl (2)
+locks have different semantics with respect to forked processes and
+.BR dup (2).
+.SH "SEE ALSO"
+.BR close (2),
+.BR dup (2),
+.BR execve (2),
+.BR fcntl (2),
+.BR fork (2),
+.BR open (2),
+.BR lockf (3)
+
+There are also
+.I locks.txt
+and
+.I mandatory.txt
+in
+.IR /usr/src/linux/Documentation .

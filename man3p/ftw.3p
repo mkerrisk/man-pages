@@ -1,0 +1,194 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "FTW" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" ftw 
+.SH NAME
+ftw \- traverse (walk) a file tree
+.SH SYNOPSIS
+.LP
+\fB#include <ftw.h>
+.br
+.sp
+int ftw(const char *\fP\fIpath\fP\fB, int (*\fP\fIfn\fP\fB)(const
+char *,
+.br
+\ \ \ \ \ \  const struct stat *\fP\fIptr\fP\fB, int\fP \fIflag\fP\fB),
+int\fP
+\fIndirs\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIftw\fP() function shall recursively descend the directory hierarchy
+rooted in \fIpath\fP. For each object in the
+hierarchy, \fIftw\fP() shall call the function pointed to by \fIfn\fP,
+passing it a pointer to a null-terminated character string
+containing the name of the object, a pointer to a \fBstat\fP structure
+containing information about the object, and an integer.
+Possible values of the integer, defined in the \fI<ftw.h>\fP header,
+are:
+.TP 7
+FTW_D
+For a directory.
+.TP 7
+FTW_DNR
+For a directory that cannot be read.
+.TP 7
+FTW_F
+For a file.
+.TP 7
+FTW_SL
+For a symbolic link (but see also FTW_NS below).
+.TP 7
+FTW_NS
+For an object other than a symbolic link on which \fIstat\fP() could
+not successfully be
+executed. If the object is a symbolic link and \fIstat\fP() failed,
+it is unspecified whether
+\fIftw\fP() passes FTW_SL or FTW_NS to the user-supplied function.
+.sp
+.LP
+If the integer is FTW_DNR, descendants of that directory shall not
+be processed. If the integer is FTW_NS, the \fBstat\fP
+structure contains undefined values. An example of an object that
+would cause FTW_NS to be passed to the function pointed to by
+\fIfn\fP would be a file in a directory with read but without execute
+(search) permission.
+.LP
+The \fIftw\fP() function shall visit a directory before visiting any
+of its descendants.
+.LP
+The \fIftw\fP() function shall use at most one file descriptor for
+each level in the tree.
+.LP
+The argument \fIndirs\fP should be in the range [1, {OPEN_MAX}].
+.LP
+The tree traversal shall continue until either the tree is exhausted,
+an invocation of \fIfn\fP returns a non-zero value, or
+some error, other than [EACCES], is detected within \fIftw\fP().
+.LP
+The \fIndirs\fP argument shall specify the maximum number of directory
+streams or file descriptors or both available for use by
+\fIftw\fP() while traversing the tree. When \fIftw\fP() returns it
+shall close any directory streams and file descriptors it uses
+not counting any opened by the application-supplied \fIfn\fP function.
+.LP
+The results are unspecified if the application-supplied \fIfn\fP function
+does not preserve the current working directory.
+.LP
+The \fIftw\fP() function need not be reentrant. A function that is
+not required to be reentrant is not required to be
+thread-safe.
+.SH RETURN VALUE
+.LP
+If the tree is exhausted, \fIftw\fP() shall return 0. If the function
+pointed to by \fIfn\fP returns a non-zero value,
+\fIftw\fP() shall stop its tree traversal and return whatever value
+was returned by the function pointed to by \fIfn\fP. If
+\fIftw\fP() detects an error, it shall return -1 and set \fIerrno\fP
+to indicate the error.
+.LP
+If \fIftw\fP() encounters an error other than [EACCES] (see FTW_DNR
+and FTW_NS above), it shall return -1 and set \fIerrno\fP
+to indicate the error. The external variable \fIerrno\fP may contain
+any error value that is possible when a directory is opened
+or when one of the \fIstat\fP functions is executed on a directory
+or file.
+.SH ERRORS
+.LP
+The \fIftw\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied for any component of \fIpath\fP or read
+permission is denied for \fIpath\fP.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B ENOTDIR
+A component of \fIpath\fP is not a directory.
+.TP 7
+.B EOVERFLOW
+A field in the \fBstat\fP structure cannot be represented correctly
+in the current programming environment for one or more
+files found in the file hierarchy.
+.sp
+.LP
+The \fIftw\fP() function may fail if:
+.TP 7
+.B EINVAL
+The value of the \fIndirs\fP argument is invalid.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+Pathname resolution of a symbolic link produced an intermediate result
+whose length exceeds {PATH_MAX}.
+.sp
+.LP
+In addition, if the function pointed to by \fIfn\fP encounters system
+errors, \fIerrno\fP may be set accordingly.
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Walking a Directory Structure
+.LP
+The following example walks the current directory structure, calling
+the \fIfn\fP function for every directory entry, using at
+most 10 file descriptors:
+.sp
+.RS
+.nf
+
+\fB#include <ftw.h>
+\&...
+if (ftw(".", fn, 10) != 0) {
+    perror("ftw"); exit(2);
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIftw\fP() function may allocate dynamic storage during its operation.
+If \fIftw\fP() is forcibly terminated, such as by
+\fIlongjmp\fP() or \fIsiglongjmp\fP() being
+executed by the function pointed to by \fIfn\fP or an interrupt routine,
+\fIftw\fP() does not have a chance to free that storage,
+so it remains permanently allocated. A safe way to handle interrupts
+is to store the fact that an interrupt has occurred, and
+arrange to have the function pointed to by \fIfn\fP return a non-zero
+value at its next invocation.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIlongjmp\fP() , \fIlstat\fP() , \fImalloc\fP() , \fInftw\fP() ,
+\fIopendir\fP() , \fIsiglongjmp\fP() , \fIstat\fP() , the Base Definitions
+volume of
+IEEE\ Std\ 1003.1-2001, \fI<ftw.h>\fP, \fI<sys/stat.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

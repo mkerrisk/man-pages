@@ -1,0 +1,278 @@
+.\" Copyright 1993 Giorgio Ciucci (giorgio@crcc.it)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Sun Nov 28 17:06:19 1993, Rik Faith (faith@cs.unc.edu)
+.\"          with material from Luigi P. Bai (lpb@softint.com)
+.\" Portions Copyright 1993 Luigi P. Bai
+.\" Modified Tue Oct 22 22:04:23 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified, 5 Jan 2002, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified, 19 Sep 2002, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"	Added SHM_REMAP flag description
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH SHMOP 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual" 
+.SH NAME
+shmop \- shared memory operations
+.SH SYNOPSIS
+.nf
+.B
+#include <sys/types.h>
+.B
+#include <sys/shm.h>
+.fi
+.sp
+.BI "void *shmat(int " shmid ,
+.BI "const void *" shmaddr ,
+.BI "int " shmflg );
+.sp
+.BI "int shmdt(const void *" shmaddr );
+.SH DESCRIPTION
+The function
+.B shmat
+attaches the shared memory segment identified by
+.B shmid
+to the address space of the calling process.
+The attaching address is specified by
+.I shmaddr
+with one of the following criteria:
+.LP
+If
+.I shmaddr
+is
+.BR NULL ,
+the system chooses a suitable (unused) address at which to attach
+the segment.
+.LP
+If
+.I shmaddr
+isn't
+.B NULL
+and
+.B SHM_RND
+is asserted in
+.IR shmflg ,
+the attach occurs at the address equal to
+.I shmaddr
+rounded down to the nearest multiple of
+.BR SHMLBA .
+Otherwise
+.I shmaddr
+must be a page-aligned address at which the attach occurs.
+.PP
+If
+.B SHM_RDONLY
+is asserted in
+.IR shmflg ,
+the segment is attached for reading and the process must have
+read permission for the segment.
+Otherwise the segment is attached for read and write
+and the process must have read and write permission for the segment.
+There is no notion of a write-only shared memory segment.
+.PP
+The (Linux-specific)
+.B SHM_REMAP
+flag may be asserted in
+.I shmflg
+to indicate that the mapping of the segment should replace
+any existing mapping in the range starting at 
+.I shmaddr
+and continuing for the size of the segment.
+(Normally an
+.B EINVAL
+error would result if a mapping already exists in this address range.)
+In this case,
+.I shmaddr
+must not be
+.BR NULL .
+.PP
+The
+.B brk
+value of the calling process is not altered by the attach.
+The segment will automatically be detached at process exit.
+The same segment may be attached as a read and as a read-write
+one, and more than once, in the process's address space.
+.PP
+On a successful
+.B shmat
+call the system updates the members of the
+.B shmid_ds
+structure associated to the shared memory segment as follows:
+.IP
+.B shm_atime
+is set to the current time.
+.IP
+.B shm_lpid
+is set to the process-ID of the calling process.
+.IP
+.B shm_nattch
+is incremented by one.
+.PP
+Note that the attach succeeds also if the shared memory segment is
+marked to be deleted.
+.PP
+The function
+.B shmdt
+detaches the shared memory segment located at the address specified by
+.I shmaddr
+from the address space of the calling process.
+The to\-be\-detached segment must be currently
+attached with
+.I shmaddr
+equal to the value returned by the its attaching
+.B shmat
+call.
+.PP
+On a successful
+.B shmdt
+call the system updates the members of the
+.B shmid_ds
+structure associated with the shared memory segment as follows:
+.IP
+.B shm_dtime
+is set to the current time.
+.IP
+.B shm_lpid
+is set to the process-ID of the calling process.
+.IP
+.B shm_nattch
+is decremented by one.
+If it becomes 0 and the segment is marked for deletion,
+the segment is deleted.
+.PP
+The occupied region in the user space of the calling process is
+unmapped.
+.SH "SYSTEM CALLS"
+.TP 11
+.B fork()
+After a
+.B fork()
+the child inherits the attached shared memory segments.
+.TP
+.B exec()
+After an
+.B exec()
+all attached shared memory segments are detached from the process.
+.TP
+.B exit()
+Upon
+.B exit()
+all attached shared memory segments are detached from the process.
+.SH "RETURN VALUE"
+On success
+.B shmat
+returns the address of the attached shared memory segment, and
+.B shmdt
+returns 0.
+On failure both functions return \-1 with
+.I errno
+indicating the error.
+.SH ERRORS
+When
+.B shmat
+fails,
+.I errno
+is set to one of the following:
+.TP
+.B EACCES
+The calling process does not have the required permissions for
+the requested attach type, and does not have the
+.B CAP_IPC_OWNER
+capability.
+.TP
+.B EINVAL
+Invalid
+.I shmid
+value, unaligned (i.e., not page-aligned and \fBSHM_RND\fP was not
+specified) or invalid
+.I shmaddr
+value, or failing attach at
+.BR brk ,
+.\" FIXME What does "failing attach at brk" mean?
+or 
+.B SHM_REMAP
+was specified and
+.I shmaddr
+was 
+.BR NULL .
+.TP
+.B ENOMEM
+Could not allocate memory for the descriptor or for the page tables.
+.PP
+The function
+.B shmdt
+can fail only if there is no shared memory segment attached at
+.IR shmaddr ,
+in such a case at return
+.I errno
+will be set to
+.BR EINVAL .
+.SH NOTES
+Using
+.B shmat
+with
+.I shmaddr
+equal to
+.B NULL
+is the preferred, portable way of attaching a shared memory segment.
+Be aware that the shared memory segment attached in this way
+may be attached at different addresses in different processes.
+Therefore, any pointers maintained within the shared memory must be
+made relative (typically to the starting address of the segment),
+rather than absolute.
+.LP
+The following system parameter affects a
+.B shmat
+system call:
+.TP 11
+.B SHMLBA
+Segment low boundary address multiple.
+Must be page aligned.
+For the current implementation the
+.B SHMBLA
+value is
+.BR PAGE_SIZE .
+.PP
+The implementation has no intrinsic limit to the per\-process maximum
+number of shared memory segments
+.RB ( SHMSEG ).
+.SH "CONFORMING TO"
+SVr4, SVID.  SVr4 documents an additional error condition EMFILE.
+In SVID-v4 the type of the \fIshmaddr\fP argument was changed from
+.B "char *"
+into
+.BR "const void *" ,
+and the returned type of \fIshmat\fP() from
+.B "char *"
+into
+.BR "void *" .
+(Linux libc4 and libc5 have the
+.B "char *"
+prototypes; glibc2 has
+.BR "void *" .)
+.SH "SEE ALSO"
+.BR brk (2),
+.BR mmap (2),
+.BR shmctl (2),
+.BR shmget (2),
+.BR ipc (5),
+.BR capabilities (7)

@@ -1,0 +1,269 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1993 Michael Haardt
+.\" (michael@moria.de),
+.\" Fri Apr  2 11:32:09 MET DST 1993
+.\"
+.\" changes Copyright 1999 Mike Coleman (mkc@acm.org)
+.\" -- major revision to fully document ptrace semantics per recent Linux
+.\"    kernel (2.2.10) and glibc (2.1.2) 
+.\" Sun Nov  7 03:18:35 CST 1999
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" Modified Fri Jul 23 23:47:18 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified Fri Jan 31 16:46:30 1997 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Thu Oct  7 17:28:49 1999 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH PTRACE 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+ptrace \- process trace
+.SH SYNOPSIS
+.B #include <sys/ptrace.h>
+.sp
+.BI "long ptrace(enum __ptrace_request " request ", pid_t " pid ", void *" addr ", void *" data );
+.SH DESCRIPTION
+The
+.B ptrace
+system call provides a means by which a parent process may observe and control
+the execution of another process, and examine and change its core image and
+registers.  It is primarily used to implement breakpoint debugging and system
+call tracing.
+.LP
+The parent can initiate a trace by calling
+.BR fork (2) 
+and having the resulting child do a PTRACE_TRACEME, followed (typically) by an
+.BR exec (3).
+Alternatively, the parent may commence trace of an existing process using
+PTRACE_ATTACH.
+.LP
+While being traced, the child will stop each time a signal is delivered, even
+if the signal is being ignored.  (The exception is SIGKILL, which has its
+usual effect.)  The parent will be notified at its next
+.BR wait (2)
+and may inspect and modify the child process while it is stopped.  The parent
+then causes the child to continue, optionally ignoring the delivered signal
+(or even delivering a different signal instead).
+.LP
+When the parent is finished tracing, it can terminate the child with
+PTRACE_KILL or cause it to continue executing in a normal, untraced mode
+via PTRACE_DETACH.
+.LP
+The value of \fIrequest\fP determines the action to be performed:
+.TP
+PTRACE_TRACEME
+Indicates that this process is to be traced by its parent.  Any signal
+(except SIGKILL) delivered to this process will cause it to stop and its
+parent to be notified via
+.BR wait.
+Also, all subsequent calls to
+.BR exec
+by this process will cause a SIGTRAP to be sent to it, giving the parent a
+chance to gain control before the new program begins execution.  A process
+probably shouldn't make this request if its parent isn't expecting to trace
+it.  (\fIpid\fP, \fIaddr\fP, and \fIdata\fP are ignored.)
+.LP
+The above request is used only by the child process; the rest are used only by
+the parent.  In the following requests, \fIpid\fP specifies the child process
+to be acted on.  For requests other than PTRACE_KILL, the child process must
+be stopped.
+.TP
+PTRACE_PEEKTEXT, PTRACE_PEEKDATA
+Reads a word at the location
+.IR addr
+in the child's memory, returning the word as the result of the
+.B ptrace
+call.  Linux does not have separate text and data address spaces, so the two
+requests are currently equivalent.  (The argument \fIdata\fP is ignored.)
+.TP
+PTRACE_PEEKUSR
+Reads a word at offset
+.I addr
+in the child's
+.B USER
+area, which holds the registers and other information about the process (see
+<linux/user.h> and <sys/user.h>).  The word is returned as the result of the
+.B ptrace
+call.  Typically the offset must be word-aligned, though this might vary by
+architecture.  (\fIdata\fP is ignored.)
+.TP
+PTRACE_POKETEXT, PTRACE_POKEDATA
+Copies the word
+.IR data
+to location
+.IR addr
+in the child's memory.  As above, the two requests are currently equivalent.
+.TP
+PTRACE_POKEUSR
+Copies the word
+.IR data
+to offset
+.I addr
+in the child's
+.B USER
+area.  As above, the offset must typically be word-aligned.  In order to
+maintain the integrity of the kernel, some modifications to the
+.B USER
+area are disallowed.
+.TP
+PTRACE_GETREGS, PTRACE_GETFPREGS
+Copies the child's general purpose or floating-point registers, respectively,
+to location \fIdata\fP in the parent.  See <linux/user.h> for information on
+the format of this data.  (\fIaddr\fP is ignored.)
+.TP
+PTRACE_SETREGS, PTRACE_SETFPREGS
+Copies the child's general purpose or floating-point registers, respectively,
+from location \fIdata\fP in the parent.  As for PTRACE_POKEUSER, some general
+purpose register modifications may be disallowed.  (\fIaddr\fP is ignored.)
+.TP
+PTRACE_CONT
+Restarts the stopped child process.  If \fIdata\fP is non-zero and not
+SIGSTOP, it is interpreted as a signal to be delivered to the child;
+otherwise, no signal is delivered.  Thus, for example, the parent can control
+whether a signal sent to the child is delivered or not.  (\fIaddr\fP is
+ignored.)
+.TP
+PTRACE_SYSCALL, PTRACE_SINGLESTEP
+Restarts the stopped child as for PTRACE_CONT, but arranges for the child to
+be stopped at the next entry to or exit from a system call, or after execution
+of a single instruction, respectively.  (The child will also, as usual, be
+stopped upon receipt of a signal.)  From the parent's perspective, the child
+will appear to have been stopped by receipt of a SIGTRAP.  So, for
+PTRACE_SYSCALL, for example, the idea is to inspect the arguments to the
+system call at the first stop, then do another PTRACE_SYSCALL and inspect the
+return value of the system call at the second stop.  (\fIaddr\fP is ignored.)
+.TP
+PTRACE_KILL
+Sends the child a SIGKILL to terminate it.  (\fIaddr\fP and \fIdata\fP are
+ignored.)
+.TP
+PTRACE_ATTACH
+Attaches to the process specified in
+.IR pid ,
+making it a traced "child" of the current process; the behavior of the child
+is as if it had done a PTRACE_TRACEME.  The current process actually becomes
+the parent of the child process for most purposes (e.g., it will receive
+notification of child events and appears in
+.BR ps (1)
+output as the child's parent), but a
+.BR getppid (2)
+by the child will still return the pid of the original parent.  The child is
+sent a SIGSTOP, but will not necessarily have stopped by the completion of
+this call; use
+.BR wait
+to wait for the child to stop.  (\fIaddr\fP and \fIdata\fP are ignored.)
+.TP
+PTRACE_DETACH
+Restarts the stopped child as for PTRACE_CONT, but first detaches from the
+process, undoing the reparenting effect of PTRACE_ATTACH, and the effects of
+PTRACE_TRACEME.  Although perhaps not intended, under Linux a traced child
+can be detached in this way regardless of which method was used to initiate
+tracing.  (\fIaddr\fP is ignored.)
+.SH NOTES
+Although arguments to
+.B ptrace
+are interpreted according to the prototype given, GNU libc currently declares
+.B ptrace
+as a variadic function with only the \fIrequest\fP argument fixed.  This means
+that unneeded trailing arguments may be omitted, though doing so makes use of
+undocumented
+.B gcc(1)
+behavior.
+.LP
+.BR init (8),
+the process with pid 1, may not be traced.
+.LP
+The layout of the contents of memory and the USER area are quite OS- and
+architecture-specific.
+.LP
+The size of a "word" is determined by the OS variant (e.g., for 32-bit Linux
+it's 32 bits, etc.).
+.LP
+Tracing causes a few subtle differences in the semantics of traced processes.
+For example, if a process is attached to with PTRACE_ATTACH, its original
+parent can no longer receive notification via 
+.BR wait
+when it stops, and there is no way for the new parent to effectively simulate
+this notification.
+.LP
+This page documents the way the
+.B ptrace
+call works currently in Linux.  Its behavior differs noticeably on other
+flavors of Unix.  In any case, use of
+.B ptrace
+is highly OS- and architecture-specific.
+.LP
+The SunOS man page describes 
+.B ptrace
+as "unique and arcane", which it is.  The proc-based debugging interface
+present in Solaris 2 implements a superset of
+.B ptrace
+functionality in a more powerful and uniform way.
+.SH "RETURN VALUE"
+On success, PTRACE_PEEK* requests return the requested data, while other requests
+return zero.  On error, all requests return \-1, and
+.IR errno (3)
+is set appropriately.  Since the value returned by a successful PTRACE_PEEK*
+request may be \-1, the caller must check
+.I errno
+after such requests to determine whether or not an error occurred.
+.SH ERRORS
+.TP
+.B EBUSY
+(i386 only) There was an error with allocating or freeing a debug register.
+.TP
+.B EFAULT
+There was an attempt to read from or write to an invalid area in the parent's
+or child's memory, probably because the area wasn't mapped or accessible.
+Unfortunately, under Linux, different variations of this fault will return EIO
+or EFAULT more or less arbitrarily.
+.TP
+.B EIO
+\fIrequest\fP is invalid, or an attempt was made to read from or write to an
+invalid area in the parent's or child's memory, or there was a word-alignment
+violation, or an invalid signal was specified during a restart request.
+.TP
+.B EPERM
+The specified process cannot be traced.  This could be because the 
+parent has insufficient privileges (the required capability is
+.BR CAP_SYS_PTRACE );
+non-root processes cannot trace processes that they
+cannot send signals to or those running setuid/setgid programs, for obvious
+reasons.  Alternatively, the process may already be being traced, or be
+.BR init 
+(pid 1).
+.TP
+.B ESRCH
+The specified process does not exist, or is not currently being traced by the
+caller, or is not stopped (for requests that require that).
+.SH "CONFORMING TO"
+SVr4, SVID EXT, AT&T, X/OPEN, BSD 4.3
+.SH "SEE ALSO"
+.BR gdb (1),
+.BR strace (1),
+.BR execve (2),
+.BR fork (2),
+.BR signal (2),
+.BR wait (2),
+.BR exec (3),
+.BR capabilities (7)

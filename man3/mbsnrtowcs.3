@@ -1,0 +1,76 @@
+.\" Copyright (c) Bruno Haible <haible@clisp.cons.org>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" References consulted:
+.\"   GNU glibc-2 source code and manual
+.\"   Dinkumware C library reference http://www.dinkumware.com/
+.\"   OpenGroup's Single Unix specification http://www.UNIX-systems.org/online.html
+.\"
+.TH MBSNRTOWCS 3  1999-07-25 "GNU" "Linux Programmer's Manual"
+.SH NAME
+mbsnrtowcs \- convert a multibyte string to a wide character string
+.SH SYNOPSIS
+.nf
+.B #include <wchar.h>
+.sp
+.BI "size_t mbsnrtowcs(wchar_t *" dest ", const char **" src ,
+.BI "                   size_t " nms ", size_t " len ", mbstate_t *" ps );
+.fi
+.SH DESCRIPTION
+The \fBmbsnrtowcs\fP function is like the \fBmbsrtowcs\fP function, except that
+the number of bytes to be converted, starting at \fI*src\fP, is limited to
+\fInms\fP.
+.PP
+If \fIdest\fP is not a NULL pointer, the \fBmbsnrtowcs\fP function converts at
+most \fInms\fP bytes from the
+multibyte string \fI*src\fP to a wide-character string starting at \fIdest\fP.
+At most \fIlen\fP wide characters are written to \fIdest\fP. The shift state
+\fI*ps\fP is updated. The conversion is effectively performed by repeatedly
+calling mbrtowc(\fIdest\fP,\fI*src\fP,\fIn\fP,\fIps\fP) where \fIn\fP is some
+positive number, as long as this call succeeds, and then incrementing
+\fIdest\fP by one and \fI*src\fP by the number of bytes consumed. The
+conversion can stop for three reasons:
+.PP
+1. An invalid multibyte sequence has been encountered. In this case \fI*src\fP
+is left pointing to the invalid multibyte sequence, (size_t)(-1) is returned,
+and \fBerrno\fP is set to \fBEILSEQ\fP.
+.PP
+2. The \fInms\fP limit forces a stop, or \fIlen\fP non-L'\\0' wide characters
+have been stored at \fIdest\fP. In this case \fI*src\fP is left pointing to the
+next multibyte sequence to be converted, and the number of wide characters
+written to \fIdest\fP is returned.
+.PP
+3. The multibyte string has been completely converted, including the
+terminating '\\0' (which has the side effect of bringing back \fI*ps\fP to the
+initial state). In this case \fI*src\fP is set to NULL, and the number of wide
+characters written to \fIdest\fP, excluding the terminating L'\\0' character,
+is returned.
+.PP
+If \fIdest\fP is NULL, \fIlen\fP is ignored, and the conversion proceeds as
+above, except that the converted wide characters are not written out to memory,
+and that no destination length limit exists.
+.PP
+In both of the above cases, if \fIps\fP is a NULL pointer, a static anonymous
+state only known to the mbsnrtowcs function is used instead.
+.PP
+The programmer must ensure that there is room for at least \fIlen\fP wide
+characters at \fIdest\fP.
+.SH "RETURN VALUE"
+The \fBmbsnrtowcs\fP function returns the number of wide characters that make
+up the converted part of the wide character string, not including the
+terminating null wide character. If an invalid multibyte sequence was
+encountered, (size_t)(-1) is returned, and \fBerrno\fP set to \fBEILSEQ\fP.
+.SH "CONFORMING TO"
+This function is a GNU extension.
+.SH "SEE ALSO"
+.BR iconv (3),
+.BR mbsrtowcs (3)
+.SH NOTES
+The behaviour of \fBmbsnrtowcs\fP depends on the LC_CTYPE category of the
+current locale.
+.PP
+Passing NULL as \fIps\fP is not multi-thread safe.

@@ -1,0 +1,247 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "<fenv.h>" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" <fenv.h> 
+.SH NAME
+fenv.h \- floating-point environment
+.SH SYNOPSIS
+.LP
+\fB#include <fenv.h>\fP
+.SH DESCRIPTION
+.LP
+The \fI<fenv.h>\fP header shall define the following data types through
+\fBtypedef\fP:
+.TP 7
+\fBfenv_t\fP
+Represents the entire floating-point environment. The floating-point
+environment refers collectively to any floating-point
+status flags and control modes supported by the implementation.
+.TP 7
+\fBfexcept_t\fP
+Represents the floating-point status flags collectively, including
+any status the implementation associates with the flags. A
+floating-point status flag is a system variable whose value is set
+(but never cleared) when a floating-point exception is raised,
+which occurs as a side effect of exceptional floating-point arithmetic
+to provide auxiliary information. A floating-point control
+mode is a system variable whose value may be set by the user to affect
+the subsequent behavior of floating-point arithmetic.
+.sp
+.LP
+The \fI<fenv.h>\fP header shall define the following constants if
+and only if the implementation supports the
+floating-point exception by means of the floating-point functions
+\fIfeclearexcept\fP(), \fIfegetexceptflag\fP(), \fIferaiseexcept\fP(),
+\fIfesetexceptflag\fP(), and \fIfetestexcept\fP(). Each expands to
+an integer constant expression with values such that
+bitwise-inclusive ORs of all combinations of the constants result
+in distinct values.
+.sp
+.RS
+.nf
+
+FE_DIVBYZERO
+FE_INEXACT
+FE_INVALID
+FE_OVERFLOW
+FE_UNDERFLOW
+.fi
+.RE
+.LP
+The \fI<fenv.h>\fP header shall define the following constant, which
+is simply the bitwise-inclusive OR of all
+floating-point exception constants defined above:
+.sp
+.RS
+.nf
+
+FE_ALL_EXCEPT
+.fi
+.RE
+.LP
+The \fI<fenv.h>\fP header shall define the following constants if
+and only if the implementation supports getting and
+setting the represented rounding direction by means of the \fIfegetround\fP()
+and \fIfesetround\fP() functions. Each expands to an integer constant
+expression whose values
+are distinct non-negative vales.
+.sp
+.RS
+.nf
+
+FE_DOWNWARD
+FE_TONEAREST
+FE_TOWARDZERO
+FE_UPWARD
+.fi
+.RE
+.LP
+The \fI<fenv.h>\fP header shall define the following constant, which
+represents the default floating-point environment
+(that is, the one installed at program startup) and has type pointer
+to const-qualified \fBfenv_t\fP. It can be used as an
+argument to the functions within the \fI<fenv.h>\fP header that manage
+the floating-point environment.
+.sp
+.RS
+.nf
+
+FE_DFL_ENV
+.fi
+.RE
+.LP
+The following shall be declared as functions and may also be defined
+as macros. Function prototypes shall be provided.
+.sp
+.RS
+.nf
+
+\fBint  feclearexcept(int);
+int  fegetexceptflag(fexcept_t *, int);
+int  feraiseexcept(int);
+int  fesetexceptflag(const fexcept_t *, int);
+int  fetestexcept(int);
+int  fegetround(void);
+int  fesetround(int);
+int  fegetenv(fenv_t *);
+int  feholdexcept(fenv_t *);
+int  fesetenv(const fenv_t *);
+int  feupdateenv(const fenv_t *);
+\fP
+.fi
+.RE
+.LP
+The FENV_ACCESS pragma provides a means to inform the implementation
+when an application might access the floating-point
+environment to test floating-point status flags or run under non-default
+floating-point control modes. The pragma shall occur
+either outside external declarations or preceding all explicit declarations
+and statements inside a compound statement. When
+outside external declarations, the pragma takes effect from its occurrence
+until another FENV_ACCESS pragma is encountered, or
+until the end of the translation unit. When inside a compound statement,
+the pragma takes effect from its occurrence until another
+FENV_ACCESS pragma is encountered (including within a nested compound
+statement), or until the end of the compound statement; at
+the end of a compound statement the state for the pragma is restored
+to its condition just before the compound statement. If this
+pragma is used in any other context, the behavior is undefined. If
+part of an application tests floating-point status flags, sets
+floating-point control modes, or runs under non-default mode settings,
+but was translated with the state for the FENV_ACCESS pragma
+off, the behavior is undefined. The default state (on or off) for
+the pragma is implementation-defined. (When execution passes from
+a part of the application translated with FENV_ACCESS off to a part
+translated with FENV_ACCESS on, the state of the floating-point
+status flags is unspecified and the floating-point control modes have
+their default settings.)
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+This header is designed to support the floating-point exception status
+flags and directed-rounding control modes required by the
+IEC\ 60559:1989 standard, and other similar floating-point state information.
+Also it is designed to facilitate code
+portability among all systems.
+.LP
+Certain application programming conventions support the intended model
+of use for the floating-point environment:
+.IP " *" 3
+A function call does not alter its caller's floating-point control
+modes, clear its caller's floating-point status flags, nor
+depend on the state of its caller's floating-point status flags unless
+the function is so documented.
+.LP
+.IP " *" 3
+A function call is assumed to require default floating-point control
+modes, unless its documentation promises otherwise.
+.LP
+.IP " *" 3
+A function call is assumed to have the potential for raising floating-point
+exceptions, unless its documentation promises
+otherwise.
+.LP
+.LP
+With these conventions, an application can safely assume default floating-point
+control modes (or be unaware of them). The
+responsibilities associated with accessing the floating-point environment
+fall on the application that does so explicitly.
+.LP
+Even though the rounding direction macros may expand to constants
+corresponding to the values of FLT_ROUNDS, they are not
+required to do so.
+.LP
+For example:
+.sp
+.RS
+.nf
+
+\fB#include <fenv.h>
+void f(double x)
+{
+    #pragma STDC FENV_ACCESS ON
+    void g(double);
+    void h(double);
+    /* ... */
+    g(x + 1);
+    h(x + 1);
+    /* ... */
+}
+\fP
+.fi
+.RE
+.LP
+If the function \fIg\fP() might depend on status flags set as a side
+effect of the first \fIx\fP+1, or if the second
+\fIx\fP+1 might depend on control modes set as a side effect of the
+call to function \fIg\fP(), then the application shall
+contain an appropriately placed invocation as follows:
+.sp
+.RS
+.nf
+
+\fB#pragma STDC FENV_ACCESS ON
+\fP
+.fi
+.RE
+.SH RATIONALE
+.SS The fexcept_t Type
+.LP
+\fBfexcept_t\fP does not have to be an integer type. Its values must
+be obtained by a call to \fIfegetexceptflag\fP(), and cannot be created
+by logical operations from the exception
+macros. An implementation might simply implement \fBfexcept_t\fP as
+an \fBint\fP and use the representations reflected by the
+exception macros, but is not required to; other representations might
+contain extra information about the exceptions.
+\fBfexcept_t\fP might be a \fBstruct\fP with a member for each exception
+(that might hold the address of the first or last
+floating-point instruction that caused that exception). The ISO/IEC\ 9899:1999
+standard makes no claims about the internals of
+an \fBfexcept_t\fP, and so the user cannot inspect it.
+.SS Exception and Rounding Macros
+.LP
+Macros corresponding to unsupported modes and rounding directions
+are not defined by the implementation and must not be defined
+by the application. An application might use \fB#ifdef\fP to test
+for this.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+The System Interfaces volume of IEEE\ Std\ 1003.1-2001, \fIfeclearexcept\fP(),
+\fIfegetenv\fP(), \fIfegetexceptflag\fP(), \fIfegetround\fP(),
+\fIfeholdexcept\fP(), \fIferaiseexcept\fP(), \fIfesetenv\fP(), \fIfesetexceptflag\fP(),
+\fIfesetround\fP(),
+\fIfetestexcept\fP(), \fIfeupdateenv\fP()
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

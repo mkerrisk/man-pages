@@ -1,0 +1,140 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt, Ian Jackson.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Sat Jul 24 00:06:00 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified Wed Jan 17 16:02:32 1996 by Michael Haardt
+.\"   <michael@cantor.informatik.rwth-aachen.de>
+.\" Modified Thu Apr 11 19:26:35 1996 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified Sun Jul 21 18:59:33 1996 by Andries Brouwer <aeb@cwi.nl>
+.\" Modified Fri Jan 31 16:47:33 1997 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified Sat Jul 12 20:45:39 1997 by Michael Haardt
+.\"   <michael@cantor.informatik.rwth-aachen.de>
+.\"
+.TH READ 2 1997-07-12 "Linux 2.0.32" "Linux Programmer's Manual"
+.SH NAME
+read \- read from a file descriptor
+.SH SYNOPSIS
+.nf
+.B #include <unistd.h>
+.sp
+.BI "ssize_t read(int " fd ", void *" buf ", size_t " count );
+.fi
+.SH DESCRIPTION
+.B read()
+attempts to read up to
+.I count
+bytes from file descriptor
+.I fd
+into the buffer starting at
+.IR buf .
+.PP
+If
+.I count
+is zero, \fBread()\fP returns zero and has no other results.
+If
+.I count
+is greater than SSIZE_MAX, the result is unspecified.
+.PP
+.SH "RETURN VALUE"
+On success, the number of bytes read is returned (zero indicates end of
+file), and the file position is advanced by this number.
+It is not an error if this number is smaller than the number of bytes
+requested; this may happen for example because fewer bytes are actually
+available right now (maybe because we were close to end-of-file, or
+because we are reading from a pipe, or from a terminal), or because
+\fBread()\fP was interrupted by a signal.
+On error, \-1 is returned, and
+.I errno
+is set appropriately. In this case it is left unspecified whether
+the file position (if any) changes.
+.SH ERRORS
+.TP
+.B EAGAIN
+Non-blocking I/O has been selected using
+.B O_NONBLOCK
+and no data was immediately available for reading.
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor or is not open for reading.
+.TP
+.B EFAULT
+.I buf
+is outside your accessible address space.
+.TP
+.B EINTR
+The call was interrupted by a signal before any data was read.
+.TP
+.B EINVAL
+.I fd
+is attached to an object which is unsuitable for reading.
+.TP
+.B EIO
+I/O error. This will happen for example when the process is in a
+background process group, tries to read from its controlling tty,
+and either it is ignoring or blocking SIGTTIN or its process group
+is orphaned.  It may also occur when there is a low-level I/O error
+while reading from a disk or tape.
+.TP
+.B EISDIR
+.I fd
+refers to a directory.
+.PP
+Other errors may occur, depending on the object connected to
+.IR fd .
+POSIX allows a
+.B read
+that is interrupted after reading some data
+to return \-1 (with
+.I errno
+set to EINTR) or to return the number of bytes already read.
+.SH "CONFORMING TO"
+SVr4, SVID, AT&T, POSIX, X/OPEN, BSD 4.3
+.SH RESTRICTIONS
+On NFS file systems, reading small amounts of data will only update the
+time stamp the first time, subsequent calls may not do so.  This is caused
+by client side attribute caching, because most if not all NFS clients
+leave atime updates to the server and client side reads satisfied from the
+client's cache will not cause atime updates on the server as there are no
+server side reads.  UNIX semantics can be obtained by disabling client
+side attribute caching, but in most situations this will substantially
+increase server load and decrease performance.
+.PP
+Many filesystems and disks were considered to be fast enough that the 
+implementation of 
+.B O_NONBLOCK
+was deemed unneccesary. So, O_NONBLOCK may not be available on files
+and/or disks.
+.SH "SEE ALSO"
+.BR close (2),
+.BR fcntl (2),
+.BR ioctl (2),
+.BR lseek (2),
+.BR readdir (2),
+.BR readlink (2),
+.BR select (2),
+.BR write (2),
+.BR fread (3),
+.BR readv (3)

@@ -1,0 +1,116 @@
+.\" This man page is Copyright (C) 1999 Andi Kleen <ak@muc.de>.
+.\" Permission is granted to distribute possibly modified copies
+.\" of this page provided the header is included verbatim,
+.\" and in case of nontrivial modification author and date
+.\" of the modification is added to the header.
+.\" $Id: icmp.7,v 1.6 2000/08/14 08:03:45 ak Exp $
+.TH ICMP 7 1999-04-27 "Linux Man Page" "Linux Programmer's Manual" 
+.SH NAME
+icmp, IPPROTO_ICMP \- Linux IPv4 ICMP kernel module. 
+.SH DESCRIPTION
+This kernel protocol module implements the Internet Control Message Protocol 
+defined in RFC792. It is used to signal error conditions and for diagnosis.
+The user doesn't interact directly with this module; instead it communicates
+with the other protocols in the kernel and these pass the ICMP 
+errors to the application layers. The kernel ICMP module also
+answers ICMP requests.
+.PP
+A user protocol may receive ICMP packets for all local sockets by opening
+a raw socket with the protocol 
+.BR IPPROTO_ICMP .
+See
+.BR raw (7)
+for more information.
+The types of ICMP packets passed to the socket can be filtered using the
+.B ICMP_FILTER 
+socket option. ICMP packets are always processed by the kernel too, even
+when passed to a user socket.
+.LP
+Linux limits the rate of ICMP error packets to each destination.
+.B ICMP_REDIRECT
+and
+.B ICMP_DEST_UNREACH
+are also limited by the destination route of the incoming packets.
+.SH SYSCTLS
+ICMP supports a sysctl interface to configure some global IP parameters.
+The sysctls can be accessed by reading or writing the 
+.B /proc/sys/net/ipv4/* 
+files or with the 
+.BR sysctl (2)
+interface. Most of these sysctls are rate limitations for specific ICMP types.
+Linux 2.2 uses a token bucket filter to limit ICMPs. 
+.\" XXX  better description needed
+The value is the timeout in jiffies until the token bucket filter is cleared
+after a burst. A jiffy is a system dependent unit, usually 10ms on x86 and
+about 1ms on alpha and IA64.
+.TP
+.B icmp_destunreach_rate
+Maximum rate to send ICMP Destination Unreachable packets.  This limits the
+rate at which packets are sent to any individual route or destination.
+The limit does not affect sending of
+.B ICMP_FRAG_NEEDED
+packets needed for path MTU discovery.
+.TP
+.B icmp_echo_ignore_all
+If this value is non-zero, Linux will ignore all
+.B ICMP_ECHO
+requests. 
+.TP
+.B icmp_echo_ignore_broadcasts
+If this value is non-zero, Linux will ignore all
+.B ICMP_ECHO
+packets sent to broadcast addresses. 
+.TP
+.B icmp_echoreply_rate
+Maximum rate for sending
+.B ICMP_ECHOREPLY
+packets in response to 
+.B ICMP_ECHOREQUEST
+packets.
+.TP
+.B icmp_paramprob_rate
+Maximum rate for sending
+.B ICMP_PARAMETERPROB
+packets.
+These packets are sent when a packet arrives with an invalid IP header.
+.TP
+.B icmp_timeexceed_rate
+Maximum rate for sending
+.B ICMP_TIME_EXCEEDED
+packets.  These packets are
+sent to prevent loops when a packet has crossed too many hops. 
+.SH NOTES
+As many other implementations don't support 
+.B IPPROTO_ICMP 
+raw sockets, this feature
+should not be relied on in portable programs.
+.\" not really true ATM
+.\" .PP
+.\" Linux ICMP should be compliant to RFC1122.
+.PP
+.B ICMP_REDIRECT
+packets are not sent when Linux is not acting as a router.
+They are also only accepted from the old gateway defined in the routing table and
+the redirect routes are expired after some time.
+.PP
+The 64-bit timestamp returned by
+.B ICMP_TIMESTAMP
+is in milliseconds since January 1, 1970.
+.PP
+Linux ICMP internally uses a raw socket to send ICMPs. This raw socket
+may appear in
+.BR netstat (8)
+output with a zero inode.
+.PP
+.SH VERSIONS
+Support for the
+.B ICMP_ADDRESS
+request was removed in 2.2.
+.PP
+Support for
+.B ICMP_SOURCE_QUENCH
+was removed in Linux 2.2.
+.SH "SEE ALSO"
+.BR ip (7)
+.PP
+RFC792 for a description of the ICMP protocol.

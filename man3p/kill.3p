@@ -1,0 +1,206 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "KILL" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" kill 
+.SH NAME
+kill \- send a signal to a process or a group of processes
+.SH SYNOPSIS
+.LP
+\fB#include <signal.h>
+.br
+.sp
+int kill(pid_t\fP \fIpid\fP\fB, int\fP \fIsig\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIkill\fP() function shall send a signal to a process or a group
+of processes specified by \fIpid\fP. The signal to be
+sent is specified by \fIsig\fP and is either one from the list given
+in \fI<signal.h>\fP or 0. If \fIsig\fP is 0 (the null signal), error
+checking is performed but
+no signal is actually sent. The null signal can be used to check the
+validity of \fIpid\fP.
+.LP
+For a process to have permission to send a signal to a process designated
+by \fIpid\fP, unless the sending process has
+appropriate privileges, the real or effective user ID of the sending
+process shall match the real or saved set-user-ID of the
+receiving process.
+.LP
+If \fIpid\fP is greater than 0, \fIsig\fP shall be sent to the process
+whose process ID is equal to \fIpid\fP.
+.LP
+If \fIpid\fP is 0, \fIsig\fP shall be sent to all processes (excluding
+an unspecified set of system processes) whose process
+group ID is equal to the process group ID of the sender, and for which
+the process has permission to send a signal.
+.LP
+If \fIpid\fP is -1, \fIsig\fP shall be sent to all processes (excluding
+an unspecified set of system processes) for which the
+process has permission to send that signal.
+.LP
+If \fIpid\fP is negative, but not -1, \fIsig\fP shall be sent to all
+processes (excluding an unspecified set of system
+processes) whose process group ID is equal to the absolute value of
+\fIpid\fP, and for which the process has permission to send a
+signal.
+.LP
+If the value of \fIpid\fP causes \fIsig\fP to be generated for the
+sending process, and if \fIsig\fP is not blocked for the
+calling thread and if no other thread has \fIsig\fP unblocked or is
+waiting in a \fIsigwait\fP() function for \fIsig\fP, either \fIsig\fP
+or at least one pending unblocked
+signal shall be delivered to the sending thread before \fIkill\fP()
+returns.
+.LP
+The user ID tests described above shall not be applied when sending
+SIGCONT to a process that is a member of the same session as
+the sending process.
+.LP
+An implementation that provides extended security controls may impose
+further implementation-defined restrictions on the sending
+of signals, including the null signal. In particular, the system may
+deny the existence of some or all of the processes specified
+by \fIpid\fP.
+.LP
+The \fIkill\fP() function is successful if the process has permission
+to send \fIsig\fP to any of the processes specified by
+\fIpid\fP. If \fIkill\fP() fails, no signal shall be sent.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIkill\fP() function shall fail if:
+.TP 7
+.B EINVAL
+The value of the \fIsig\fP argument is an invalid or unsupported signal
+number.
+.TP 7
+.B EPERM
+The process does not have permission to send the signal to any receiving
+process.
+.TP 7
+.B ESRCH
+No process or process group can be found corresponding to that specified
+by \fIpid\fP.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The semantics for permission checking for \fIkill\fP() differed between
+System V and most other implementations, such as
+Version 7 or 4.3 BSD. The semantics chosen for this volume of IEEE\ Std\ 1003.1-2001
+agree with System V. Specifically, a
+set-user-ID process cannot protect itself against signals (or at least
+not against SIGKILL) unless it changes its real user ID.
+This choice allows the user who starts an application to send it signals
+even if it changes its effective user ID. The other
+semantics give more power to an application that wants to protect
+itself from the user who ran it.
+.LP
+Some implementations provide semantic extensions to the \fIkill\fP()
+function when the absolute value of \fIpid\fP is greater
+than some maximum, or otherwise special, value. Negative values are
+a flag to \fIkill\fP(). Since most implementations return
+[ESRCH] in this case, this behavior is not included in this volume
+of IEEE\ Std\ 1003.1-2001, although a conforming
+implementation could provide such an extension.
+.LP
+The implementation-defined processes to which a signal cannot be sent
+may include the scheduler or \fIinit\fP.
+.LP
+There was initially strong sentiment to specify that, if \fIpid\fP
+specifies that a signal be sent to the calling process and
+that signal is not blocked, that signal would be delivered before
+\fIkill\fP() returns. This would permit a process to call
+\fIkill\fP() and be guaranteed that the call never return. However,
+historical implementations that provide only the \fIsignal\fP() function
+make only the weaker guarantee in this volume of
+IEEE\ Std\ 1003.1-2001, because they only deliver one signal each
+time a process enters the kernel. Modifications to such
+implementations to support the \fIsigaction\fP() function generally
+require entry to the
+kernel following return from a signal-catching function, in order
+to restore the signal mask. Such modifications have the effect of
+satisfying the stronger requirement, at least when \fIsigaction\fP()
+is used, but not
+necessarily when \fIsignal\fP() is used. The developers of this volume
+of
+IEEE\ Std\ 1003.1-2001 considered making the stronger requirement
+except when \fIsignal\fP() is used, but felt this would be unnecessarily
+complex. Implementors are encouraged
+to meet the stronger requirement whenever possible. In practice, the
+weaker requirement is the same, except in the rare case when
+two signals arrive during a very short window. This reasoning also
+applies to a similar requirement for \fIsigprocmask\fP().
+.LP
+In 4.2 BSD, the SIGCONT signal can be sent to any descendant process
+regardless of user-ID security checks. This allows a job
+control shell to continue a job even if processes in the job have
+altered their user IDs (as in the \fIsu\fP command). In keeping
+with the addition of the concept of sessions, similar functionality
+is provided by allowing the SIGCONT signal to be sent to any
+process in the same session regardless of user ID security checks.
+This is less restrictive than BSD in the sense that ancestor
+processes (in the same session) can now be the recipient. It is more
+restrictive than BSD in the sense that descendant processes
+that form new sessions are now subject to the user ID checks. A similar
+relaxation of security is not necessary for the other job
+control signals since those signals are typically sent by the terminal
+driver in recognition of special characters being typed; the
+terminal driver bypasses all security checks.
+.LP
+In secure implementations, a process may be restricted from sending
+a signal to a process having a different security label. In
+order to prevent the existence or nonexistence of a process from being
+used as a covert channel, such processes should appear
+nonexistent to the sender; that is, [ESRCH] should be returned, rather
+than [EPERM], if \fIpid\fP refers only to such
+processes.
+.LP
+Existing implementations vary on the result of a \fIkill\fP() with
+\fIpid\fP indicating an inactive process (a terminated
+process that has not been waited for by its parent). Some indicate
+success on such a call (subject to permission checking), while
+others give an error of [ESRCH]. Since the definition of process lifetime
+in this volume of IEEE\ Std\ 1003.1-2001 covers
+inactive processes, the [ESRCH] error as described is inappropriate
+in this case. In particular, this means that an application
+cannot have a parent process check for termination of a particular
+child with \fIkill\fP(). (Usually this is done with the null
+signal; this can be done reliably with \fIwaitpid\fP().)
+.LP
+There is some belief that the name \fIkill\fP() is misleading, since
+the function is not always intended to cause process
+termination. However, the name is common to all historical implementations,
+and any change would be in conflict with the goal of
+minimal changes to existing application code.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIgetpid\fP() , \fIraise\fP() , \fIsetsid\fP()
+, \fIsigaction\fP() , \fIsigqueue\fP() , the Base Definitions volume
+of
+IEEE\ Std\ 1003.1-2001, \fI<signal.h>\fP, \fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,706 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "AT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" at 
+.SH NAME
+at \- execute commands at a later time
+.SH SYNOPSIS
+.LP
+\fBat\fP \fB[\fP\fB-m\fP\fB][\fP\fB-f\fP \fIfile\fP\fB][\fP\fB-q\fP
+\fIqueuename\fP\fB]\fP \fB-t\fP \fItime_arg\fP\fB
+.br
+.sp
+at\fP \fB[\fP\fB-m\fP\fB][\fP\fB-f\fP \fIfile\fP\fB][\fP\fB-q\fP \fIqueuename\fP\fB]\fP
+\fItimespec\fP
+\fB\&...
+.br
+.sp
+at -r\fP \fIat_job_id\fP \fB...
+.br
+.sp
+at -l -q\fP \fIqueuename\fP\fB
+.br
+.sp
+at -l\fP \fB[\fP\fIat_job_id\fP \fB...\fP\fB]\fP\fB\fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIat\fP utility shall read commands from standard input and group
+them together as an \fIat-job\fP, to be executed at a
+later time.
+.LP
+The at-job shall be executed in a separate invocation of the shell,
+running in a separate process group with no controlling
+terminal, except that the environment variables, current working directory,
+file creation mask, and other implementation-defined
+execution-time attributes in effect when the \fIat\fP utility is executed
+shall be retained and used when the at-job is
+executed.
+.LP
+When the at-job is submitted, the \fIat_job_id\fP and scheduled time
+shall be written to standard error. The \fIat_job_id\fP
+is an identifier that shall be a string consisting solely of alphanumeric
+characters and the period character. The \fIat_job_id\fP
+shall be assigned by the system when the job is scheduled such that
+it uniquely identifies a particular job.
+.LP
+User notification and the processing of the job's standard output
+and standard error are described under the \fB-m\fP
+option.
+.LP
+Users shall be permitted to use \fIat\fP if their name appears in
+the file \fB/usr/lib/cron/at.allow\fP. If that file does not
+exist, the file \fB/usr/lib/cron/at.deny\fP shall be checked to determine
+whether the user shall be denied access to \fIat\fP. If
+neither file exists, only a process with the appropriate privileges
+shall be allowed to submit a job. If only \fBat.deny\fP exists
+and is empty, global usage shall be permitted. The \fBat.allow\fP
+and \fBat.deny\fP files shall consist of one user name per
+line. 
+.SH OPTIONS
+.LP
+The \fIat\fP utility shall conform to the Base Definitions volume
+of IEEE\ Std\ 1003.1-2001, Section 12.2, Utility Syntax Guidelines.
+.LP
+The following options shall be supported:
+.TP 7
+\fB-f\ \fP \fIfile\fP
+Specify the pathname of a file to be used as the source of the at-job,
+instead of standard input.
+.TP 7
+\fB-l\fP
+(The letter ell.) Report all jobs scheduled for the invoking user
+if no \fIat_job_id\fP operands are specified. If
+\fIat_job_id\fPs are specified, report only information for these
+jobs. The output shall be written to standard output.
+.TP 7
+\fB-m\fP
+Send mail to the invoking user after the at-job has run, announcing
+its completion. Standard output and standard error produced
+by the at-job shall be mailed to the user as well, unless redirected
+elsewhere. Mail shall be sent even if the job produces no
+output. 
+.LP
+If \fB-m\fP is not used, the job's standard output and standard error
+shall be provided to the user by means of mail, unless
+they are redirected elsewhere; if there is no such output to provide,
+the implementation need not notify the user of the job's
+completion.
+.TP 7
+\fB-q\ \fP \fIqueuename\fP
+.sp
+Specify in which queue to schedule a job for submission. When used
+with the \fB-l\fP option, limit the search to that particular
+queue. By default, at-jobs shall be scheduled in queue \fIa\fP. In
+contrast, queue \fIb\fP shall be reserved for batch jobs; see
+\fIbatch\fP. The meanings of all other \fIqueuename\fPs are implementation-defined.
+If
+\fB-q\fP is specified along with either of the \fB-t\fP \fItime_arg\fP
+or \fItimespec\fP arguments, the results are
+unspecified.
+.TP 7
+\fB-r\fP
+Remove the jobs with the specified \fIat_job_id\fP operands that were
+previously scheduled by the \fIat\fP utility.
+.TP 7
+\fB-t\ \fP \fItime_arg\fP
+Submit the job to be run at the time specified by the \fItime\fP option-argument,
+which the application shall ensure has the
+format as specified by the \fItouch\fP \fB-t\fP \fItime\fP utility.
+.sp
+.SH OPERANDS
+.LP
+The following operands shall be supported:
+.TP 7
+\fIat_job_id\fP
+The name reported by a previous invocation of the \fIat\fP utility
+at the time the job was scheduled.
+.TP 7
+\fItimespec\fP
+Submit the job to be run at the date and time specified. All of the
+\fItimespec\fP operands are interpreted as if they were
+separated by <space>s and concatenated, and shall be parsed as described
+in the grammar at the end of this section. The date
+and time shall be interpreted as being in the timezone of the user
+(as determined by the \fITZ\fP variable), unless a timezone
+name appears as part of \fItime\fP, below. 
+.LP
+In the POSIX locale, the following describes the three parts of the
+time specification string. All of the values from the
+\fILC_TIME\fP categories in the POSIX locale shall be recognized in
+a case-insensitive manner.
+.TP 7
+\fItime\fP
+.RS
+The time can be specified as one, two, or four digits. One-digit and
+two-digit numbers shall be taken to be hours; four-digit
+numbers to be hours and minutes. The time can alternatively be specified
+as two numbers separated by a colon, meaning
+\fIhour\fP:\fIminute\fP. An AM/PM indication (one of the values from
+the \fBam_pm\fP keywords in the \fILC_TIME\fP locale
+category) can follow the time; otherwise, a 24-hour clock time shall
+be understood. A timezone name can also follow to further
+qualify the time. The acceptable timezone names are implementation-defined,
+except that they shall be case-insensitive and the
+string \fButc\fP is supported to indicate the time is in Coordinated
+Universal Time. In the POSIX locale, the \fItime\fP field
+can also be one of the following tokens: 
+.TP 7
+\fBmidnight\fP
+.RS
+Indicates the time 12:00 am (00:00).
+.RE
+.TP 7
+\fBnoon\fP
+.RS
+Indicates the time 12:00 pm.
+.RE
+.TP 7
+\fBnow\fP
+.RS
+Indicates the current day and time. Invoking \fIat\fP <\fBnow\fP>
+shall submit an at-job for potentially immediate
+execution (that is, subject only to unspecified scheduling delays).
+.RE
+.sp
+.RE
+.TP 7
+\fIdate\fP
+.RS
+An optional \fIdate\fP can be specified as either a month name (one
+of the values from the \fBmon\fP or \fBabmon\fP keywords
+in the \fILC_TIME\fP locale category) followed by a day number (and
+possibly year number preceded by a comma), or a day of the
+week (one of the values from the \fBday\fP or \fBabday\fP keywords
+in the \fILC_TIME\fP locale category). In the POSIX locale,
+two special days shall be recognized: 
+.TP 7
+\fBtoday\fP
+.RS
+Indicates the current day.
+.RE
+.TP 7
+\fBtomorrow\fP
+.RS
+Indicates the day following the current day.
+.RE
+.sp
+.LP
+If no \fIdate\fP is given, \fBtoday\fP shall be assumed if the given
+time is greater than the current time, and
+\fBtomorrow\fP shall be assumed if it is less. If the given month
+is less than the current month (and no year is given), next year
+shall be assumed.
+.RE
+.TP 7
+\fIincrement\fP
+.RS
+The optional \fIincrement\fP shall be a number preceded by a plus
+sign ( \fB'+'\fP ) and suffixed by one of the following:
+\fBminutes\fP, \fBhours\fP, \fBdays\fP, \fBweeks\fP, \fBmonths\fP,
+or \fByears\fP. (The singular forms shall also be
+accepted.) The keyword \fBnext\fP shall be equivalent to an increment
+number of +1. For example, the following are equivalent
+commands: 
+.sp
+.RS
+.nf
+
+\fBat 2pm + 1 week
+at 2pm next week
+\fP
+.fi
+.RE
+.RE
+.sp
+.sp
+.LP
+The following grammar describes the precise format of \fItimespec\fP
+in the POSIX locale. The general conventions for this
+style of grammar are described in \fIGrammar Conventions\fP . This
+formal syntax shall
+take precedence over the preceding text syntax description. The longest
+possible token or delimiter shall be recognized at a given
+point. When used in a \fItimespec\fP, white space shall also delimit
+tokens.
+.sp
+.RS
+.nf
+
+\fB%token hr24clock_hr_min
+%token hr24clock_hour
+/*
+  An hr24clock_hr_min is a one, two, or four-digit number. A one-digit
+  or two-digit number constitutes an hr24clock_hour. An hr24clock_hour
+  may be any of the single digits [0,9], or may be double digits, ranging
+  from [00,23]. If an hr24clock_hr_min is a four-digit number, the
+  first two digits shall be a valid hr24clock_hour, while the last two
+  represent the number of minutes, from [00,59].
+*/
+.sp
+
+%token wallclock_hr_min
+%token wallclock_hour
+/*
+  A wallclock_hr_min is a one, two-digit, or four-digit number.
+  A one-digit or two-digit number constitutes a wallclock_hour.
+  A wallclock_hour may be any of the single digits [1,9], or may
+  be double digits, ranging from [01,12]. If a wallclock_hr_min
+  is a four-digit number, the first two digits shall be a valid
+  wallclock_hour, while the last two represent the number of
+  minutes, from [00,59].
+*/
+.sp
+
+%token minute
+/*
+  A minute is a one or two-digit number whose value can be [0,9]
+  or [00,59].
+*/
+.sp
+
+%token day_number
+/*
+  A day_number is a number in the range appropriate for the particular
+  month and year specified by month_name and year_number, respectively.
+  If no year_number is given, the current year is assumed if the given
+  date and time are later this year. If no year_number is given and
+  the date and time have already occurred this year and the month is
+  not the current month, next year is the assumed year.
+*/
+.sp
+
+%token year_number
+/*
+  A year_number is a four-digit number representing the year A.D., in
+  which the at_job is to be run.
+*/
+.sp
+
+%token inc_number
+/*
+  The inc_number is the number of times the succeeding increment
+  period is to be added to the specified date and time.
+*/
+.sp
+
+%token timezone_name
+/*
+  The name of an optional timezone suffix to the time field, in an
+  implementation-defined format.
+*/
+.sp
+
+%token month_name
+/*
+  One of the values from the mon or abmon keywords in the LC_TIME
+  locale category.
+*/
+.sp
+
+%token day_of_week
+/*
+  One of the values from the day or abday keywords in the LC_TIME
+  locale category.
+*/
+.sp
+
+%token am_pm
+/*
+  One of the values from the am_pm keyword in the LC_TIME locale
+  category.
+*/
+.sp
+
+%start timespec
+%%
+timespec    : time
+            | time date
+            | time increment
+            | time date increment
+            | nowspec
+            ;
+.sp
+
+nowspec     : "now"
+            | "now" increment
+            ;
+.sp
+
+time        : hr24clock_hr_min
+            | hr24clock_hr_min timezone_name
+            | hr24clock_hour ":" minute
+            | hr24clock_hour ":" minute timezone_name
+            | wallclock_hr_min am_pm
+            | wallclock_hr_min am_pm timezone_name
+            | wallclock_hour ":" minute am_pm
+            | wallclock_hour ":" minute am_pm timezone_name
+            | "noon"
+            | "midnight"
+            ;
+.sp
+
+date        : month_name day_number
+            | month_name day_number "," year_number
+            | day_of_week
+            | "today"
+            | "tomorrow"
+            ;
+.sp
+
+increment   : "+" inc_number inc_period
+            | "next" inc_period
+            ;
+.sp
+
+inc_period  : "minute" | "minutes"
+            | "hour" | "hours"
+            | "day" | "days"
+            | "week" | "weeks"
+            | "month" | "months"
+            | "year" | "years"
+            ;
+\fP
+.fi
+.RE
+.SH STDIN
+.LP
+The standard input shall be a text file consisting of commands acceptable
+to the shell command language described in \fIShell Command Language\fP
+\&. The standard input shall only be used if no \fB-f\fP \fIfile\fP
+option is specified.
+.SH INPUT FILES
+.LP
+See the STDIN section.
+.LP
+The text files \fB/usr/lib/cron/at.allow\fP and \fB/usr/lib/cron/at.deny\fP
+shall contain zero or more user names, one per line,
+of users who are, respectively, authorized or denied access to the
+\fIat\fP and \fIbatch\fP
+utilities. 
+.SH ENVIRONMENT VARIABLES
+.LP
+The following environment variables shall affect the execution of
+\fIat\fP:
+.TP 7
+\fILANG\fP
+Provide a default value for the internationalization variables that
+are unset or null. (See the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Section 8.2, Internationalization Variables
+for
+the precedence of internationalization variables used to determine
+the values of locale categories.)
+.TP 7
+\fILC_ALL\fP
+If set to a non-empty string value, override the values of all the
+other internationalization variables.
+.TP 7
+\fILC_CTYPE\fP
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters (for example, single-byte as
+opposed to multi-byte characters in arguments and input files).
+.TP 7
+\fILC_MESSAGES\fP
+Determine the locale that should be used to affect the format and
+contents of diagnostic messages written to standard error and
+informative messages written to standard output.
+.TP 7
+\fINLSPATH\fP
+Determine the location of message catalogs for the processing of \fILC_MESSAGES
+\&.\fP 
+.TP 7
+\fILC_TIME\fP
+Determine the format and contents for date and time strings written
+and accepted by \fIat\fP.
+.TP 7
+\fISHELL\fP
+Determine a name of a command interpreter to be used to invoke the
+at-job. If the variable is unset or null, \fIsh\fP shall be used.
+If it is set to a value other than a name for \fIsh\fP, the implementation
+shall do one of the following: use that shell; use \fIsh\fP; use the
+login shell from the user database; or any of the preceding accompanied
+by a warning
+diagnostic about which was chosen.
+.TP 7
+\fITZ\fP
+Determine the timezone. The job shall be submitted for execution at
+the time specified by \fItimespec\fP or \fB-t\fP
+\fItime\fP relative to the timezone specified by the \fITZ\fP variable.
+If \fItimespec\fP specifies a timezone, it shall
+override \fITZ .\fP If \fItimespec\fP does not specify a timezone
+and \fITZ\fP is unset or null, an unspecified default timezone
+shall be used.
+.sp
+.SH ASYNCHRONOUS EVENTS
+.LP
+Default.
+.SH STDOUT
+.LP
+When standard input is a terminal, prompts of unspecified format for
+each line of the user input described in the STDIN section
+may be written to standard output.
+.LP
+In the POSIX locale, the following shall be written to the standard
+output for each job when jobs are listed in response to the
+\fB-l\fP option:
+.sp
+.RS
+.nf
+
+\fB"%s\\t%s\\n",\fP \fIat_job_id\fP\fB, <\fP\fIdate\fP\fB>
+\fP
+.fi
+.RE
+.LP
+where \fIdate\fP shall be equivalent in format to the output of:
+.sp
+.RS
+.nf
+
+\fBdate +"%a %b %e %T %Y"
+\fP
+.fi
+.RE
+.LP
+The date and time written shall be adjusted so that they appear in
+the timezone of the user (as determined by the \fITZ\fP
+variable).
+.SH STDERR
+.LP
+In the POSIX locale, the following shall be written to standard error
+when a job has been successfully submitted:
+.sp
+.RS
+.nf
+
+\fB"job %s at %s\\n",\fP \fIat_job_id\fP\fB, <\fP\fIdate\fP\fB>
+\fP
+.fi
+.RE
+.LP
+where \fIdate\fP has the same format as that described in the STDOUT
+section. Neither this, nor warning messages concerning the
+selection of the command interpreter, shall be considered a diagnostic
+that changes the exit status.
+.LP
+Diagnostic messages, if any, shall be written to standard error.
+.SH OUTPUT FILES
+.LP
+None.
+.SH EXTENDED DESCRIPTION
+.LP
+None.
+.SH EXIT STATUS
+.LP
+The following exit values shall be returned:
+.TP 7
+\ 0
+The \fIat\fP utility successfully submitted, removed, or listed a
+job or jobs.
+.TP 7
+>0
+An error occurred.
+.sp
+.SH CONSEQUENCES OF ERRORS
+.LP
+The job shall not be scheduled, removed, or listed.
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+The format of the \fIat\fP command line shown here is guaranteed only
+for the POSIX locale. Other cultures may be supported
+with substantially different interfaces, although implementations
+are encouraged to provide comparable levels of functionality.
+.LP
+Since the commands run in a separate shell invocation, running in
+a separate process group with no controlling terminal, open
+file descriptors, traps, and priority inherited from the invoking
+environment are lost.
+.LP
+Some implementations do not allow substitution of different shells
+using \fISHELL .\fP System V systems, for example, have used
+the login shell value for the user in \fB/etc/passwd\fP. To select
+reliably another command interpreter, the user must include it
+as part of the script, such as:
+.sp
+.RS
+.nf
+
+\fB$\fP \fBat 1800
+myshell myscript
+EOT
+\fP\fBjob ... at ...
+$\fP
+.fi
+.RE
+.SH EXAMPLES
+.IP " 1." 4
+This sequence can be used at a terminal:
+.sp
+.RS
+.nf
+
+\fBat -m 0730 tomorrow
+sort < file >outfile
+EOT
+\fP
+.fi
+.RE
+.LP
+.IP " 2." 4
+This sequence, which demonstrates redirecting standard error to a
+pipe, is useful in a command procedure (the sequence of output
+redirection specifications is significant):
+.sp
+.RS
+.nf
+
+\fBat now + 1 hour <<!
+diff file1 file2 2>&1 >outfile | mailx mygroup
+!
+\fP
+.fi
+.RE
+.LP
+.IP " 3." 4
+To have a job reschedule itself, \fIat\fP can be invoked from within
+the at-job. For example, this daily processing script
+named \fBmy.daily\fP runs every day (although \fIcrontab\fP is a more
+appropriate vehicle
+for such work):
+.sp
+.RS
+.nf
+
+\fB# my.daily runs every day
+\fP\fIdaily processing\fP\fBat now tomorrow < my.daily
+\fP
+.fi
+.RE
+.LP
+.IP " 4." 4
+The spacing of the three portions of the POSIX locale \fItimespec\fP
+is quite flexible as long as there are no ambiguities.
+Examples of various times and operand presentation include:
+.sp
+.RS
+.nf
+
+\fBat 0815am Jan 24
+at 8 :15amjan24
+at now "+ 1day"
+at 5 pm FRIday
+at '17
+    utc+
+    30minutes'
+\fP
+.fi
+.RE
+.LP
+.SH RATIONALE
+.LP
+The \fIat\fP utility reads from standard input the commands to be
+executed at a later time. It may be useful to redirect
+standard output and standard error within the specified commands.
+.LP
+The \fB-t\fP \fItime\fP option was added as a new capability to support
+an internationalized way of specifying a time for
+execution of the submitted job.
+.LP
+Early proposals added a "jobname" concept as a way of giving submitted
+jobs names that are meaningful to the user submitting
+them. The historical, system-specified \fIat_job_id\fP gives no indication
+of what the job is. Upon further reflection, it was
+decided that the benefit of this was not worth the change in historical
+interface. The \fIat\fP functionality is useful in simple
+environments, but in large or complex situations, the functionality
+provided by the Batch Services option is more suitable.
+.LP
+The \fB-q\fP option historically has been an undocumented option,
+used mainly by the \fIbatch\fP utility.
+.LP
+The System V \fB-m\fP option was added to provide a method for informing
+users that an at-job had completed. Otherwise, users
+are only informed when output to standard error or standard output
+are not redirected.
+.LP
+The behavior of \fIat\fP <\fBnow\fP> was changed in an early proposal
+from being unspecified to submitting a job for
+potentially immediate execution. Historical BSD \fIat\fP implementations
+support this. Historical System V implementations give an
+error in that case, but a change to the System V versions should have
+no backwards-compatibility ramifications.
+.LP
+On BSD-based systems, a \fB-u\fP \fIuser\fP option has allowed those
+with appropriate privileges to access the work of other
+users. Since this is primarily a system administration feature and
+is not universally implemented, it has been omitted. Similarly,
+a specification for the output format for a user with appropriate
+privileges viewing the queues of other users has been
+omitted.
+.LP
+The \fB-f\fP \fIfile\fP option from System V is used instead of the
+BSD method of using the last operand as the pathname. The
+BSD method is ambiguous-does:
+.sp
+.RS
+.nf
+
+\fBat 1200 friday
+\fP
+.fi
+.RE
+.LP
+mean the same thing if there is a file named \fBfriday\fP in the current
+directory?
+.LP
+The \fIat_job_id\fP is composed of a limited character set in historical
+practice, and it is mandated here to invalidate
+systems that might try using characters that require shell quoting
+or that could not be easily parsed by shell scripts.
+.LP
+The \fIat\fP utility varies between System V and BSD systems in the
+way timezones are used. On System V systems, the \fITZ\fP
+variable affects the at-job submission times and the times displayed
+for the user. On BSD systems, \fITZ\fP is not taken into
+account. The BSD behavior is easily achieved with the current specification.
+If the user wishes to have the timezone default to
+that of the system, they merely need to issue the \fIat\fP command
+immediately following an unsetting or null assignment to \fITZ
+\&.\fP For example:
+.sp
+.RS
+.nf
+
+\fBTZ= at noon ...
+\fP
+.fi
+.RE
+.LP
+gives the desired BSD result.
+.LP
+While the \fIyacc\fP-like grammar specified in the OPERANDS section
+is lexically
+unambiguous with respect to the digit strings, a lexical analyzer
+would probably be written to look for and return digit strings in
+those cases. The parser could then check whether the digit string
+returned is a valid \fIday_number\fP, \fIyear_number\fP, and so
+on, based on the context.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIbatch\fP , \fIcrontab\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

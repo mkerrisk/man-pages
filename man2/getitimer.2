@@ -1,0 +1,147 @@
+.\" Copyright 7/93 by Darren Senn <sinster@scintilla.santa-clara.ca.us>
+.\" Based on a similar page Copyright 1992 by Rick Faith
+.\" May be freely distributed
+.\" Modified Tue Oct 22 00:22:35 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
+.TH GETITIMER 2 1993-08-05 "Linux 0.99.11" "Linux Programmer's Manual"
+.SH NAME
+getitimer, setitimer \- get or set value of an interval timer
+.SH SYNOPSIS
+.PD 0
+.HP
+.B #include <sys/time.h>
+.sp
+.HP
+.B int getitimer(int
+.IB which ,
+.B struct itimerval
+.BI * value );
+.HP
+.B int setitimer(int
+.IB which ,
+.B const struct itimerval
+.BI * value ,
+.B struct itimerval
+.BI * ovalue );
+.PD
+.SH DESCRIPTION
+The system provides each process with three interval timers, each decrementing
+in a distinct time domain.  When any timer expires, a signal is sent to the
+process, and the timer (potentially) restarts.
+.TP 1.5i
+.B ITIMER_REAL
+decrements in real time, and delivers
+.B SIGALRM
+upon expiration.
+.TP
+.B ITIMER_VIRTUAL
+decrements only when the process is executing, and delivers
+.B SIGVTALRM
+upon expiration.
+.TP
+.B ITIMER_PROF
+decrements both when the process executes and when the system is executing
+on behalf of the process.  Coupled with
+.BR ITIMER_VIRTUAL ,
+this timer is usually used to profile the time spent by the application in user
+and kernel space.
+.B SIGPROF
+is delivered upon expiration.
+.LP
+Timer values are defined by the following structures:
+.PD 0
+.RS .5i
+.nf
+struct itimerval {
+    struct timeval it_interval; /* next value */
+    struct timeval it_value;    /* current value */
+};
+struct timeval {
+    long tv_sec;                /* seconds */
+    long tv_usec;               /* microseconds */
+};
+.fi
+.RE
+.PD
+.LP
+The function
+.B getitimer
+fills the structure indicated by
+.I value
+with the current setting for the timer indicated by
+.I which
+(one of
+.BR ITIMER_REAL ,
+.BR ITIMER_VIRTUAL ,
+or
+.BR ITIMER_PROF ).
+The element
+.B it_value
+is set to the amount of time remaining on the timer, or zero if the timer
+is disabled.  Similarly,
+.B it_interval
+is set to the reset value.
+The function
+.B setitimer
+sets the indicated timer to the value in
+.IR value .
+If
+.I ovalue
+is nonzero, the old value of the timer is stored there.
+.LP
+Timers decrement from
+.I it_value
+to zero, generate a signal, and reset to
+.IR it_interval .
+A timer which is set to zero
+.RI ( it_value
+is zero or the timer expires and
+.I it_interval
+is zero) stops.
+.LP
+Both
+.I tv_sec
+and
+.I tv_usec
+are significant in determining the duration of a timer.
+.LP
+Timers will never expire before the requested time,
+instead expiring some short, constant time afterwards, dependent
+on the system timer resolution (currently 10ms).  Upon expiration, a
+signal will be generated and the timer reset.  If the timer expires
+while the process is active (always true for
+.BR ITIMER_VIRT )
+the signal will be delivered immediately when generated.  Otherwise the
+delivery will be offset by a small time dependent on the system loading.
+.LP
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EFAULT
+.I value
+or
+.I ovalue
+are not valid pointers.
+.TP
+.B EINVAL
+.I which
+is not one of
+.BR ITIMER_REAL ,
+.BR ITIMER_VIRT ,
+or
+.BR ITIMER_PROF .
+.SH "CONFORMING TO"
+SVr4, 4.4BSD (This call first appeared in 4.2BSD).
+.SH "SEE ALSO"
+.BR gettimeofday (2),
+.BR sigaction (2),
+.BR signal (2)
+.SH BUGS
+Under Linux, the generation and delivery of a signal are distinct, and
+there each signal is permitted only one outstanding event.  It's therefore
+conceivable that under pathologically heavy loading,
+.B ITIMER_REAL
+will expire before the signal from a previous expiration has been delivered.
+The second signal in such an event will be lost.

@@ -1,0 +1,175 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETPRIORITY" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getpriority 
+.SH NAME
+getpriority, setpriority \- get and set the nice value
+.SH SYNOPSIS
+.LP
+\fB#include <sys/resource.h>
+.br
+.sp
+int getpriority(int\fP \fIwhich\fP\fB, id_t\fP \fIwho\fP\fB);
+.br
+int setpriority(int\fP \fIwhich\fP\fB, id_t\fP \fIwho\fP\fB, int\fP
+\fIvalue\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetpriority\fP() function shall obtain the nice value of a
+process, process group, or user. The \fIsetpriority\fP()
+function shall set the nice value of a process, process group, or
+user to \fIvalue\fP+ {NZERO}.
+.LP
+Target processes are specified by the values of the \fIwhich\fP and
+\fIwho\fP arguments. The \fIwhich\fP argument may be one
+of the following values: PRIO_PROCESS, PRIO_PGRP, or PRIO_USER, indicating
+that the \fIwho\fP argument is to be interpreted as a
+process ID, a process group ID, or an effective user ID, respectively.
+A 0 value for the \fIwho\fP argument specifies the current
+process, process group, or user.
+.LP
+The nice value set with \fIsetpriority\fP() shall be applied to the
+process. If the process is multi-threaded, the nice value
+shall affect all system scope threads in the process.
+.LP
+If more than one process is specified, \fIgetpriority\fP() shall return
+value {NZERO} less than the lowest nice value
+pertaining to any of the specified processes, and \fIsetpriority\fP()
+shall set the nice values of all of the specified processes
+to \fIvalue\fP+ {NZERO}.
+.LP
+The default nice value is {NZERO}; lower nice values shall cause more
+favorable scheduling. While the range of valid nice values
+is [0,{NZERO}*2-1], implementations may enforce more restrictive limits.
+If \fIvalue\fP+ {NZERO} is less than the system's lowest
+supported nice value, \fIsetpriority\fP() shall set the nice value
+to the lowest supported value; if \fIvalue\fP+ {NZERO} is
+greater than the system's highest supported nice value, \fIsetpriority\fP()
+shall set the nice value to the highest supported
+value.
+.LP
+Only a process with appropriate privileges can lower its nice value.
+.LP
+Any processes or threads using SCHED_FIFO or SCHED_RR shall be unaffected
+by a call to \fIsetpriority\fP(). This is not considered
+an error. A process which subsequently reverts to SCHED_OTHER need
+not have its priority affected by such a \fIsetpriority\fP()
+call. 
+.LP
+The effect of changing the nice value may vary depending on the process-scheduling
+algorithm in effect.
+.LP
+Since \fIgetpriority\fP() can return the value -1 on successful completion,
+it is necessary to set \fIerrno\fP to 0 prior to a
+call to \fIgetpriority\fP(). If \fIgetpriority\fP() returns the value
+-1, then \fIerrno\fP can be checked to see if an error
+occurred or if the value is a legitimate nice value.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIgetpriority\fP() shall return an integer
+in the range -{NZERO} to {NZERO}-1. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.LP
+Upon successful completion, \fIsetpriority\fP() shall return 0; otherwise,
+-1 shall be returned and \fIerrno\fP set to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIgetpriority\fP() and \fIsetpriority\fP() functions shall fail
+if:
+.TP 7
+.B ESRCH
+No process could be located using the \fIwhich\fP and \fIwho\fP argument
+values specified.
+.TP 7
+.B EINVAL
+The value of the \fIwhich\fP argument was not recognized, or the value
+of the \fIwho\fP argument is not a valid process ID,
+process group ID, or user ID.
+.sp
+.LP
+In addition, \fIsetpriority\fP() may fail if:
+.TP 7
+.B EPERM
+A process was located, but neither the real nor effective user ID
+of the executing process match the effective user ID of the
+process whose nice value is being changed.
+.TP 7
+.B EACCES
+A request was made to change the nice value to a lower numeric value
+and the current process does not have appropriate
+privileges.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Using getpriority()
+.LP
+The following example returns the current scheduling priority for
+the process ID returned by the call to \fIgetpid\fP().
+.sp
+.RS
+.nf
+
+\fB#include <sys/resource.h>
+\&...
+int which = PRIO_PROCESS;
+id_t pid;
+int ret;
+.sp
+
+pid = getpid();
+ret = getpriority(which, pid);
+\fP
+.fi
+.RE
+.SS Using setpriority()
+.LP
+The following example sets the priority for the current process ID
+to -20.
+.sp
+.RS
+.nf
+
+\fB#include <sys/resource.h>
+\&...
+int which = PRIO_PROCESS;
+id_t pid;
+int priority = -20;
+int ret;
+.sp
+
+pid = getpid();
+ret = setpriority(which, pid, priority);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+The \fIgetpriority\fP() and \fIsetpriority\fP() functions work with
+an offset nice value (nice value -{NZERO}). The nice value
+is in the range [0,2*{NZERO} -1], while the return value for \fIgetpriority\fP()
+and the third parameter for \fIsetpriority\fP()
+are in the range [-{NZERO},{NZERO} -1].
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fInice\fP() , \fIsched_get_priority_max\fP() , \fIsched_setscheduler\fP()
+, the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/resource.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

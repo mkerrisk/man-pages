@@ -1,0 +1,199 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "RECVFROM" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" recvfrom 
+.SH NAME
+recvfrom \- receive a message from a socket
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+.sp
+ssize_t recvfrom(int\fP \fIsocket\fP\fB, void *restrict\fP \fIbuffer\fP\fB,
+size_t\fP \fIlength\fP\fB,
+.br
+\ \ \ \ \ \  int\fP \fIflags\fP\fB, struct sockaddr *restrict\fP \fIaddress\fP\fB,
+.br
+\ \ \ \ \ \  socklen_t *restrict\fP \fIaddress_len\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIrecvfrom\fP() function shall receive a message from a connection-mode
+or connectionless-mode socket. It is normally used
+with connectionless-mode sockets because it permits the application
+to retrieve the source address of received data.
+.LP
+The \fIrecvfrom\fP() function takes the following arguments:
+.TP 7
+\fIsocket\fP
+Specifies the socket file descriptor.
+.TP 7
+\fIbuffer\fP
+Points to the buffer where the message should be stored.
+.TP 7
+\fIlength\fP
+Specifies the length in bytes of the buffer pointed to by the \fIbuffer\fP
+argument.
+.TP 7
+\fIflags\fP
+Specifies the type of message reception. Values of this argument are
+formed by logically OR'ing zero or more of the following
+values: 
+.TP 7
+MSG_PEEK
+.RS
+Peeks at an incoming message. The data is treated as unread and the
+next \fIrecvfrom\fP() or similar function shall still
+return this data.
+.RE
+.TP 7
+MSG_OOB
+.RS
+Requests out-of-band data. The significance and semantics of out-of-band
+data are protocol-specific.
+.RE
+.TP 7
+MSG_WAITALL
+.RS
+On SOCK_STREAM sockets this requests that the function block until
+the full amount of data can be returned. The function may
+return the smaller amount of data if the socket is a message-based
+socket, if a signal is caught, if the connection is terminated,
+if MSG_PEEK was specified, or if an error is pending for the socket.
+.RE
+.sp
+.TP 7
+\fIaddress\fP
+A null pointer, or points to a \fBsockaddr\fP structure in which the
+sending address is to be stored. The length and format of
+the address depend on the address family of the socket.
+.TP 7
+\fIaddress_len\fP
+Specifies the length of the \fBsockaddr\fP structure pointed to by
+the \fIaddress\fP argument.
+.sp
+.LP
+The \fIrecvfrom\fP() function shall return the length of the message
+written to the buffer pointed to by the \fIbuffer\fP
+argument. For message-based sockets, such as   \ SOCK_RAW,  SOCK_DGRAM,
+and SOCK_SEQPACKET, the entire message shall be read in a single operation.
+If a message is too long to fit
+in the supplied buffer, and MSG_PEEK is not set in the \fIflags\fP
+argument, the excess bytes shall be discarded. For stream-based
+sockets, such as SOCK_STREAM, message boundaries shall be ignored.
+In this case, data shall be returned to the user as soon as it
+becomes available, and no data shall be discarded.
+.LP
+If the MSG_WAITALL flag is not set, data shall be returned only up
+to the end of the first message.
+.LP
+Not all protocols provide the source address for messages. If the
+\fIaddress\fP argument is not a null pointer and the protocol
+provides the source address of messages, the source address of the
+received message shall be stored in the \fBsockaddr\fP
+structure pointed to by the \fIaddress\fP argument, and the length
+of this address shall be stored in the object pointed to by the
+\fIaddress_len\fP argument.
+.LP
+If the actual length of the address is greater than the length of
+the supplied \fBsockaddr\fP structure, the stored address
+shall be truncated.
+.LP
+If the \fIaddress\fP argument is not a null pointer and the protocol
+does not provide the source address of messages, the value
+stored in the object pointed to by \fIaddress\fP is unspecified.
+.LP
+If no messages are available at the socket and O_NONBLOCK is not set
+on the socket's file descriptor, \fIrecvfrom\fP() shall
+block until a message arrives. If no messages are available at the
+socket and O_NONBLOCK is set on the socket's file descriptor,
+\fIrecvfrom\fP() shall fail and set \fIerrno\fP to [EAGAIN] or [EWOULDBLOCK].
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIrecvfrom\fP() shall return the length
+of the message in bytes. If no messages are available to
+be received and the peer has performed an orderly shutdown, \fIrecvfrom\fP()
+shall return 0. Otherwise, the function shall return
+-1 and set \fIerrno\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIrecvfrom\fP() function shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP EWOULDBLOCK
+.sp
+The socket's file descriptor is marked O_NONBLOCK and no data is waiting
+to be received; or MSG_OOB is set and no out-of-band data
+is available and either the socket's file descriptor is marked O_NONBLOCK
+or the socket does not support blocking to await
+out-of-band data.
+.TP 7
+.B EBADF
+The \fIsocket\fP argument is not a valid file descriptor.
+.TP 7
+.B ECONNRESET
+A connection was forcibly closed by a peer.
+.TP 7
+.B EINTR
+A signal interrupted \fIrecvfrom\fP() before any data was available.
+.TP 7
+.B EINVAL
+The MSG_OOB flag is set and no out-of-band data is available.
+.TP 7
+.B ENOTCONN
+A receive is attempted on a connection-mode socket that is not connected.
+.TP 7
+.B ENOTSOCK
+The \fIsocket\fP argument does not refer to a socket.
+.TP 7
+.B EOPNOTSUPP
+The specified flags are not supported for this socket type.
+.TP 7
+.B ETIMEDOUT
+The connection timed out during connection establishment, or due to
+a transmission timeout on active connection.
+.sp
+.LP
+The \fIrecvfrom\fP() function may fail if:
+.TP 7
+.B EIO
+An I/O error occurred while reading from or writing to the file system.
+.TP 7
+.B ENOBUFS
+Insufficient resources were available in the system to perform the
+operation.
+.TP 7
+.B ENOMEM
+Insufficient memory was available to fulfill the request.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIselect\fP() and \fIpoll\fP() functions can
+be used to determine when data is available to be received.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpoll\fP() , \fIread\fP() , \fIrecv\fP() , \fIrecvmsg\fP() , \fIselect\fP()
+, \fIsend\fP() , \fIsendmsg\fP() , \fIsendto\fP() , \fIshutdown\fP()
+,
+\fIsocket\fP() , \fIwrite\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,167 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "ICONV" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" iconv 
+.SH NAME
+iconv \- codeset conversion function
+.SH SYNOPSIS
+.LP
+\fB#include <iconv.h>
+.br
+.sp
+size_t iconv(iconv_t\fP \fIcd\fP\fB, char **restrict\fP \fIinbuf\fP\fB,
+.br
+\ \ \ \ \ \  size_t *restrict\fP \fIinbytesleft\fP\fB, char **restrict\fP
+\fIoutbuf\fP\fB,
+.br
+\ \ \ \ \ \  size_t *restrict\fP \fIoutbytesleft\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIiconv\fP() function shall convert the sequence of characters
+from one codeset, in the array specified by \fIinbuf\fP,
+into a sequence of corresponding characters in another codeset, in
+the array specified by \fIoutbuf\fP. The codesets are those
+specified in the \fIiconv_open\fP() call that returned the conversion
+descriptor,
+\fIcd\fP. The \fIinbuf\fP argument points to a variable that points
+to the first character in the input buffer and
+\fIinbytesleft\fP indicates the number of bytes to the end of the
+buffer to be converted. The \fIoutbuf\fP argument points to a
+variable that points to the first available byte in the output buffer
+and \fIoutbytesleft\fP indicates the number of the available
+bytes to the end of the buffer.
+.LP
+For state-dependent encodings, the conversion descriptor \fIcd\fP
+is placed into its initial shift state by a call for which
+\fIinbuf\fP is a null pointer, or for which \fIinbuf\fP points to
+a null pointer. When \fIiconv\fP() is called in this way, and
+if \fIoutbuf\fP is not a null pointer or a pointer to a null pointer,
+and \fIoutbytesleft\fP points to a positive value,
+\fIiconv\fP() shall place, into the output buffer, the byte sequence
+to change the output buffer to its initial shift state. If
+the output buffer is not large enough to hold the entire reset sequence,
+\fIiconv\fP() shall fail and set \fIerrno\fP to [E2BIG].
+Subsequent calls with \fIinbuf\fP as other than a null pointer or
+a pointer to a null pointer cause the conversion to take place
+from the current state of the conversion descriptor.
+.LP
+If a sequence of input bytes does not form a valid character in the
+specified codeset, conversion shall stop after the previous
+successfully converted character. If the input buffer ends with an
+incomplete character or shift sequence, conversion shall stop
+after the previous successfully converted bytes. If the output buffer
+is not large enough to hold the entire converted input,
+conversion shall stop just prior to the input bytes that would cause
+the output buffer to overflow. The variable pointed to by
+\fIinbuf\fP shall be updated to point to the byte following the last
+byte successfully used in the conversion. The value pointed
+to by \fIinbytesleft\fP shall be decremented to reflect the number
+of bytes still not converted in the input buffer. The variable
+pointed to by \fIoutbuf\fP shall be updated to point to the byte following
+the last byte of converted output data. The value
+pointed to by \fIoutbytesleft\fP shall be decremented to reflect the
+number of bytes still available in the output buffer. For
+state-dependent encodings, the conversion descriptor shall be updated
+to reflect the shift state in effect at the end of the last
+successfully converted byte sequence.
+.LP
+If \fIiconv\fP() encounters a character in the input buffer that is
+valid, but for which an identical character does not exist
+in the target codeset, \fIiconv\fP() shall perform an implementation-defined
+conversion on this character.
+.SH RETURN VALUE
+.LP
+The \fIiconv\fP() function shall update the variables pointed to by
+the arguments to reflect the extent of the conversion and
+return the number of non-identical conversions performed. If the entire
+string in the input buffer is converted, the value pointed
+to by \fIinbytesleft\fP shall be 0. If the input conversion is stopped
+due to any conditions mentioned above, the value pointed to
+by \fIinbytesleft\fP shall be non-zero and \fIerrno\fP shall be set
+to indicate the condition. If an error occurs, \fIiconv\fP()
+shall return (\fBsize_t\fP)-1 and set \fIerrno\fP to indicate the
+error.
+.SH ERRORS
+.LP
+The \fIiconv\fP() function shall fail if:
+.TP 7
+.B EILSEQ
+Input conversion stopped due to an input byte that does not belong
+to the input codeset.
+.TP 7
+.B E2BIG
+Input conversion stopped due to lack of space in the output buffer.
+.TP 7
+.B EINVAL
+Input conversion stopped due to an incomplete character or shift sequence
+at the end of the input buffer.
+.sp
+.LP
+The \fIiconv\fP() function may fail if:
+.TP 7
+.B EBADF
+The \fIcd\fP argument is not a valid open conversion descriptor.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIinbuf\fP argument indirectly points to the memory area which
+contains the conversion input data. The \fIoutbuf\fP
+argument indirectly points to the memory area which is to contain
+the result of the conversion. The objects indirectly pointed to
+by \fIinbuf\fP and \fIoutbuf\fP are not restricted to containing data
+that is directly representable in the ISO\ C standard
+language \fBchar\fP data type. The type of \fIinbuf\fP and \fIoutbuf\fP,
+\fBchar **\fP, does not imply that the objects pointed
+to are interpreted as null-terminated C strings or arrays of characters.
+Any interpretation of a byte sequence that represents a
+character in a given character set encoding scheme is done internally
+within the codeset converters. For example, the area pointed
+to indirectly by \fIinbuf\fP and/or \fIoutbuf\fP can contain all zero
+octets that are not interpreted as string terminators but
+as coded character data according to the respective codeset encoding
+scheme. The type of the data ( \fBchar\fP, \fBshort\fP,
+\fBlong\fP, and so on) read or stored in the objects is not specified,
+but may be inferred for both the input and output data by
+the converters determined by the \fIfromcode\fP and \fItocode\fP arguments
+of \fIiconv_open\fP().
+.LP
+Regardless of the data type inferred by the converter, the size of
+the remaining space in both input and output objects (the
+\fIintbytesleft\fP and \fIoutbytesleft\fP arguments) is always measured
+in bytes.
+.LP
+For implementations that support the conversion of state-dependent
+encodings, the conversion descriptor must be able to
+accurately reflect the shift-state in effect at the end of the last
+successful conversion. It is not required that the conversion
+descriptor itself be updated, which would require it to be a pointer
+type. Thus, implementations are free to implement the
+descriptor as a handle (other than a pointer type) by which the conversion
+information can be accessed and updated.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIiconv_open\fP() , \fIiconv_close\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<iconv.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

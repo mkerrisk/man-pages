@@ -1,0 +1,176 @@
+.\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References consulted:
+.\"     Linux libc source code
+.\"     Lewine's _POSIX Programmer's Guide_ (O'Reilly & Associates, 1991)
+.\"     386BSD man pages
+.\"
+.\" Modified 1993-07-24 by Rik Faith (faith@cs.unc.edu)
+.\" Modified 2003-11-15 by aeb
+.\"
+.TH GETGRNAM 3 2003-11-15 "" "Linux Programmer's Manual"
+.SH NAME
+getgrnam, getgrnam_r, getgrgid, getgrgid_r \- get group file entry
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <grp.h>
+.sp
+.BI "struct group *getgrnam(const char *" name );
+.sp
+.BI "struct group *getgrgid(gid_t " gid );
+.sp
+.BI "int getgrnam_r(const char *" name ", struct group *" gbuf ,
+.br
+.BI "          char *" buf ", size_t " buflen ", struct group **" gbufp );
+.sp
+.BI "int getgrgid_r(gid_t " gid ", struct group *" gbuf ,
+.br
+.BI "          char *" buf ", size_t " buflen ", struct group **" gbufp );
+.fi
+.SH DESCRIPTION
+The
+.B getgrnam()
+function returns a pointer to a structure containing
+the group information from
+.I /etc/group
+for the entry that matches the group name
+.IR name .
+.PP
+The
+.B getgrgid()
+function returns a pointer to a structure containing
+the group information from
+.I /etc/group
+for the entry that matches the group gid
+.IR gid .
+.PP
+The
+.B getgrnam_r()
+and
+.B getgrgid_r()
+functions find the same information, but store the retrieved group structure
+in the space pointed to by
+.IR gbuf .
+This group structure contains pointers to strings, and these strings
+are stored in the buffer
+.I buf
+of size
+.IR buflen .
+A pointer to the result (in case of success) or NULL (in case no entry
+was found or an error occurred) is stored in
+.RI * gbufp .
+.PP
+The \fIgroup\fP structure is defined in \fI<grp.h>\fP as follows:
+.sp
+.RS
+.nf
+struct group {
+      char    *gr_name;      /* group name */
+      char    *gr_passwd;    /* group password */
+      gid_t   gr_gid;        /* group id */
+      char    **gr_mem;      /* group members */
+};
+.fi
+.RE
+.PP
+The maximum needed size for
+.I buf
+can be found using
+.BR sysconf (3)
+with the _SC_GETGR_R_SIZE_MAX parameter.
+.SH "RETURN VALUE"
+The \fBgetgrnam()\fP and \fBgetgrgid()\fP functions return a pointer
+to the group information structure, or NULL if the matching entry
+is not found or an error occurs. If an error occurs,
+.I errno
+is set appropriately. If one wants to check
+.I errno
+after the call, it should be set to zero before the call.
+.LP
+The return value may point to static area, and may be overwritten
+by subsequent calls to
+.BR getgrent() ,
+.BR getgrgid() ,
+or
+.BR getgrnam() .
+.LP
+The  \fBgetgrnam_r()\fP and \fBgetgrgid_r()\fP functions return
+zero on success. In case of error, an error value is returned.
+.SH ERRORS
+.TP
+.BR 0 " or " ENOENT " or " ESRCH " or " EBADF " or " EPERM " or ... "
+The given
+.I name
+or
+.I gid
+was not found.
+.TP
+.B EINTR
+A signal was caught.
+.TP
+.B EIO
+I/O error.
+.TP
+.B EMFILE
+The maximum number (OPEN_MAX) of files was open already in the calling process.
+.TP
+.B ENFILE
+The maximum number of files was open already in the system.
+.TP
+.B ENOMEM
+Insufficient memory.
+.\" to allocate the group structure, or to allocate buffers
+.TP
+.B ERANGE
+Insufficient buffer space supplied.
+.SH FILES
+.TP
+.I /etc/group
+group database file
+.SH "CONFORMING TO"
+SVID 3, BSD 4.3, POSIX 1003.1-2003
+.SH NOTES
+The formulation given above under "RETURN VALUE" is from POSIX 1003.1-2001.
+It does not call "not found" an error, hence does not specify what value
+.I errno
+might have in this situation. But that makes it impossible to recognize
+errors. One might argue that according to POSIX
+.I errno
+should be left unchanged if an entry is not found. Experiments on various
+Unix-like systems shows that lots of different values occur in this
+situation: 0, ENOENT, EBADF, ESRCH, EWOULDBLOCK, EPERM and probably others.
+.\" more precisely:
+.\" AIX 5.1 - gives ESRCH
+.\" OSF1 4.0g - gives EWOULDBLOCK
+.\" libc, glibc, Irix 6.5 - give ENOENT
+.\" FreeBSD 4.8, OpenBSD 3.2, NetBSD 1.6 - give EPERM
+.\" SunOS 5.8 - gives EBADF
+.\" Tru64 5.1b, HP-UX-11i, SunOS 5.7 - give 0
+.SH "SEE ALSO"
+.BR endgrent (3),
+.BR fgetgrent (3),
+.BR getgrent (3),
+.BR getpwnam (3),
+.BR setgrent (3),
+.BR group (5)

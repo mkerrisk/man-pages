@@ -1,0 +1,142 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "MAKECONTEXT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" makecontext 
+.SH NAME
+makecontext, swapcontext \- manipulate user contexts
+.SH SYNOPSIS
+.LP
+\fB#include <ucontext.h>
+.br
+.sp
+void makecontext(ucontext_t *\fP\fIucp\fP\fB, void (*\fP\fIfunc\fP\fB)(void),
+.br
+\ \ \ \ \ \  int\fP \fIargc\fP\fB, ...);
+.br
+int swapcontext(ucontext_t *restrict\fP \fIoucp\fP\fB,
+.br
+\ \ \ \ \ \  const ucontext_t *restrict\fP \fIucp\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fImakecontext\fP() function shall modify the context specified
+by \fIucp\fP, which has been initialized using \fIgetcontext\fP().
+When this context is resumed using \fIswapcontext\fP() or \fIsetcontext\fP(),
+program execution shall continue by calling \fIfunc\fP, passing it
+the
+arguments that follow \fIargc\fP in the \fImakecontext\fP() call.
+.LP
+Before a call is made to \fImakecontext\fP(), the application shall
+ensure that the context being modified has a stack
+allocated for it. The application shall ensure that the value of \fIargc\fP
+matches the number of arguments of type \fBint\fP
+passed to \fIfunc\fP; otherwise, the behavior is undefined.
+.LP
+The \fIuc_link\fP member is used to determine the context that shall
+be resumed when the context being modified by
+\fImakecontext\fP() returns. The application shall ensure that the
+\fIuc_link\fP member is initialized prior to the call to
+\fImakecontext\fP().
+.LP
+The \fIswapcontext\fP() function shall save the current context in
+the context structure pointed to by \fIoucp\fP and shall
+set the context to the context structure pointed to by \fIucp\fP.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIswapcontext\fP() shall return 0. Otherwise,
+-1 shall be returned and \fIerrno\fP set to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIswapcontext\fP() function shall fail if:
+.TP 7
+.B ENOMEM
+The \fIucp\fP argument does not have enough stack left to complete
+the operation.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+The following example illustrates the use of \fImakecontext\fP():
+.sp
+.RS
+.nf
+
+\fB#include <stdio.h>
+#include <ucontext.h>
+.sp
+
+static ucontext_t ctx[3];
+.sp
+
+static void
+f1 (void)
+{
+    puts("start f1");
+    swapcontext(&ctx[1], &ctx[2]);
+    puts("finish f1");
+}
+.sp
+
+static void
+f2 (void)
+{
+    puts("start f2");
+    swapcontext(&ctx[2], &ctx[1]);
+    puts("finish f2");
+}
+.sp
+
+int
+main (void)
+{
+    char st1[8192];
+    char st2[8192];
+.sp
+
+    getcontext(&ctx[1]);
+    ctx[1].uc_stack.ss_sp = st1;
+    ctx[1].uc_stack.ss_size = sizeof st1;
+    ctx[1].uc_link = &ctx[0];
+    makecontext(&ctx[1], f1, 0);
+.sp
+
+    getcontext(&ctx[2]);
+    ctx[2].uc_stack.ss_sp = st2;
+    ctx[2].uc_stack.ss_size = sizeof st2;
+    ctx[2].uc_link = &ctx[1];
+    makecontext(&ctx[2], f2, 0);
+.sp
+
+    swapcontext(&ctx[0], &ctx[2]);
+    return 0;
+}
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexit\fP() , \fIgetcontext\fP() , \fIsigaction\fP() , \fIsigprocmask\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<ucontext.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

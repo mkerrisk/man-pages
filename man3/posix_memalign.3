@@ -1,0 +1,192 @@
+.\" (c) 2001 by John Levon <moz@compsoc.man.ac.uk>
+.\" Based in part on GNU libc documentation.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\"
+.\" 2001-10-11, 2003-08-22, aeb, added some details
+.TH POSIX_MEMALIGN 3  2003-08-22 "GNU" "Linux Programmer's Manual"
+.SH NAME
+posix_memalign, memalign, valloc \- Allocate aligned memory
+.SH SYNOPSIS
+.nf
+.B #define _XOPEN_SOURCE 600
+.B #include <stdlib.h>
+.sp
+.BI "int posix_memalign(void **" memptr ", size_t " alignment ", size_t " size );
+.sp
+.B #include <malloc.h>
+.sp
+.BI "void *valloc(size_t " size );
+.BI "void *memalign(size_t " boundary ", size_t " size );
+.nl
+.fi
+.SH DESCRIPTION
+The function
+.B posix_memalign()
+allocates
+.I size
+bytes and places the address of the allocated memory in
+.IR "*memptr".
+The address of the allocated memory will be a multiple of
+.IR "alignment",
+which must be a power of two and a multiple of
+.IR "sizeof(void *)".
+
+The obsolete function
+.B memalign()
+allocates
+.I size
+bytes and returns a pointer to the allocated memory.
+The memory address will be a multiple of
+.IR "boundary",
+which must be a power of two.
+
+The obsolete function
+.B valloc()
+allocates
+.I size
+bytes and returns a pointer to the allocated memory.
+The memory address will be a multiple of the page size.
+It is equivalent to
+.IR "memalign(sysconf(_SC_PAGESIZE),size)" .
+
+For all three routines, the memory is not zeroed.
+
+.SH "RETURN VALUE"
+.BR memalign()
+and
+.BR valloc()
+return the pointer to the allocated memory, or
+.B NULL
+if the request fails.
+
+.BR posix_memalign()
+returns zero on success, or one of the error values listed in the
+next section on failure. Note that
+.IR errno
+is not set.
+
+.SH "ERRORS"
+.TP
+.B EINVAL
+The
+.IR alignment
+parameter was not a power of two, or was not a multiple of
+.IR "sizeof(void *)" .
+.TP
+.B ENOMEM
+There was insufficient memory to fulfill the allocation request.
+
+.SH NOTES
+On many systems there are alignment restrictions, e.g. on buffers
+used for direct block device I/O. POSIX specifies the
+.I "pathconf(path,_PC_REC_XFER_ALIGN)"
+call that tells what alignment is needed. Now one can use
+.BR posix_memalign ()
+to satisfy this requirement.
+
+.BR posix_memalign ()
+verifies that
+.IR alignment
+matches the requirements detailed above.
+.BR memalign()
+may not check that the
+.IR boundary
+parameter is correct.
+
+POSIX requires that memory obtained from
+.BR posix_memalign()
+can be freed using
+.IR free ().
+Some systems provide no way to reclaim memory allocated with
+.IR memalign ()
+or
+.IR valloc ()
+(because one can only pass to
+.IR free ()
+a pointer gotten from
+.IR malloc (),
+while e.g.
+.IR memalign ()
+would call
+.IR malloc ()
+and then align the obtained value).
+.\" Other systems allow passing the result of
+.\" .IR valloc ()
+.\" to
+.\" .IR free (),
+.\" but not to
+.\" .IR realloc ().
+GNU libc allows memory obtained from any of these three routines to be
+reclaimed with
+.IR free ().
+
+GNU libc
+.BR "malloc()"
+always returns 8-byte aligned memory addresses, so these routines are only
+needed if you require larger alignment values.
+
+.SH AVAILABILITY
+The functions
+.IR memalign ()
+and
+.IR valloc ()
+have been available in all Linux libc libraries.
+The function
+.IR posix_memalign ()
+is available since glibc 2.1.91.
+
+.SH "CONFORMING TO"
+The function
+.IR valloc ()
+appeared in 3.0 BSD. It is documented as being obsolete in BSD 4.3,
+and as legacy in SUSv2. It no longer occurs in SUSv3.
+The function
+.IR memalign ()
+appears in SunOS 4.1.3 but not in BSD 4.4.
+The function
+.IR posix_memalign ()
+comes from POSIX 1003.1d.
+
+.SH HEADERS
+Everybody agrees that
+.IR posix_memalign ()
+is declared in <stdlib.h>. In order to declare it, glibc needs
+_GNU_SOURCE defined, or _XOPEN_SOURCE defined to a value not less than 600.
+
+Everybody agrees that
+.IR memalign ()
+is declared in <malloc.h>.
+
+According to SUSv2,
+.IR valloc ()
+is declared in <stdlib.h>.
+Libc4,5 and glibc declare it in <malloc.h> and perhaps also in <stdlib.h>
+(namely, if _GNU_SOURCE is defined, or _BSD_SOURCE is defined, or,
+for glibc, if _XOPEN_SOURCE_EXTENDED is defined, or, equivalently,
+_XOPEN_SOURCE is defined to a value not less than 500).
+
+.SH "SEE ALSO"
+.BR brk (2),
+.BR getpagesize (2),
+.BR free (3),
+.BR malloc (3)

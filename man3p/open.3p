@@ -1,0 +1,494 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "OPEN" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" open 
+.SH NAME
+open \- open a file
+.SH SYNOPSIS
+.LP
+\fB#include <sys/stat.h> \fP
+\fB
+.br
+#include <fcntl.h>
+.br
+.sp
+int open(const char *\fP\fIpath\fP\fB, int\fP \fIoflag\fP\fB, ...
+);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIopen\fP() function shall establish the connection between a
+file and a file descriptor. It shall create an open file
+description that refers to a file and a file descriptor that refers
+to that open file description. The file descriptor is used by
+other I/O functions to refer to that file. The \fIpath\fP argument
+points to a pathname naming the file.
+.LP
+The \fIopen\fP() function shall return a file descriptor for the named
+file that is the lowest file descriptor not currently
+open for that process. The open file description is new, and therefore
+the file descriptor shall not share it with any other
+process in the system. The FD_CLOEXEC file descriptor flag associated
+with the new file descriptor shall be cleared.
+.LP
+The file offset used to mark the current position within the file
+shall be set to the beginning of the file.
+.LP
+The file status flags and file access modes of the open file description
+shall be set according to the value of
+\fIoflag\fP.
+.LP
+Values for \fIoflag\fP are constructed by a bitwise-inclusive OR of
+flags from the following list, defined in \fI<fcntl.h>\fP. Applications
+shall specify exactly one of the first three values (file
+access modes) below in the value of \fIoflag\fP:
+.TP 7
+O_RDONLY
+Open for reading only.
+.TP 7
+O_WRONLY
+Open for writing only.
+.TP 7
+O_RDWR
+Open for reading and writing. The result is undefined if this flag
+is applied to a FIFO.
+.sp
+.LP
+Any combination of the following may be used:
+.TP 7
+O_APPEND
+If set, the file offset shall be set to the end of the file prior
+to each write.
+.TP 7
+O_CREAT
+If the file exists, this flag has no effect except as noted under
+O_EXCL below. Otherwise, the file shall be created; the user
+ID of the file shall be set to the effective user ID of the process;
+the group ID of the file shall be set to the group ID of the
+file's parent directory or to the effective group ID of the process;
+and the access permission bits (see \fI<sys/stat.h>\fP) of the file
+mode shall be set to the value of the third argument taken
+as type \fBmode_t\fP modified as follows: a bitwise AND is performed
+on the file-mode bits and the corresponding bits in the
+complement of the process' file mode creation mask. Thus, all bits
+in the file mode whose corresponding bit in the file mode
+creation mask is set are cleared. When bits other than the file permission
+bits are set, the effect is unspecified. The third
+argument does not affect whether the file is open for reading, writing,
+or for both. Implementations shall provide a way to
+initialize the file's group ID to the group ID of the parent directory.
+Implementations may, but need not, provide an
+implementation-defined way to initialize the file's group ID to the
+effective group ID of the calling process.
+.TP 7
+O_DSYNC
+Write I/O operations on the file descriptor shall complete as defined
+by synchronized I/O data integrity completion. 
+.TP 7
+O_EXCL
+If O_CREAT and O_EXCL are set, \fIopen\fP() shall fail if the file
+exists. The check for the existence of the file and the
+creation of the file if it does not exist shall be atomic with respect
+to other threads executing \fIopen\fP() naming the same
+filename in the same directory with O_EXCL and O_CREAT set. If O_EXCL
+and O_CREAT are set, and \fIpath\fP names a symbolic link,
+\fIopen\fP() shall fail and set \fIerrno\fP to [EEXIST], regardless
+of the contents of the symbolic link. If O_EXCL is set and
+O_CREAT is not set, the result is undefined.
+.TP 7
+O_NOCTTY
+If set and \fIpath\fP identifies a terminal device, \fIopen\fP() shall
+not cause the terminal device to become the
+controlling terminal for the process.
+.TP 7
+O_NONBLOCK
+When opening a FIFO with O_RDONLY or O_WRONLY set: 
+.RS
+.IP " *" 3
+If O_NONBLOCK is set, an \fIopen\fP() for reading-only shall return
+without delay. An \fIopen\fP() for writing-only shall
+return an error if no process currently has the file open for reading.
+.LP
+.IP " *" 3
+If O_NONBLOCK is clear, an \fIopen\fP() for reading-only shall block
+the calling thread until a thread opens the file for
+writing. An \fIopen\fP() for writing-only shall block the calling
+thread until a thread opens the file for reading.
+.LP
+.RE
+.LP
+When opening a block special or character special file that supports
+non-blocking opens:
+.RS
+.IP " *" 3
+If O_NONBLOCK is set, the \fIopen\fP() function shall return without
+blocking for the device to be ready or available.
+Subsequent behavior of the device is device-specific.
+.LP
+.IP " *" 3
+If O_NONBLOCK is clear, the \fIopen\fP() function shall block the
+calling thread until the device is ready or available before
+returning.
+.LP
+.RE
+.LP
+Otherwise, the behavior of O_NONBLOCK is unspecified.
+.TP 7
+O_RSYNC
+Read I/O operations on the file descriptor shall complete at the same
+level of integrity as specified by the O_DSYNC and O_SYNC
+flags. If both O_DSYNC and O_RSYNC are set in \fIoflag\fP, all I/O
+operations on the file descriptor shall complete as defined by
+synchronized I/O data integrity completion. If both O_SYNC and O_RSYNC
+are set in flags, all I/O operations on the file descriptor
+shall complete as defined by synchronized I/O file integrity completion.
+.TP 7
+O_SYNC
+Write I/O operations on the file descriptor shall complete as defined
+by synchronized I/O file integrity completion. 
+.TP 7
+O_TRUNC
+If the file exists and is a regular file, and the file is successfully
+opened O_RDWR or O_WRONLY, its length shall be truncated
+to 0, and the mode and owner shall be unchanged. It shall have no
+effect on FIFO special files or terminal device files. Its effect
+on other file types is implementation-defined. The result of using
+O_TRUNC with O_RDONLY is undefined.
+.sp
+.LP
+If O_CREAT is set and the file did not previously exist, upon successful
+completion, \fIopen\fP() shall mark for update the
+\fIst_atime,\fP \fIst_ctime\fP, and \fIst_mtime\fP fields of the file
+and the \fIst_ctime\fP and \fIst_mtime\fP fields of the
+parent directory.
+.LP
+If O_TRUNC is set and the file did previously exist, upon successful
+completion, \fIopen\fP() shall mark for update the
+\fIst_ctime\fP and \fIst_mtime\fP fields of the file.
+.LP
+If both the O_SYNC and O_DSYNC flags are set, the effect is as if
+only the O_SYNC flag was set. 
+.LP
+If \fIpath\fP refers to a STREAMS file, \fIoflag\fP may be constructed
+from O_NONBLOCK OR'ed with either O_RDONLY, O_WRONLY, or
+O_RDWR. Other flag values are not applicable to STREAMS devices and
+shall have no effect on them. The value O_NONBLOCK affects the
+operation of STREAMS drivers and certain functions applied to file
+descriptors associated with STREAMS files. For STREAMS drivers,
+the implementation of O_NONBLOCK is device-specific. 
+.LP
+If \fIpath\fP names the master side of a pseudo-terminal device, then
+it is unspecified whether \fIopen\fP() locks the slave side
+so that it cannot be opened. Conforming applications shall call \fIunlockpt\fP()
+before
+opening the slave side. 
+.LP
+The largest value that can be represented correctly in an object of
+type \fBoff_t\fP shall be established as the offset maximum
+in the open file description.
+.SH RETURN VALUE
+.LP
+Upon successful completion, the function shall open the file and return
+a non-negative integer representing the lowest numbered
+unused file descriptor. Otherwise, -1 shall be returned and \fIerrno\fP
+set to indicate the error. No files shall be created or
+modified if the function returns -1.
+.SH ERRORS
+.LP
+The \fIopen\fP() function shall fail if:
+.TP 7
+.B EACCES
+Search permission is denied on a component of the path prefix, or
+the file exists and the permissions specified by \fIoflag\fP
+are denied, or the file does not exist and write permission is denied
+for the parent directory of the file to be created, or
+O_TRUNC is specified and write permission is denied.
+.TP 7
+.B EEXIST
+O_CREAT and O_EXCL are set, and the named file exists.
+.TP 7
+.B EINTR
+A signal was caught during \fIopen\fP().
+.TP 7
+.B EINVAL
+The implementation does not support synchronized I/O for this file.
+.TP 7
+.B EIO
+The \fIpath\fP argument names a STREAMS file and a hangup or error
+occurred during the \fIopen\fP(). 
+.TP 7
+.B EISDIR
+The named file is a directory and \fIoflag\fP includes O_WRONLY or
+O_RDWR.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B EMFILE
+{OPEN_MAX} file descriptors are currently open in the calling process.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENFILE
+The maximum allowable number of files is currently open in the system.
+.TP 7
+.B ENOENT
+O_CREAT is not set and the named file does not exist; or O_CREAT is
+set and either the path prefix does not exist or the
+\fIpath\fP argument points to an empty string.
+.TP 7
+.B ENOSR
+The \fIpath\fP argument names a STREAMS-based file and the system
+is unable to allocate a STREAM. 
+.TP 7
+.B ENOSPC
+The directory or file system that would contain the new file cannot
+be expanded, the file does not exist, and O_CREAT is
+specified.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B ENXIO
+O_NONBLOCK is set, the named file is a FIFO, O_WRONLY is set, and
+no process has the file open for reading.
+.TP 7
+.B ENXIO
+The named file is a character special or block special file, and the
+device associated with this special file does not
+exist.
+.TP 7
+.B EOVERFLOW
+The named file is a regular file and the size of the file cannot be
+represented correctly in an object of type
+\fBoff_t\fP.
+.TP 7
+.B EROFS
+The named file resides on a read-only file system and either O_WRONLY,
+O_RDWR, O_CREAT (if the file does not exist), or O_TRUNC
+is set in the \fIoflag\fP argument.
+.sp
+.LP
+The \fIopen\fP() function may fail if:
+.TP 7
+.B EAGAIN
+The \fIpath\fP argument names the slave side of a pseudo-terminal
+device that is locked. 
+.TP 7
+.B EINVAL
+The value of the \fIoflag\fP argument is not valid.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.TP 7
+.B ENOMEM
+The \fIpath\fP argument names a STREAMS file and the system is unable
+to allocate resources. 
+.TP 7
+.B ETXTBSY
+The file is a pure procedure (shared text) file that is being executed
+and \fIoflag\fP is O_WRONLY or O_RDWR.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Opening a File for Writing by the Owner
+.LP
+The following example opens the file \fB/tmp/file\fP, either by creating
+it (if it does not already exist), or by truncating
+its length to 0 (if it does exist). In the former case, if the call
+creates a new file, the access permission bits in the file mode
+of the file are set to permit reading and writing by the owner, and
+to permit reading only by group members and others.
+.LP
+If the call to \fIopen\fP() is successful, the file is opened for
+writing.
+.sp
+.RS
+.nf
+
+\fB#include <fcntl.h>
+\&...
+int fd;
+mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+char *filename = "/tmp/file";
+\&...
+fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
+\&...
+\fP
+.fi
+.RE
+.SS Opening a File Using an Existence Check
+.LP
+The following example uses the \fIopen\fP() function to try to create
+the \fBLOCKFILE\fP file and open it for writing. Since
+the \fIopen\fP() function specifies the O_EXCL flag, the call fails
+if the file already exists. In that case, the program assumes
+that someone else is updating the password file and exits.
+.sp
+.RS
+.nf
+
+\fB#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+\&...
+int pfd; /* Integer for file descriptor returned by open() call. */
+\&...
+if ((pfd = open(LOCKFILE, O_WRONLY | O_CREAT | O_EXCL,
+    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
+{
+    fprintf(stderr, "Cannot open /etc/ptmp. Try again later.\\n");
+    exit(1);
+}
+\&...
+\fP
+.fi
+.RE
+.SS Opening a File for Writing
+.LP
+The following example opens a file for writing, creating the file
+if it does not already exist. If the file does exist, the
+system truncates the file to zero bytes.
+.sp
+.RS
+.nf
+
+\fB#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+\&...
+int pfd;
+char filename[PATH_MAX+1];
+\&...
+if ((pfd = open(filename, O_WRONLY | O_CREAT | O_TRUNC,
+    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
+{
+    perror("Cannot open output file\\n"); exit(1);
+}
+\&...
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+Except as specified in this volume of IEEE\ Std\ 1003.1-2001, the
+flags allowed in \fIoflag\fP are not
+mutually-exclusive and any number of them may be used simultaneously.
+.LP
+Some implementations permit opening FIFOs with O_RDWR. Since FIFOs
+could be implemented in other ways, and since two file
+descriptors can be used to the same effect, this possibility is left
+as undefined.
+.LP
+See \fIgetgroups\fP() about the group of a newly created file.
+.LP
+The use of \fIopen\fP() to create a regular file is preferable to
+the use of \fIcreat\fP(), because the latter is redundant and included
+only for historical reasons.
+.LP
+The use of the O_TRUNC flag on FIFOs and directories (pipes cannot
+be \fIopen\fP()-ed) must be permissible without unexpected
+side effects (for example, \fIcreat\fP() on a FIFO must not remove
+data). Since terminal
+special files might have type-ahead data stored in the buffer, O_TRUNC
+should not affect their content, particularly if a program
+that normally opens a regular file should open the current controlling
+terminal instead. Other file types, particularly
+implementation-defined ones, are left implementation-defined.
+.LP
+IEEE\ Std\ 1003.1-2001 permits [EACCES] to be returned for conditions
+other than those explicitly listed.
+.LP
+The O_NOCTTY flag was added to allow applications to avoid unintentionally
+acquiring a controlling terminal as a side effect of
+opening a terminal file. This volume of IEEE\ Std\ 1003.1-2001 does
+not specify how a controlling terminal is acquired, but
+it allows an implementation to provide this on \fIopen\fP() if the
+O_NOCTTY flag is not set and other conditions specified in the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, Chapter 11, General
+Terminal Interface are met. The O_NOCTTY flag is an effective no-op
+if the file being opened is not a terminal device.
+.LP
+In historical implementations the value of O_RDONLY is zero. Because
+of that, it is not possible to detect the presence of
+O_RDONLY and another option. Future implementations should encode
+O_RDONLY and O_WRONLY as bit flags so that:
+.sp
+.RS
+.nf
+
+\fBO_RDONLY | O_WRONLY == O_RDWR
+\fP
+.fi
+.RE
+.LP
+In general, the \fIopen\fP() function follows the symbolic link if
+\fIpath\fP names a symbolic link. However, the
+\fIopen\fP() function, when called with O_CREAT and O_EXCL, is required
+to fail with [EEXIST] if \fIpath\fP names an existing
+symbolic link, even if the symbolic link refers to a nonexistent file.
+This behavior is required so that privileged applications
+can create a new file in a known location without the possibility
+that a symbolic link might cause the file to be created in a
+different location.
+.LP
+For example, a privileged application that must create a file with
+a predictable name in a user-writable directory, such as the
+user's home directory, could be compromised if the user creates a
+symbolic link with that name that refers to a nonexistent file in
+a system directory. If the user can influence the contents of a file,
+the user could compromise the system by creating a new system
+configuration or spool file that would then be interpreted by the
+system. The test for a symbolic link which refers to a
+nonexisting file must be atomic with the creation of a new file.
+.LP
+The POSIX.1-1990 standard required that the group ID of a newly created
+file be set to the group ID of its parent directory or
+to the effective group ID of the creating process. FIPS 151-2 required
+that implementations provide a way to have the group ID be
+set to the group ID of the containing directory, but did not prohibit
+implementations also supporting a way to set the group ID to
+the effective group ID of the creating process. Conforming applications
+should not assume which group ID will be used. If it
+matters, an application can use \fIchown\fP() to set the group ID
+after the file is created,
+or determine under what conditions the implementation will set the
+desired group ID.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIchmod\fP() , \fIclose\fP() , \fIcreat\fP() , \fIdup\fP() , \fIfcntl\fP()
+, \fIlseek\fP() , \fIread\fP() , \fIumask\fP() , \fIunlockpt\fP()
+, \fIwrite\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<fcntl.h>\fP, \fI<sys/stat.h>\fP, \fI<sys/types.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

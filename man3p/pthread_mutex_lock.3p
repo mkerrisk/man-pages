@@ -1,0 +1,189 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_MUTEX_LOCK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_mutex_lock 
+.SH NAME
+pthread_mutex_lock, pthread_mutex_trylock, pthread_mutex_unlock \-
+lock and unlock a mutex
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_mutex_lock(pthread_mutex_t *\fP\fImutex\fP\fB);
+.br
+int pthread_mutex_trylock(pthread_mutex_t *\fP\fImutex\fP\fB);
+.br
+int pthread_mutex_unlock(pthread_mutex_t *\fP\fImutex\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The mutex object referenced by \fImutex\fP shall be locked by calling
+\fIpthread_mutex_lock\fP(). If the mutex is already
+locked, the calling thread shall block until the mutex becomes available.
+This operation shall return with the mutex object
+referenced by \fImutex\fP in the locked state with the calling thread
+as its owner.
+.LP
+If the mutex type is PTHREAD_MUTEX_NORMAL, deadlock detection shall
+not be provided. Attempting to relock the mutex causes
+deadlock. If a thread attempts to unlock a mutex that it has not locked
+or a mutex which is unlocked, undefined behavior
+results.
+.LP
+If the mutex type is PTHREAD_MUTEX_ERRORCHECK, then error checking
+shall be provided. If a thread attempts to relock a mutex
+that it has already locked, an error shall be returned. If a thread
+attempts to unlock a mutex that it has not locked or a mutex
+which is unlocked, an error shall be returned.
+.LP
+If the mutex type is PTHREAD_MUTEX_RECURSIVE, then the mutex shall
+maintain the concept of a lock count. When a thread
+successfully acquires a mutex for the first time, the lock count shall
+be set to one. Every time a thread relocks this mutex, the
+lock count shall be incremented by one. Each time the thread unlocks
+the mutex, the lock count shall be decremented by one. When
+the lock count reaches zero, the mutex shall become available for
+other threads to acquire. If a thread attempts to unlock a mutex
+that it has not locked or a mutex which is unlocked, an error shall
+be returned.
+.LP
+If the mutex type is PTHREAD_MUTEX_DEFAULT, attempting to recursively
+lock the mutex results in undefined behavior. Attempting
+to unlock the mutex if it was not locked by the calling thread results
+in undefined behavior. Attempting to unlock the mutex if it
+is not locked results in undefined behavior. 
+.LP
+The \fIpthread_mutex_trylock\fP() function shall be equivalent to
+\fIpthread_mutex_lock\fP(), except that if the mutex object
+referenced by \fImutex\fP is currently locked (by any thread, including
+the current thread), the call shall return immediately. If
+the mutex type is PTHREAD_MUTEX_RECURSIVE and the mutex is currently
+owned by the calling thread, the mutex lock count shall be
+incremented by one and the \fIpthread_mutex_trylock\fP() function
+shall immediately return success.
+.LP
+The \fIpthread_mutex_unlock\fP() function shall release the mutex
+object referenced by \fImutex\fP.   \ The manner
+in which a mutex is released is dependent upon the mutex's type attribute.
+If there are threads blocked on the mutex object referenced by \fImutex\fP
+when \fIpthread_mutex_unlock\fP() is
+called, resulting in the mutex becoming available, the scheduling
+policy shall determine which thread shall acquire the mutex.
+.LP
+(In the case of PTHREAD_MUTEX_RECURSIVE mutexes, the mutex shall become
+available when the count reaches zero and the calling
+thread no longer has any locks on this mutex.) 
+.LP
+If a signal is delivered to a thread waiting for a mutex, upon return
+from the signal handler the thread shall resume waiting
+for the mutex as if it was not interrupted.
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_mutex_lock\fP() and \fIpthread_mutex_unlock\fP()
+functions shall return zero; otherwise, an
+error number shall be returned to indicate the error.
+.LP
+The \fIpthread_mutex_trylock\fP() function shall return zero if a
+lock on the mutex object referenced by \fImutex\fP is
+acquired. Otherwise, an error number is returned to indicate the error.
+.SH ERRORS
+.LP
+The \fIpthread_mutex_lock\fP() and \fIpthread_mutex_trylock\fP() functions
+shall fail if:
+.TP 7
+.B EINVAL
+The \fImutex\fP was created with the protocol attribute having the
+value PTHREAD_PRIO_PROTECT and the calling thread's
+priority is higher than the mutex's current priority ceiling.
+.sp
+.LP
+The \fIpthread_mutex_trylock\fP() function shall fail if:
+.TP 7
+.B EBUSY
+The \fImutex\fP could not be acquired because it was already locked.
+.sp
+.LP
+The \fIpthread_mutex_lock\fP(), \fIpthread_mutex_trylock\fP(), and
+\fIpthread_mutex_unlock\fP() functions may fail if:
+.TP 7
+.B EINVAL
+The value specified by \fImutex\fP does not refer to an initialized
+mutex object.
+.TP 7
+.B EAGAIN
+The mutex could not be acquired because the maximum number of recursive
+locks for \fImutex\fP has been exceeded. 
+.sp
+.LP
+The \fIpthread_mutex_lock\fP() function may fail if:
+.TP 7
+.B EDEADLK
+The current thread already owns the mutex.
+.sp
+.LP
+The \fIpthread_mutex_unlock\fP() function may fail if:
+.TP 7
+.B EPERM
+The current thread does not own the mutex.
+.sp
+.LP
+These functions shall not return an error code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+Mutex objects are intended to serve as a low-level primitive from
+which other thread synchronization functions can be built. As
+such, the implementation of mutexes should be as efficient as possible,
+and this has ramifications on the features available at the
+interface.
+.LP
+The mutex functions and the particular default settings of the mutex
+attributes have been motivated by the desire to not
+preclude fast, inlined implementations of mutex locking and unlocking.
+.LP
+For example, deadlocking on a double-lock is explicitly allowed behavior
+in order to avoid requiring more overhead in the basic
+mechanism than is absolutely necessary. (More "friendly" mutexes that
+detect deadlock or that allow multiple locking by the same
+thread are easily constructed by the user via the other mechanisms
+provided. For example, \fIpthread_self\fP() can be used to record
+mutex ownership.) Implementations might also
+choose to provide such extended features as options via special mutex
+attributes.
+.LP
+Since most attributes only need to be checked when a thread is going
+to be blocked, the use of attributes does not slow the
+(common) mutex-locking case.
+.LP
+Likewise, while being able to extract the thread ID of the owner of
+a mutex might be desirable, it would require storing the
+current thread ID when each mutex is locked, and this could incur
+unacceptable levels of overhead. Similar arguments apply to a
+\fImutex_tryunlock\fP operation.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_mutex_destroy\fP() , \fIpthread_mutex_timedlock\fP() ,
+the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,152 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SETPGID" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" setpgid 
+.SH NAME
+setpgid \- set process group ID for job control
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int setpgid(pid_t\fP \fIpid\fP\fB, pid_t\fP \fIpgid\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIsetpgid\fP() function shall either join an existing process
+group or create a new process group within the session of
+the calling process. The process group ID of a session leader shall
+not change. Upon successful completion, the process group ID of
+the process with a process ID that matches \fIpid\fP shall be set
+to \fIpgid\fP. As a special case, if \fIpid\fP is 0, the
+process ID of the calling process shall be used. Also, if \fIpgid\fP
+is 0, the process ID of the indicated process shall be
+used.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIsetpgid\fP() shall return 0; otherwise,
+-1 shall be returned and \fIerrno\fP shall be set to
+indicate the error.
+.SH ERRORS
+.LP
+The \fIsetpgid\fP() function shall fail if:
+.TP 7
+.B EACCES
+The value of the \fIpid\fP argument matches the process ID of a child
+process of the calling process and the child process has
+successfully executed one of the \fIexec\fP functions.
+.TP 7
+.B EINVAL
+The value of the \fIpgid\fP argument is less than 0, or is not a value
+supported by the implementation.
+.TP 7
+.B EPERM
+The process indicated by the \fIpid\fP argument is a session leader.
+.TP 7
+.B EPERM
+The value of the \fIpid\fP argument matches the process ID of a child
+process of the calling process and the child process is
+not in the same session as the calling process.
+.TP 7
+.B EPERM
+The value of the \fIpgid\fP argument is valid but does not match the
+process ID of the process indicated by the \fIpid\fP
+argument and there is no process with a process group ID that matches
+the value of the \fIpgid\fP argument in the same session as
+the calling process.
+.TP 7
+.B ESRCH
+The value of the \fIpid\fP argument does not match the process ID
+of the calling process or of a child process of the calling
+process.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The \fIsetpgid\fP() function shall group processes together for the
+purpose of signaling, placement in foreground or
+background, and other job control actions.
+.LP
+The \fIsetpgid\fP() function is similar to the \fIsetpgrp\fP() function
+of 4.2 BSD,
+except that 4.2 BSD allowed the specified new process group to assume
+any value. This presents certain security problems and is
+more flexible than necessary to support job control.
+.LP
+To provide tighter security, \fIsetpgid\fP() only allows the calling
+process to join a process group already in use inside its
+session or create a new process group whose process group ID was equal
+to its process ID.
+.LP
+When a job control shell spawns a new job, the processes in the job
+must be placed into a new process group via
+\fIsetpgid\fP(). There are two timing constraints involved in this
+action:
+.IP " 1." 4
+The new process must be placed in the new process group before the
+appropriate program is launched via one of the \fIexec\fP functions.
+.LP
+.IP " 2." 4
+The new process must be placed in the new process group before the
+shell can correctly send signals to the new process
+group.
+.LP
+.LP
+To address these constraints, the following actions are performed.
+The new processes call \fIsetpgid\fP() to alter their own
+process groups after \fIfork\fP() but before \fIexec\fP. This satisfies
+the first constraint. Under 4.3 BSD, the second constraint is satisfied
+by
+the synchronization property of \fIvfork\fP(); that is, the shell
+is suspended until the
+child has completed the \fIexec\fP, thus ensuring that the child has
+completed the
+\fIsetpgid\fP(). A new version of \fIfork\fP() with this same synchronization
+property was
+considered, but it was decided instead to merely allow the parent
+shell process to adjust the process group of its child processes
+via \fIsetpgid\fP(). Both timing constraints are now satisfied by
+having both the parent shell and the child attempt to adjust the
+process group of the child process; it does not matter which succeeds
+first.
+.LP
+Since it would be confusing to an application to have its process
+group change after it began executing (that is, after \fIexec\fP),
+and because the child process would already have adjusted its process
+group before
+this, the [EACCES] error was added to disallow this.
+.LP
+One non-obvious use of \fIsetpgid\fP() is to allow a job control shell
+to return itself to its original process group (the one
+in effect when the job control shell was executed). A job control
+shell does this before returning control back to its parent when
+it is terminating or suspending itself as a way of restoring its job
+control "state" back to what its parent would expect. (Note
+that the original process group of the job control shell typically
+matches the process group of its parent, but this is not
+necessarily always the case.)
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , \fIgetpgrp\fP() , \fIsetsid\fP() , \fItcsetpgrp\fP()
+, the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<sys/types.h>\fP, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

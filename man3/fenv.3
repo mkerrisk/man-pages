@@ -1,0 +1,259 @@
+.\" Copyright (c) 2000 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" 2000-08-14 added GNU additions from Andreas Jaeger
+.\" 2000-12-05 some changes inspired by acahalan's remarks
+.\"
+.TH FENV 3  2000-08-12 "Linux Manpage" "Linux Programmer's Manual"
+.SH NAME
+feclearexcept, fegetexceptflag, feraiseexcept, fesetexceptflag,
+fetestexcept, fegetenv, fegetround, feholdexcept, fesetround,
+fesetenv, feupdateenv - C99 floating point rounding and exception handling
+.SH SYNOPSIS
+.nf
+.B #include <fenv.h>
+.sp
+.BI "int feclearexcept(int " excepts );
+.br
+.BI "int fegetexceptflag(fexcept_t *" flagp ", int " excepts );
+.br
+.BI "int feraiseexcept(int " excepts );
+.br
+.BI "int fesetexceptflag(const fexcept_t *" flagp ", int " excepts );
+.br
+.BI "int fetestexcept(int " excepts );
+.sp
+.B "int fegetround(void);"
+.br
+.BI "int fesetround(int " rounding_mode );
+.sp
+.BI "int fegetenv(fenv_t *" envp );
+.br
+.BI "int feholdexcept(fenv_t *" envp );
+.br
+.BI "int fesetenv(const fenv_t *" envp );
+.br
+.BI "int feupdateenv(const fenv_t *" envp );
+.fi
+.SH DESCRIPTION
+These eleven functions were defined in C99, and describe the handling
+of floating point rounding and exceptions (overflow, zero-divide etc.).
+.SS Exceptions
+The DivideByZero exception occurs when an operation on finite numbers
+produces infinity as exact answer.
+.LP
+The Overflow exception occurs when a result has to be represented as a
+floating point number, but has (much) larger absolute value than the
+largest (finite) floating point number that is representable.
+.LP
+The Underflow exception occurs when a result has to be represented as a
+floating point number, but has smaller absolute value than the smallest
+positive normalized floating point number (and would lose much accuracy
+when represented as a denormalized number).
+.LP
+The Inexact exception occurs when the rounded result of an operation
+is not equal to the infinite precision result.
+It may occur whenever Overflow or Underflow occurs.
+.LP
+The Invalid exception occurs when there is no well-defined result
+for an operation, as for 0/0 or infinity - infinity or sqrt(-1).
+.SS "Exception handling"
+Exceptions are represented in two ways: as a single bit
+(exception present/absent), and these bits correspond in some
+implementation-defined way with bit positions in an integer,
+and also as an opaque structure that may contain more information
+about the exception (perhaps the code address where it occurred).
+.LP
+Each of the macros
+.BR FE_DIVBYZERO ,
+.BR FE_INEXACT ,
+.BR FE_INVALID ,
+.BR FE_OVERFLOW ,
+.BR FE_UNDERFLOW
+is defined when the implementation supports handling
+of the corresponding exception, and if so then
+defines the corresponding bit(s), so that one can call
+exception handling functions e.g. using the integer argument
+.BR FE_OVERFLOW | FE_UNDERFLOW .
+Other exceptions may be supported. The macro
+.B FE_ALL_EXCEPT
+is the bitwise OR of all bits corresponding to supported exceptions.
+.PP
+The
+.B feclearexcept
+function clears the supported exceptions represented by the bits
+in its argument.
+.LP
+The
+.B fegetexceptflag
+function stores a representation of the state of the exception flags
+represented by the argument
+.I excepts
+in the opaque object
+.RI * flagp .
+.LP
+The
+.B feraiseexcept
+function raises the supported exceptions represented by the bits in
+.IR excepts .
+.LP
+The
+.B fesetexceptflag
+function sets the complete status for the exceptions represented by
+.I excepts
+to the value
+.RI * flagp .
+This value must have been obtained by an earlier call of
+.B fegetexceptflag
+with a last argument that contained all bits in
+.IR excepts .
+.LP
+The
+.B fetestexcept
+function returns a word in which the bits are set that were
+set in the argument
+.I excepts
+and for which the corresponding exception is currently set.
+.SS Rounding
+Each of the macros
+.BR FE_DOWNWARD ,
+.BR FE_TONEAREST ,
+.BR FE_TOWARDZERO ,
+.BR FE_UPWARD
+is defined when the implementation supports getting and setting
+the corresponding rounding direction.
+.LP
+The
+.B fegetround
+function returns the macro corresponding to the current
+rounding mode.
+.LP
+The
+.B fesetround
+function sets the rounding mode as specified by its argument
+and returns zero when it was successful.
+.SS "Floating point environment"
+The entire floating point environment, including
+control modes and status flags, can be handled
+as one opaque object, of type
+.IR fenv_t .
+The default environment is denoted by
+.B FE_DFL_ENV
+(of type
+.IR "const fenv_t *" ).
+This is the environment setup at program start and it is defined by
+ISO C to have round to nearest, all exceptions cleared and a non-stop
+(continue on exceptions) mode.
+.LP
+The
+.B fegetenv
+function saves the current floating point environment in the object
+.RI * envp .
+.LP
+The
+.B feholdexcept
+function does the same, then clears all exception flags,
+and sets a non-stop (continue on exceptions) mode,
+if available. It returns zero when successful.
+.LP
+The
+.B fesetenv
+function restores the floating point environment from
+the object
+.RI * envp .
+This object must be known to be valid, e.g., the result of a call to
+.B fegetenv
+or
+.B feholdexcept
+or equal to
+.BR FE_DFL_ENV .
+This call does not raise exceptions.
+.LP
+The
+.B feupdateenv
+function installs the floating-point environment represented by
+the object
+.RI * envp ,
+except that currently raised exceptions are not cleared.
+After calling this function, the raised exceptions will be a bitwise OR
+of those previously set with those in
+.RI * envp .
+As before, the object
+.RI * envp
+must be known to be valid.
+
+.SH "RETURN VALUE"
+These functions return zero on success and non-zero if an error occurred.
+.\" Earlier seven of these functions were listed as returning void.
+.\" This was corrected in Corrigendum 1 (ISO/IEC 9899:1999/Cor.1:2001(E))
+.\" of the C99 Standard.
+
+.SH "GNU DETAILS"
+If possible, the GNU C Library defines a macro
+.B FE_NOMASK_ENV
+which represents an environment where every exception raised causes a
+trap to occur.  You can test for this macro using
+.BR #ifdef .
+It is only defined if
+.B _GNU_SOURCE
+is defined.
+The C99 standard does not define a way to set individual bits in the
+floating point mask, e.g. to trap on specific flags.
+glibc 2.2 supports the functions
+.I feenableexcept
+and
+.I fedisableexcept
+to set individual floating point traps, and
+.I fegetexcept
+to query the state.
+.sp
+.nf
+.B "#define _GNU_SOURCE"
+.br
+.B "#include <fenv.h>"
+.sp
+.BI "int feenableexcept (int " excepts );
+.br
+.BI "int fedisableexcept (int " excepts );
+.br
+.BI "int fegetexcept (void);"
+.br
+.fi
+.LP
+The
+.B feenableexcept
+and
+.B fedisableexcept
+functions enable (disable) traps for each of the exceptions represented by
+.I excepts
+and return the previous set of enabled exceptions when successful,
+and \-1 otherwise.
+The
+.B fegetexcept
+function returns the set of all currently enabled exceptions.
+
+.SH NOTES
+Link with
+.BR \-lm .
+
+.SH "CONFORMING TO"
+IEC 60559 (IEC 559:1989), ANSI/IEEE 854, ISO C99 (ISO/IEC 9899:1999).

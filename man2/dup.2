@@ -1,0 +1,118 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" This manpage is Copyright (C) 1992 Drew Eckhardt;
+.\"                               1993 Michael Haardt, Ian Jackson.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1993-07-21, Rik Faith <faith@cs.unc.edu>
+.\" Modified 1994-08-21, Michael Chastain <mec@shell.portal.com>:
+.\"   Fixed typoes.
+.\" Modified 1997-01-31, Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 2002-09-28, aeb
+.\"
+.TH DUP 2 1994-08-21 "Linux 1.1.46" "Linux Programmer's Manual"
+.SH NAME
+dup, dup2 \- duplicate a file descriptor
+.SH SYNOPSIS
+.nf
+.B #include <unistd.h>
+.sp
+.BI "int dup(int " oldfd );
+.BI "int dup2(int " oldfd ", int " newfd );
+.fi
+.SH DESCRIPTION
+.BR dup " and " dup2
+create a copy of the file descriptor
+.IR oldfd .
+
+After successful return of \fBdup\fR or \fBdup2\fR,
+the old and new descriptors may be used interchangeably. They share
+locks, file position pointers and flags; for example, if the file
+position is modified by using
+.B lseek
+on one of the descriptors, the position is also changed for the other.
+
+The two descriptors do not share the close-on-exec flag, however.
+
+.B dup
+uses the lowest-numbered unused descriptor for the new descriptor.
+
+.B dup2
+.RI "makes " newfd " be the copy of " oldfd ", closing " newfd
+first if necessary.
+.SH "RETURN VALUE"
+.BR dup " and " dup2
+return the new descriptor, or \-1 if an error occurred (in which case,
+.I errno
+is set appropriately).
+.SH ERRORS
+.TP
+.B EBADF
+.I oldfd
+isn't an open file descriptor, or
+.I newfd
+is out of the allowed range for file descriptors.
+.TP
+.B EBUSY
+(Linux only) This may be returned by
+.B dup2
+during a race condition with open() and dup().
+.TP
+.B EINTR
+The
+.B dup2
+call was interrupted by a signal.
+.TP
+.B EMFILE
+The process already has the maximum number of file
+descriptors open and tried to open a new one.
+.SH WARNING
+The error returned by
+.B dup2
+is different from that returned by
+.BR fcntl( "..., " F_DUPFD ", ..." )
+when
+.I newfd
+is out of range. On some systems
+.B dup2
+also sometimes returns
+.B EINVAL
+like
+.BR F_DUPFD .
+.SH BUGS
+If
+.I newfd
+was open, any errors that would have been reported at
+.IR close ()
+time, are lost. A careful programmer will not use
+.B dup2
+without closing
+.I newfd
+first.
+.SH "CONFORMING TO"
+SVr4, SVID, POSIX, X/OPEN, BSD 4.3. SVr4 documents additional
+EINTR and ENOLINK error conditions.  POSIX.1 adds EINTR.
+The EBUSY return is Linux-specific.
+.SH "SEE ALSO"
+.BR close (2),
+.BR fcntl (2),
+.BR open (2)

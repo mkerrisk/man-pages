@@ -1,0 +1,168 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PCLOSE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pclose 
+.SH NAME
+pclose \- close a pipe stream to or from a process
+.SH SYNOPSIS
+.LP
+\fB#include <stdio.h>
+.br
+.sp
+int pclose(FILE *\fP\fIstream\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIpclose\fP() function shall close a stream that was opened by
+\fIpopen\fP(), wait
+for the command to terminate, and return the termination status of
+the process that was running the command language interpreter.
+However, if a call caused the termination status to be unavailable
+to \fIpclose\fP(), then \fIpclose\fP() shall return -1 with
+\fIerrno\fP set to [ECHILD] to report this situation. This can happen
+if the application calls one of the following functions:
+.IP " *" 3
+\fIwait\fP()
+.LP
+.IP " *" 3
+\fIwaitpid\fP() with a \fIpid\fP argument less than or equal to 0
+or equal to the
+process ID of the command line interpreter
+.LP
+.IP " *" 3
+Any other function not defined in this volume of IEEE\ Std\ 1003.1-2001
+that could do one of the above
+.LP
+.LP
+In any case, \fIpclose\fP() shall not return before the child process
+created by \fIpopen\fP() has terminated.
+.LP
+If the command language interpreter cannot be executed, the child
+termination status returned by \fIpclose\fP() shall be as if
+the command language interpreter terminated using \fIexit\fP(127)
+or \fI_exit\fP(127).
+.LP
+The \fIpclose\fP() function shall not affect the termination status
+of any child of the calling process other than the one
+created by \fIpopen\fP() for the associated stream.
+.LP
+If the argument \fIstream\fP to \fIpclose\fP() is not a pointer to
+a stream created by \fIpopen\fP(), the result of \fIpclose\fP() is
+undefined.
+.SH RETURN VALUE
+.LP
+Upon successful return, \fIpclose\fP() shall return the termination
+status of the command language interpreter. Otherwise,
+\fIpclose\fP() shall return -1 and set \fIerrno\fP to indicate the
+error.
+.SH ERRORS
+.LP
+The \fIpclose\fP() function shall fail if:
+.TP 7
+.B ECHILD
+The status of the child process could not be obtained, as described
+above.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+There is a requirement that \fIpclose\fP() not return before the child
+process terminates. This is intended to disallow
+implementations that return [EINTR] if a signal is received while
+waiting. If \fIpclose\fP() returned before the child terminated,
+there would be no way for the application to discover which child
+used to be associated with the stream, and it could not do the
+cleanup itself.
+.LP
+If the stream pointed to by \fIstream\fP was not created by \fIpopen\fP(),
+historical
+implementations of \fIpclose\fP() return -1 without setting \fIerrno\fP.
+To avoid requiring \fIpclose\fP() to set \fIerrno\fP
+in this case, IEEE\ Std\ 1003.1-2001 makes the behavior unspecified.
+An application should not use \fIpclose\fP() to close
+any stream that was not created by \fIpopen\fP().
+.LP
+Some historical implementations of \fIpclose\fP() either block or
+ignore the signals SIGINT, SIGQUIT, and SIGHUP while waiting
+for the child process to terminate. Since this behavior is not described
+for the \fIpclose\fP() function in
+IEEE\ Std\ 1003.1-2001, such implementations are not conforming. Also,
+some historical implementations return [EINTR] if a
+signal is received, even though the child process has not terminated.
+Such implementations are also considered non-conforming.
+.LP
+Consider, for example, an application that uses:
+.sp
+.RS
+.nf
+
+\fBpopen("command", "r")
+\fP
+.fi
+.RE
+.LP
+to start \fIcommand\fP, which is part of the same application. The
+parent writes a prompt to its standard output (presumably
+the terminal) and then reads from the \fIpopen\fP()ed stream. The
+child reads the response
+from the user, does some transformation on the response (pathname
+expansion, perhaps) and writes the result to its standard output.
+The parent process reads the result from the pipe, does something
+with it, and prints another prompt. The cycle repeats. Assuming
+that both processes do appropriate buffer flushing, this would be
+expected to work.
+.LP
+To conform to IEEE\ Std\ 1003.1-2001, \fIpclose\fP() must use \fIwaitpid\fP(),
+or some similar function, instead of \fIwait\fP().
+.LP
+The code sample below illustrates how the \fIpclose\fP() function
+might be implemented on a system conforming to
+IEEE\ Std\ 1003.1-2001.
+.sp
+.RS
+.nf
+
+\fBint pclose(FILE *stream)
+{
+    int stat;
+    pid_t pid;
+.sp
+
+    pid = <pid for process created for stream by popen()>
+    (void) fclose(stream);
+    while (waitpid(pid, &stat, 0) == -1) {
+        if (errno != EINTR){
+            stat = -1;
+            break;
+        }
+    }
+    return(stat);
+}
+\fP
+.fi
+.RE
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIfork\fP() , \fIpopen\fP() , \fIwaitpid\fP() ,
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<stdio.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

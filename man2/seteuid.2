@@ -1,0 +1,96 @@
+.\" Copyright (C) 2001 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" [should really be seteuid.3]
+.\" Modified, 27 May 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"     Added notes on capability requirements
+.\"
+.TH SETEGID 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.SH NAME
+seteuid, setegid \- set effective user or group ID
+.SH SYNOPSIS
+.B #include <sys/types.h>
+.br
+.B #include <unistd.h>
+.sp
+.BI "int seteuid(uid_t " euid );
+.br
+.BI "int setegid(gid_t " egid );
+.SH DESCRIPTION
+.B seteuid
+sets the effective user ID of the current process.
+Unprivileged user processes may only set the effective user ID to the
+real user ID, the effective user ID or the saved user ID.
+
+Precisely the same holds for
+.B setegid
+with "group" instead of "user".
+
+.\" When
+.\" .I euid
+.\" equals \-1, nothing is changed.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.\" .TP
+.\" .B EINVAL
+.TP
+.B EPERM
+The current process is not privileged (Linux: does not have the
+.B CAP_SETUID
+capability in the case of
+.BR seteuid (),
+or the
+.B CAP_SETGID
+capability in the case of
+.BR setegid ())
+and
+.I euid
+(resp.
+.IR egid )
+is not the real user (group) ID, the effective user (group) ID
+or the saved user (group) ID.
+.SH NOTES
+Setting the effective user (group) ID to the saved user (group) ID is
+possible since Linux 1.1.37 (1.1.38).
+On an arbitrary system one should check _POSIX_SAVED_IDS.
+.LP
+Under libc4, libc5 and glibc2.0
+.BI seteuid( euid )
+is equivalent to 
+.BI setreuid(-1, " euid" )
+and hence may change the saved user ID.
+Under glibc2.1 it is equivalent to
+.BI setresuid(-1, " euid" ,-1)
+and hence does not change the saved user ID.
+Similar remarks hold for
+.BR setegid .
+.SH "CONFORMING TO"
+BSD 4.3
+.SH "SEE ALSO"
+.BR geteuid (2),
+.BR setresuid (2),
+.BR setreuid (2),
+.BR setuid (2),
+.BR capabilities (7)

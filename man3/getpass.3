@@ -1,0 +1,104 @@
+.\" Copyright (c) 2000 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH GETPASS 3  2000-12-05 "Linux Manpage" "Linux Programmer's Manual"
+.SH NAME
+getpass \- get a password
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.B "char *getpass( const char *" prompt );
+.SH DESCRIPTION
+This function is obsolete. Do not use it.
+.PP
+The
+.BR getpass ()
+function opens
+.I /dev/tty
+(the controlling terminal of the process), outputs the string
+.IR prompt ,
+turns off echoing, reads one line (the "password"),
+restores the terminal state and closes
+.I /dev/tty
+again.
+.SH "RETURN VALUE"
+The function
+.B getpass
+returns a pointer to a static buffer containing the
+(first PASS_MAX bytes of) the password without the trailing
+newline, terminated by a NUL.
+This buffer may be overwritten by a following call.
+On error, the terminal state is restored,
+.I errno
+is set appropriately, and NULL is returned.
+.SH ERRORS
+The function may fail if
+.TP
+.B ENXIO
+The process does not have a controlling terminal. 
+.SH NOTES
+For libc4 and libc5, the prompt is not written to
+.I /dev/tty
+but to
+.IR stderr .
+Moreover, if
+.I /dev/tty
+cannot be opened, the password is read from
+.IR stdin .
+The static buffer has length 128 so that only the first 127
+bytes of the password are returned.
+While reading the password, signal generation (SIGINT, SIGQUIT,
+SIGSTOP, SIGTSTOP) is disabled and the corresponding characters
+(usually control-C, control-\e, control-Z and control-Y)
+are transmitted as part of the password.
+Since libc 5.4.19 also line editing is disabled, so that also
+backspace and the like will be seen as part of the password.
+.PP
+For glibc2, if
+.I /dev/tty
+cannot be opened, the prompt is written to
+.I stderr
+and the password is read from
+.IR stdin .
+There is no limit on the length of the password.
+Line editing is not disabled.
+.PP
+According to the SUSv2, the value of PASS_MAX must be defined in
+.I <limits.h>
+in case it is smaller than 8, and can in any case be obtained using
+.IR sysconf(_SC_PASS_MAX) .
+However, POSIX.2 withdraws the constants PASS_MAX
+and _SC_PASS_MAX, and the function
+.B getpass ().
+Libc4 and libc5 have never supported PASS_MAX or _SC_PASS_MAX.
+Glibc2 accepts _SC_PASS_MAX and returns BUFSIZ (e.g., 8192).
+.SH FILES
+.I /dev/tty
+.SH "SEE ALSO"
+.BR crypt (3)
+.SH HISTORY
+A
+.B getpass
+function appeared in Version 7 AT&T UNIX.
+.SH BUGS
+The calling process should zero the password as soon as possible to avoid
+leaving the cleartext password visible in the process's address space.

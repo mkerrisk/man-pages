@@ -1,0 +1,117 @@
+.\" Copyright (c) 2003 Andries Brouwer (aeb@cwi.nl)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.TH AIO_WRITE 3 2003-11-14  "" "Linux Programmer's Manual"
+.SH NAME
+aio_write \- asynchronous write
+.SH SYNOPSIS
+.sp
+.B "#include <aio.h>"
+.sp
+.BI "int aio_write(struct aiocb *" aiocbp );
+.sp
+.SH DESCRIPTION
+The
+.B aio_write
+function requests an asynchronous "n = write(fd, buf, count)"
+with fd, buf, count given by
+.IR aiocbp->aio_fildes ,
+.IR aiocbp->aio_buf ,
+.IR aiocbp->aio_nbytes ,
+respectively. The return status n can be retrieved upon completion using
+.BR aio_return (3).
+.LP
+If O_APPEND is not set, the data is written starting at the
+absolute file offset
+.IR aiocbp->aio_offset ,
+regardless of the current file position.
+If O_APPEND is set, the data is written at the end of the file.
+After this request, the value of the current file position is unspecified.
+.LP
+The "asynchronous" means that this call returns as soon as the
+request has been enqueued; the write may or may not have completed
+when the call returns. One tests for completion using
+.BR aio_error (3).
+.LP
+If _POSIX_PRIORITIZED_IO is defined, and this file supports it,
+then the asynchronous operation is submitted at a priority equal
+to that of the calling process minus
+.IR aiocbp->aio_reqprio .
+.LP
+The field
+.I aiocbp->aio_lio_opcode
+is ignored.
+.LP
+No data is written to a regular file beyond its maximum offset.
+.SH "RETURN VALUE"
+On success, 0 is returned. On error the request is not enqueued, \-1
+is returned, and
+.I errno
+is set appropriately. If an error is first detected later, it will
+be reported via
+.BR aio_return (3)
+(returns status \-1) and
+.BR aio_error (3)
+(error status whatever one would have gotten in
+.IR errno ,
+such as EBADF).
+.SH ERRORS
+.TP
+.B EAGAIN
+Out of resources.
+.TP
+.B EBADF
+.I aio_fildes
+is not a valid file descriptor open for writing.
+.TP
+.B EFBIG
+The file is a regular file, we want to write at least one byte,
+but the starting position is at or beyond the maximum offset for this file.
+.TP
+.B EINVAL
+One or more of
+.IR aio_offset ,
+.IR aio_reqprio ,
+.IR aio_nbytes
+are invalid.
+.TP
+.B ENOSYS
+This function is not supported.
+
+.SH NOTES
+It is a good idea to zero out the control block before use.
+This control block must not be changed while the write operation
+is in progress.
+The buffer area being written out
+.\" or the control block of the operation
+must not be accessed during the operation or undefined results may
+occur. The memory areas involved must remain valid.
+
+.SH "CONFORMING TO"
+POSIX 1003.1-2003
+.SH "SEE ALSO"
+.BR aio_cancel (3),
+.BR aio_error (3),
+.BR aio_fsync (3),
+.BR aio_read (3),
+.BR aio_return (3),
+.BR aio_suspend (3)

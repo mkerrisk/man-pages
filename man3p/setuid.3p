@@ -1,0 +1,199 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SETUID" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" setuid 
+.SH NAME
+setuid \- set user ID
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int setuid(uid_t\fP \fIuid\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+If the process has appropriate privileges, \fIsetuid\fP() shall set
+the real user ID, effective user ID, and the saved
+set-user-ID of the calling process to \fIuid\fP.
+.LP
+If the process does not have appropriate privileges, but \fIuid\fP
+is equal to the real user ID or the saved set-user-ID,
+\fIsetuid\fP() shall set the effective user ID to \fIuid\fP; the real
+user ID and saved set-user-ID shall remain unchanged.
+.LP
+The \fIsetuid\fP() function shall not affect the supplementary group
+list in any way.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIsetuid\fP() function shall fail, return -1, and set \fIerrno\fP
+to the corresponding value if one or more of the
+following are true:
+.TP 7
+.B EINVAL
+The value of the \fIuid\fP argument is invalid and not supported by
+the implementation.
+.TP 7
+.B EPERM
+The process does not have appropriate privileges and \fIuid\fP does
+not match the real user ID or the saved set-user-ID.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+The various behaviors of the \fIsetuid\fP() and \fIsetgid\fP() functions
+when called by
+non-privileged processes reflect the behavior of different historical
+implementations. For portability, it is recommended that new
+non-privileged applications use the \fIseteuid\fP() and \fIsetegid\fP()
+functions instead.
+.LP
+The saved set-user-ID capability allows a program to regain the effective
+user ID established at the last \fIexec\fP call. Similarly, the saved
+set-group-ID capability allows a program to regain the effective
+group ID established at the last \fIexec\fP call. These capabilities
+are derived from System
+V. Without them, a program might have to run as superuser in order
+to perform the same functions, because superuser can write on
+the user's files. This is a problem because such a program can write
+on any user's files, and so must be carefully written to
+emulate the permissions of the calling process properly. In System
+V, these capabilities have traditionally been implemented only
+via the \fIsetuid\fP() and \fIsetgid\fP() functions for non-privileged
+processes. The fact
+that the behavior of those functions was different for privileged
+processes made them difficult to use. The POSIX.1-1990 standard
+defined the \fIsetuid\fP() function to behave differently for privileged
+and unprivileged users. When the caller had the
+appropriate privilege, the function set the calling process' real
+user ID, effective user ID, and saved set-user ID on
+implementations that supported it. When the caller did not have the
+appropriate privilege, the function set only the effective user
+ID, subject to permission checks. The former use is generally needed
+for utilities like \fIlogin\fP and \fIsu\fP, which are not
+conforming applications and thus outside the scope of IEEE\ Std\ 1003.1-2001.
+These utilities wish to change the user ID
+irrevocably to a new value, generally that of an unprivileged user.
+The latter use is needed for conforming applications that are
+installed with the set-user-ID bit and need to perform operations
+using the real user ID.
+.LP
+IEEE\ Std\ 1003.1-2001 augments the latter functionality with a mandatory
+feature named _POSIX_SAVED_IDS. This feature
+permits a set-user-ID application to switch its effective user ID
+back and forth between the values of its \fIexec\fP-time real user
+ID and effective user ID. Unfortunately, the POSIX.1-1990 standard
+did not
+permit a conforming application using this feature to work properly
+when it happened to be executed with the
+(implementation-defined) appropriate privilege. Furthermore, the application
+did not even have a means to tell whether it had this
+privilege. Since the saved set-user-ID feature is quite desirable
+for applications, as evidenced by the fact that NIST required it
+in FIPS 151-2, it has been mandated by IEEE\ Std\ 1003.1-2001. However,
+there are implementors who have been reluctant to
+support it given the limitation described above.
+.LP
+The 4.3BSD system handles the problem by supporting separate functions:
+\fIsetuid\fP() (which always sets both the real and
+effective user IDs, like \fIsetuid\fP() in IEEE\ Std\ 1003.1-2001
+for privileged users), and \fIseteuid\fP() (which always sets just
+the effective user ID, like \fIsetuid\fP() in
+IEEE\ Std\ 1003.1-2001 for non-privileged users). This separation
+of functionality into distinct functions seems desirable.
+4.3BSD does not support the saved set-user-ID feature. It supports
+similar functionality of switching the effective user ID back
+and forth via \fIsetreuid\fP(), which permits reversing the real and
+effective user IDs.
+This model seems less desirable than the saved set-user-ID because
+the real user ID changes as a side effect. The current 4.4BSD
+includes saved effective IDs and uses them for \fIseteuid\fP() and
+\fIsetegid\fP() as described above. The \fIsetreuid\fP()
+and \fIsetregid\fP() functions will be deprecated or removed.
+.LP
+The solution here is:
+.IP " *" 3
+Require that all implementations support the functionality of the
+saved set-user-ID, which is set by the \fIexec\fP functions and by
+privileged calls to \fIsetuid\fP().
+.LP
+.IP " *" 3
+Add the \fIseteuid\fP() and \fIsetegid\fP()
+functions as portable alternatives to \fIsetuid\fP() and \fIsetgid\fP()
+for non-privileged
+and privileged processes.
+.LP
+.LP
+Historical systems have provided two mechanisms for a set-user-ID
+process to change its effective user ID to be the same as its
+real user ID in such a way that it could return to the original effective
+user ID: the use of the \fIsetuid\fP() function in the
+presence of a saved set-user-ID, or the use of the BSD \fIsetreuid\fP()
+function, which
+was able to swap the real and effective user IDs. The changes included
+in IEEE\ Std\ 1003.1-2001 provide a new mechanism
+using \fIseteuid\fP() in conjunction with a saved set-user-ID. Thus,
+all implementations
+with the new \fIseteuid\fP() mechanism will have a saved set-user-ID
+for each process, and
+most of the behavior controlled by _POSIX_SAVED_IDS has been changed
+to agree with the case where the option was defined. The \fIkill\fP()
+function is an exception. Implementors of the new \fIseteuid\fP()
+mechanism will generally be required to maintain compatibility with
+the older
+mechanisms previously supported by their systems. However, compatibility
+with this use of \fIsetreuid\fP() and with the _POSIX_SAVED_IDS behavior
+of \fIkill\fP() is unfortunately complicated. If an implementation
+with a saved set-user-ID allows a
+process to use \fIsetreuid\fP() to swap its real and effective user
+IDs, but were to
+leave the saved set-user-ID unmodified, the process would then have
+an effective user ID equal to the original real user ID, and
+both real and saved set-user-ID would be equal to the original effective
+user ID. In that state, the real user would be unable to
+kill the process, even though the effective user ID of the process
+matches that of the real user, if the \fIkill\fP() behavior of _POSIX_SAVED_IDS
+was used. This is obviously not acceptable. The alternative
+choice, which is used in at least one implementation, is to change
+the saved set-user-ID to the effective user ID during most calls
+to \fIsetreuid\fP(). The standard developers considered that alternative
+to be less
+correct than the retention of the old behavior of \fIkill\fP() in
+such systems. Current
+conforming applications shall accommodate either behavior from \fIkill\fP(),
+and there
+appears to be no strong reason for \fIkill\fP() to check the saved
+set-user-ID rather than
+the effective user ID.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , \fIgetegid\fP() , \fIgeteuid\fP() , \fIgetgid\fP()
+, \fIgetuid\fP() ,
+\fIsetegid\fP() , \fIseteuid\fP() , \fIsetgid\fP() , \fIsetregid\fP()
+, \fIsetreuid\fP() ,
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<sys/types.h>\fP,
+\fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

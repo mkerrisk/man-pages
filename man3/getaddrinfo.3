@@ -1,0 +1,308 @@
+.\" Copyright 2000 Sam Varshavchik <mrsam@courier-mta.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References: RFC 2553
+.TH getaddrinfo 3 2000-12-18 "Linux Man Page" "Linux Programmer's Manual"
+.SH NAME
+getaddrinfo, freeaddrinfo, gai_strerror \- network address and service translation
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <sys/socket.h>
+.B #include <netdb.h>
+.sp
+.BI "int getaddrinfo(const char *" "node" ", const char *" "service" ,
+.BI "                const struct addrinfo *" "hints" ,
+.BI "                struct addrinfo **" "res" );
+.sp
+.BI "void freeaddrinfo(struct addrinfo *" "res" );
+.sp
+.BI "const char *gai_strerror(int " "errcode" );
+.fi
+.SH DESCRIPTION
+The
+.BR getaddrinfo (3)
+function combines the functionality provided by the
+.BR getipnodebyname (3),
+.BR getipnodebyaddr (3),
+.BR getservbyname (3),
+and
+.BR getservbyport (3)
+functions into a single interface.
+The thread-safe
+.BR getaddrinfo (3)
+function creates one or more socket address structures that can be used by the
+.BR bind (2)
+and
+.BR connect (2)
+system calls to create a client or a server socket.
+.PP
+The
+.BR getaddrinfo (3)
+function is not limited to creating IPv4 socket address structures;
+IPv6 socket address structures can be created if IPv6 support is available.
+These socket address structures can be used directly by
+.BR bind (2)
+or
+.BR connect (2),
+to prepare a client or a server socket.
+.PP
+The
+.B addrinfo
+structure used by this function contains the following members:
+.sp
+.nf
+.B struct addrinfo {
+.BI "    int     " "ai_flags" ";"
+.BI "    int     " "ai_family" ";"
+.BI "    int     " "ai_socktype" ";"
+.BI "    int     " "ai_protocol" ";"
+.BI "    size_t  " "ai_addrlen" ";"
+.BI "    struct sockaddr *" "ai_addr" ";"
+.BI "    char   *" "ai_canonname" ";"
+.BI "    struct addrinfo *" "ai_next" ";"
+.B };
+.fi
+.PP
+.BR getaddrinfo (3)
+sets
+.I res
+to point to a dynamically-allocated link list of
+.B addrinfo
+structures, linked by the
+.I ai_next
+member.
+There are several reasons why
+the link list may have more than one
+.B addrinfo
+structure, including: if the network host is
+multi-homed; or if the same service
+is available from multiple socket protocols (one
+.B SOCK_STREAM
+address and another 
+.B SOCK_DGRAM
+address, for example).
+.PP
+The members
+.IR ai_family ,
+.IR ai_socktype ,
+and
+.I ai_protocol
+have the same meaning as the corresponding parameters in the
+.BR socket (2)
+system call.
+The
+.BR getaddrinfo (3)
+function returns socket addresses in either IPv4 or IPv6
+address family,
+.RI "(" "ai_family"
+will be set to either
+.B PF_INET
+or
+.BR PF_INET6 ).
+.PP
+The
+.I hints
+parameter specifies
+the preferred socket type, or protocol.
+A NULL
+.I hints
+specifies that any network address or protocol is acceptable.
+If this parameter is not
+.B NULL
+it points to an
+.B addrinfo
+structure
+whose
+.IR ai_family ,
+.IR ai_socktype ,
+and
+.I ai_protocol
+members specify the preferred socket type.
+.B PF_UNSPEC
+in
+.I ai_family
+specifies any protocol family (either IPv4 or IPv6, for example).
+0 in
+.I ai_socktype
+or
+.I ai_protocol
+specifies that any socket type or protocol is acceptable as well.
+The
+.I ai_flags
+member
+specifies additional options, defined below.
+Multiple flags are specified by logically OR-ing them together.
+All the other members in the
+.I hints
+parameter must contain either 0, or a null pointer.
+.PP
+The
+.I node
+or
+.I service
+parameter, but not both, may be NULL.
+.I node
+specifies either a numerical network address
+(dotted-decimal format for IPv4, hexadecimal format for IPv6)
+or a network hostname, whose network addresses are looked up and resolved.
+If the
+.I ai_flags
+member in the
+.I hints
+parameter contains the
+.B AI_NUMERICHOST
+flag then the
+.I node
+parameter must be a numerical network address.
+The
+.B AI_NUMERICHOST
+flag suppresses any potentially lengthy network host address lookups.
+.PP
+The
+.BR getaddrinfo (3)
+function creates a link list of
+.B addrinfo
+structures, one for each network address subject to any restrictions
+imposed by the
+.I hints
+parameter.
+.I ai_canonname
+is set to point to the official name of the host, if
+.I ai_flags
+in
+.I hints
+includes the
+.B AI_CANONNAME
+flag.
+.IR ai_family ,
+.IR ai_socktype ,
+and
+.I ai_protocol
+specify the socket creation parameters.
+A pointer to the socket address is placed in the
+.I ai_addr
+member, and the length of the socket address, in bytes,
+is placed in the
+.I ai_addrlen
+member.
+.PP
+If
+.I node
+is NULL,
+the
+network address in each socket structure is initialized according to the
+.B AI_PASSIVE
+flag, which is set in the
+.I ai_flags
+member of the
+.I hints
+parameter.
+The network address in each socket structure will be left unspecified
+if
+.B AI_PASSIVE
+flag is set.
+This is used by server applications, which intend to accept
+client connections on any network address.
+The network address will be set to the loopback interface address
+if the
+.B AI_PASSIVE
+flag is not set.
+This is used by client applications, which intend to connect
+to a server running on the same network host.
+.PP
+.I service
+sets the port number in the network address of each socket structure.
+If
+.I service
+is NULL the port number will be left uninitialized.
+.PP
+The
+.BR freeaddrinfo (3)
+function frees the memory that was allocated
+for the dynamically allocated link list
+.IR res .
+.SH "RETURN VALUE"
+.BR getaddrinfo (3)
+returns 0 if it succeeds, or one of the following non-zero error codes:
+.TP
+.B EAI_FAMILY
+The requested address family is not supported at all.
+.TP
+.B EAI_SOCKTYPE
+The requested socket type is not supported at all.
+.TP
+.B EAI_BADFLAGS
+.I ai_flags
+contains invalid flags.
+.TP
+.B EAI_NONAME
+The
+.I node
+or
+.I service
+is not known.
+This error is also returned if both
+.I node
+and
+.I service
+are NULL.
+.TP
+.B EAI_SERVICE
+The requested service is not available for the requested socket type.
+It may be available through another socket type.
+.TP
+.B EAI_ADDRFAMILY
+The specified network host does not have any network addresses in the
+requested address family.
+.TP
+.B EAI_NODATA
+The specified network host exists, but does not have any
+network addresses defined.
+.TP
+.B EAI_MEMORY
+Out of memory.
+.TP
+.B EAI_FAIL
+The name server returned a permanent failure indication.
+.TP
+.B EAI_AGAIN
+The name server returned a temporary failure indication.
+Try again later.
+.TP
+.B EAI_SYSTEM
+Other system error, check
+.I errno
+for details.
+.PP
+The
+.BR gai_strerror (3)
+function translates these error codes to a human readable string,
+suitable for error reporting.
+.SH "CONFORMING TO"
+POSIX 1003.1-2003.
+The
+.B getaddrinfo()
+function is documented in RFC 2553.
+.SH "SEE ALSO"
+.BR getipnodebyaddr (3),
+.BR getipnodebyname (3)

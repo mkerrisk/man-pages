@@ -1,0 +1,424 @@
+.\" Copyright (c) 1983, 1990, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     $Id: recv.2,v 1.3 1999/05/13 11:33:38 freitag Exp $
+.\"
+.\" Modified Sat Jul 24 00:22:20 1993 by Rik Faith <faith@cs.unc.edu>
+.\" Modified Tue Oct 22 17:45:19 1996 by Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 1998,1999 by Andi Kleen
+.\" 2001-06-19 corrected SO_EE_OFFENDER, bug report by James Hawtin
+.\"
+.TH RECV 2 2002-12-31 "Linux Man Page" "Linux Programmer's Manual"
+.SH NAME
+recv, recvfrom, recvmsg \- receive a message from a socket
+.SH SYNOPSIS
+.\" .B #include <sys/uio.h>
+.\" .br
+.B #include <sys/types.h>
+.br
+.B #include <sys/socket.h>
+.sp
+.BI "ssize_t recv(int " s ", void *" buf ", size_t " len ", int " flags );
+.sp
+.BI "ssize_t recvfrom(int " s ", void *" buf ", size_t " len ,
+.BI "int " flags ", struct sockaddr *" from ", socklen_t *" fromlen );
+.sp
+.BI "ssize_t recvmsg(int " s ", struct msghdr *" msg ", int " flags );
+.SH DESCRIPTION
+The
+.B recvfrom
+and
+.B recvmsg
+calls are used to receive messages from a socket, and may be used
+to receive data on a socket whether or not it is connection-oriented.
+.PP
+If
+.I from
+is not NULL, and the underlying protocol provides the source address,
+this source address is filled in.
+.\" (Note: for datagram sockets in both the Unix and Internet domains,
+.\" .I from
+.\" is filled in.
+.\" .I from
+.\" is also filled in for stream sockets in the Unix domain, but is not
+.\" filled in for stream sockets in the Internet domain.)
+.\" [The above notes on AF_UNIX and AF_INET sockets apply as at
+.\" Kernel 2.4.18. (MTK, 22 Jul 02)]
+The argument
+.I fromlen
+is a value-result parameter, initialized to the size of the buffer
+associated with
+.IR from ,
+and modified on return to indicate the actual size of the address stored
+there.
+.PP
+The 
+.B recv
+call is normally used only on a 
+.I connected
+socket (see
+.BR connect (2))
+and is identical to
+.B recvfrom
+with a NULL
+.I from
+parameter. 
+.PP
+All three routines return the length of the message on successful
+completion.  If a message is too long to fit in the supplied buffer, excess
+bytes may be discarded depending on the type of socket the message is
+received from (see
+.BR socket (2)).
+.PP
+If no messages are available at the socket, the receive calls wait for a
+message to arrive, unless the socket is nonblocking (see
+.BR fcntl (2))
+in which case the value \-1 is returned and the external variable
+.I errno
+set to
+.BR EAGAIN .
+The receive calls normally return any data available, up to the requested
+amount, rather than waiting for receipt of the full amount requested.
+.PP
+The
+.BR select (2) 
+or
+.BR poll (2)
+call may be used to determine when more data arrives.
+.PP
+The
+.I flags
+argument to a recv call is formed by 
+.IR OR 'ing
+one or more of the following values:
+.TP
+.B MSG_OOB
+This flag requests receipt of out-of-band data that would not be received
+in the normal data stream.  Some protocols place expedited data
+at the head of the normal data queue, and thus this flag cannot
+be used with such protocols.
+.TP
+.B MSG_PEEK
+This flag causes the receive operation to return data from the beginning of the
+receive queue without removing that data from the queue.  Thus, a
+subsequent receive call will return the same data.
+.TP
+.B MSG_WAITALL
+This flag requests that the operation block until the full request is
+satisfied.  However, the call may still return less data than requested if
+a signal is caught, an error or disconnect occurs, or the next data to be
+received is of a different type than that returned.
+.TP
+.B MSG_TRUNC
+Return the real length of the packet, even when it was longer than
+the passed buffer. Only valid for packet sockets.
+.TP
+.B MSG_ERRQUEUE
+This flag
+specifies that queued errors should be received from the socket error queue.
+The error is passed in
+an ancillary message with a type dependent on the protocol (for IPv4
+.BR IP_RECVERR ).
+The user should supply a buffer of sufficient size. See 
+.BR cmsg (3)
+and
+.BR ip (7)
+for more information.
+The payload of the original packet that caused the error
+is passed as normal data via
+.BR msg_iovec .
+The original destination address of the datagram that caused the error
+is supplied via
+.BR msg_name .
+.IP
+For local errors, no address is passed (this can be checked with the
+.I cmsg_len
+member of the
+.BR cmsghdr ).
+For error receives, the
+.B MSG_ERRQUEUE
+is set in the
+.BR msghdr .
+After an error has been passed, the pending socket error
+is regenerated based on the next queued error and will be passed
+on the next socket operation.
+
+The error is supplied in a 
+.B sock_extended_err
+structure:
+.IP
+.RS
+.ne 18
+.nf
+.ta 4n 20n 32n
+#define SO_EE_ORIGIN_NONE	0
+#define SO_EE_ORIGIN_LOCAL	1
+#define SO_EE_ORIGIN_ICMP	2
+#define SO_EE_ORIGIN_ICMP6	3
+
+struct sock_extended_err
+{
+	u_int32_t	ee_errno;	/* error number */
+	u_int8_t	ee_origin;	/* where the error originated */ 
+	u_int8_t	ee_type;	/* type */
+	u_int8_t	ee_code;	/* code */
+	u_int8_t	ee_pad;
+	u_int32_t	ee_info;	/* additional information */
+	u_int32_t	ee_data;	/* other data */  
+	/* More data may follow */ 
+};
+
+struct sockaddr *SO_EE_OFFENDER(struct sock_extended_err *);
+.ta
+.fi
+.RE
+.IP
+.B ee_errno 
+contains the errno number of the queued error. 
+.B ee_origin
+is the origin code of where the error originated. 
+The other fields are protocol specific. The macro
+.B SOCK_EE_OFFENDER 
+returns a pointer to the address of the network object
+where the error originated from given a pointer to the ancillary message.
+If this address is not known, the
+.I sa_family 
+member of the 
+.B sockaddr 
+contains 
+.B AF_UNSPEC
+and the other fields of the 
+.B sockaddr 
+are undefined. The payload of the packet
+that caused the error is passed as normal data. 
+.IP
+For local errors, no address is passed (this
+can be checked with the 
+.I cmsg_len 
+member of the 
+.BR cmsghdr ). 
+For error receives,
+the 
+.B MSG_ERRQUEUE 
+is set in the 
+.BR msghdr . 
+After an error has been passed, the pending socket error
+is regenerated based on the next queued error and will be passed
+on the next socket operation.
+.PP
+The
+.B recvmsg
+call uses a 
+.I msghdr
+structure to minimize the number of directly supplied parameters.  This
+structure has the following form, as defined in
+.IR <sys/socket.h> :
+.IP
+.RS
+.nf
+.ta 4n 17n 33n
+struct msghdr {
+	void	* msg_name;	/* optional address */
+	socklen_t	msg_namelen;	/* size of address */
+	struct iovec	* msg_iov;	/* scatter/gather array */
+	size_t	msg_iovlen;	/* # elements in msg_iov */
+	void	* msg_control;	/* ancillary data, see below */
+	socklen_t	msg_controllen;	/* ancillary data buffer len */
+	int	msg_flags;	/* flags on received message */
+};
+.ta
+.fi
+.RE
+.PP
+Here
+.I msg_name
+and
+.I msg_namelen
+specify the source address if the socket is unconnected;
+.I msg_name
+may be given as a null pointer if no names are desired or required.
+The fields
+.I msg_iov
+and
+.I msg_iovlen
+describe scatter-gather locations, as discussed in
+.BR readv (2).
+The field
+.IR msg_control ,
+which has length
+.IR msg_controllen ,
+points to a buffer for other protocol control related messages or 
+miscellaneous ancillary data. When 
+.B recvmsg 
+is called, 
+.I msg_controllen
+should contain the length of the available buffer in 
+.IR msg_control ; 
+upon return from a successful call it will contain the length
+of the control message sequence.
+.PP
+The messages are of the form:
+.PP
+.RS
+.nf
+.ta 4n 16n 28n
+struct cmsghdr {
+	socklen_t	cmsg_len;	/* data byte count, including hdr */
+	int	cmsg_level;	/* originating protocol */
+	int	cmsg_type;	/* protocol-specific type */
+/* followed by
+	u_char	cmsg_data[]; */
+};
+.ta
+.fi
+.RE
+.PP
+Ancillary data should only be accessed by the macros defined in 
+.BR cmsg (3).
+.PP
+As an example, Linux uses this auxiliary data mechanism to pass extended
+errors, IP options or file descriptors over Unix sockets. 
+.PP
+The
+.I msg_flags
+field in the msghdr is set on return of
+.BR recvmsg ().
+It can contain several flags:
+.TP
+.B MSG_EOR
+indicates end-of-record; the data returned completed a record (generally
+used with sockets of type
+.BR SOCK_SEQPACKET ).
+.TP
+.B MSG_TRUNC
+indicates that the trailing portion of a datagram was discarded because the
+datagram was larger than the buffer supplied.
+.TP
+.B MSG_CTRUNC
+indicates that some control data were discarded due to lack of space in the
+buffer for ancillary data.
+.TP
+.B MSG_OOB
+is returned to indicate that expedited or out-of-band data were received.
+.TP
+.B MSG_ERRQUEUE
+indicates that no data was received but an extended error from the socket
+error queue.
+.TP
+.B MSG_DONTWAIT
+Enables non-blocking operation; if the operation would block,
+.B EAGAIN
+is returned (this can also be enabled using the
+.B O_NONBLOCK
+with the
+.B F_SETFL
+.BR fcntl (2)).
+.SH "RETURN VALUE"
+These calls return the number of bytes received, or \-1
+if an error occurred. The return value will be 0 when the
+peer has performed an orderly shutdown.
+.SH ERRORS
+These are some standard errors generated by the socket layer. Additional errors
+may be generated and returned from the underlying protocol modules; see their
+manual pages.
+.TP
+.B EAGAIN
+The socket is marked non-blocking and the receive operation
+would block, or a receive timeout had been set and the timeout expired
+before data was received.
+.TP
+.B EBADF
+The argument
+.I s
+is an invalid descriptor.
+.TP
+.B ECONNREFUSED
+A remote host refused to allow the network connection (typically
+because it is not running the requested service).
+.TP
+.B EFAULT
+The receive buffer pointer(s) point outside the process's
+address space.
+.TP
+.B EINTR
+The receive was interrupted by delivery of a signal before
+any data were available.
+.TP
+.B EINVAL
+Invalid argument passed. 
+.TP
+.B ENOMEM
+Could not allocate memory for recvmsg. 
+.TP
+.B ENOTCONN
+The socket is associated with a connection-oriented protocol
+and has not been connected (see
+.BR connect (2)
+and
+.BR accept (2)).
+.TP
+.B ENOTSOCK
+The argument
+.I s
+does not refer to a socket.
+.SH "CONFORMING TO"
+4.4BSD (these function calls first appeared in 4.2BSD),
+POSIX 1003.1-2001.
+.LP
+POSIX only describes the
+.BR MSG_OOB ,
+.BR MSG_PEEK ,
+and
+.B MSG_WAITALL
+flags.
+.SH NOTE
+The prototypes given above follow glibc2.
+The Single Unix Specification agrees, except that it has return values
+of type `ssize_t' (while BSD 4.* and libc4 and libc5 all have `int').
+The
+.I flags
+argument is `int' in BSD 4.*, but `unsigned int' in libc4 and libc5.
+The
+.I len
+argument is `int' in BSD 4.*, but `size_t' in libc4 and libc5.
+The
+.I fromlen
+argument is `int *' in BSD 4.*, libc4 and libc5.
+The present  `socklen_t *' was invented by POSIX.
+See also
+.BR accept (2).
+.SH "SEE ALSO"
+.BR fcntl (2),
+.BR getsockopt (2),
+.BR read (2),
+.BR select (2),
+.BR socket (2),
+.BR cmsg (3)

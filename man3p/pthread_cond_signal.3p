@@ -1,0 +1,182 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "PTHREAD_COND_BROADCAST" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" pthread_cond_broadcast 
+.SH NAME
+pthread_cond_broadcast, pthread_cond_signal \- broadcast or signal
+a condition
+.SH SYNOPSIS
+.LP
+\fB#include <pthread.h>
+.br
+.sp
+int pthread_cond_broadcast(pthread_cond_t *\fP\fIcond\fP\fB);
+.br
+int pthread_cond_signal(pthread_cond_t *\fP\fIcond\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+These functions shall unblock threads blocked on a condition variable.
+.LP
+The \fIpthread_cond_broadcast\fP() function shall unblock all threads
+currently blocked on the specified condition variable
+\fIcond\fP.
+.LP
+The \fIpthread_cond_signal\fP() function shall unblock at least one
+of the threads that are blocked on the specified condition
+variable \fIcond\fP (if any threads are blocked on \fIcond\fP).
+.LP
+If more than one thread is blocked on a condition variable, the scheduling
+policy shall determine the order in which threads are
+unblocked. When each thread unblocked as a result of a \fIpthread_cond_broadcast\fP()
+or \fIpthread_cond_signal\fP() returns from
+its call to \fIpthread_cond_wait\fP() or \fIpthread_cond_timedwait\fP(),
+the thread shall own the mutex with which it called
+\fIpthread_cond_wait\fP() or \fIpthread_cond_timedwait\fP(). The thread(s)
+that are unblocked shall contend for
+the mutex according to the scheduling policy (if applicable), and
+as if each had called \fIpthread_mutex_lock\fP().
+.LP
+The \fIpthread_cond_broadcast\fP() or \fIpthread_cond_signal\fP()
+functions may be called by a thread whether or not it
+currently owns the mutex that threads calling \fIpthread_cond_wait\fP()
+or \fIpthread_cond_timedwait\fP() have associated with the condition
+variable
+during their waits; however, if predictable scheduling behavior is
+required, then that mutex shall be locked by the thread calling
+\fIpthread_cond_broadcast\fP() or \fIpthread_cond_signal\fP().
+.LP
+The \fIpthread_cond_broadcast\fP() and \fIpthread_cond_signal\fP()
+functions shall have no effect if there are no threads
+currently blocked on \fIcond\fP.
+.SH RETURN VALUE
+.LP
+If successful, the \fIpthread_cond_broadcast\fP() and \fIpthread_cond_signal\fP()
+functions shall return zero; otherwise, an
+error number shall be returned to indicate the error.
+.SH ERRORS
+.LP
+The \fIpthread_cond_broadcast\fP() and \fIpthread_cond_signal\fP()
+function may fail if:
+.TP 7
+.B EINVAL
+The value \fIcond\fP does not refer to an initialized condition variable.
+.sp
+.LP
+These functions shall not return an error code of [EINTR].
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIpthread_cond_broadcast\fP() function is used whenever the shared-variable
+state has been changed in a way that more than
+one thread can proceed with its task. Consider a single producer/multiple
+consumer problem, where the producer can insert multiple
+items on a list that is accessed one item at a time by the consumers.
+By calling the \fIpthread_cond_broadcast\fP() function, the
+producer would notify all consumers that might be waiting, and thereby
+the application would receive more throughput on a
+multi-processor. In addition, \fIpthread_cond_broadcast\fP() makes
+it easier to implement a read-write lock. The
+\fIpthread_cond_broadcast\fP() function is needed in order to wake
+up all waiting readers when a writer releases its lock.
+Finally, the two-phase commit algorithm can use this broadcast function
+to notify all clients of an impending transaction
+commit.
+.LP
+It is not safe to use the \fIpthread_cond_signal\fP() function in
+a signal handler that is invoked asynchronously. Even if it
+were safe, there would still be a race between the test of the Boolean
+\fIpthread_cond_wait\fP() that could not be efficiently eliminated.
+.LP
+Mutexes and condition variables are thus not suitable for releasing
+a waiting thread by signaling from code running in a signal
+handler.
+.SH RATIONALE
+.SS Multiple Awakenings by Condition Signal
+.LP
+On a multi-processor, it may be impossible for an implementation of
+\fIpthread_cond_signal\fP() to avoid the unblocking of more
+than one thread blocked on a condition variable. For example, consider
+the following partial implementation of \fIpthread_cond_wait\fP()
+and \fIpthread_cond_signal\fP(), executed by two threads in
+the order given. One thread is trying to wait on the condition variable,
+another is concurrently executing
+\fIpthread_cond_signal\fP(), while a third thread is already waiting.
+.sp
+.RS
+.nf
+
+\fBpthread_cond_wait(mutex, cond):
+    value = cond->value; /* 1 */
+    pthread_mutex_unlock(mutex); /* 2 */
+    pthread_mutex_lock(cond->mutex); /* 10 */
+    if (value == cond->value) { /* 11 */
+        me->next_cond = cond->waiter;
+        cond->waiter = me;
+        pthread_mutex_unlock(cond->mutex);
+        unable_to_run(me);
+    } else
+        pthread_mutex_unlock(cond->mutex); /* 12 */
+    pthread_mutex_lock(mutex); /* 13 */
+.sp
+
+pthread_cond_signal(cond):
+    pthread_mutex_lock(cond->mutex); /* 3 */
+    cond->value++; /* 4 */
+    if (cond->waiter) { /* 5 */
+        sleeper = cond->waiter; /* 6 */
+        cond->waiter = sleeper->next_cond; /* 7 */
+        able_to_run(sleeper); /* 8 */
+    }
+    pthread_mutex_unlock(cond->mutex); /* 9 */
+\fP
+.fi
+.RE
+.LP
+The effect is that more than one thread can return from its call to
+\fIpthread_cond_wait\fP() or \fIpthread_cond_timedwait\fP() as a result
+of one call to
+\fIpthread_cond_signal\fP(). This effect is called "spurious wakeup".
+Note that the situation is self-correcting in that the
+number of threads that are so awakened is finite; for example, the
+next thread to call \fIpthread_cond_wait\fP() after the sequence of
+events above blocks.
+.LP
+While this problem could be resolved, the loss of efficiency for a
+fringe condition that occurs only rarely is unacceptable,
+especially given that one has to check the predicate associated with
+a condition variable anyway. Correcting this problem would
+unnecessarily reduce the degree of concurrency in this basic building
+block for all higher-level synchronization operations.
+.LP
+An added benefit of allowing spurious wakeups is that applications
+are forced to code a predicate-testing-loop around the
+condition wait. This also makes the application tolerate superfluous
+condition broadcasts or signals on the same condition variable
+that may be coded in some other part of the application. The resulting
+applications are thus more robust. Therefore,
+IEEE\ Std\ 1003.1-2001 explicitly documents that spurious wakeups
+may occur.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpthread_cond_destroy\fP() , \fIpthread_cond_timedwait\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<pthread.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

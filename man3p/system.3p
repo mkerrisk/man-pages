@@ -1,0 +1,315 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "SYSTEM" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" system 
+.SH NAME
+system \- issue a command
+.SH SYNOPSIS
+.LP
+\fB#include <stdlib.h>
+.br
+.sp
+int system(const char *\fP\fIcommand\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+If \fIcommand\fP is a null pointer, the \fIsystem\fP() function shall
+determine whether the host environment has a command
+processor. If \fIcommand\fP is not a null pointer, the \fIsystem\fP()
+function shall pass the string pointed to by \fIcommand\fP
+to that command processor to be executed in an implementation-defined
+manner; this might then cause the program calling
+\fIsystem\fP() to behave in a non-conforming manner or to terminate.
+.LP
+The
+environment of the executed command shall be as if a child process
+were created using \fIfork\fP(), and the child process invoked the
+\fIsh\fP utility
+using \fIexecl\fP() as follows:
+.sp
+.RS
+.nf
+
+\fBexecl(<\fP\fIshell path\fP\fB>, "sh", "-c",\fP \fIcommand\fP\fB, (char *)0);
+\fP
+.fi
+.RE
+.LP
+where <\fIshell path\fP> is an unspecified pathname for the \fIsh\fP
+utility.
+.LP
+The \fIsystem\fP() function shall ignore the SIGINT and SIGQUIT signals,
+and shall block the SIGCHLD signal, while waiting for
+the command to terminate. If this might cause the application to miss
+a signal that would have killed it, then the application
+should examine the return value from \fIsystem\fP() and take whatever
+action is appropriate to the application if the command
+terminated due to receipt of a signal.
+.LP
+The \fIsystem\fP() function shall not affect the termination status
+of any child of the calling processes other than the
+process or processes it itself creates.
+.LP
+The \fIsystem\fP() function shall not return until the child process
+has terminated. 
+.SH RETURN VALUE
+.LP
+If \fIcommand\fP is a null pointer, \fIsystem\fP() shall return non-zero
+to indicate that a command processor is available, or
+zero if none is available.   The \fIsystem\fP() function shall always
+return non-zero when \fIcommand\fP is NULL. 
+.LP
+If
+\fIcommand\fP is not a null pointer, \fIsystem\fP() shall return the
+termination status of the command language interpreter in
+the format specified by \fIwaitpid\fP(). The termination status shall
+be as defined for
+the \fIsh\fP utility; otherwise, the termination status is unspecified.
+If some error prevents
+the command language interpreter from executing after the child process
+is created, the return value from \fIsystem\fP() shall be
+as if the command language interpreter had terminated using \fIexit\fP(127)
+or \fI_exit\fP(127). If a child process cannot be
+created, or if the termination status for the command language interpreter
+cannot be obtained, \fIsystem\fP() shall return -1 and
+set \fIerrno\fP to indicate the error. 
+.SH ERRORS
+.LP
+The
+\fIsystem\fP() function may set \fIerrno\fP values as described by
+\fIfork\fP() . 
+.LP
+In addition, \fIsystem\fP() may fail if:
+.TP 7
+.B ECHILD
+The status of the child process created by \fIsystem\fP() is no longer
+available. 
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+If the return value of \fIsystem\fP() is not -1, its value can be
+decoded through the use of the macros described in \fI<sys/wait.h>\fP.
+For convenience, these macros are also provided in \fI<stdlib.h>\fP.
+.LP
+Note that, while \fIsystem\fP() must ignore SIGINT and SIGQUIT and
+block SIGCHLD while waiting for the child to terminate, the
+handling of signals in the executed command is as specified by \fIfork\fP()
+and \fIexec\fP. For example, if SIGINT is being caught or is set to
+SIG_DFL when \fIsystem\fP() is called,
+then the child is started with SIGINT handling set to SIG_DFL.
+.LP
+Ignoring SIGINT and SIGQUIT in the parent process prevents coordination
+problems (two processes reading from the same terminal,
+for example) when the executed command ignores or catches one of the
+signals. It is also usually the correct action when the user
+has given a command to the application to be executed synchronously
+(as in the \fB'!'\fP command in many interactive
+applications). In either case, the signal should be delivered only
+to the child process, not to the application itself. There is
+one situation where ignoring the signals might have less than the
+desired effect. This is when the application uses \fIsystem\fP()
+to perform some task invisible to the user. If the user typed the
+interrupt character ( \fB"^C"\fP , for example) while
+\fIsystem\fP() is being used in this way, one would expect the application
+to be killed, but only the executed command is killed.
+Applications that use \fIsystem\fP() in this way should carefully
+check the return status from \fIsystem\fP() to see if the
+executed command was successful, and should take appropriate action
+when the command fails.
+.LP
+Blocking SIGCHLD while waiting for the child to terminate prevents
+the application from catching the signal and obtaining status
+from \fIsystem\fP()'s child process before \fIsystem\fP() can get
+the status itself.
+.LP
+The context in which the utility is ultimately executed may differ
+from that in which \fIsystem\fP() was called. For example,
+file descriptors that have the FD_CLOEXEC flag set are closed, and
+the process ID and parent process ID are different. Also, if the
+executed utility changes its environment variables or its current
+working directory, that change is not reflected in the caller's
+context.
+.LP
+There is no defined way for an application to find the specific path
+for the shell. However, \fIconfstr\fP() can provide a value for \fIPATH\fP
+that is guaranteed to find the \fIsh\fP utility.
+.SH RATIONALE
+.LP
+The \fIsystem\fP() function should not be used by programs that have
+set user (or group) ID privileges. The \fIfork\fP() and \fIexec\fP
+family of functions (except \fIexeclp\fP() and \fIexecvp\fP()), should
+be used
+instead. This prevents any unforeseen manipulation of the environment
+of the user that could cause execution of commands not
+anticipated by the calling program.
+.LP
+There are three levels of specification for the \fIsystem\fP() function.
+The ISO\ C standard gives the most basic. It
+requires that the function exists, and defines a way for an application
+to query whether a command language interpreter exists. It
+says nothing about the command language or the environment in which
+the command is interpreted.
+.LP
+IEEE\ Std\ 1003.1-2001 places additional restrictions on \fIsystem\fP().
+It requires that if there is a command
+language interpreter, the environment must be as specified by \fIfork\fP()
+and \fIexec\fP. This ensures, for example, that close-on- \fIexec\fP
+works, that file locks are not inherited, and that the process ID
+is different. It also specifies the return value from
+\fIsystem\fP() when the command line can be run, thus giving the application
+some information about the command's completion
+status.
+.LP
+Finally, IEEE\ Std\ 1003.1-2001 requires the command to be interpreted
+as in the shell command language defined in the
+Shell and Utilities volume of IEEE\ Std\ 1003.1-2001.
+.LP
+Note that, \fIsystem\fP(NULL) is required to return non-zero, indicating
+that there is a command language interpreter. At first
+glance, this would seem to conflict with the ISO\ C standard which
+allows \fIsystem\fP(NULL) to return zero. There is no
+conflict, however. A system must have a command language interpreter,
+and is non-conforming if none is present. It is therefore
+permissible for the \fIsystem\fP() function on such a system to implement
+the behavior specified by the ISO\ C standard as
+long as it is understood that the implementation does not conform
+to IEEE\ Std\ 1003.1-2001 if \fIsystem\fP(NULL) returns
+zero.
+.LP
+It was explicitly decided that when \fIcommand\fP is NULL, \fIsystem\fP()
+should not be required to check to make sure that
+the command language interpreter actually exists with the correct
+mode, that there are enough processes to execute it, and so on.
+The call \fIsystem\fP(NULL) could, theoretically, check for such problems
+as too many existing child processes, and return zero.
+However, it would be inappropriate to return zero due to such a (presumably)
+transient condition. If some condition exists that is
+not under the control of this application and that would cause any
+\fIsystem\fP() call to fail, that system has been rendered
+non-conforming.
+.LP
+Early drafts required, or allowed, \fIsystem\fP() to return with \fIerrno\fP
+set to [EINTR] if it was interrupted with a
+signal. This error return was removed, and a requirement that \fIsystem\fP()
+not return until the child has terminated was added.
+This means that if a \fIwaitpid\fP() call in \fIsystem\fP() exits
+with \fIerrno\fP set
+to [EINTR], \fIsystem\fP() must reissue the \fIwaitpid\fP(). This
+change was made for two
+reasons:
+.IP " 1." 4
+There is no way for an application to clean up if \fIsystem\fP() returns
+[EINTR], short of calling \fIwait\fP(), and that could have the undesirable
+effect of returning the status of children other
+than the one started by \fIsystem\fP().
+.LP
+.IP " 2." 4
+While it might require a change in some historical implementations,
+those implementations already have to be changed because
+they use \fIwait\fP() instead of \fIwaitpid\fP().
+.LP
+.LP
+Note that if the application is catching SIGCHLD signals, it will
+receive such a signal before a successful \fIsystem\fP() call
+returns.
+.LP
+To conform to IEEE\ Std\ 1003.1-2001, \fIsystem\fP() must use \fIwaitpid\fP(),
+or some similar function, instead of \fIwait\fP().
+.LP
+The following code sample illustrates how \fIsystem\fP() might be
+implemented on an implementation conforming to
+IEEE\ Std\ 1003.1-2001.
+.sp
+.RS
+.nf
+
+\fB#include <signal.h>
+int system(const char *cmd)
+{
+    int stat;
+    pid_t pid;
+    struct sigaction sa, savintr, savequit;
+    sigset_t saveblock;
+    if (cmd == NULL)
+        return(1);
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigemptyset(&savintr.sa_mask);
+    sigemptyset(&savequit.sa_mask);
+    sigaction(SIGINT, &sa, &savintr);
+    sigaction(SIGQUIT, &sa, &savequit);
+    sigaddset(&sa.sa_mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &sa.sa_mask, &saveblock);
+    if ((pid = fork()) == 0) {
+        sigaction(SIGINT, &savintr, (struct sigaction *)0);
+        sigaction(SIGQUIT, &savequit, (struct sigaction *)0);
+        sigprocmask(SIG_SETMASK, &saveblock, (sigset_t *)0);
+        execl("/bin/sh", "sh", "-c", cmd, (char *)0);
+        _exit(127);
+    }
+    if (pid == -1) {
+        stat = -1; /* errno comes from fork() */
+    } else {
+        while (waitpid(pid, &stat, 0) == -1) {
+            if (errno != EINTR){
+                stat = -1;
+                break;
+            }
+        }
+    }
+    sigaction(SIGINT, &savintr, (struct sigaction *)0);
+    sigaction(SIGQUIT, &savequit, (struct sigaction *)0);
+    sigprocmask(SIG_SETMASK, &saveblock, (sigset_t *)0);
+    return(stat);
+}
+\fP
+.fi
+.RE
+.LP
+Note that, while a particular implementation of \fIsystem\fP() (such
+as the one above) can assume a particular path for the
+shell, such a path is not necessarily valid on another system. The
+above example is not portable, and is not intended to be.
+.LP
+One reviewer suggested that an implementation of \fIsystem\fP() might
+want to use an environment variable such as \fISHELL\fP
+to determine which command interpreter to use. The supposed implementation
+would use the default command interpreter if the one
+specified by the environment variable was not available. This would
+allow a user, when using an application that prompts for
+command lines to be processed using \fIsystem\fP(), to specify a different
+command interpreter. Such an implementation is
+discouraged. If the alternate command interpreter did not follow the
+command line syntax specified in the Shell and Utilities
+volume of IEEE\ Std\ 1003.1-2001, then changing \fISHELL\fP would
+render \fIsystem\fP() non-conforming. This would affect
+applications that expected the specified behavior from \fIsystem\fP(),
+and since the Shell and Utilities volume of
+IEEE\ Std\ 1003.1-2001 does not mention that \fISHELL\fP affects \fIsystem\fP(),
+the application would not know that it
+needed to unset \fISHELL .\fP
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , \fIpipe\fP() , \fIwaitpid\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<limits.h>\fP, \fI<signal.h>\fP,
+\fI<stdlib.h>\fP, \fI<sys/wait.h>\fP, the
+Shell and Utilities volume of IEEE\ Std\ 1003.1-2001, \fIsh\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

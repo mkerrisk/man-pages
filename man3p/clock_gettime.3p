@@ -1,0 +1,205 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "CLOCK_GETRES" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" clock_getres 
+.SH NAME
+clock_getres, clock_gettime, clock_settime \- clock and timer functions
+(\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <time.h>
+.br
+.sp
+int clock_getres(clockid_t\fP \fIclock_id\fP\fB, struct timespec *\fP\fIres\fP\fB);
+.br
+int clock_gettime(clockid_t\fP \fIclock_id\fP\fB, struct timespec
+*\fP\fItp\fP\fB);
+.br
+int clock_settime(clockid_t\fP \fIclock_id\fP\fB, const struct timespec
+*\fP\fItp\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIclock_getres\fP() function shall return the resolution of any
+clock. Clock resolutions are implementation-defined and
+cannot be set by a process. If the argument \fIres\fP is not NULL,
+the resolution of the specified clock shall be stored in the
+location pointed to by \fIres\fP. If \fIres\fP is NULL, the clock
+resolution is not returned. If the \fItime\fP argument of
+\fIclock_settime\fP() is not a multiple of \fIres\fP, then the value
+is truncated to a multiple of \fIres\fP.
+.LP
+The \fIclock_gettime\fP() function shall return the current value
+\fItp\fP for the specified clock, \fIclock_id\fP.
+.LP
+The \fIclock_settime\fP() function shall set the specified clock,
+\fIclock_id\fP, to the value specified by \fItp\fP. Time
+values that are between two consecutive non-negative integer multiples
+of the resolution of the specified clock shall be truncated
+down to the smaller multiple of the resolution.
+.LP
+A clock may be system-wide (that is, visible to all processes) or
+per-process (measuring time that is meaningful only within a
+process). All implementations shall support a \fIclock_id\fP of CLOCK_REALTIME
+as defined in \fI<time.h>\fP. This clock represents the realtime clock
+for the system. For this clock, the
+values returned by \fIclock_gettime\fP() and specified by \fIclock_settime\fP()
+represent the amount of time (in seconds and
+nanoseconds) since the Epoch. An implementation may also support additional
+clocks. The interpretation of time values for these
+clocks is unspecified.
+.LP
+If the value of the CLOCK_REALTIME clock is set via \fIclock_settime\fP(),
+the new value of the clock shall be used to
+determine the time of expiration for absolute time services based
+upon the CLOCK_REALTIME clock. This applies to the time at which
+armed absolute timers expire. If the absolute time requested at the
+invocation of such a time service is before the new value of
+the clock, the time service shall expire immediately as if the clock
+had reached the requested time normally.
+.LP
+Setting the value of the CLOCK_REALTIME clock via \fIclock_settime\fP()
+shall have no effect on threads that are blocked
+waiting for a relative time service based upon this clock, including
+the \fInanosleep\fP() function; nor on the expiration of relative
+timers based upon this clock.
+Consequently, these time services shall expire when the requested
+relative interval elapses, independently of the new or old value
+of the clock.
+.LP
+If the Monotonic Clock option is supported, all implementations shall
+support a \fIclock_id\fP of CLOCK_MONOTONIC defined in \fI<time.h>\fP.
+This clock represents the monotonic clock for the system. For this
+clock,
+the value returned by \fIclock_gettime\fP() represents the amount
+of time (in seconds and nanoseconds) since an unspecified point
+in the past (for example, system start-up time, or the Epoch). This
+point does not change after system start-up time. The value of
+the CLOCK_MONOTONIC clock cannot be set via \fIclock_settime\fP().
+This function shall fail if it is invoked with a
+\fIclock_id\fP argument of CLOCK_MONOTONIC. 
+.LP
+The effect of setting a clock via \fIclock_settime\fP() on armed per-process
+timers associated with a clock other than
+CLOCK_REALTIME is implementation-defined.
+.LP
+If
+the value of the CLOCK_REALTIME clock is set via \fIclock_settime\fP(),
+the new value of the clock shall be used to determine the
+time at which the system shall awaken a thread blocked on an absolute
+\fIclock_nanosleep\fP() call based upon the CLOCK_REALTIME clock.
+If the absolute time
+requested at the invocation of such a time service is before the new
+value of the clock, the call shall return immediately as if
+the clock had reached the requested time normally.
+.LP
+Setting the value of the CLOCK_REALTIME clock via \fIclock_settime\fP()
+shall have no effect on any thread that is blocked on a
+relative \fIclock_nanosleep\fP() call. Consequently, the call shall
+return when
+the requested relative interval elapses, independently of the new
+or old value of the clock. 
+.LP
+The appropriate privilege to set a particular clock is implementation-defined.
+.LP
+If _POSIX_CPUTIME is defined, implementations shall support clock
+ID values obtained by invoking \fIclock_getcpuclockid\fP(), which
+represent the CPU-time clock of a given process.
+Implementations shall also support the special \fBclockid_t\fP value
+CLOCK_PROCESS_CPUTIME_ID, which represents the CPU-time clock
+of the calling process when invoking one of the \fIclock_*\fP() or
+\fItimer_*\fP() functions. For these clock IDs, the values returned
+by \fIclock_gettime\fP() and
+specified by \fIclock_settime\fP() represent the amount of execution
+time of the process associated with the clock. Changing the
+value of a CPU-time clock via \fIclock_settime\fP() shall have no
+effect on the behavior of the sporadic server scheduling policy
+(see \fIScheduling Policies\fP ). 
+.LP
+If _POSIX_THREAD_CPUTIME is defined, implementations shall support
+clock ID values obtained by invoking \fIpthread_getcpuclockid\fP(),
+which represent the CPU-time clock of a given thread.
+Implementations shall also support the special \fBclockid_t\fP value
+CLOCK_THREAD_CPUTIME_ID, which represents the CPU-time clock
+of the calling thread when invoking one of the \fIclock_*\fP() or
+\fItimer_*\fP() functions. For these clock IDs, the values returned
+by \fIclock_gettime\fP() and
+specified by \fIclock_settime\fP() shall represent the amount of execution
+time of the thread associated with the clock. Changing
+the value of a CPU-time clock via \fIclock_settime\fP() shall have
+no effect on the behavior of the sporadic server scheduling
+policy (see \fIScheduling Policies\fP ). 
+.SH RETURN VALUE
+.LP
+A return value of 0 shall indicate that the call succeeded. A return
+value of -1 shall indicate that an error occurred, and
+\fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fIclock_getres\fP(), \fIclock_gettime\fP(), and \fIclock_settime\fP()
+functions shall fail if:
+.TP 7
+.B EINVAL
+The \fIclock_id\fP argument does not specify a known clock.
+.sp
+.LP
+The \fIclock_settime\fP() function shall fail if:
+.TP 7
+.B EINVAL
+The \fItp\fP argument to \fIclock_settime\fP() is outside the range
+for the given clock ID.
+.TP 7
+.B EINVAL
+The \fItp\fP argument specified a nanosecond value less than zero
+or greater than or equal to 1000 million.
+.TP 7
+.B EINVAL
+The value of the \fIclock_id\fP argument is CLOCK_MONOTONIC. 
+.sp
+.LP
+The \fIclock_settime\fP() function may fail if:
+.TP 7
+.B EPERM
+The requesting process does not have the appropriate privilege to
+set the specified clock.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+These functions are part of the Timers option and need not be available
+on all implementations.
+.LP
+Note that the absolute value of the monotonic clock is meaningless
+(because its origin is arbitrary), and thus there is no need
+to set it. Furthermore, realtime applications can rely on the fact
+that the value of this clock is never set and, therefore, that
+time intervals measured with this clock will not be affected by calls
+to \fIclock_settime\fP().
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclock_getcpuclockid\fP() , \fIclock_nanosleep\fP() , \fIctime\fP()
+, \fImq_timedreceive\fP() , \fImq_timedsend\fP() , \fInanosleep\fP()
+, \fIpthread_mutex_timedlock\fP() , \fIsem_timedwait\fP() , \fItime\fP()
+, \fItimer_create\fP() , \fItimer_getoverrun\fP() , the Base
+Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<time.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,110 @@
+.\" Copyright (C) 2002 Andries Brouwer <aeb@cwi.nl>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH TCGETPGRP 3 2003-01-28 "POSIX" "Linux Programmer's Manual"
+.SH NAME
+tcgetpgrp, tcsetpgrp \- get and set terminal foreground process group
+.SH SYNOPSIS
+.sp
+.BR "#include <unistd.h>"
+.sp
+.BI "pid_t tcgetpgrp(int " fd );
+.sp
+.BI "int tcsetpgrp(int " fd ", pid_t " pgrp );
+.SH DESCRIPTION
+The function
+.B tcgetpgrp()
+returns the process group ID of the foreground process group on the
+terminal associated to
+.IR fd ,
+which must be the controlling terminal of the calling process.
+.\" The process itself may be a background process.
+.LP
+The function
+.B tcsetpgrp()
+makes the process group with process group ID \fIpgrp\fP
+the foreground process group on the terminal associated to
+.IR fd ,
+which must be the controlling terminal of the calling process,
+and still be associated with its session.
+Moreover, \fIpgrp\fP must be a (nonempty) process group belonging to
+the same session as the calling process.
+.LP
+If
+.B tcsetpgrp()
+is called by a member of a background process group in its session,
+and the calling process is not blocking or ignoring SIGTTOU,
+a SIGTTOU signal is sent to all members of this background process group.
+.SH "RETURN VALUE"
+When
+.I fd
+refers to the controlling terminal of the calling process,
+the function
+.B tcgetpgrp()
+will return the foreground process group ID of that terminal
+if there is one, and some value larger than 1 that is not
+presently a process group ID otherwise.
+When
+.I fd
+does not refer to the controlling terminal of the calling process,
+\-1 is returned, and
+.I errno
+is set appropriately.
+.LP
+When successful,
+.B tcsetpgrp()
+returns 0. Otherwise, it returns \-1, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor.
+.TP
+.B EINVAL
+.I pgrp
+has an unsupported value.
+.TP
+.B ENOTTY
+The calling process does not have a controlling terminal, or
+it has one but it is not described by
+.IR fd ,
+or, for
+.BR tcsetpgrp() ,
+this controlling terminal is no longer associated with the session
+of the calling process.
+.TP
+.B EPERM
+.I pgrp
+has a supported value, but is not the process group ID of a
+process in the same session as the calling process.
+.SH NOTES
+These functions are implemented via the TIOCGPGRP and
+TIOCSPGRP ioctls.
+.SH HISTORY
+These ioctls appeared in 4.2 BSD. The functions are POSIX inventions.
+.SH "CONFORMS TO"
+POSIX.1
+.SH "SEE ALSO"
+.BR setpgid (2),
+.BR setsid (2)

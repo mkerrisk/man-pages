@@ -1,0 +1,194 @@
+.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" License.
+.\" Modified Sat Jul 24 19:00:59 1993 by Rik Faith (faith@cs.unc.edu)
+.\" Clarification concerning realloc, iwj10@cus.cam.ac.uk (Ian Jackson), 950701
+.\" Documented MALLOC_CHECK_, Wolfram Gloger (wmglo@dent.med.uni-muenchen.de)
+.\"
+.TH MALLOC 3  1993-04-04 "GNU" "Linux Programmer's Manual"
+.SH NAME
+calloc, malloc, free, realloc \- Allocate and free dynamic memory
+.SH SYNOPSIS
+.nf
+.B #include <stdlib.h>
+.sp
+.BI "void *calloc(size_t " "nmemb" ", size_t " "size" );
+.nl
+.BI "void *malloc(size_t " "size" );
+.nl
+.BI "void free(void " "*ptr" );
+.nl
+.BI "void *realloc(void " "*ptr" ", size_t "  "size" );
+.fi
+.SH DESCRIPTION
+.B calloc()
+allocates memory for an array of 
+.I nmemb
+elements of 
+.I size
+bytes each and returns a pointer to the allocated memory. 
+The memory is set to zero.
+.PP
+.B malloc()
+allocates
+.I size
+bytes and returns a pointer to the allocated memory. 
+The memory is not cleared.
+.PP
+.B free()
+frees the memory space pointed to by
+.IR ptr ,
+which must have been returned by a previous call to
+.BR malloc() ,
+.B calloc()
+or
+.BR realloc() .
+Otherwise, or if
+.BI "free(" "ptr" )
+has already been called before, undefined behaviour occurs.
+If
+.I ptr
+is
+.BR NULL ,
+no operation is performed.
+.PP
+.B realloc()
+changes the size of the memory block pointed to by
+.I ptr
+to
+.I size
+bytes.
+The contents will be unchanged to the minimum of the old and new sizes;
+newly allocated memory will be uninitialized.
+If
+.I ptr
+is
+.BR NULL ,
+the call is equivalent to
+.BR malloc(size) ;
+if size is equal to zero,
+the call is equivalent to
+.BI "free(" "ptr" ) .
+Unless
+.I ptr
+is
+.BR NULL ,
+it must have been returned by an earlier call to
+.BR malloc() ,
+.BR calloc()
+or
+.BR realloc() .
+If the area pointed to was moved, a
+.BI "free(" "ptr" )
+is done.
+.SH "RETURN VALUE"
+For
+.BR calloc() " and " malloc() ,
+the value returned is a pointer to the allocated memory, which is suitably
+aligned for any kind of variable, or
+.B NULL
+if the request fails.
+.PP
+.B free()
+returns no value.
+.PP
+.B realloc()
+returns a pointer to the newly allocated memory, which is suitably
+aligned for any kind of variable and may be different from
+.IR ptr ,
+or
+.B NULL
+if the request fails. If
+.I size
+was equal to 0, either NULL or a pointer suitable to be passed to
+.IR free ()
+is returned.  If
+.B realloc()
+fails the original block is left untouched - it is not freed or moved.
+.SH "CONFORMING TO"
+ANSI-C
+.SH "SEE ALSO"
+.BR brk (2),
+.BR posix_memalign (3)
+.SH NOTES
+The Unix98 standard requires
+.BR malloc() ,
+.BR calloc() ,
+and
+.BR realloc ()
+to set
+.I errno
+to ENOMEM upon failure. Glibc assumes that this is done
+(and the glibc versions of these routines do this); if you
+use a private malloc implementation that does not set
+.IR errno ,
+then certain library routines may fail without having
+a reason in
+.IR errno .
+.LP
+Crashes in
+.BR malloc() ,
+.BR free()
+or
+.BR realloc()
+are almost always related to heap corruption, such as overflowing
+an allocated chunk or freeing the same pointer twice.
+.PP
+Recent versions of Linux libc (later than 5.4.23) and GNU libc (2.x)
+include a malloc implementation which is tunable via environment
+variables.  When
+.BR MALLOC_CHECK_
+is set, a special (less efficient) implementation is used which
+is designed to be tolerant against simple errors, such as double
+calls of
+.BR free()
+with the same argument, or overruns of a single byte (off-by-one
+bugs).  Not all such errors can be protected against, however, and
+memory leaks can result.
+If
+.BR MALLOC_CHECK_
+is set to 0, any detected heap corruption is silently ignored;
+if set to 1, a diagnostic is printed on stderr;
+if set to 2,
+.BR abort()
+is called immediately.  This can be useful because otherwise
+a crash may happen much later, and the true cause for the problem
+is then very hard to track down.
+.SH BUGS
+By default, Linux follows an optimistic memory allocation strategy.
+This means that when
+.B malloc()
+returns non-NULL there is no guarantee that the memory really
+is available. This is a really bad bug.
+In case it turns out that the system is out of memory,
+one or more processes will be killed by the infamous OOM killer.
+In case Linux is employed under circumstances where it would be
+less desirable to suddenly lose some randomly picked processes,
+and moreover the kernel version is sufficiently recent,
+one can switch off this overcommitting behavior using a command like
+.RS
+# echo 2 > /proc/sys/vm/overcommit_memory
+.RE
+See also the kernel Documentation directory, files
+.I vm/overcommit-accounting
+and
+.IR sysctl/vm.txt .

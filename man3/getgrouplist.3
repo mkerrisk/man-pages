@@ -1,0 +1,73 @@
+.\" Copyright 2002 Walter Harms (walter.harms@informatik.uni-oldenburg.de)
+.\" Distributed under GPL
+.\" Thanks to glibc info pages
+.\"
+.\" Modified 2003-11-18, aeb: glibc is broken
+.TH GETGROUPLIST 2 2003-11-18 "GNU" "Linux Programmer's Manual"
+.SH NAME
+getgrouplist \-  list of groups a user belongs to
+.SH SYNOPSIS
+.sp 
+.B #include <grp.h>
+.sp
+.BI "int getgrouplist (const char *" user ", gid_t " group ,
+.in 25
+.BI "gid_t *" groups ", int *" ngroups );
+.SH DESCRIPTION
+The 
+.B getgrouplist()
+function scans the group database for all the groups
+.I user
+belongs to.  Up to
+.RI * ngroups
+group IDs corresponding to these groups are stored in the array
+.IR groups ;
+the return value from the function is the number of group IDs
+actually stored. The group
+.I group
+is automatically included in the list of groups returned by 
+.BR getgroup\%list() .
+.SH "RETURN VALUE"
+If
+.RI * ngroups 
+is smaller than the total number of groups found, then
+.B getgrouplist()
+returns a value of `-1'.
+In all cases the actual number of groups is stored in
+.RI * ngroups .
+.SH BUGS
+The glibc 2.3.2 implementation of this function is broken:
+it overwrites memory when the actual number of groups is larger than
+.RI * ngroups .
+.SH "CONFORMING TO"
+This function is present since glibc 2.2.4.
+.SH EXAMPLE
+.nf
+/* This crashes with glibc 2.3.2 */
+#include <stdio.h>
+#include <stdlib.h>
+#include <grp.h>
+#include <pwd.h>
+
+int main() {
+        int i, ng = 0;
+        char *user = "who";	/* username here */
+        gid_t *groups = NULL;
+        struct passwd *pw = getpwnam(user);
+        if (pw == NULL)
+                return 0;
+
+        if (getgrouplist(user, pw->pw_gid, NULL, &ng) < 0) {
+                groups = (gid_t *) malloc(ng * sizeof (gid_t));
+                getgrouplist(user, pw->pw_gid, groups, &ng);
+        }
+
+        for(i = 0; i < ng; i++)
+                printf("%d\en", groups[i]);
+
+        return 0;
+}
+.fi
+.SH "SEE ALSO"
+.BR getgroups (3),
+.BR setgroups (3)

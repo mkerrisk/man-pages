@@ -1,0 +1,159 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "ACCESS" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" access 
+.SH NAME
+access \- determine accessibility of a file
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int access(const char *\fP\fIpath\fP\fB, int\fP \fIamode\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIaccess\fP() function shall check the file named by the pathname
+pointed to by the \fIpath\fP argument for accessibility
+according to the bit pattern contained in \fIamode\fP, using the real
+user ID in place of the effective user ID and the real group
+ID in place of the effective group ID.
+.LP
+The value of \fIamode\fP is either the bitwise-inclusive OR of the
+access permissions to be checked (R_OK, W_OK, X_OK) or the
+existence test (F_OK).
+.LP
+If any access permissions are checked, each shall be checked individually,
+as described in the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, Chapter 3, Definitions. If the process has
+appropriate
+privileges, an implementation may indicate success for X_OK even if
+none of the execute file permission bits are set.
+.SH RETURN VALUE
+.LP
+If the requested access is permitted, \fIaccess\fP() succeeds and
+shall return 0; otherwise, -1 shall be returned and
+\fIerrno\fP shall be set to indicate the error.
+.SH ERRORS
+.LP
+The \fIaccess\fP() function shall fail if:
+.TP 7
+.B EACCES
+Permission bits of the file mode do not permit the requested access,
+or search permission is denied on a component of the path
+prefix.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B EROFS
+Write access is requested for a file on a read-only file system.
+.sp
+.LP
+The \fIaccess\fP() function may fail if:
+.TP 7
+.B EINVAL
+The value of the \fIamode\fP argument is invalid.
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.TP 7
+.B ETXTBSY
+Write access is requested for a pure procedure (shared text) file
+that is being executed.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Testing for the Existence of a File
+.LP
+The following example tests whether a file named \fBmyfile\fP exists
+in the \fB/tmp\fP directory.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+\&...
+int result;
+const char *filename = "/tmp/myfile";
+.sp
+
+result = access (filename, F_OK);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Additional values of \fIamode\fP other than the set defined in the
+description may be valid; for example, if a system has
+extended access controls.
+.SH RATIONALE
+.LP
+In early proposals, some inadequacies in the \fIaccess\fP() function
+led to the creation of an \fIeaccess\fP() function
+because:
+.IP " 1." 4
+Historical implementations of \fIaccess\fP() do not test file access
+correctly when the process' real user ID is superuser. In
+particular, they always return zero when testing execute permissions
+without regard to whether the file is executable.
+.LP
+.IP " 2." 4
+The superuser has complete access to all files on a system. As a consequence,
+programs started by the superuser and switched to
+the effective user ID with lesser privileges cannot use \fIaccess\fP()
+to test their file access permissions.
+.LP
+.LP
+However, the historical model of \fIeaccess\fP() does not resolve
+problem (1), so this volume of IEEE\ Std\ 1003.1-2001
+now allows \fIaccess\fP() to behave in the desired way because several
+implementations have corrected the problem. It was also
+argued that problem (2) is more easily solved by using \fIopen\fP(),
+\fIchdir\fP(), or one of the \fIexec\fP functions as
+appropriate and responding to the error, rather than creating a new
+function that would not be as reliable. Therefore,
+\fIeaccess\fP() is not included in this volume of IEEE\ Std\ 1003.1-2001.
+.LP
+The sentence concerning appropriate privileges and execute permission
+bits reflects the two possibilities implemented by
+historical implementations when checking superuser access for X_OK.
+.LP
+New implementations are discouraged from returning X_OK unless at
+least one execution permission bit is set.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIchmod\fP() , \fIstat\fP() , the Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,186 @@
+.\"
+.\" Copyright (c) 1993 Michael Haardt (michael@moria.de),
+.\"   Fri Apr  2 11:32:09 MET DST 1993
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" Tue Jul  6 12:42:46 MDT 1993 <dminer@nyx.cs.du.edu>
+.\" Added "Calling Directly" and supporting paragraphs
+.\"
+.\" Modified Sat Jul 24 15:19:12 1993 by Rik Faith <faith@cs.unc.edu>
+.\"
+.\" Modified 21 Aug 1994 by Michael Chastain <mec@shell.portal.com>:
+.\"   Added explanation of arg stacking when 6 or more args.
+.\"
+.\" Modified 10 June 1995 by Andries Brouwer <aeb@cwi.nl>
+.\"
+.TH INTRO 2 1996-05-22 "Linux 1.2.13" "Linux Programmer's Manual"
+.SH NAME
+intro, _syscall \- Introduction to system calls
+.SH DESCRIPTION
+This chapter describes the Linux system calls.
+For a list of the 164 syscalls present in Linux 2.0, see syscalls(2).
+.SS "Calling Directly"
+In most cases, it is unnecessary to invoke a system call directly, but there
+are times when the Standard C library does not implement a nice function call
+for you.
+.SS "Synopsis"
+.B #include <linux/unistd.h>
+
+A _syscall macro
+
+desired system call
+
+.SS Setup
+The important thing to know about a system call is its prototype.  You
+need to know how many arguments, their types, and the function return type.
+There are six macros that make the actual call into the system easier.
+They have the form:
+.sp
+.RS
+.RI _syscall X ( type , name , type1 , arg1 , type2 , arg2 ,...)
+.RS
+.HP
+where \fIX\fP is 0\(en5, which are the number of arguments taken by the 
+system call
+.HP
+\fItype\fP is the return type of the system call
+.HP
+\fIname\fP is the name of the system call
+.HP
+\fItypeN\fP is the Nth argument's type
+.HP
+\fIargN\fP is the name of the Nth argument
+.RE
+.RE
+.sp
+These macros create a function called \fIname\fP with the arguments you
+specify.  Once you include the _syscall() in your source file,
+you call the system call by \fIname\fP.
+.SH EXAMPLE
+.nf
+.sp
+#include <stdio.h>
+#include <errno.h>
+#include <linux/unistd.h>	/* for _syscallX macros/related stuff */
+#include <linux/kernel.h>	/* for struct sysinfo */
+
+_syscall1(int, sysinfo, struct sysinfo *, info);
+
+/* Note: if you copy directly from the nroff source, remember to
+REMOVE the extra backslashes in the printf statement. */
+
+int main(void)
+{
+	struct sysinfo s_info;
+	int error;
+
+	error = sysinfo(&s_info);
+	printf("code error = %d\\n", error);
+        printf("Uptime = %lds\\nLoad: 1 min %lu / 5 min %lu / 15 min %lu\\n"
+                "RAM: total %lu / free %lu / shared %lu\\n"
+                "Memory in buffers = %lu\\nSwap: total %lu / free %lu\\n"
+                "Number of processes = %d\\n",
+		s_info.uptime, s_info.loads[0],
+		s_info.loads[1], s_info.loads[2],
+		s_info.totalram, s_info.freeram,
+		s_info.sharedram, s_info.bufferram,
+		s_info.totalswap, s_info.freeswap,
+		s_info.procs);
+	return(0);
+}
+.fi
+.SH "Sample Output"
+.nf
+code error = 0
+uptime = 502034s
+Load: 1 min 13376 / 5 min 5504 / 15 min 1152
+RAM: total 15343616 / free 827392 / shared 8237056
+Memory in buffers = 5066752
+Swap: total 27881472 / free 24698880
+Number of processes = 40
+.fi
+.SH NOTES
+The _syscall() macros DO NOT produce a prototype.  You may have to
+create one, especially for C++ users.
+.sp
+System calls are not required to return only positive or negative error
+codes.  You need to read the source to be sure how it will return errors.
+Usually, it is the negative of a standard error code, e.g., \-\fBEPERM\fP.
+The _syscall() macros will return the result \fIr\fP of the system call
+when \fIr\fP is nonnegative, but will return \-1 and set the variable
+.I errno
+to \-\fIr\fP when \fIr\fP is negative.
+For the error codes, see
+.BR errno (3).
+.sp
+Some system calls, such as
+.BR mmap ,
+require more than five arguments.  These are handled by pushing the
+arguments on the stack and passing a pointer to the block of arguments.
+.sp
+When defining a system call, the argument types MUST be passed by-value
+or by-pointer (for aggregates like structs).
+.sp
+The preferred way to invoke system calls that glibc does not know
+about yet, is via
+.BR syscall (2).
+.SH "CONFORMING TO"
+Certain codes are used to indicate Unix variants and standards to
+which calls in the section conform.  These are:
+.TP
+SVr4
+System V Release 4 Unix, as described in the "Programmer's Reference
+Manual: Operating System API (Intel processors)" (Prentice-Hall
+1992, ISBN 0-13-951294-2)
+.TP
+SVID
+System V Interface Definition, as described in "The System V Interface
+Definition, Fourth Edition".
+.TP
+POSIX.1
+IEEE 1003.1-1990 part 1, aka ISO/IEC 9945-1:1990s, aka "IEEE Portable
+Operating System Interface for Computing Environments", as elucidated
+in Donald Lewine's "POSIX Programmer's Guide" (O'Reilly & Associates,
+Inc., 1991, ISBN 0-937175-73-0.
+.TP
+POSIX.1b
+IEEE Std 1003.1b-1993 (POSIX.1b standard) describing real-time facilities
+for portable operating systems, aka ISO/IEC 9945-1:1996, as elucidated in
+"Programming for the real world \- POSIX.4"
+by Bill O. Gallmeister (O'Reilly & Associates, Inc. ISBN 1-56592-074-0).
+.TP
+SUS, SUSv2
+Single Unix Specification.
+(Developed by X/Open and The Open Group. See also
+http://www.UNIX-systems.org/version2/ .)
+.TP
+4.3BSD/4.4BSD
+The 4.3 and 4.4 distributions of Berkeley Unix.  4.4BSD was
+upward-compatible from 4.3.
+.TP
+V7
+Version 7, the ancestral Unix from Bell Labs.
+.SH FILES
+.I /usr/include/linux/unistd.h
+.SH "SEE ALSO"
+.BR syscall (2),
+.BR errno (3)

@@ -1,0 +1,200 @@
+.\" Copyright (c) 1993 Luigi P. Bai (lpb@softint.com) July 28, 1993
+.\" Portions Copyright 1993 Giorgio Ciucci <giorgio@crcc.it>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified 1993-07-28, Rik Faith <faith@cs.unc.edu>
+.\" Modified 1993-11-28, Giorgio Ciucci <giorgio@crcc.it>
+.\" Modified 1997-01-31, Eric S. Raymond <esr@thyrsus.com>
+.\" Modified 2001-02-18, Andries Brouwer <aeb@cwi.nl>
+.\" Modified 2002-01-05, 2004-05-27, 2004-06-17,
+.\"    Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified 2004-10-11, aeb
+.\"
+.TH SHMCTL 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
+.SH NAME
+shmctl \- shared memory control
+.SH SYNOPSIS
+.ad l
+.B #include <sys/ipc.h>
+.sp
+.B #include <sys/shm.h>
+.sp
+.BI "int shmctl(int " shmid ", int " cmd ", struct shmid_ds *" buf );
+.ad b
+.SH DESCRIPTION
+\fBshmctl()\fP
+allows the user to receive information on a shared memory segment,
+set the owner, group, and permissions of a shared memory segment,
+or destroy a segment. The information about the segment identified by
+\fIshmid\fP is returned in a \fIshmid_ds\fP
+structure:
+.PP
+.in +4n
+.nf
+struct shmid_ds {
+    struct ipc_perm shm_perm;  /* operation perms */
+    int shm_segsz;             /* size of segment (bytes) */
+    time_t shm_atime;          /* last attach time */
+    time_t shm_dtime;          /* last detach time */
+    time_t shm_ctime;          /* last change time */
+    unsigned short shm_cpid;   /* pid of creator */
+    unsigned short shm_lpid;   /* pid of last operator */
+    short shm_nattch;          /* no. of current attaches */
+    ...
+};
+.fi
+.in -4n
+.PP
+The highlighted fields in the member \fIshm_perm\fP can be set:
+.PP
+.in +4n
+.nf
+struct ipc_perm {
+    key_t  key;
+    \fBushort uid\fP;   /* \fBowner\fP euid and egid */
+    \fBushort gid\fP;
+    ushort cuid;  /* creator euid and egid */
+    ushort cgid;
+    \fBushort mode\fP;  /* lower 9 bits of access modes */
+    ushort seq;   /* sequence number */
+};
+.fi
+.in -4n
+.PP
+The following \fIcmds\fP are available:
+.br
+.TP 12
+.B IPC_STAT
+is used to copy the information about the shared memory segment into
+the buffer \fIbuf\fP. The user must have \fBread\fP access to the
+shared memory segment.
+.TP
+.B IPC_SET
+is used to apply the changes the user has made to the \fIuid\fP, \fIgid\fP,
+or \fImode\fP members of the \fIshm_perms\fP field.  Only the lowest 9 bits
+of \fImode\fP are used.  The
+.I shm_ctime
+member is also updated.  The user must be the owner or creator, or be
+privileged.
+.TP
+.B IPC_RMID
+is used to mark the segment as destroyed. It will actually be destroyed
+after the last detach.  (I.e., when the
+.I shm_nattch
+member of the associated structure
+.I shmid_ds
+is zero.)  The user must be the owner or creator, or be privileged.
+.PP
+The user \fImust\fP ensure that a segment is eventually destroyed; otherwise
+its pages that were faulted in will remain in memory or swap.
+.SS "Linux additions"
+A privileged user can prevent or allow swapping of a shared
+memory segment with the following \fIcmds\fP:
+.br
+.TP 12
+.B SHM_LOCK
+prevents swapping of a shared memory segment. The user must fault in
+any pages that are required to be present after locking is enabled.
+.TP
+.B SHM_UNLOCK
+allows the shared memory segment to be swapped out.
+.PP
+The
+.BR IPC_INFO ,
+.BR SHM_STAT
+and
+.B SHM_INFO
+control calls are used by the
+.BR ipcs (8)
+program to provide information on allocated resources.
+.SH "RETURN VALUE"
+On success, zero is returned.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP 11
+.B EACCES
+\fBIPC_STAT\fP or \fBSHM_STAT\fP is requested and
+\fIshm_perm.modes\fP does not allow read access for
+.IR shmid ,
+and the calling process does not have the
+.BR CAP_IPC_OWNER
+capability.
+.TP
+.B EFAULT
+The argument
+.I cmd
+has value
+.B IPC_SET
+or
+.B IPC_STAT
+but the address pointed to by
+.I buf
+isn't accessible.
+.TP
+.B EIDRM
+\fIshmid\fP points to a removed identifier.
+.TP
+.B EINVAL
+\fIshmid\fP is not a valid identifier, or \fIcmd\fP
+is not a valid command.
+.TP
+.B EOVERFLOW
+\fBIPC_STAT\fP is attempted, and the gid or uid value
+is too large to be stored in the structure pointed to by
+.IR buf . 
+.TP
+.B EPERM
+\fBIPC_SET\fP or \fBIPC_RMID\fP is attempted, and the
+effective user ID of the calling process is not that of the creator
+(found in
+.IR shm_perm.cuid ),
+or the owner
+(found in
+.IR shm_perm.uid ),
+and the process was not privileged (Linux: did not have the
+.B CAP_SYS_ADMIN
+capability).
+
+Or,
+.B SHM_LOCK
+or
+.B SHM_UNLOCK
+was specified, but the process was not privileged
+(Linux: did not have the
+.B CAP_IPC_LOCK
+capability).
+.SH NOTE
+Various fields in a \fIstruct shmid_ds\fP were shorts under Linux 2.2
+and have become longs under Linux 2.4. To take advantage of this,
+a recompilation under glibc-2.1.91 or later should suffice.
+(The kernel distinguishes old and new calls by an IPC_64 flag in
+.IR cmd .)
+.SH "CONFORMING TO"
+SVr4, SVID.  SVr4 documents additional error conditions EINVAL,
+ENOENT, ENOSPC, ENOMEM, EEXIST.  Neither SVr4 nor SVID documents
+an EIDRM error condition.
+.SH "SEE ALSO"
+.BR shmget (2),
+.BR shmop (2),
+.BR capabilities (7)

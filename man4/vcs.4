@@ -1,0 +1,114 @@
+.\" Copyright (c) 1995 James R. Van Zandt <jrv@vanzandt.mv.com>
+.\" Sat Feb 18 09:11:07 EST 1995
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" Modified, Sun Feb 26 15:08:05 1995, faith@cs.unc.edu
+.\" "
+.TH VCS 4 1995-02-19 "Linux" "Linux Programmer's Manual"
+.SH NAME
+vcs, vcsa \- virtual console memory
+.SH DESCRIPTION
+\fB/dev/vcs0\fP is a character device with major number 7 and minor number
+0, usually of mode 0644 and owner root.tty.  It refers to the memory
+of the currently
+displayed virtual console terminal.
+.LP
+\fB/dev/vcs[1-63]\fP are character devices for virtual console
+terminals, they have major number 7 and minor number 1 to 63, usually
+mode 0644 and owner root.tty.  \fB/dev/vcsa[0-63]\fP are the same, but
+including attributes, and prefixed with four bytes giving the screen
+dimensions and cursor position: \fIlines\fP, \fIcolumns\fP, \fIx\fP, \fIy\fP.
+(\fIx\fP = \fIy\fP = 0 at the top left corner of the screen.)
+.PP
+These replace the screendump
+.IR ioctl s
+of \fBconsole\fP(4), so the system
+administrator can control access using file system permissions.
+.PP
+The devices for the first eight virtual consoles may be created by:
+
+.nf
+	for x in 0 1 2 3 4 5 6 7 8; do 
+		mknod -m 644 /dev/vcs$x c 7 $x;
+		mknod -m 644 /dev/vcsa$x c 7 $[$x+128];
+	done
+	chown root:tty /dev/vcs*
+.fi
+
+No
+.IR ioctl ()
+requests are supported.  
+.SH EXAMPLES
+You may do a screendump on vt3 by switching to vt1 and typing 
+\fIcat /dev/vcs3 >foo\fP. Note that the output does not contain
+newline characters, so some processing may be required, like
+in \fIfold -w 81 /dev/vcs3 | lpr\fP or (horrors)
+\fIsetterm -dump 3 -file /proc/self/fd/1\fP.
+.LP
+The \fI/dev/vcsa0\fP device is used for Braille support.
+
+This program displays the character and screen attributes under the
+cursor of the second virtual console, then changes the background color
+there:
+
+.nf
+	#include <unistd.h>
+	#include <stdlib.h>
+	#include <stdio.h>
+	#include <fcntl.h>
+
+	int main() {
+		int fd;
+		char *device = "/dev/vcsa2";
+		struct {unsigned char lines, cols, x, y;} scrn;
+		char ch, attrib;
+
+		fd = open(device, O_RDWR);
+		if (fd < 0) {
+			perror(device);
+			exit(1);
+		}
+		(void)read(fd, &scrn, 4);
+		(void)lseek(fd, 4 + 2*(scrn.y*scrn.cols + scrn.x), 0);
+		(void)read(fd, &ch, 1);
+		(void)read(fd, &attrib, 1);
+		printf("ch='%c' attrib=0x%02x\\n", ch, attrib);
+		attrib ^= 0x10;
+		(void)lseek(fd, -1, 1);
+		(void)write(fd, &attrib, 1);
+		return 0;
+	}
+.fi
+
+.SH FILES
+/dev/vcs[0-63]
+.br
+/dev/vcsa[0-63]
+.SH AUTHOR
+Andries Brouwer <aeb@cwi.nl>
+.SH HISTORY
+Introduced with version 1.1.92 of the Linux kernel.
+.SH "SEE ALSO"
+.BR selection (1),
+.BR console (4),
+.BR tty (4),
+.BR ttys (4)

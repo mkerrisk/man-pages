@@ -1,0 +1,269 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "UNLINK" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" unlink 
+.SH NAME
+unlink \- remove a directory entry
+.SH SYNOPSIS
+.LP
+\fB#include <unistd.h>
+.br
+.sp
+int unlink(const char *\fP\fIpath\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIunlink\fP() function shall remove a link to a file. If \fIpath\fP
+names a symbolic link, \fIunlink\fP() shall remove
+the symbolic link named by \fIpath\fP and shall not affect any file
+or directory named by the contents of the symbolic link.
+Otherwise, \fIunlink\fP() shall remove the link named by the pathname
+pointed to by \fIpath\fP and shall decrement the link count
+of the file referenced by the link.
+.LP
+When the file's link count becomes 0 and no process has the file open,
+the space occupied by the file shall be freed and the
+file shall no longer be accessible. If one or more processes have
+the file open when the last link is removed, the link shall be
+removed before \fIunlink\fP() returns, but the removal of the file
+contents shall be postponed until all references to the file
+are closed.
+.LP
+The \fIpath\fP argument shall not name a directory unless the process
+has appropriate privileges and the implementation
+supports using \fIunlink\fP() on directories.
+.LP
+Upon successful completion, \fIunlink\fP() shall mark for update the
+\fIst_ctime\fP and \fIst_mtime\fP fields of the parent
+directory. Also, if the file's link count is not 0, the \fIst_ctime\fP
+field of the file shall be marked for update.
+.SH RETURN VALUE
+.LP
+Upon successful completion, 0 shall be returned. Otherwise, -1 shall
+be returned and \fIerrno\fP set to indicate the error. If
+-1 is returned, the named file shall not be changed.
+.SH ERRORS
+.LP
+The \fIunlink\fP() function shall fail and shall not unlink the file
+if:
+.TP 7
+.B EACCES
+Search permission is denied for a component of the path prefix, or
+write permission is denied on the directory containing the
+directory entry to be removed.
+.TP 7
+.B EBUSY
+The file named by the \fIpath\fP argument cannot be unlinked because
+it is being used by the system or another process and the
+implementation considers this an error.
+.TP 7
+.B ELOOP
+A loop exists in symbolic links encountered during resolution of the
+\fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+The length of the \fIpath\fP argument exceeds {PATH_MAX} or a pathname
+component is longer than {NAME_MAX}.
+.TP 7
+.B ENOENT
+A component of \fIpath\fP does not name an existing file or \fIpath\fP
+is an empty string.
+.TP 7
+.B ENOTDIR
+A component of the path prefix is not a directory.
+.TP 7
+.B EPERM
+The file named by \fIpath\fP is a directory, and either the calling
+process does not have appropriate privileges, or the
+implementation prohibits using \fIunlink\fP() on directories.
+.TP 7
+.B EPERM \fRor\fP EACCES
+.sp
+The S_ISVTX flag is set on the directory containing the file referred
+to by the \fIpath\fP argument and the caller is not the file
+owner, nor is the caller the directory owner, nor does the caller
+have appropriate privileges. 
+.TP 7
+.B EROFS
+The directory entry to be unlinked is part of a read-only file system.
+.sp
+.LP
+The \fIunlink\fP() function may fail and not unlink the file if:
+.TP 7
+.B EBUSY
+The file named by \fIpath\fP is a named STREAM. 
+.TP 7
+.B ELOOP
+More than {SYMLOOP_MAX} symbolic links were encountered during resolution
+of the \fIpath\fP argument.
+.TP 7
+.B ENAMETOOLONG
+As a result of encountering a symbolic link in resolution of the \fIpath\fP
+argument, the length of the substituted pathname
+string exceeded {PATH_MAX}.
+.TP 7
+.B ETXTBSY
+The entry to be unlinked is the last directory entry to a pure procedure
+(shared text) file that is being executed.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.SS Removing a Link to a File
+.LP
+The following example shows how to remove a link to a file named \fB/home/cnd/mod1\fP
+by removing the entry named
+\fB/modules/pass1\fP.
+.sp
+.RS
+.nf
+
+\fB#include <unistd.h>
+.sp
+
+char *path = "/modules/pass1";
+int   status;
+\&...
+status = unlink(path);
+\fP
+.fi
+.RE
+.SS Checking for an Error
+.LP
+The following example fragment creates a temporary password lock file
+named \fBLOCKFILE\fP, which is defined as
+\fB/etc/ptmp\fP, and gets a file descriptor for it. If the file cannot
+be opened for writing, \fIunlink\fP() is used to remove
+the link between the file descriptor and \fBLOCKFILE\fP.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+.sp
+
+int pfd;  /* Integer for file descriptor returned by open call. */
+FILE *fpfd;  /* File pointer for use in putpwent(). */
+\&...
+/* Open password Lock file. If it exists, this is an error. */
+if ((pfd = open(LOCKFILE, O_WRONLY| O_CREAT | O_EXCL, S_IRUSR
+    | S_IWUSR | S_IRGRP | S_IROTH)) == -1)  {
+    fprintf(stderr, "Cannot open /etc/ptmp. Try again later.\\n");
+    exit(1);
+}
+.sp
+
+/* Lock file created; proceed with fdopen of lock file so that
+   putpwent() can be used.
+ */
+if ((fpfd = fdopen(pfd, "w")) == NULL) {
+    close(pfd);
+    unlink(LOCKFILE);
+    exit(1);
+}
+\fP
+.fi
+.RE
+.SS Replacing Files
+.LP
+The following example fragment uses \fIunlink\fP() to discard links
+to files, so that they can be replaced with new versions of
+the files. The first call removes the link to \fBLOCKFILE\fP if an
+error occurs. Successive calls remove the links to
+\fBSAVEFILE\fP and \fBPASSWDFILE\fP so that new links can be created,
+then removes the link to \fBLOCKFILE\fP when it is no
+longer needed.
+.sp
+.RS
+.nf
+
+\fB#include <sys/types.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+.sp
+
+#define LOCKFILE "/etc/ptmp"
+#define PASSWDFILE "/etc/passwd"
+#define SAVEFILE "/etc/opasswd"
+\&...
+/* If no change was made, assume error and leave passwd unchanged. */
+if (!valid_change) {
+    fprintf(stderr, "Could not change password for user %s\\n", user);
+    unlink(LOCKFILE);
+    exit(1);
+}
+.sp
+
+/* Change permissions on new password file. */
+chmod(LOCKFILE, S_IRUSR | S_IRGRP | S_IROTH);
+.sp
+
+/* Remove saved password file. */
+unlink(SAVEFILE);
+.sp
+
+/* Save current password file. */
+link(PASSWDFILE, SAVEFILE);
+.sp
+
+/* Remove current password file. */
+unlink(PASSWDFILE);
+.sp
+
+/* Save new password file as current password file. */
+link(LOCKFILE,PASSWDFILE);
+.sp
+
+/* Remove lock file. */
+unlink(LOCKFILE);
+.sp
+
+exit(0);
+\fP
+.fi
+.RE
+.SH APPLICATION USAGE
+.LP
+Applications should use \fIrmdir\fP() to remove a directory.
+.SH RATIONALE
+.LP
+Unlinking a directory is restricted to the superuser in many historical
+implementations for reasons given in \fIlink\fP() (see also \fIrename\fP()).
+.LP
+The meaning of [EBUSY] in historical implementations is "mount point
+busy". Since this volume of
+IEEE\ Std\ 1003.1-2001 does not cover the system administration concepts
+of mounting and unmounting, the description of the
+error was changed to "resource busy". (This meaning is used by some
+device drivers when a second process tries to open an
+exclusive use device.) The wording is also intended to allow implementations
+to refuse to remove a directory if it is the root or
+current working directory of any process.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIclose\fP() , \fIlink\fP() , \fIremove\fP() , \fIrmdir\fP() , the
+Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<unistd.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

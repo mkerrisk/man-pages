@@ -1,0 +1,166 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "AIO_WRITE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" aio_write 
+.SH NAME
+aio_write \- asynchronous write to a file (\fBREALTIME\fP)
+.SH SYNOPSIS
+.LP
+\fB#include <aio.h>
+.br
+.sp
+int aio_write(struct aiocb *\fP\fIaiocbp\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIaio_write\fP() function shall write \fIaiocbp\fP->\fIaio_nbytes\fP
+to the file associated with
+\fIaiocbp\fP->\fIaio_fildes\fP from the buffer pointed to by \fIaiocbp\fP->\fIaio_buf\fP.
+The function shall return when
+the write request has been initiated or, at a minimum, queued to the
+file or device.
+.LP
+If prioritized I/O is supported for this file, then the asynchronous
+operation shall be submitted at a priority equal to the
+scheduling priority of the process minus \fIaiocbp\fP->\fIaio_reqprio\fP.
+.LP
+The \fIaiocbp\fP argument may be used as an argument to \fIaio_error\fP()
+and \fIaio_return\fP() in order to determine the error status and
+return status, respectively,
+of the asynchronous operation while it is proceeding.
+.LP
+The \fIaiocbp\fP argument points to an \fBaiocb\fP structure. If the
+buffer pointed to by \fIaiocbp\fP->\fIaio_buf\fP or
+the control block pointed to by \fIaiocbp\fP becomes an illegal address
+prior to asynchronous I/O completion, then the behavior is
+undefined.
+.LP
+If O_APPEND is not set for the file descriptor \fIaio_fildes\fP, then
+the requested operation shall take place at the absolute
+position in the file as given by \fIaio_offset\fP, as if \fIlseek\fP()
+were called
+immediately prior to the operation with an \fIoffset\fP equal to \fIaio_offset\fP
+and a \fIwhence\fP equal to SEEK_SET. If
+O_APPEND is set for the file descriptor, write operations append to
+the file in the same order as the calls were made. After a
+successful call to enqueue an asynchronous I/O operation, the value
+of the file offset for the file is unspecified.
+.LP
+The \fIaiocbp\fP->\fIaio_lio_opcode\fP field shall be ignored by \fIaio_write\fP().
+.LP
+Simultaneous asynchronous operations using the same \fIaiocbp\fP produce
+undefined results.
+.LP
+If synchronized I/O is enabled on the file associated with \fIaiocbp\fP->\fIaio_fildes\fP,
+the behavior of this function shall
+be according to the definitions of synchronized I/O data integrity
+completion, and synchronized I/O file integrity completion. 
+.LP
+For any system action that changes the process memory space while
+an asynchronous I/O is outstanding to the address range being
+changed, the result of that action is undefined.
+.LP
+For regular files, no data transfer shall occur past the offset maximum
+established in the open file description associated with
+\fIaiocbp\fP->\fIaio_fildes\fP.
+.SH RETURN VALUE
+.LP
+The \fIaio_write\fP() function shall return the value zero to the
+calling process if the I/O operation is successfully queued;
+otherwise, the function shall return the value -1 and set \fIerrno\fP
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIaio_write\fP() function shall fail if:
+.TP 7
+.B EAGAIN
+The requested asynchronous I/O operation was not queued due to system
+resource limitations.
+.sp
+.LP
+Each of the following conditions may be detected synchronously at
+the time of the call to \fIaio_write\fP(), or asynchronously.
+If any of the conditions below are detected synchronously, the \fIaio_write\fP()
+function shall return -1 and set \fIerrno\fP to
+the corresponding value. If any of the conditions below are detected
+asynchronously, the return status of the asynchronous
+operation shall be set to -1, and the error status of the asynchronous
+operation is set to the corresponding value.
+.TP 7
+.B EBADF
+The \fIaiocbp\fP->\fIaio_fildes\fP argument is not a valid file descriptor
+open for writing.
+.TP 7
+.B EINVAL
+The file offset value implied by \fIaiocbp\fP->\fIaio_offset\fP would
+be invalid, \fIaiocbp\fP->\fIaio_reqprio\fP is
+not a valid value, or \fIaiocbp\fP->\fIaio_nbytes\fP is an invalid
+value.
+.sp
+.LP
+In the case that the \fIaio_write\fP() successfully queues the I/O
+operation, the return status of the asynchronous operation
+shall be one of the values normally returned by the \fIwrite\fP()
+function call. If the
+operation is successfully queued but is subsequently canceled or encounters
+an error, the error status for the asynchronous
+operation contains one of the values normally set by the \fIwrite\fP()
+function call, or one
+of the following:
+.TP 7
+.B EBADF
+The \fIaiocbp\fP->\fIaio_fildes\fP argument is not a valid file descriptor
+open for writing.
+.TP 7
+.B EINVAL
+The file offset value implied by \fIaiocbp\fP->\fIaio_offset\fP would
+be invalid.
+.TP 7
+.B ECANCELED
+The requested I/O was canceled before the I/O completed due to an
+explicit \fIaio_cancel\fP() request.
+.sp
+.LP
+The following condition may be detected synchronously or asynchronously:
+.TP 7
+.B EFBIG
+The file is a regular file, \fIaiobcp\fP->\fIaio_nbytes\fP is greater
+than 0, and the starting offset in
+\fIaiobcp\fP->\fIaio_offset\fP is at or beyond the offset maximum
+in the open file description associated with
+\fIaiocbp\fP->\fIaio_fildes\fP.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIaio_write\fP() function is part of the Asynchronous Input and
+Output option and need not be available on all
+implementations.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIaio_cancel\fP() , \fIaio_error\fP() , \fIaio_read\fP() , \fIaio_return\fP()
+, \fIclose\fP()
+, \fIexec\fP() , \fIexit\fP() , \fIfork\fP() , \fIlio_listio\fP()
+, \fIlseek\fP() , \fIwrite\fP() , the Base Definitions volume of IEEE\ Std\ 1003.1-2001,
+\fI<aio.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

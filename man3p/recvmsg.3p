@@ -1,0 +1,212 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "RECVMSG" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" recvmsg 
+.SH NAME
+recvmsg \- receive a message from a socket
+.SH SYNOPSIS
+.LP
+\fB#include <sys/socket.h>
+.br
+.sp
+ssize_t recvmsg(int\fP \fIsocket\fP\fB, struct msghdr *\fP\fImessage\fP\fB,
+int\fP \fIflags\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIrecvmsg\fP() function shall receive a message from a connection-mode
+or connectionless-mode socket. It is normally used
+with connectionless-mode sockets because it permits the application
+to retrieve the source address of received data.
+.LP
+The \fIrecvmsg\fP() function takes the following arguments:
+.TP 7
+\fIsocket\fP
+Specifies the socket file descriptor.
+.TP 7
+\fImessage\fP
+Points to a \fBmsghdr\fP structure, containing both the buffer to
+store the source address and the buffers for the incoming
+message. The length and format of the address depend on the address
+family of the socket. The \fImsg_flags\fP member is ignored on
+input, but may contain meaningful values on output.
+.TP 7
+\fIflags\fP
+Specifies the type of message reception. Values of this argument are
+formed by logically OR'ing zero or more of the following
+values: 
+.TP 7
+MSG_OOB
+.RS
+Requests out-of-band data. The significance and semantics of out-of-band
+data are protocol-specific.
+.RE
+.TP 7
+MSG_PEEK
+.RS
+Peeks at the incoming message.
+.RE
+.TP 7
+MSG_WAITALL
+.RS
+On SOCK_STREAM sockets this requests that the function block until
+the full amount of data can be returned. The function may
+return the smaller amount of data if the socket is a message-based
+socket, if a signal is caught, if the connection is terminated,
+if MSG_PEEK was specified, or if an error is pending for the socket.
+.RE
+.sp
+.sp
+.LP
+The \fIrecvmsg\fP() function shall receive messages from unconnected
+or connected sockets and shall return the length of the
+message.
+.LP
+The \fIrecvmsg\fP() function shall return the total length of the
+message. For message-based sockets, such as SOCK_DGRAM and
+SOCK_SEQPACKET, the entire message shall be read in a single operation.
+If a message is too long to fit in the supplied buffers,
+and MSG_PEEK is not set in the \fIflags\fP argument, the excess bytes
+shall be discarded, and MSG_TRUNC shall be set in the
+\fImsg_flags\fP member of the \fBmsghdr\fP structure. For stream-based
+sockets, such as SOCK_STREAM, message boundaries shall be
+ignored. In this case, data shall be returned to the user as soon
+as it becomes available, and no data shall be discarded.
+.LP
+If the MSG_WAITALL flag is not set, data shall be returned only up
+to the end of the first message.
+.LP
+If no messages are available at the socket and O_NONBLOCK is not set
+on the socket's file descriptor, \fIrecvmsg\fP() shall
+block until a message arrives. If no messages are available at the
+socket and O_NONBLOCK is set on the socket's file descriptor,
+the \fIrecvmsg\fP() function shall fail and set \fIerrno\fP to [EAGAIN]
+or [EWOULDBLOCK].
+.LP
+In the \fBmsghdr\fP structure, the \fImsg_name\fP and \fImsg_namelen\fP
+members specify the source address if the socket is
+unconnected. If the socket is connected, the \fImsg_name\fP and \fImsg_namelen\fP
+members shall be ignored. The \fImsg_name\fP
+member may be a null pointer if no names are desired or required.
+The \fImsg_iov\fP and \fImsg_iovlen\fP fields are used to
+specify where the received data shall be stored. \fImsg_iov\fP points
+to an array of \fBiovec\fP structures; \fImsg_iovlen\fP
+shall be set to the dimension of this array. In each \fBiovec\fP structure,
+the \fIiov_base\fP field specifies a storage area and
+the \fIiov_len\fP field gives its size in bytes. Each storage area
+indicated by \fImsg_iov\fP is filled with received data in
+turn until all of the received data is stored or all of the areas
+have been filled.
+.LP
+Upon successful completion, the \fImsg_flags\fP member of the message
+header shall be the bitwise-inclusive OR of all of the
+following flags that indicate conditions detected for the received
+message:
+.TP 7
+MSG_EOR
+End-of-record was received (if supported by the protocol).
+.TP 7
+MSG_OOB
+Out-of-band data was received.
+.TP 7
+MSG_TRUNC
+Normal data was truncated.
+.TP 7
+MSG_CTRUNC
+Control data was truncated.
+.sp
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIrecvmsg\fP() shall return the length
+of the message in bytes. If no messages are available to be
+received and the peer has performed an orderly shutdown, \fIrecvmsg\fP()
+shall return 0. Otherwise, -1 shall be returned and
+\fIerrno\fP set to indicate the error.
+.SH ERRORS
+.LP
+The \fIrecvmsg\fP() function shall fail if:
+.TP 7
+.B EAGAIN \fRor\fP EWOULDBLOCK
+.sp
+The socket's file descriptor is marked O_NONBLOCK and no data is waiting
+to be received; or MSG_OOB is set and no out-of-band data
+is available and either the socket's file descriptor is marked O_NONBLOCK
+or the socket does not support blocking to await
+out-of-band data.
+.TP 7
+.B EBADF
+The \fIsocket\fP argument is not a valid open file descriptor.
+.TP 7
+.B ECONNRESET
+A connection was forcibly closed by a peer.
+.TP 7
+.B EINTR
+This function was interrupted by a signal before any data was available.
+.TP 7
+.B EINVAL
+The sum of the \fIiov_len\fP values overflows a \fBssize_t\fP, or
+the MSG_OOB flag is set and no out-of-band data is
+available.
+.TP 7
+.B EMSGSIZE
+The \fImsg_iovlen\fP member of the \fBmsghdr\fP structure pointed
+to by \fImessage\fP is less than or equal to 0, or is
+greater than {IOV_MAX}.
+.TP 7
+.B ENOTCONN
+A receive is attempted on a connection-mode socket that is not connected.
+.TP 7
+.B ENOTSOCK
+The \fIsocket\fP argument does not refer to a socket.
+.TP 7
+.B EOPNOTSUPP
+The specified flags are not supported for this socket type.
+.TP 7
+.B ETIMEDOUT
+The connection timed out during connection establishment, or due to
+a transmission timeout on active connection.
+.sp
+.LP
+The \fIrecvmsg\fP() function may fail if:
+.TP 7
+.B EIO
+An I/O error occurred while reading from or writing to the file system.
+.TP 7
+.B ENOBUFS
+Insufficient resources were available in the system to perform the
+operation.
+.TP 7
+.B ENOMEM
+Insufficient memory was available to fulfill the request.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+The \fIselect\fP() and \fIpoll\fP() functions can
+be used to determine when data is available to be received.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIpoll\fP() , \fIrecv\fP() , \fIrecvfrom\fP() ,
+\fIselect\fP() , \fIsend\fP() , \fIsendmsg\fP() ,
+\fIsendto\fP() , \fIshutdown\fP() , \fIsocket\fP() , the Base Definitions
+volume of IEEE\ Std\ 1003.1-2001, \fI<sys/socket.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,350 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "GETDATE" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" getdate 
+.SH NAME
+getdate \- convert user format date and time
+.SH SYNOPSIS
+.LP
+\fB#include <time.h>
+.br
+.sp
+struct tm *getdate(const char *\fP\fIstring\fP\fB); \fP
+\fB
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIgetdate\fP() function shall convert a string representation
+of a date or time into a broken-down time.
+.LP
+The external variable or macro \fIgetdate_err\fP is used by \fIgetdate\fP()
+to return error values.
+.LP
+Templates are used to parse and interpret the input string. The templates
+are contained in a text file identified by the
+environment variable \fIDATEMSK .\fP The \fIDATEMSK\fP variable should
+be set to indicate the full pathname of the file that
+contains the templates. The first line in the template that matches
+the input specification is used for interpretation and
+conversion into the internal time format.
+.LP
+The following conversion specifications shall be supported:
+.TP 7
+\fB%%\fP
+Equivalent to \fB%\fP .
+.TP 7
+\fB%a\fP
+Abbreviated weekday name.
+.TP 7
+\fB%A\fP
+Full weekday name.
+.TP 7
+\fB%b\fP
+Abbreviated month name.
+.TP 7
+\fB%B\fP
+Full month name.
+.TP 7
+\fB%c\fP
+Locale's appropriate date and time representation.
+.TP 7
+\fB%C\fP
+Century number [00,99]; leading zeros are permitted but not required.
+.TP 7
+\fB%d\fP
+Day of month [01,31]; the leading 0 is optional.
+.TP 7
+\fB%D\fP
+Date as \fB%m\fP / \fB%d\fP / \fB%y\fP .
+.TP 7
+\fB%e\fP
+Equivalent to \fB%d\fP .
+.TP 7
+\fB%h\fP
+Abbreviated month name.
+.TP 7
+\fB%H\fP
+Hour [00,23].
+.TP 7
+\fB%I\fP
+Hour [01,12].
+.TP 7
+\fB%m\fP
+Month number [01,12].
+.TP 7
+\fB%M\fP
+Minute [00,59].
+.TP 7
+\fB%n\fP
+Equivalent to <newline>.
+.TP 7
+\fB%p\fP
+Locale's equivalent of either AM or PM.
+.TP 7
+\fB%r\fP
+The locale's appropriate representation of time in AM and PM notation.
+In the POSIX locale, this shall be equivalent to
+\fB%I\fP : \fB%M\fP : \fB%S\fP \fB%p\fP .
+.TP 7
+\fB%R\fP
+Time as \fB%H\fP : \fB%M\fP .
+.TP 7
+\fB%S\fP
+Seconds [00,60]. The range goes to 60 (rather than stopping at 59)
+to allow positive leap seconds to be expressed. Since leap
+seconds cannot be predicted by any algorithm, leap second data must
+come from some external source.
+.TP 7
+\fB%t\fP
+Equivalent to <tab>.
+.TP 7
+\fB%T\fP
+Time as \fB%H\fP : \fB%M\fP : \fB%S\fP .
+.TP 7
+\fB%w\fP
+Weekday number (Sunday = [0,6]).
+.TP 7
+\fB%x\fP
+Locale's appropriate date representation.
+.TP 7
+\fB%X\fP
+Locale's appropriate time representation.
+.TP 7
+\fB%y\fP
+Year within century. When a century is not otherwise specified, values
+in the range [69,99] shall refer to years 1969 to 1999
+inclusive, and values in the range [00,68] shall refer to years 2000
+to 2068 inclusive.  
+.TP 7
+\fBNote:\fP
+.RS
+It is expected that in a future version of IEEE\ Std\ 1003.1-2001
+the default century inferred from a 2-digit year will
+change. (This would apply to all commands accepting a 2-digit year
+as input.)
+.RE
+.sp
+.TP 7
+\fB%Y\fP
+Year as \fB"ccyy"\fP (for example, 2001).
+.TP 7
+\fB%Z\fP
+Timezone name or no characters if no timezone exists. If the timezone
+supplied by \fB%Z\fP is not the timezone that
+\fIgetdate\fP() expects, an invalid input specification error shall
+result. The \fIgetdate\fP() function calculates an expected
+timezone based on information supplied to the function (such as the
+hour, day, and month).
+.sp
+.LP
+The match between the template and input specification performed by
+\fIgetdate\fP() shall be case-insensitive.
+.LP
+The month and weekday names can consist of any combination of upper
+and lowercase letters. The process can request that the
+input date or time specification be in a specific language by setting
+the \fILC_TIME\fP category (see \fIsetlocale\fP() ).
+.LP
+Leading zeros are not necessary for the descriptors that allow leading
+zeros. However, at most two digits are allowed for those
+descriptors, including leading zeros. Extra whitespace in either the
+template file or in \fIstring\fP shall be ignored.
+.LP
+The results are undefined if the conversion specifications \fB%c\fP
+, \fB%x\fP , and \fB%X\fP include unsupported
+conversion specifications.
+.LP
+The following rules apply for converting the input specification into
+the internal format:
+.IP " *" 3
+If \fB%Z\fP is being scanned, then \fIgetdate\fP() shall initialize
+the broken-down time to be the current time in the
+scanned timezone. Otherwise, it shall initialize the broken-down time
+based on the current local time as if \fIlocaltime\fP() had been called.
+.LP
+.IP " *" 3
+If only the weekday is given, the day chosen shall be the day, starting
+with today and moving into the future, which first
+matches the named day.
+.LP
+.IP " *" 3
+If only the month (and no year) is given, the month chosen shall be
+the month, starting with the current month and moving into
+the future, which first matches the named month. The first day of
+the month shall be assumed if no day is given.
+.LP
+.IP " *" 3
+If no hour, minute, and second are given, the current hour, minute,
+and second shall be assumed.
+.LP
+.IP " *" 3
+If no date is given, the hour chosen shall be the hour, starting with
+the current hour and moving into the future, which first
+matches the named hour.
+.LP
+.LP
+If a conversion specification in the DATEMSK file does not correspond
+to one of the conversion specifications above, the
+behavior is unspecified.
+.LP
+The \fIgetdate\fP() function need not be reentrant. A function that
+is not required to be reentrant is not required to be
+thread-safe.
+.SH RETURN VALUE
+.LP
+Upon successful completion, \fIgetdate\fP() shall return a pointer
+to a \fBstruct tm\fP. Otherwise, it shall return a null
+pointer and set \fIgetdate_err\fP to indicate the error.
+.SH ERRORS
+.LP
+The \fIgetdate\fP() function shall fail in the following cases, setting
+\fIgetdate_err\fP to the value shown in the list
+below. Any changes to \fIerrno\fP are unspecified.
+.IP " 1." 4
+The \fIDATEMSK\fP environment variable is null or undefined.
+.LP
+.IP " 2." 4
+The template file cannot be opened for reading.
+.LP
+.IP " 3." 4
+Failed to get file status information.
+.LP
+.IP " 4." 4
+The template file is not a regular file.
+.LP
+.IP " 5." 4
+An I/O error is encountered while reading the template file.
+.LP
+.IP " 6." 4
+Memory allocation failed (not enough memory available).
+.LP
+.IP " 7." 4
+There is no line in the template that matches the input.
+.LP
+.IP " 8." 4
+Invalid input specification. For example, February 31; or a time is
+specified that cannot be represented in a \fBtime_t\fP
+(representing the time in seconds since the Epoch).
+.LP
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.IP " 1." 4
+The following example shows the possible contents of a template:
+.sp
+.RS
+.nf
+
+\fB%m
+%A %B %d, %Y, %H:%M:%S
+%A
+%B
+%m/%d/%y %I %p
+%d,%m,%Y %H:%M
+at %A the %dst of %B in %Y
+run job at %I %p,%B %dnd
+%A den %d. %B %Y %H.%M Uhr
+\fP
+.fi
+.RE
+.LP
+.IP " 2." 4
+The following are examples of valid input specifications for the template
+in Example 1:
+.sp
+.RS
+.nf
+
+\fBgetdate("10/1/87 4 PM");
+getdate("Friday");
+getdate("Friday September 18, 1987, 10:30:30");
+getdate("24,9,1986 10:30");
+getdate("at monday the 1st of december in 1986");
+getdate("run job at 3 PM, december 2nd");
+\fP
+.fi
+.RE
+.LP
+If the \fILC_TIME\fP category is set to a German locale that includes
+\fIfreitag\fP as a weekday name and \fIoktober\fP as a
+month name, the following would be valid:
+.sp
+.RS
+.nf
+
+\fBgetdate("freitag den 10. oktober 1986 10.30 Uhr");
+\fP
+.fi
+.RE
+.LP
+.IP " 3." 4
+The following example shows how local date and time specification
+can be defined in the template:
+.TS C
+center; l l.
+\fBInvocation\fP	\fBLine in Template\fP
+getdate("11/27/86")	%m/%d/%y
+getdate("27.11.86")	%d.%m.%y
+getdate("86-11-27")	%y-%m-%d
+getdate("Friday 12:00:00")	%A %H:%M:%S
+.TE
+.LP
+.IP " 4." 4
+The following examples help to illustrate the above rules assuming
+that the current date is Mon Sep 22 12:19:47 EDT 1986 and the
+\fILC_TIME\fP category is set to the default C locale:
+.TS C
+center; l2 l2 l.
+\fBInput\fP	\fBLine in Template\fP	\fBDate\fP
+Mon	%a	Mon Sep 22 12:19:47 EDT 1986
+Sun	%a	Sun Sep 28 12:19:47 EDT 1986
+Fri	%a	Fri Sep 26 12:19:47 EDT 1986
+September	%B	Mon Sep 1 12:19:47 EDT 1986
+January	%B	Thu Jan 1 12:19:47 EST 1987
+December	%B	Mon Dec 1 12:19:47 EST 1986
+Sep Mon	%b %a	Mon Sep 1 12:19:47 EDT 1986
+Jan Fri	%b %a	Fri Jan 2 12:19:47 EST 1987
+Dec Mon	%b %a	Mon Dec 1 12:19:47 EST 1986
+Jan Wed 1989	%b %a %Y	Wed Jan 4 12:19:47 EST 1989
+Fri 9	%a %H	Fri Sep 26 09:00:00 EDT 1986
+Feb 10:30	%b %H:%S	Sun Feb 1 10:00:30 EST 1987
+10:30	%H:%M	Tue Sep 23 10:30:00 EDT 1986
+13:30	%H:%M	Mon Sep 22 13:30:00 EDT 1986
+.TE
+.LP
+.SH APPLICATION USAGE
+.LP
+Although historical versions of \fIgetdate\fP() did not require that
+\fI<time.h>\fP declare the external variable \fIgetdate_err\fP, this
+volume of
+IEEE\ Std\ 1003.1-2001 does require it. The standard developers encourage
+applications to remove declarations of
+\fIgetdate_err\fP and instead incorporate the declaration by including
+\fI<time.h>\fP.
+.LP
+Applications should use \fB%Y\fP (4-digit years) in preference to
+\fB%y\fP (2-digit years).
+.SH RATIONALE
+.LP
+In standard locales, the conversion specifications \fB%c\fP , \fB%x\fP
+, and \fB%X\fP do not include unsupported
+conversion specifiers and so the text regarding results being undefined
+is not a problem in that case.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIctime\fP() , \fIlocaltime\fP() , \fIsetlocale\fP() , \fIstrftime\fP()
+, \fItimes\fP() ,
+the Base Definitions volume of IEEE\ Std\ 1003.1-2001, \fI<time.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

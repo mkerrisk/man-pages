@@ -1,0 +1,129 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2003 Andi Kleen
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.TH ARCH_PRCTL 2 2003-02-02 "Linux 2.4.20" "Linux Programmer's Manual"
+.SH NAME
+arch_prctl \- set architecture specific thread state
+.SH SYNOPSIS
+.B #include <asm/prctl.h>
+.sp
+.B #include <sys/prctl.h>
+.sp
+.BI "int arch_prctl(int code, unsigned long addr)"
+.SH DESCRIPTION
+The
+.B arch_prctl
+function sets architecture specific process or thread state.
+.I code
+selects a subfunction
+and passes argument
+.I addr 
+to it. 
+.LP
+Sub functions for x86-64 are:
+.TP
+.B ARCH_SET_FS
+Set the 64bit base for the 
+.I FS
+register to
+.IR addr .
+.TP
+.B ARCH_GET_FS
+Return the 64bit base value for the
+.I FS
+register of the current thread in the 
+.I unsigned long
+pointed to by the 
+.I address 
+parameter
+.TP
+.B ARCH_SET_GS
+Set the 64bit base for the 
+.I GS
+register to
+.IR addr .
+.TP
+.B ARCH_GET_GS
+Return the 64bit base value for the
+.I GS
+register of the current thread in the 
+.I unsigned long
+pointed to by the 
+.I address 
+parameter.
+.SH NOTES
+.I arch_prctl
+is only supported on Linux/x86-64 for 64bit programs currently.
+
+The 64bit base changes when a new 32bit segment selector is loaded.
+
+.B ARCH_SET_GS
+is disabled in some kernels.
+
+Context switches for 64bit segment bases are rather expensive. It may be a
+faster alternative to set a 32bit base using a segment selector by setting up
+an LDT with
+.BR modify_ldt (2)
+or using the 
+.BR set_thread_area (2)
+system call in a 2.5 kernel. 
+.B arch_prctl
+is only needed when you want to set bases that are larger than 4GB.
+Memory in the first 2GB of address space can be allocated by using
+.BR mmap (2)
+with the
+.I MAP_32BIT
+flag.
+
+No prototype for 
+.I arch_prctl
+in glibc 2.2. You have to declare it yourself for now.
+This will be fixed in future glibc versions.
+
+.I FS 
+may be already used by the threading library.
+.SH ERRORS
+.TP
+.B EFAULT
+.I addr 
+points to an unmapped address or is outside the process address space.
+.TP
+.B EINVAL
+.I code 
+is not a valid subcommand.
+.TP
+.B EPERM
+.I addr
+is outside the process address space.
+.SH AUTHOR
+Man page written by Andi Kleen.
+.SH CONFORMANCE
+.I arch_prctl
+is a Linux/x86-64 extension and should not be used in programs intended to be portable.
+.SH "SEE ALSO"
+.BR mmap (2),
+.BR modify_ldt (2),
+.BR prctl (2),
+.BR set_thread_area (2)
+.sp
+AMD X86-64 Programmer's manual

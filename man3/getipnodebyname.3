@@ -1,0 +1,262 @@
+.\" Copyright 2000 Sam Varshavchik <mrsam@courier-mta.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References: RFC 2553
+.TH getipnodebyname 3 2002-04-03 "Linux Man Page" "Linux Programmer's Manual"
+.SH NAME
+getipnodebyname, getipnodebyaddr, freehostent \- get network host names and addresses
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <sys/socket.h>
+.B #include <netdb.h>
+.sp
+.BI "struct hostent *getipnodebyname(const char *" "name" ,
+.BI "                         int " "af" ", int " "flags" ,
+.BI "                         int *" "error_num" );
+.sp
+.BI "struct hostent *getipnodebyaddr(const void *" "addr" ,
+.BI "                         size_t " "len" ", int " "af" ,
+.BI "                         int *" "error_num" );
+.sp
+.BI "void freehostent(struct hostent *" "ip" );
+.fi
+.SH DESCRIPTION
+These functions are deprecated. Use
+.BR getaddrinfo (3)
+and
+.BR getnameinfo (3)
+instead.
+.LP
+The
+.BR getipnodebyname (3)
+and
+.BR getipnodebyaddr (3)
+functions return the names and addresses of a network host.
+These functions return a pointer to the
+following structure:
+.sp
+.nf
+.B struct  hostent {
+.BI "        char    *" "h_name" ";"
+.BI "        char    **" "h_aliases" ";"
+.BI "        int     " "h_addrtype" ";"
+.BI "        int     " "h_length" ";"
+.BI "        char    **" "h_addr_list" ";"
+.BI "};"
+.fi
+.PP
+These functions replace the
+.BR gethostbyname (3)
+and
+.BR gethostbyaddr (3)
+functions, which could only access the IPv4 network address family.
+The
+.BR getipnodebyname (3)
+and
+.BR getipnodebyaddr (3)
+functions can access multiple network address families.
+.PP
+Unlike the
+.B gethostby
+functions,
+these
+functions return pointers to dynamically allocated memory.
+The
+.BR freehostent (3)
+function is used to release the dynamically allocated memory
+after the caller no longer needs the
+.B hostent
+structure.
+.SS getipnodebyname parameters
+The
+.BR getipnodebyname (3)
+function
+looks up network addresses for the host
+specified by the
+.I name
+parameter.
+The
+.I af
+parameter specifies one of the following values:
+.TP
+.B AF_INET
+The
+.I name
+parameter points to a dotted-quad IPv4 address or a name
+of an IPv4 network host.
+.TP
+.B AF_INET6
+The
+.I name
+parameter points to a hexadecimal IPv6 address or a name
+of an IPv6 network host.
+.PP
+The
+.I flags
+parameter specifies additional options.
+More than one option can be specified by logically OR-ing
+them together.
+.I flags
+should be set to 0
+if no options are desired.
+.TP
+.B AI_V4MAPPED
+This flag is used with
+.B AF_INET6
+to request a query for IPv4 addresses instead of
+IPv6 addresses; the IPv4 addresses will
+be mapped to IPv6 addresses.
+.TP
+.B AI_ALL
+This flag is used with
+.B AI_V4MAPPED
+to request a query for both IPv4 and IPv6 addresses.
+Any IPv4 address found will be mapped to an IPv6 address.
+.TP
+.B AI_ADDRCONFIG
+This flag is used with
+.B AF_INET6
+to
+further request that queries for IPv6 addresses should not be made unless
+the system has at least one IPv6 address assigned to a network interface,
+and that queries for IPv4 addresses should not be made unless the
+system has at least one IPv4 address assigned to a network interface.
+This flag may be used by itself or with the
+.B AI_V4MAPPED
+flag.
+.TP
+.B AI_DEFAULT
+This flag is equivalent to 
+.BR "(AI_ADDRCONFIG | AI_V4MAPPED)" .
+.SS getipnodebyaddr parameters
+The
+.BR getipnodebyaddr (3)
+function
+looks up the name of the host whose
+network address is
+specified by the
+.I addr
+parameter.
+The
+.I af
+parameter specifies one of the following values:
+.TP
+.B AF_INET
+The
+.I addr
+parameter points to a
+.B struct in_addr
+and
+.I len
+must be set to
+.BR "sizeof(struct in_addr)" .
+.TP
+.B AF_INET6
+The
+.I addr
+parameter points to a
+.B struct in6_addr
+and
+.I len
+must be set to
+.BR "sizeof(struct in6_addr)" .
+.SH "RETURN VALUE"
+A null pointer is returned if an error occurred, and
+.I error_num
+will contain an error code from the following list:
+.TP
+.B HOST_NOT_FOUND
+The host name or network address was not found.
+.TP
+.B NO_ADDRESS
+The domain name server recognized the network address or name,
+but no answer was returned.
+This can happen if the network host has only IPv4 addresses and
+a request has been made for IPv6 information only, or vice versa.
+.TP
+.B NO_RECOVERY
+The domain name server returned a permanent failure response.
+.TP
+.B TRY_AGAIN
+The domain name server returned a temporary failure response.
+You might have better luck next time.
+.PP
+A successful query returns a pointer to a
+.B hostent
+structure that contains the following fields:
+.TP
+.B h_name
+This is the official name of this network host.
+.TP
+.B h_aliases
+This is an array of pointers to unofficial aliases for the same host.
+The array is terminated by a null pointer.
+.TP
+.B h_addrtype
+This is a copy of the
+.I af
+parameter to
+.BR getipnodebyname (3)
+or
+.BR getipnodebyaddr (3).
+.I h_addrtype
+will always be
+.B AF_INET
+if the
+.I af
+parameter was
+.BR AF_INET .
+.I h_addrtype
+will always be
+.B AF_INET6
+if the
+.I af
+parameter was
+.BR AF_INET6 .
+.TP
+.B h_length
+This field will be set to
+.B sizeof(struct in_addr)
+if
+.I h_addrtype
+is AF_INET, and to
+.B sizeof(struct in6_addr)
+if
+.I h_addrtype
+is AF_INET6.
+.TP
+.B h_addr_list
+This is an array of one or more pointers to network address structures for the
+network host.
+The array is terminated by a null pointer.
+.SH NOTES
+These functions have been present in glibc 2.1.91-95, but were
+removed again. Several Unix-like systems support them, but all
+call them deprecated.
+.SH "CONFORMING TO"
+RFC 2553.
+.SH "SEE ALSO"
+.BR getaddrinfo (3),
+.BR getnameinfo (3),
+.BR inet_ntop (3),
+.BR inet_pton (3)

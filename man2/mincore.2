@@ -1,0 +1,129 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2001 Bert Hubert <ahu@ds9a.nl>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Created Sun Jun 3 17:23:32 2001 by bert hubert <ahu@ds9a.nl>
+.\" Slightly adapted, following comments by Hugh Dickins, aeb, 2001-06-04.
+.\" Modified, 20 May 2003, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\" Modified, 30 Apr 2004, Michael Kerrisk <mtk16@ext.canterbury.ac.nz>
+.\"
+.TH MINCORE 2 2004-04-30 "Linux 2.6.5" "Linux Programmer's Manual"
+.SH NAME
+mincore \- get information on whether pages are in core
+.SH SYNOPSIS
+.B #include <unistd.h>
+.br
+.B #include <sys/mman.h>
+.sp
+.BI "int mincore(void *" start ", size_t " length ", unsigned char *" vec );
+.SH DESCRIPTION
+The
+.B mincore
+function requests a vector describing which pages of a file are in core and
+can be read without disk access. The kernel will supply data for
+.I length
+bytes following the 
+.I start
+address. On return, the kernel will have filled
+.I vec
+with bytes, of which the least significant bit indicates if a page is 
+core resident. (The other bits are undefined, reserved for possible
+later use.)
+Of course this is only a snapshot - pages that are not
+locked in core can come and go any moment, and the contents of
+.I vec
+may be stale already when this call returns.
+
+For
+.B mincore
+to return successfully, 
+.I start
+must lie on a page boundary. It is the caller's responsibility to
+round up to the nearest page. The
+.I length
+parameter need not be a multiple of the page size. The vector
+.I vec
+must be large enough to contain (length+PAGE_SIZE-1) / PAGE_SIZE bytes.
+One may obtain the page size from
+.BR getpagesize (2).
+
+.SH "RETURN VALUE"
+On success,
+.B mincore
+returns zero.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.B EAGAIN
+kernel is temporarily out of resources
+.TP
+.B EFAULT
+.I vec
+points to an invalid address
+.TP
+.B EINVAL
+.I start
+is not a multiple of the page size, or
+.I len
+has a non-positive value
+.TP
+.B ENOMEM
+.I address
+to
+.I address
++
+.I length
+contained unmapped memory, or memory not part of a file.
+
+.SH BUGS
+Up to now (Linux 2.6.5),
+.B mincore
+does not return correct information for MAP_PRIVATE mappings.
+
+.\" Linux (up to now, 2.6.5),
+.\" .B mincore
+.\" does not return correct information for MAP_PRIVATE mappings:
+.\" for a MAP_PRIVATE file mapping,
+.\" .B mincore
+.\" returns the residency of the file pages, rather than any
+.\" modified process-private pages that have been copied on write;
+.\" for a MAP_PRIVATE mapping of
+.\" .IR /dev/zero ,
+.\" .B mincore
+.\" always reports pages as non-resident;
+.\" and for a MAP_PRIVATE, MAP_ANONYMOUS mapping,
+.\" .B mincore
+.\" always fails with the error
+.\" .BR ENOMEM .
+.SH "CONFORMING TO"
+.B mincore
+does not appear to be part of POSIX or the Single Unix Specification. 
+.SH HISTORY
+The mincore() function first appeared in 4.4BSD.
+.SH AVAILABILITY
+Since Linux 2.3.99pre1 and glibc 2.2.
+.SH "SEE ALSO"
+.BR getpagesize (2),
+.BR mlock (2),
+.BR mmap (2)

@@ -1,0 +1,173 @@
+.\"  Copyright 2001 walter harms (walter.harms@informatik.uni-oldenburg.de)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified, 2001-12-26, aeb
+.TH GETDATE 3 2001-12-26 "" "Linux Programmer's Manual"
+.SH NAME
+getdate() \- convert a string to struct tm 
+.br
+.SH SYNOPSIS
+.B "#define _XOPEN_SOURCE"
+.br
+.B "#define _XOPEN_SOURCE_EXTENDED
+.br
+.B "#include <time.h>"
+.sp
+.BI "struct tm *getdate (const char *" string );
+.sp
+.BI "extern int getdate_err;"
+.sp 2
+.B "#define _GNU_SOURCE"
+.br
+.B "#include <time.h>"
+.sp
+.BI "int getdate_r (const char *" string ", struct tm *" res );
+.br
+.SH DESCRIPTION
+The function
+.B getdate() 
+converts a string pointed to by
+.I string
+into the tm structure that it returns.
+This tm structure may be found in static storage, so that
+it will be overwritten by the next call.
+
+In contrast to 
+.BR strptime (3),
+(which has a
+.I format
+argument),
+.B getdate()
+uses the formats found in the file
+of which the full path name is given in the environment variable
+.BR DATEMSK .
+The first line in the file that matches the given input string
+is used for the conversion.
+
+The matching is done case insensitively.
+Superfluous whitespace, either in the pattern or in the string to
+be converted, is ignored.
+
+The conversion specifications that a pattern can contain are those given for
+.BR strptime (3).
+One more conversion specification is accepted:
+.TP
+.B %Z
+Timezone name.
+.LP
+When
+.B %Z
+is given, the value to be returned is initialised to the broken-down time
+corresponding to the current time in the given time zone.
+Otherwise, it is initialised to the broken-down time corresponding to
+the current local time.
+.LP
+When only the weekday is given, the day is taken to be the first such day
+on or after today.
+.LP
+When only the month is given (and no year), the month is taken to
+be the first such month equal to or after the current month.
+If no day is given, it is the first day of the month.
+.LP
+When no hour, minute and second are given, the current
+hour, minute and second are taken.
+.LP
+If no date is given, but we know the hour, then that hour is taken
+to be the first such hour equal to or after the current hour.
+.SH "RETURN VALUE"
+When successful, this function returns a pointer to a
+.BR "struct tm" .
+Otherwise, it returns NULL and sets the global variable
+.BR getdate_err .
+Changes to
+.I errno
+are unspecified.  The following values for
+.B getdate_err
+are defined:
+.TP 4n
+.B 1
+The DATEMSK environment variable is null or undefined.
+.TP
+.B 2
+The template file cannot be opened for reading.
+.TP
+.B 3
+Failed to get file status information.
+.TP
+.B 4
+The template file is not a regular file.
+.TP
+.B 5
+An error is encountered while reading the template file.
+.TP
+.B 6
+Memory allocation failed (not enough memory available).
+.TP
+.B 7
+There is no line in the file that matches the input.
+.TP
+.B 8
+Invalid input specification.
+.SH NOTES
+Since 
+.B getdate() 
+is not reentrant because of the use of 
+.B getdate_err
+and the static buffer to return the result in, glibc provides a
+thread-safe variant.  The functionality is the same.  The result
+is returned in the buffer pointed to by
+.I res
+and in case of an error the return value is nonzero with the same
+values as given above for 
+.IR getdate_err .
+.LP
+The POSIX 1003.1-2001 specification for
+.B strptime()
+contains conversion specifications using the
+.B %E
+or
+.B %O
+modifier, while such specifications are not given for
+.BR getdate() .
+The glibc implementation implements
+.B getdate()
+using
+.B strptime()
+so that automatically precisely the same conversions are supported by both.
+.LP
+The glibc implementation does not support the
+.B %Z
+conversion specification.
+.SH ENVIRONMENT
+.TP
+.B DATEMSK 
+File containing format patterns.
+.TP
+.BR TZ ", " LC_TIME 
+Variables used by \fBstrptime()\fP.
+.SH "CONFORMING TO"
+ISO 9899, POSIX 1003.1-2001
+.SH "SEE ALSO"
+.BR localtime (3),
+.BR strftime (3),
+.BR strptime (3),
+.BR time (3)

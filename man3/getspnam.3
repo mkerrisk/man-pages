@@ -1,0 +1,212 @@
+.\" Copyright (c) 2003 Andries Brouwer (aeb@cwi.nl) and
+.\" Walter Harms (walter.harms@informatik.uni-oldenburg.de)
+.\"
+.\" Distributed under GPL
+.\"
+.TH GETSPNAM 3  2003-11-15 "Shadow" "Linux Programmer's Manual"
+.SH NAME
+getspnam, getspnam_r, getspent, getspent_r, setspent, endspent,
+fgetspent, fgetspent_r, sgetspent, sgetspent_r, putspent,
+lckpwdf, ulckpwdf \- get shadow password file entry
+.SH SYNOPSIS
+.nf
+/* General shadow password file API */
+.br
+.B #include <shadow.h>
+.sp
+.BI "struct spwd *getspnam(const char *" name );
+.sp
+.B struct spwd *getspent(void);
+.sp
+.B void setspent(void);
+.sp
+.B void endspent(void);
+.sp
+.BI "struct spwd *fgetspent(FILE *" fp );
+.sp
+.BI "struct spwd *sgetspent(const char *" s );
+.sp
+.BI "int putspent(struct spwd *" p ", FILE *" fp );
+.sp
+.B int lckpwdf(void);
+.sp
+.B int ulckpwdf(void);
+.sp
+/* GNU extension */
+.br
+.BR "#define _SVID_SOURCE" "    /* or _BSD_SOURCE */
+.br
+.B #include <shadow.h>
+.sp
+.BI "int getspent_r(struct spwd *" spbuf ,
+.br
+.BI "        char *" buf ", size_t " buflen ", struct spwd **" spbufp );
+.sp
+.BI "int getspnam_r(const char *" name ", struct spwd *" spbuf ,
+.br
+.BI "        char *" buf ", size_t " buflen ", struct spwd **" spbufp );
+.sp
+.BI "int fgetspent_r(FILE *" fp ", struct spwd *" spbuf ,
+.br
+.BI "        char *" buf ", size_t " buflen ", struct spwd **" spbufp );
+.sp
+.BI "int sgetspent_r(const char *" s ", struct spwd *" spbuf ,
+.br
+.BI "        char *" buf ", size_t " buflen ", struct spwd **" spbufp );
+.sp
+.fi
+.SH DESCRIPTION
+Long ago it was considered safe to have encrypted passwords openly
+visible in the password file. When computers got faster and people
+got more security-conscious, this was no longer acceptable.
+Julianne Frances Haugh implemented the shadow password suite
+that keeps the encrypted passwords in
+.IR /etc/shadow ,
+readable only by root.
+.LP
+The access routines described below resemble those for
+.IR /etc/passwd .
+This shadow password setup has been superseded by PAM
+(pluggable authentication modules), and the file
+.I /etc/nsswitch.conf
+now describes the sources to be used.
+.LP
+The
+.B getspnam()
+function returns a pointer to a structure containing
+the broken out fields of a line from
+.I /etc/shadow
+for the entry that matches the user name
+.IR name .
+.LP
+The
+.B getspent()
+function returns a pointer to the next entry in the shadow password file.
+The position in the input stream is initialized by
+.BR setspent() .
+When done reading, the program may call
+.BR endspent()
+so that resources can be deallocated.
+.\" some systems require a call of setspent() before the first getspent()
+.\" glibc does not
+.LP
+The
+.B fgetspent()
+function is similar to
+.B getspent()
+but uses the supplied stream instead of the one implicitly opened by
+.BR setspent() .
+.LP
+The
+.B sgetspent()
+function parses the supplied string
+.I s
+into a struct spwd.
+.LP
+The
+.B putspent()
+function writes the contents of the supplied struct spwd
+.RI * p
+as a text line in the shadow password file format to the stream
+.IR fp .
+String entries with value NULL and numerical entries with value \-1
+are written as an empty string.
+.LP
+The
+.B lckpwdf()
+function is intended to protect against multiple access of the shadow
+password database. It tries to acquire a lock, and returns 0 on success,
+\-1 on failure (lock not obtained within 15 seconds).
+The
+.B ulckpwdf()
+function releases the lock again.
+Note that there is no protection against direct access of the shadow
+password file. Only programs that use
+.B lckpwdf()
+will notice the lock.
+.LP
+These were the routines that formed the original shadow API.
+They are widely available.
+.\" Also in libc5
+.\" SUN doesn't have sgetspent()
+.SS "Reentrant versions"
+Analogous to the "reentrant" routines for the password file, glibc
+also has reentrant versions here.
+The
+.B getspnam_r()
+function is like
+.B getspnam()
+but stores the retrieved shadow passwd structure in the space pointed to by
+.IR spbuf .
+This shadow passwd structure contains pointers to strings, and these strings
+are stored in the buffer
+.I buf
+of size
+.IR buflen .
+A pointer to the result (in case of success) or NULL (in case no entry
+was found or an error occurred) is stored in
+.RI * spbufp .
+.LP
+The functions
+.BR getspent_r() ,
+.BR fgetspent_r() ,
+and
+.BR sgetspent_r()
+are completely analogous.
+.LP
+Some non-glibc systems also have functions with these names,
+often with different prototypes.
+.\" SUN doesn't have sgetspent_r()
+.SS Structure
+The shadow passwd structure is defined in \fI<shadow.h>\fP as follows:
+.sp
+.nf
+struct spwd {
+    char *sp_namp;         /* Login name */
+    char *sp_pwdp;         /* Encrypted password */
+    long sp_lstchg;        /* Date of last change */
+    long sp_min;           /* Min #days between changes */
+    long sp_max;           /* Max #days between changes */
+    long sp_warn;          /* #days before pwd expires
+                              to warn user to change it */
+    long sp_inact;         /* #days after pwd expires
+                              until account is disabled */
+    long sp_expire;        /* #days since 1970-01-01
+                              until account is disabled */
+    unsigned long sp_flag; /* Reserved */
+};
+.fi
+.SH "RETURN VALUE"
+Routines return NULL if no more entries are available or if an
+error occurs during processing.
+Routines which have \fBint\fR as the return value return 0 for
+success and -1 for failure.
+.LP
+For the non-reentrant functions, the return value may point to static area,
+and may be overwritten by subsequent calls to these functions.
+.LP
+The reentrant functions return zero on success.
+In case of error, an error value is returned.
+.SH ERRORS
+.TP
+.B ERANGE
+Supplied buffer is too small.
+.SH FILES
+.TP
+.I /etc/shadow
+shadow password database file
+.TP
+.I /etc/.pwd.lock
+lock file
+.LP
+The include file
+.I <paths.h>
+defines the constant _PATH_SHADOW to the pathname of the shadow
+password file.
+.SH "CONFORMING TO"
+
+.SH "SEE ALSO"
+.BR getgrnam (3),
+.BR getpwnam (3),
+.BR getpwnam_r (3),
+.BR shadow (5)

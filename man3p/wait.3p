@@ -1,0 +1,486 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "WAIT" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" wait 
+.SH NAME
+wait, waitpid \- wait for a child process to stop or terminate
+.SH SYNOPSIS
+.LP
+\fB#include <sys/wait.h>
+.br
+.sp
+pid_t wait(int *\fP\fIstat_loc\fP\fB);
+.br
+pid_t waitpid(pid_t\fP \fIpid\fP\fB, int *\fP\fIstat_loc\fP\fB, int\fP
+\fIoptions\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fIwait\fP() and \fIwaitpid\fP() functions shall obtain status
+information pertaining to one of the caller's child
+processes. Various options permit status information to be obtained
+for child processes that have terminated or stopped. If status
+information is available for two or more child processes, the order
+in which their status is reported is unspecified.
+.LP
+The \fIwait\fP() function shall suspend execution of the calling thread
+until status information for one of the terminated
+child processes of the calling process is available, or until delivery
+of a signal whose action is either to execute a
+signal-catching function or to terminate the process. If more than
+one thread is suspended in \fIwait\fP() or \fIwaitpid\fP()
+awaiting termination of the same process, exactly one thread shall
+return the process status at the time of the target process
+termination. If status information is available prior to the call
+to \fIwait\fP(), return shall be immediate.
+.LP
+The \fIwaitpid\fP() function shall be equivalent to \fIwait\fP() if
+the \fIpid\fP argument is (\fBpid_t\fP)-1 and the
+\fIoptions\fP argument is 0. Otherwise, its behavior shall be modified
+by the values of the \fIpid\fP and \fIoptions\fP
+arguments.
+.LP
+The \fIpid\fP argument specifies a set of child processes for which
+\fIstatus\fP is requested. The \fIwaitpid\fP() function
+shall only return the status of a child process from this set:
+.IP " *" 3
+If \fIpid\fP is equal to (\fBpid_t\fP)-1, \fIstatus\fP is requested
+for any child process. In this respect, \fIwaitpid\fP()
+is then equivalent to \fIwait\fP().
+.LP
+.IP " *" 3
+If \fIpid\fP is greater than 0, it specifies the process ID of a single
+child process for which \fIstatus\fP is requested.
+.LP
+.IP " *" 3
+If \fIpid\fP is 0, \fIstatus\fP is requested for any child process
+whose process group ID is equal to that of the calling
+process.
+.LP
+.IP " *" 3
+If \fIpid\fP is less than (\fBpid_t\fP)-1, \fIstatus\fP is requested
+for any child process whose process group ID is equal to
+the absolute value of \fIpid\fP.
+.LP
+.LP
+The \fIoptions\fP argument is constructed from the bitwise-inclusive
+OR of zero or more of the following flags, defined in the
+\fI<sys/wait.h>\fP header:
+.TP 7
+WCONTINUED
+The \fIwaitpid\fP() function shall report the status of any continued
+child process specified by \fIpid\fP whose status has not
+been reported since it continued from a job control stop. 
+.TP 7
+WNOHANG
+The \fIwaitpid\fP() function shall not suspend execution of the calling
+thread if \fIstatus\fP is not immediately available
+for one of the child processes specified by \fIpid\fP.
+.TP 7
+WUNTRACED
+The status of any child processes specified by \fIpid\fP that are
+stopped, and whose status has not yet been reported since
+they stopped, shall also be reported to the requesting process.
+.sp
+.LP
+If the calling process has SA_NOCLDWAIT set or has SIGCHLD set to
+SIG_IGN, and the process has no unwaited-for children that were
+transformed into zombie processes, the calling thread shall block
+until all of the children of the process containing the calling
+thread terminate, and \fIwait\fP() and \fIwaitpid\fP() shall fail
+and set \fIerrno\fP to [ECHILD]. 
+.LP
+If \fIwait\fP() or \fIwaitpid\fP() return because the status of a
+child process is available, these functions shall return a
+value equal to the process ID of the child process. In this case,
+if the value of the argument \fIstat_loc\fP is not a null
+pointer, information shall be stored in the location pointed to by
+\fIstat_loc\fP. The value stored at the location pointed to by
+\fIstat_loc\fP shall be 0 if and only if the status returned is from
+a terminated child process that terminated by one of the
+following means:
+.IP " 1." 4
+The process returned 0 from \fImain\fP().
+.LP
+.IP " 2." 4
+The process called \fI_exit\fP() or \fIexit\fP()
+with a \fIstatus\fP argument of 0.
+.LP
+.IP " 3." 4
+The process was terminated because the last thread in the process
+terminated.
+.LP
+.LP
+Regardless of its value, this information may be interpreted using
+the following macros, which are defined in \fI<sys/wait.h>\fP and
+evaluate to integral expressions; the \fIstat_val\fP argument is
+the integer value pointed to by \fIstat_loc\fP.
+.TP 7
+WIFEXITED(\fIstat_val\fP)
+.sp
+Evaluates to a non-zero value if \fIstatus\fP was returned for a child
+process that terminated normally.
+.TP 7
+WEXITSTATUS(\fIstat_val\fP)
+.sp
+If the value of WIFEXITED(\fIstat_val\fP) is non-zero, this macro
+evaluates to the low-order 8 bits of the \fIstatus\fP argument
+that the child process passed to \fI_exit\fP() or \fIexit\fP(), or
+the value the child process returned from \fImain\fP().
+.TP 7
+WIFSIGNALED(\fIstat_val\fP)
+.sp
+Evaluates to a non-zero value if \fIstatus\fP was returned for a child
+process that terminated due to the receipt of a signal that
+was not caught (see \fI<signal.h>\fP).
+.TP 7
+WTERMSIG(\fIstat_val\fP)
+.sp
+If the value of WIFSIGNALED(\fIstat_val\fP) is non-zero, this macro
+evaluates to the number of the signal that caused the
+termination of the child process.
+.TP 7
+WIFSTOPPED(\fIstat_val\fP)
+.sp
+Evaluates to a non-zero value if \fIstatus\fP was returned for a child
+process that is currently stopped.
+.TP 7
+WSTOPSIG(\fIstat_val\fP)
+.sp
+If the value of WIFSTOPPED(\fIstat_val\fP) is non-zero, this macro
+evaluates to the number of the signal that caused the child
+process to stop.
+.TP 7
+WIFCONTINUED(\fIstat_val\fP)
+.sp
+Evaluates to a non-zero value if \fIstatus\fP was returned for a child
+process that has continued from a job control stop. 
+.sp
+.LP
+It is unspecified whether the \fIstatus\fP value returned by calls
+to \fIwait\fP() or \fIwaitpid\fP() for processes created by
+\fIposix_spawn\fP() or \fIposix_spawnp\fP() can indicate a WIFSTOPPED(\fIstat_val\fP)
+before subsequent calls to
+\fIwait\fP() or \fIwaitpid\fP() indicate WIFEXITED(\fIstat_val\fP)
+as the result of an error detected before the new process
+image starts executing.
+.LP
+It is unspecified whether the \fIstatus\fP value returned by calls
+to \fIwait\fP() or \fIwaitpid\fP() for processes created
+by \fIposix_spawn\fP() or \fIposix_spawnp\fP() can indicate a WIFSIGNALED(\fIstat_val\fP)
+if a signal is sent to the
+parent's process group after \fIposix_spawn\fP() or \fIposix_spawnp\fP()
+is called. 
+.LP
+If the information pointed to by \fIstat_loc\fP was stored by a call
+to \fIwaitpid\fP() that specified the WUNTRACED flag
+\ and did not specify the WCONTINUED flag,  exactly one of the
+macros WIFEXITED(*\fIstat_loc\fP), WIFSIGNALED(*\fIstat_loc\fP), and
+WIFSTOPPED(*\fIstat_loc\fP) shall evaluate to a non-zero
+value.
+.LP
+If the information pointed to by \fIstat_loc\fP was stored by a call
+to \fIwaitpid\fP() that specified the WUNTRACED   \ and
+WCONTINUED  flags, exactly one of the macros
+WIFEXITED(*\fIstat_loc\fP), WIFSIGNALED(*\fIstat_loc\fP), WIFSTOPPED(*\fIstat_loc\fP),
+\ and
+WIFCONTINUED(*\fIstat_loc\fP)  shall evaluate to a non-zero
+value.
+.LP
+If the information pointed to by \fIstat_loc\fP was stored by a call
+to \fIwaitpid\fP() that did not specify the WUNTRACED
+\ or WCONTINUED  flags, or by a call to the \fIwait\fP()
+function, exactly one of the macros WIFEXITED(*\fIstat_loc\fP) and
+WIFSIGNALED(*\fIstat_loc\fP) shall evaluate to a non-zero
+value.
+.LP
+If the information pointed to by \fIstat_loc\fP was stored by a call
+to \fIwaitpid\fP() that did not specify the WUNTRACED
+flag  
+\ and specified the WCONTINUED flag,  or by a call to the
+\fIwait\fP() function, exactly one of the macros WIFEXITED(*\fIstat_loc\fP),
+WIFSIGNALED(*\fIstat_loc\fP),   \ and
+WIFCONTINUED(*\fIstat_loc\fP)  shall evaluate to a non-zero
+value.
+.LP
+If _POSIX_REALTIME_SIGNALS is defined, and the implementation queues
+the SIGCHLD signal, then if \fIwait\fP() or
+\fIwaitpid\fP() returns because the status of a child process is available,
+any pending SIGCHLD signal associated with the process
+ID of the child process shall be discarded. Any other pending SIGCHLD
+signals shall remain pending.
+.LP
+Otherwise, if SIGCHLD is blocked, if \fIwait\fP() or \fIwaitpid\fP()
+return because the status of a child process is
+available, any pending SIGCHLD signal shall be cleared unless the
+status of another child process is available.
+.LP
+For all other conditions, it is unspecified whether child \fIstatus\fP
+will be available when a SIGCHLD signal is
+delivered.
+.LP
+There may be additional implementation-defined circumstances under
+which \fIwait\fP() or \fIwaitpid\fP() report \fIstatus\fP.
+This shall not occur unless the calling process or one of its child
+processes explicitly makes use of a non-standard extension. In
+these cases the interpretation of the reported \fIstatus\fP is implementation-defined.
+.LP
+If a parent process terminates without waiting for all of its child
+processes to terminate, the remaining child processes shall be
+assigned a new parent process ID corresponding to an implementation-defined
+system process. 
+.SH RETURN VALUE
+.LP
+If \fIwait\fP() or \fIwaitpid\fP() returns because the status of a
+child process is available, these functions shall return a
+value equal to the process ID of the child process for which \fIstatus\fP
+is reported. If \fIwait\fP() or \fIwaitpid\fP()
+returns due to the delivery of a signal to the calling process, -1
+shall be returned and \fIerrno\fP set to [EINTR]. If
+\fIwaitpid\fP() was invoked with WNOHANG set in \fIoptions\fP, it
+has at least one child process specified by \fIpid\fP for
+which \fIstatus\fP is not available, and \fIstatus\fP is not available
+for any process specified by \fIpid\fP, 0 is returned.
+Otherwise, (\fBpid_t\fP)-1 shall be returned, and \fIerrno\fP set
+to indicate the error.
+.SH ERRORS
+.LP
+The \fIwait\fP() function shall fail if:
+.TP 7
+.B ECHILD
+The calling process has no existing unwaited-for child processes.
+.TP 7
+.B EINTR
+The function was interrupted by a signal. The value of the location
+pointed to by \fIstat_loc\fP is undefined.
+.sp
+.LP
+The \fIwaitpid\fP() function shall fail if:
+.TP 7
+.B ECHILD
+The process specified by \fIpid\fP does not exist or is not a child
+of the calling process, or the process group specified by
+\fIpid\fP does not exist or does not have any member process that
+is a child of the calling process.
+.TP 7
+.B EINTR
+The function was interrupted by a signal. The value of the location
+pointed to by \fIstat_loc\fP is undefined.
+.TP 7
+.B EINVAL
+The \fIoptions\fP argument is not valid.
+.sp
+.LP
+\fIThe following sections are informative.\fP
+.SH EXAMPLES
+.LP
+None.
+.SH APPLICATION USAGE
+.LP
+None.
+.SH RATIONALE
+.LP
+A call to the \fIwait\fP() or \fIwaitpid\fP() function only returns
+\fIstatus\fP on an immediate child process of the calling
+process; that is, a child that was produced by a single \fIfork\fP()
+call (perhaps followed
+by an \fIexec\fP or other function calls) from the parent. If a child
+produces grandchildren
+by further use of \fIfork\fP(), none of those grandchildren nor any
+of their descendants
+affect the behavior of a \fIwait\fP() from the original parent process.
+Nothing in this volume of IEEE\ Std\ 1003.1-2001
+prevents an implementation from providing extensions that permit a
+process to get \fIstatus\fP from a grandchild or any other
+process, but a process that does not use such extensions must be guaranteed
+to see \fIstatus\fP from only its direct children.
+.LP
+The \fIwaitpid\fP() function is provided for three reasons:
+.IP " 1." 4
+To support job control
+.LP
+.IP " 2." 4
+To permit a non-blocking version of the \fIwait\fP() function
+.LP
+.IP " 3." 4
+To permit a library routine, such as \fIsystem\fP() or \fIpclose\fP(),
+to wait for its children without interfering with other terminated
+children for
+which the process has not waited
+.LP
+.LP
+The first two of these facilities are based on the \fIwait3\fP() function
+provided by 4.3 BSD. The function uses the
+\fIoptions\fP argument, which is equivalent to an argument to \fIwait3\fP().
+The WUNTRACED flag is used only in conjunction with
+job control on systems supporting job control. Its name comes from
+4.3 BSD and refers to the fact that there are two types of
+stopped processes in that implementation: processes being traced via
+the \fIptrace\fP() debugging facility and (untraced)
+processes stopped by job control signals. Since \fIptrace\fP() is
+not part of this volume of IEEE\ Std\ 1003.1-2001, only
+the second type is relevant. The name WUNTRACED was retained because
+its usage is the same, even though the name is not intuitively
+meaningful in this context.
+.LP
+The third reason for the \fIwaitpid\fP() function is to permit independent
+sections of a process to spawn and wait for children
+without interfering with each other. For example, the following problem
+occurs in developing a portable shell, or command
+interpreter:
+.sp
+.RS
+.nf
+
+\fBstream = popen("/bin/true");
+(void) system("sleep 100");
+(void) pclose(stream);
+\fP
+.fi
+.RE
+.LP
+On all historical implementations, the final \fIpclose\fP() fails
+to reap the
+\fIwait\fP() \fIstatus\fP of the \fIpopen\fP().
+.LP
+The status values are retrieved by macros, rather than given as specific
+bit encodings as they are in most historical
+implementations (and thus expected by existing programs). This was
+necessary to eliminate a limitation on the number of signals an
+implementation can support that was inherent in the traditional encodings.
+This volume of IEEE\ Std\ 1003.1-2001 does
+require that a \fIstatus\fP value of zero corresponds to a process
+calling \fI_exit\fP(0), as this is the most common encoding
+expected by existing programs. Some of the macro names were adopted
+from 4.3 BSD.
+.LP
+These macros syntactically operate on an arbitrary integer value.
+The behavior is undefined unless that value is one stored by a
+successful call to \fIwait\fP() or \fIwaitpid\fP() in the location
+pointed to by the \fIstat_loc\fP argument. An early proposal
+attempted to make this clearer by specifying each argument as *\fIstat_loc\fP
+rather than \fIstat_val\fP. However, that did not
+follow the conventions of other specifications in this volume of IEEE\ Std\ 1003.1-2001
+or traditional usage. It also could
+have implied that the argument to the macro must literally be *\fIstat_loc\fP;
+in fact, that value can be stored or passed as an
+argument to other functions before being interpreted by these macros.
+.LP
+The extension that affects \fIwait\fP() and \fIwaitpid\fP() and is
+common in historical implementations is the \fIptrace\fP()
+function. It is called by a child process and causes that child to
+stop and return a \fIstatus\fP that appears identical to the
+\fIstatus\fP indicated by WIFSTOPPED. The \fIstatus\fP of \fIptrace\fP()
+children is traditionally returned regardless of the
+WUNTRACED flag (or by the \fIwait\fP() function). Most applications
+do not need to concern themselves with such extensions because
+they have control over what extensions they or their children use.
+However, applications, such as command interpreters, that invoke
+arbitrary processes may see this behavior when those arbitrary processes
+misuse such extensions.
+.LP
+Implementations that support \fBcore\fP file creation or other implementation-defined
+actions on termination of some processes
+traditionally provide a bit in the \fIstatus\fP returned by \fIwait\fP()
+to indicate that such actions have occurred.
+.LP
+Allowing the \fIwait\fP() family of functions to discard a pending
+SIGCHLD signal that is associated with a successfully
+waited-for child process puts them into the \fIsigwait\fP() and \fIsigwaitinfo\fP()
+category with respect to SIGCHLD.
+.LP
+This definition allows implementations to treat a pending SIGCHLD
+signal as accepted by the process in \fIwait\fP(), with the
+same meaning of "accepted" as when that word is applied to the \fIsigwait\fP()
+family of
+functions.
+.LP
+Allowing the \fIwait\fP() family of functions to behave this way permits
+an implementation to be able to deal precisely with
+SIGCHLD signals.
+.LP
+In particular, an implementation that does accept (discard) the SIGCHLD
+signal can make the following guarantees regardless of
+the queuing depth of signals in general (the list of waitable children
+can hold the SIGCHLD queue):
+.IP " 1." 4
+If a SIGCHLD signal handler is established via \fIsigaction\fP() without
+the
+SA_RESETHAND flag, SIGCHLD signals can be accurately counted; that
+is, exactly one SIGCHLD signal will be delivered to or accepted
+by the process for every child process that terminates.
+.LP
+.IP " 2." 4
+A single \fIwait\fP() issued from a SIGCHLD signal handler can be
+guaranteed to return immediately with status information for
+a child process.
+.LP
+.IP " 3." 4
+When SA_SIGINFO is requested, the SIGCHLD signal handler can be guaranteed
+to receive a non-NULL pointer to a \fBsiginfo_t\fP
+structure that describes a child process for which a wait via \fIwaitpid\fP()
+or \fIwaitid\fP() will not block or fail.
+.LP
+.IP " 4." 4
+The \fIsystem\fP() function will not cause a process' SIGCHLD handler
+to be called as a
+result of the \fIfork\fP()/ \fIexec\fP executed within
+\fIsystem\fP() because \fIsystem\fP() will accept
+the SIGCHLD signal when it performs a \fIwaitpid\fP() for its child
+process. This is a desirable behavior of \fIsystem\fP() so that it
+can be used in a library without causing side effects to the application
+linked with the library.
+.LP
+.LP
+An implementation that does not permit the \fIwait\fP() family of
+functions to accept (discard) a pending SIGCHLD signal
+associated with a successfully waited-for child, cannot make the guarantees
+described above for the following reasons:
+.TP 7
+Guarantee #1
+.sp
+Although it might be assumed that reliable queuing of all SIGCHLD
+signals generated by the system can make this guarantee, the
+counter-example is the case of a process that blocks SIGCHLD and performs
+an indefinite loop of \fIfork\fP()/ \fIwait\fP() operations. If the
+implementation supports queued signals, then
+eventually the system will run out of memory for the queue. The guarantee
+cannot be made because there must be some limit to the
+depth of queuing.
+.TP 7
+Guarantees #2 and #3
+.sp
+These cannot be guaranteed unless the \fIwait\fP() family of functions
+accepts the SIGCHLD signal. Otherwise, a \fIfork\fP()/ \fIwait\fP()
+executed while SIGCHLD is blocked (as in the \fIsystem\fP() function)
+will result in an invocation of the handler when SIGCHLD is unblocked,
+after the process has disappeared.
+.TP 7
+Guarantee #4
+.sp
+Although possible to make this guarantee, \fIsystem\fP() would have
+to set the SIGCHLD
+handler to SIG_DFL so that the SIGCHLD signal generated by its \fIfork\fP()
+would be
+discarded (the SIGCHLD default action is to be ignored), then restore
+it to its previous setting. This would have the undesirable
+side effect of discarding all SIGCHLD signals pending to the process.
+.sp
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+\fIexec\fP() , \fIexit\fP() , \fIfork\fP() , \fIwaitid\fP() , the
+Base Definitions volume of
+IEEE\ Std\ 1003.1-2001, \fI<signal.h>\fP, \fI<sys/wait.h>\fP
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

@@ -1,0 +1,161 @@
+.\" Copyright (c) 2001-2003 The Open Group, All Rights Reserved 
+.TH "<stdarg.h>" P 2003 "IEEE/The Open Group" "POSIX Programmer's Manual"
+.\" <stdarg.h> 
+.SH NAME
+stdarg.h \- handle variable argument list
+.SH SYNOPSIS
+.LP
+\fB#include <stdarg.h>
+.br
+.sp
+void va_start(va_list\fP \fIap\fP\fB,\fP \fIargN\fP\fB);
+.br
+void va_copy(va_list\fP \fIdest\fP\fB, va_list\fP \fIsrc\fP\fB);
+.br
+type va_arg(va_list\fP \fIap\fP\fB,\fP \fItype\fP\fB);
+.br
+void va_end(va_list\fP \fIap\fP\fB);
+.br
+\fP
+.SH DESCRIPTION
+.LP
+The \fI<stdarg.h>\fP header shall contain a set of macros which allows
+portable functions that accept variable argument
+lists to be written. Functions that have variable argument lists (such
+as \fIprintf\fP())
+but do not use these macros are inherently non-portable, as different
+systems use different argument-passing conventions.
+.LP
+The type \fBva_list\fP shall be defined for variables used to traverse
+the list.
+.LP
+The \fIva_start\fP() macro is invoked to initialize \fIap\fP to the
+beginning of the list before any calls to
+\fIva_arg\fP().
+.LP
+The \fIva_copy\fP() macro initializes \fIdest\fP as a copy of \fIsrc\fP,
+as if the \fIva_start\fP() macro had been applied
+to \fIdest\fP followed by the same sequence of uses of the \fIva_arg\fP()
+macro as had previously been used to reach the present
+state of \fIsrc\fP. Neither the \fIva_copy\fP() nor \fIva_start\fP()
+macro shall be invoked to reinitialize \fIdest\fP without
+an intervening invocation of the \fIva_end\fP() macro for the same
+\fIdest\fP.
+.LP
+The object \fIap\fP may be passed as an argument to another function;
+if that function invokes the \fIva_arg\fP() macro with
+parameter \fIap\fP, the value of \fIap\fP in the calling function
+is unspecified and shall be passed to the \fIva_end\fP() macro
+prior to any further reference to \fIap\fP. The parameter \fIargN\fP
+is the identifier of the rightmost parameter in the variable
+parameter list in the function definition (the one just before the
+\&...). If the parameter \fIargN\fP is declared with the
+\fBregister\fP storage class, with a function type or array type,
+or with a type that is not compatible with the type that results
+after application of the default argument promotions, the behavior
+is undefined.
+.LP
+The \fIva_arg\fP() macro shall return the next argument in the list
+pointed to by \fIap\fP. Each invocation of \fIva_arg\fP()
+modifies \fIap\fP so that the values of successive arguments are returned
+in turn. The \fItype\fP parameter shall be a type name
+specified such that the type of a pointer to an object that has the
+specified type can be obtained simply by postfixing a
+\fB'*'\fP to type. If there is no actual next argument, or if \fItype\fP
+is not compatible with the type of the actual next
+argument (as promoted according to the default argument promotions),
+the behavior is undefined, except for the following cases:
+.IP " *" 3
+One type is a signed integer type, the other type is the corresponding
+unsigned integer type, and the value is representable in
+both types.
+.LP
+.IP " *" 3
+One type is a pointer to \fBvoid\fP and the other is a pointer to
+a character type.
+.LP
+.IP " *" 3
+Both types are pointers. 
+.LP
+.LP
+Different types can be mixed, but it is up to the routine to know
+what type of argument is expected.
+.LP
+The \fIva_end\fP() macro is used to clean up; it invalidates \fIap\fP
+for use (unless \fIva_start\fP() or \fIva_copy\fP() is
+invoked again).
+.LP
+Each invocation of the \fIva_start\fP() and \fIva_copy\fP() macros
+shall be matched by a corresponding invocation of the
+\fIva_end\fP() macro in the same function.
+.LP
+Multiple traversals, each bracketed by \fIva_start\fP() ... \fIva_end\fP(),
+are possible.
+.SH EXAMPLES
+.LP
+This example is a possible implementation of \fIexecl\fP():
+.sp
+.RS
+.nf
+
+\fB#include <stdarg.h>
+.sp
+
+#define  MAXARGS     31
+
+.sp
+
+/*
+ * execl is called by
+ * execl(file, arg1, arg2, ..., (char *)(0));
+ */
+int execl(const char *file, const char *args, ...)
+{
+    va_list ap;
+    char *array[MAXARGS +1];
+    int argno = 0;
+.sp
+
+    va_start(ap, args);
+    while (args != 0 && argno < MAXARGS)
+    {
+        array[argno++] = args;
+        args = va_arg(ap, const char *);
+    }
+    array[argno] = (char *) 0;
+    va_end(ap);
+    return execv(file, array);
+}
+\fP
+.fi
+.RE
+.LP
+\fIThe following sections are informative.\fP
+.SH APPLICATION USAGE
+.LP
+It is up to the calling routine to communicate to the called routine
+how many arguments there are, since it is not always
+possible for the called routine to determine this in any other way.
+For example, \fIexecl\fP() is passed a null pointer to signal the
+end of the list. The \fIprintf\fP() function can tell how many arguments
+are there by the \fIformat\fP argument.
+.SH RATIONALE
+.LP
+None.
+.SH FUTURE DIRECTIONS
+.LP
+None.
+.SH SEE ALSO
+.LP
+The System Interfaces volume of IEEE\ Std\ 1003.1-2001, \fIexec\fP,
+\fIprintf\fP()
+.SH COPYRIGHT
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .

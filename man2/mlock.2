@@ -99,13 +99,16 @@ shared memory regions.
 .PP
 If
 .B MCL_FUTURE
-has been specified and the number of locked pages exceeds the upper
-limit of allowed locked pages, then the system call which caused the
-new mapping will fail with
-.BR ENOMEM .
-If these new pages have been mapped by the the growing stack, then the
-kernel will deny stack expansion and send a
-.BR SIGSEGV .
+has been specified, then a later system call (e.g.,
+.BR mmap (2),
+.BR sbrk (2),
+.BR malloc (3)),
+may fail if it would cause the number of locked bytes to exceed
+the permitted maximum (see below).
+In the same circumstances, stack growth may likewise fail:
+the kernel will deny stack expansion and deliver a
+.BR SIGSEGV 
+signal to the process.
 
 .BR munlockall ()
 unlocks all pages mapped into the address space of the
@@ -203,6 +206,14 @@ This limit is not enforced if the process is privileged
 .B ENOMEM
 (Linux 2.4 and earlier) the calling process tried to lock more than
 half of RAM.
+.\" In the case of mlock(), this check is somewhat buggy: it doesn't
+.\" take into account whether the to-be-locked range overlaps with
+.\" already locked pages.  Thus, suppose we allocate 
+.\" (num_physpages / 4 + 1) of memory, and lock those pages once using
+.\" mlock(), and then lock the *same* page range a second time.
+.\" In the case, the second mlock() call will fail, since the check
+.\" calculates that the process is trying to lock (num_physpages / 2 + 2)
+.\" pages, which of course is not true.  (MTK, Nov 04, kernel 2.4.28)
 .TP
 .B EPERM
 (Linux 2.6.9 and later) the caller was not privileged

@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" (c) 2004 bu Michael Kerrisk (mtk-manpages@gmx.net)
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -38,10 +39,15 @@
 .\" Modified 2001-09-25, aeb
 .\" Modified 26 Jun 01 by Michael Kerrisk, <mtk-manpages@gmx.net>
 .\"	Updated notes on setting disposition of SIGCHLD to SIG_IGN
+.\" Modified 2004-11-11 by Michael Kerrisk, <mtk-manpages@gmx.net>
+.\"	Added waitid(2)
+.\"	Added text on SA_NOCLDSTOP
+.\"	Updated discussion of SA_NOCLDWAIT to reflect 2.6 behaviour
+.\"	Much other text rewritten
 .\"
-.TH WAIT 2  2000-07-24 "Linux" "Linux Programmer's Manual"
+.TH WAIT 2  2004-11-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
-wait, waitpid \- wait for process termination
+wait, waitpid \- wait for process to change state
 .SH SYNOPSIS
 .B #include <sys/types.h>
 .br
@@ -50,46 +56,71 @@ wait, waitpid \- wait for process termination
 .BI "pid_t wait(int *" "status" );
 .br
 .BI "pid_t waitpid(pid_t " pid ", int *" status ", int " options );
+.br
+.BI "int waitid(idtype_t " idtype ", id_t " id ", \
+siginfo_t *" infop ", int " options );
 .SH DESCRIPTION
+All of these system calls are used to wait for state changes
+in a child of the calling process, and obtain information
+about the child whose state has changed.
+A state change is considered to be: the child terminated;
+the child was stopped by a signal; or the child was resumed by a signal.
+In the case of a terminated child, performing a wait allows
+the system to release the resources associated with the child;
+if a wait is not performed, then terminated the child remains in
+a "zombie" state (see NOTES below).
+
+If a child has already changed state, then these calls return immediately.
+Otherwise they block until either a child changes state or
+a signal handler interrupts the call (assuming that system calls
+are not automatically restarted using the
+.B SA_RESTART
+flag of
+.BR sigaction (2)).
+In the remainder of this page, a child whose state has changed
+and which has not yet been waited upon by one of these system 
+calls is said termed
+.IR waitable .
+.SS "wait() and waitpid()"
 The
-.B wait
-function suspends execution of the current process until a child has
-exited, or until a signal is delivered whose action is to terminate
-the current process or to call a signal handling function.  If a child
-has already exited by the time of the call (a so\-called "zombie"
-process), the function returns immediately.  Any system resources used
-by the child are freed.
+.BR wait ()
+system call suspends execution of the current process until one of its
+children terminates.
+The call
+.I wait(&status)
+is equivalent to:
+.nf
+
+    watpid(-1, &status, 0);
+.fi
 
 The
-.B waitpid
-function suspends execution of the current process until a
-child as specified by the
+.BR waitpid ()
+system call suspends execution of the current process until a
+child specified by
 .I pid
-argument has exited, or until a signal is delivered whose action is to
-terminate the current process or to call a signal handling function.
-If a child as requested by
-.I pid
-has already exited by the time of the call (a so\-called "zombie"
-process), the function returns immediately.  Any system resources used
-by the child are freed.
+argument has changed state.
+By default,
+.BR waitpid ()
+waits only for terminated children, but this behaviour is modifiable
+via the
+.I options
+argument, as described below.
 
 The value of
 .I pid
-can be one of:
+can be:
 .IP "< \-1"
-which means to wait for any child process whose process group ID is
+meaning wait for any child process whose process group ID is
 equal to the absolute value of
 .IR pid .
 .IP \-1
-which means to wait for any child process; this is the same
-behaviour which
-.B wait
-exhibits.
+meaning wait for any child process.
 .IP 0
-which means to wait for any child process whose process group ID is
+meaning wait for any child process whose process group ID is
 equal to that of the calling process.
 .IP "> 0"
-which means to wait for the child whose process ID is equal to the
+meaning wait for the child whose process ID is equal to the
 value of
 .IR pid .
 .PP
@@ -98,84 +129,252 @@ The value of
 is an OR of zero or more of the following constants:
 .TP
 .B WNOHANG
-which means to return immediately if no child has exited.
+return immediately if no child has exited.
 .TP
 .B WUNTRACED
-which means to also return for children which are stopped
-(but not traced), and whose status has not been reported.
+also return for children which are stopped
+(but not traced via
+.BR ptrace (2)),
+and whose status has not been reported.
 Status for traced children which are stopped is provided
 also without this option.
+.TP
+.B WCONTINUED
+(Since Linux 2.6.10)
+.\" FIXME WCONTINUED *should* be in 2.6.10 -- MTK, Nov 04
+also return for stopped children that have been resumed
+by delivery of
+.BR SIGCONT .
 .PP
 (For Linux-only options, see below.)
+.PP
+The 
+.B WUNTRACED
+and
+.B WCONTINUED
+options are only effective if the
+.B SA_NOCLDSTOP
+flag has not been set for the
+.B SIGCHLD
+signal (see
+.BR sigaction (2)).
 .PP
 If
 .I status
 is not
 .BR NULL ,
-.B wait
-or
-.B waitpid
-store status information in the location pointed to by
-.IR status .
-
-This status can be evaluated with the following macros (these macros take
-the stat buffer (an \fBint\fR) as an argument \(em not a pointer to the
-buffer!):
+.BR wait ()
+and
+.BR waitpid ()
+store status information in the \fIint\fR to which it points.
+This integer can be inspected with the following macros (which
+take the integer itself as an argument, not a pointer to it,
+as is done in
+.BR wait ()
+and
+.BR waitpid ()!):
 .TP
 .BI WIFEXITED( status )
 returns true if the child terminated normally, that is,
-by calling exit() or _exit(), or by returning from main().
+by calling
+.BR exit (3)
+or
+.BR _exit(2),
+or by returning from main().
 .TP
 .BI WEXITSTATUS( status )
-evaluates to the least significant eight bits of the return code of
-the child which terminated, which may have been set as the argument to
-a call to exit() or _exit() or as the argument for a return statement
-in the main program.  This macro can only be evaluated if
+returns the exit status of the child.
+This consists of the least significant 8 bits of the
+.I status
+argument that the child specified in a call to
+.BR exit ()
+or
+.BR _exit()
+or as the argument for a return statement in main().
+This macro should only be employed if
 .B WIFEXITED
 returned true.
 .TP
 .BI WIFSIGNALED( status )
-returns true if the child process terminated because of a signal
-which was not caught.
+returns true if the child process was terminated by a signal.
 .TP
 .BI WTERMSIG( status )
 returns the number of the signal that caused the child process to
-terminate. This macro can only be evaluated if
+terminate. This macro should only be employed if
 .B WIFSIGNALED
-returned non\-zero.
+returned true.
+.TP
+.BI WCOREDUMP( status )
+returns true if the child produced a core dump.
+This macro should only be employed if
+.B WIFSIGNALED
+returned true.
+This macro is not specified in POSIX.1-2001 and is not available on
+some Unix implementations (e.g., AIX, SunOS).
+Only use this enclosed in #ifdef WCOREDUMP ... #endif.
 .TP
 .BI WIFSTOPPED( status )
-returns true if the child process which caused the return is currently
-stopped; this is only possible if the call was done using
+returns true if the child process was stopped by delivery of a signal;
+this is only possible if the call was done using
 .BR WUNTRACED
 or when the child is being traced (see
 .BR ptrace (2)).
 .TP
 .BI WSTOPSIG( status )
 returns the number of the signal which caused the child to stop.  This
-macro can only be evaluated if
+macro should only be employed if
 .B WIFSTOPPED
-returned non\-zero.
-.LP
-Some versions of Unix (e.g. Linux, Solaris, but not AIX, SunOS)
-also define a macro
-.BI WCOREDUMP( status )
-to test whether the child process dumped core. Only use this
-enclosed in #ifdef WCOREDUMP ... #endif.
-.SH "RETURN VALUE"
-The process ID of the child which exited, or zero if
+returned true.
+.TP
+.BI WIFCONTINUED( status )
+(Since Linux 2.6.10)
+.\" FIXME WIFCONTINUED *should* work in 2.6.10 -- MTK, Nov 04
+returns true if the child process was resumed by delivery of
+.BR SIGCONT .
+.SS "waitid()"
+The
+.BR waitid ()
+system call (available since Linux 2.6.9) provides more precise
+control over which child state changes to wait for.
+
+The
+.I idtype
+and
+.I id
+arguments select the child(ren) to wait for, as follows:
+.IP "\fIidtype\fP == \fBP_PID\fP"
+Wait for the child whose process ID matches
+.IR id .
+.IP "\fIidtype\fP == \fBP_PGID\fP"
+Wait for any child whose process group ID matches
+.IR id .
+.IP "\fIidtype\fP == \fBP_ALL\fP"
+Wait for any child;
+.I id
+is ignored.
+.PP
+The child state changes to wait for are specified by ORing
+one or more of the following flags in
+.IR options :
+.TP
+.B WEXITED
+Wait for children that have terminated.
+.TP
+.B WSTOPPED
+Wait for children that have been stopped by delivery of a signal.
+.TP
+.B WCONTINUED
+Wait for (previously stopped) children that have been
+resumed by delivery of
+.BR SIGCONT .
+.PP
+The following flags may additionally be ORed in
+.IR options :
+.TP
 .B WNOHANG
-was used and no child was available, or \-1 on error (in which case
+As for
+.BR waitpid ().
+.TP
+.B WNOWAIT
+Leave the child in a waitable state; a later wait call
+can be used to again retrieve the child status information.
+.PP
+Upon successful return,
+.BR waitid ()
+fills in the following fields of the
+.I siginfo_t
+structure pointed to by
+.IR infop :
+.IP \fIsi_pid\fP
+The process ID of the child.
+.IP \fIsi_uid\fP
+The real user ID of the child.
+.IP \fIsi_signo\fP
+Always set to
+.BR SIGCHLD .
+.IP \fIsi_status\fP
+Either the exit status of the child, as given to
+.BR _exit (2)
+(or
+.BR exit (3)),
+or the signal that caused the child to terminate, stop, or continue.
+The 
+.I si_code
+field can be used to determine how to interpret this field.
+.IP \fIsi_code\fP
+Set to one of:
+.B CLD_EXITED
+(child called
+.BR _exit (2));
+.B CLD_KILLED
+(child killed by signal);
+.B CLD_STOPPED
+(child stopped by signal); or
+.B CLD_CONTINUED
+(child continued by
+.BR SIGCONT ).
+.PP
+If
+.B WNOHANG
+was specified in
+.I options
+and there were no children in a waitable state, then
+.BR waitid ()
+returns 0 immediately and
+the state of the
+.I siginfo_t
+structure pointed to by
+.I infop
+is unspecified.
+.\" POSIX.1-2001 leaves this possibility unspecified; most 
+.\" implementations (including Linux) zero out the structure
+.\" in this case, but at at least one implementation (AIX 5.1)
+.\" does not -- MTK Nov 04
+To distinguish this case from that where a child was in a
+waitable state, zero out the
+.I si_pid
+field before the call and check for a non-zero value in this field
+after the call returns.
+.SH "RETURN VALUE"
+.BR wait ():
+on successs, returns the PID of the terminated child;
+on error, \-1 is returned.
+
+.BR waitpid():
+on success, returns the PID of the child whose state has changed;
+on error, \-1 is returned;
+if
+.B WNOHANG
+was specified and no child(ren) specified by
+.I pid
+has yet changed state, then 0 is returned.
+
+.BR waitid():
+returns 0 on success or 
+if
+.B WNOHANG
+was specified and no child(ren) specified by
+.I id
+has yet changed state;
+on error, \-1 is returned.
+
+Each of these calls sets
 .I errno
-is set to an appropriate value).
+to an appropriate value in the case of an error.
 .SH ERRORS
 .TP
-.BR ECHILD " (for " wait )
+.BR ECHILD " (for " wait ())
 The calling process does not have any unwaited-for children.
 .TP
-.BR ECHILD " (for " waitpid )
-The process specified in
+.BR ECHILD " (for " waitpid "() or " waitid ())
+The process specified by
 .I pid
+.RB ( waitpid ())
+or
+.I idtype
+and
+.I id
+.RB ( waitid ())
 does not exist or is not a child of the calling process.
 (This can happen for one's own child if the action for SIGCHLD
 is set to SIG_IGN. See also the LINUX NOTES section about threads.)
@@ -191,28 +390,52 @@ The
 .I options
 argument was invalid.
 .SH NOTES
-The Single Unix Specification describes a flag SA_NOCLDWAIT (not supported
-under Linux) such that if either this flag is set, or the action for
-SIGCHLD is set to SIG_IGN
-then children that exit do not become zombies and a call to
+A child that terminates, but has not been waited for becomes a "zombie".
+The kernel maintains a minimal set of information about the zombie
+process (PID, termination status, resource usage information)
+in order to allow the parent to later perform a wait to obtain
+information about the child.
+As long as a zombie is not removed from the system via a wait,
+it will consume a slot in the kernel process table, and if
+this table fills, it will not be possible to create further processes.
+If a parent process terminates, then its "zombie" children (if any)
+are adopted by
+.BR init (8),
+which automatically performs a wait to remove the zombies.
+
+POSIX.1-2001 specifies that if the disposition of
+.B SIGCHLD
+is set to 
+.B SIG_IGN
+or the 
+.B SA_NOCLDWAIT
+flag is set for
+.BR SIGCHLD
+(see 
+.BR sigaction (2)),
+then children that terminate do not become zombies and a call to
 .BR wait ()
 or
 .BR waitpid ()
-will block until all children have exited, and then fail with
+will block until all children have terminated, and then fail with
 .I errno
-set to ECHILD.
-.LP
-The original POSIX standard left the behaviour of setting SIGCHLD to
-SIG_IGN unspecified.
-Later standards, including SUSv2 and POSIX 1003.1-2001 specify the
-behaviour just described as an XSI-compliance option.
-Linux does not conform to the second of the two points just described:
+set to
+.BR ECHILD .
+(The original POSIX standard left the behaviour of setting
+.B SIGCHLD
+to
+.B SIG_IGN
+unspecified.)
+Linux 2.6 conforms to this specification.
+However, Linux 2.4 (and earlier) does not:
 if a
 .BR wait "() or " waitpid ()
-call is made while SIGCHLD is being ignored,
-the call behaves just as though SIGCHLD were not being igored, that is,
-the call blocks until the next child terminates and then returns the
-PID and status of that child.
+call is made while
+.B SIGCHLD
+is being ignored, the call behaves just as though
+.B SIGCHLD
+were not being igored, that is, the call blocks until the next
+child terminates and then returns the PID and status of that child.
 .SH "LINUX NOTES"
 In the Linux kernel, a kernel-scheduled thread is not a distinct
 construct from a process. Instead, a thread is simply a process
@@ -257,8 +480,12 @@ the same thread group. This was the default before Linux 2.4.
 .SH "CONFORMING TO"
 SVr4, POSIX.1
 .SH "SEE ALSO"
+.BR _exit (2),
 .BR clone (2),
+.BR fork (2),
+.BR kill (2),
 .BR ptrace (2),
+.BR sigaction (2),
 .BR signal (2),
 .BR wait4 (2),
 .BR pthread_create (3),

@@ -21,8 +21,9 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
 .\" Rewritten old page, 990824, aeb@cwi.nl
+.\" 2004-12-14, mtk, added discussion of resolved_path == NULL
 .\"
-.TH REALPATH 3  1999-08-24 "" "Linux Programmer's Manual"
+.TH REALPATH 3  2004-12-14 "" "Linux Programmer's Manual"
 .SH NAME
 realpath \- return the canonicalized absolute pathname
 .SH SYNOPSIS
@@ -32,7 +33,7 @@ realpath \- return the canonicalized absolute pathname
 .sp
 .BI "char *realpath(const char *" path ", char *" resolved_path ); 
 .SH DESCRIPTION
-.B realpath
+.BR realpath ()
 expands all symbolic links and resolves references
 to
 .IR '/./' ", " '/../' 
@@ -50,7 +51,9 @@ or
 .I '/../'
 components.
 .SH "RETURN VALUE"
-If there is no error, it returns a pointer to the
+If there is no error,
+.BR realpath ()
+returns a pointer to the
 .IR resolved_path .
 
 Otherwise it returns a NULL pointer, and the contents
@@ -70,6 +73,7 @@ Either
 or
 .I resolved_path
 is NULL. (In libc5 this would just cause a segfault.)
+But, see NOTES below.
 .TP
 .B EIO
 An I/O error occurred while reading from the file system.
@@ -89,9 +93,27 @@ The named file does not exist.
 .TP
 .B ENOTDIR
 A component of the path prefix is not a directory.
+.SH NOTES
+The glibc implementation of
+.BR realpath ()
+provides a non-standard extension.
+If
+.I resolved_path
+is specified as NULL, then
+.BR realpath ()
+uses
+.BR malloc (3)
+to allocate a buffer to hold the resolved pathname,
+and returns a pointer to this buffer.
+The caller should deallocate this buffer using
+.BR free (3).
+.\" FIXME? In my testing, even if we use resolved_path == NULL, then
+.\" realpath() will still return ENAMETOOLONG if the resolved pathname
+.\" would exceed PATH_MAX bytes -- MTK, Dec 04
 .SH BUGS
-Never use this function. It is broken by design since it is
-impossible to determine a suitable size for the output buffer.
+Avoiid using this function. It is broken by design since it is
+impossible to determine a suitable size for the output buffer,
+.IR resolved_path .
 According to POSIX a buffer of size PATH_MAX suffices, but
 PATH_MAX need not be a defined constant, and may have to be
 obtained using
@@ -111,7 +133,7 @@ The libc4 and libc5 implementation contains a buffer overflow
 Thus, suid programs like mount need a private version.
 .SH HISTORY
 The
-.B realpath
+.BR realpath ()
 function first appeared in BSD 4.4, contributed by Jan-Simon Pendry.
 In Linux this function appears in libc 4.5.21.
 .SH "CONFORMING TO"
@@ -139,7 +161,7 @@ path name. Solaris may return a relative path name when the
 .I path
 argument is relative.
 The prototype of
-.B realpath
+.BR realpath ()
 is given in <unistd.h> in libc4 and libc5,
 but in <stdlib.h> everywhere else.
 .SH "SEE ALSO"

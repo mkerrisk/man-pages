@@ -26,8 +26,11 @@
 .\"     Added notes on CAP_IPC_OWNER requirement
 .\" Modified, 17 Jun 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on CAP_SYS_ADMIN requirement for IPC_SET and IPC_RMID
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Added msqid_ds and ipc_perm structure definitions
 .\"
-.TH MSGCTL 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
+.TH MSGCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 msgctl \- message control operations
 .SH SYNOPSIS
@@ -44,74 +47,115 @@ msgctl \- message control operations
 .BI "int " cmd ,
 .BI "struct msqid_ds *" buf );
 .SH DESCRIPTION
-This function performs the control operation specified by
+.B msgctl
+performs the control operation specified by
 .I cmd
 on the message queue with identifier
 .IR msqid .
-Legal values for
+.PP
+The
+.I msqid_ds
+data structure is defined in <sys/msg.h> as follows:
+.nf
+.in +4n
+
+struct msqid_ds {
+    struct ipc_perm msg_perm;     /* Ownership and permissions
+    time_t          msg_stime;    /* Time of last msgsnd() */
+    time_t          msg_rtime;    /* Time of last msgrcv() */
+    time_t          msg_ctime;    /* Time of last change */
+    unsigned long   __msg_cbytes; /* Current number of bytes in 
+                                     queue (non-standard) */
+    msgqnum_t       msg_qnum;     /* Current number of messages 
+                                     in queue */
+    msglen_t        msg_qbytes;   /* Maximum number of bytes 
+                                     allowed in queue */
+    pid_t           msg_lspid;    /* PID of last msgsnd() */
+    pid_t           msg_lrpid;    /* PID of last msgrcv() */
+
+};
+.in -4n
+.fi
+.PP
+The
+.I ipc_perm
+structure is defined in <sys/ipc.h> as follows
+(the highlighted fields are settable using
+.BR IPC_SET ):
+.PP
+.nf
+.in +4n
+struct ipc_perm {
+    key_t key;            /* Key supplied to msgget() */
+    uid_t \fBuid\fP;            /* Effective UID of owner */
+    gid_t \fBgid\fP;            /* Effective GID of owner */
+    uid_t cuid;           /* Effective UID of creator */
+    gid_t cgid;           /* Effective GID of creator */
+    unsigned short \fBmode\fP;  /* Permissions */
+    unsigned short seq;   /* Sequence number */
+};
+.in -4n
+.fi
+.PP
+Valid values for
 .I cmd
 are:
 .TP
 .B IPC_STAT
-Copy info from the message queue data structure associated with
+Copy information from the kernel data structure associated with
 .I msqid
-into the structure pointed to by
+into the
+.I msqid_ds
+structure pointed to by
 .IR buf .
 The caller must have read permission on the message queue.
 .TP
 .B IPC_SET
 Write the values of some members of the
-.B msqid_ds
+.I msqid_ds
 structure pointed to by
 .I buf
-to the message queue data structure, updating also its
-.B msg_ctime
+to the kernel data structure associated with this message queue,
+updating also its
+.I msg_ctime
 member.
-The following members of the structure can be updated:
-.nf
-.sp
-.ft B
-	msg_perm.uid
-	msg_perm.gid
-	msg_perm.mode	\fR/* only lowest 9-bits */\fP
-	msg_qbytes
-.fi
-.ft R
-.sp
-The calling process must have appropriate (probably, root) privileges
-or its effective user\-ID must be that of the creator
-.RI ( msg_perm.cuid )
-or owner
+The following members of the structure are updated: 
+.IR msg_qbytes ,
+.IR msg_perm.uid ,
+.IR msg_perm.gid ,
+and (the least significant 9 bits of)
+.IR msg_perm.mode .
+The effective UID of the calling process must match the owner
 .RI ( msg_perm.uid )
-of the message queue.
+or creator 
+.RI ( msg_perm.cuid )
+of the message queue, or the caller must be privileged.
 Appropriate privilege (Linux: the
 .B CAP_IPC_RESOURCE
 capability) is required to raise the
-.B msg_qbytes
+.I msg_qbytes
 value beyond the system parameter
 .BR MSGMNB .
 .TP
 .B IPC_RMID
-Immediately remove the message queue and its associated data structure,
+Immediately remove the message queue,
 awakening all waiting reader and writer processes (with an error
 return and
-.B errno
+.I errno
 set to
 .BR EIDRM ).
-The calling process must have appropriate (probably, root) privileges
+The calling process must have appropriate privileges
 or its effective user\-ID must be either that of the creator or owner
 of the message queue.
 .SH "RETURN VALUE"
-On success, the return value will be
-.BR 0 ,
-otherwise
-.B \-1
+On success, the return value will be 0
+otherwise \-1
 with
-.B errno
+.I errno
 indicating the error.
 .SH ERRORS
 On failure,
-.B errno
+.I errno
 is set to one of the following:
 .TP 11
 .B EACCES
@@ -165,10 +209,10 @@ and the process is not privileged (Linux: it does not have the
 .B CAP_SYS_ADMIN
 capability).
 .SH NOTES
-Various fields in a \fIstruct msqid_ds\fP were shorts under Linux 2.2
+Various fields in the \fIstruct msqid_ds\fP were shorts under Linux 2.2
 and have become longs under Linux 2.4. To take advantage of this,
 a recompilation under glibc-2.1.91 or later should suffice.
-(The kernel distinguishes old and new calls by a IPC_64 flag in
+(The kernel distinguishes old and new calls by an IPC_64 flag in
 .IR cmd .)
 .SH "CONFORMING TO"
 SVr4, SVID.  SVID does not document the EIDRM error condition.

@@ -43,25 +43,27 @@
 .\" Modified 2004-06-16 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on CAP_SYS_RESOURCE
 .\"
+.\" 2004-11-16 -- mtk: the gerlimit.2 page, which formally included 
+.\" coverage of getrusage(2), has been split, so that the latter
+.\" is now covered in its own getrusage.2.
+.\"
+.\" Modified 2004-11-16, mtk: A few other minor changes
+.\"
 .TH GETRLIMIT 2 2004-06-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
-getrlimit, getrusage, setrlimit \- get/set resource limits and usage
+getrlimit, setrlimit \- get/set resource limits
 .SH SYNOPSIS
 .B #include <sys/time.h>
 .br
 .B #include <sys/resource.h>
-.br
-.B #include <unistd.h>
 .sp
 .BI "int getrlimit(int " resource ", struct rlimit *" rlim );
 .br
-.BI "int getrusage(int " who ", struct rusage *" usage );
-.br
 .BI "int setrlimit(int " resource ", const struct rlimit *" rlim );
 .SH DESCRIPTION
-.B getrlimit
+.BR getrlimit ()
 and
-.B setrlimit
+.BR setrlimit ()
 get and set resource limits respectively.
 Each resource has an associated soft and hard limit, as defined by the 
 .B rlimit
@@ -73,9 +75,8 @@ argument to both
 .in +0.5i
 .nf
 struct rlimit {
-    rlim_t rlim_cur;   /* Soft limit */
-    rlim_t rlim_max;   /* Hard limit (ceiling 
-                          for rlim_cur) */
+    rlim_t rlim_cur;  /* Soft limit */
+    rlim_t rlim_max;  /* Hard limit (ceiling for rlim_cur) */
 };
 
 .fi
@@ -110,8 +111,11 @@ and
 which fail with the error
 .B ENOMEM
 upon exceeding this limit. Also automatic stack expansion will fail
-(and generate a SIGSEGV that kills the process when no alternate stack
-has been made available).
+(and generate a
+.B SIGSEGV
+that kills the process if no alternate stack
+has been made available via
+.BR sigaltstack (2)).
 Since the value is a long, on machines with a 32-bit long
 either this limit is at most 2 GiB, or this resource is unlimited.
 .TP
@@ -134,7 +138,7 @@ If the process continues to consume CPU time, it will be sent
 once per second until the hard limit is reached, at which time
 it is sent
 .BR SIGKILL .
-(This latter point describes Linux 2.2 and 2.4 behaviour.
+(This latter point describes Linux 2.2 through 2.6 behaviour.
 Implementations vary in how they treat processes which continue to
 consume CPU time after reaching the soft limit.
 Portable applications that need to catch this signal should
@@ -199,6 +203,8 @@ affects calls to
 .BR madvise ()
 specifying
 .BR MADVISE_WILLNEED .
+.\" As at kernel 2.6.9, this limit still does nothing in 2.6 though
+.\" talk of making it do something continues in LKML -- MTK, Nov 04
 .TP
 .B RLIMIT_STACK
 The maximum size of the process stack, in bytes.
@@ -211,39 +217,6 @@ To handle this signal, a process must employ an alternate signal stack
 .B RLIMIT_OFILE
 is the BSD name for 
 .BR RLIMIT_NOFILE .
-.PP
-.B getrusage
-returns the current resource usages, for a \fIwho\fP
-of either 
-.B RUSAGE_SELF
-or 
-.BR RUSAGE_CHILDREN .
-The former asks for resources used by the current process,
-the latter for resources used by those of its children
-that have terminated and have been waited for.
-.PP 
-.in +0.5i
-.nf
-struct rusage {
-    struct timeval ru_utime; /* user time used */
-    struct timeval ru_stime; /* system time used */
-    long   ru_maxrss;        /* maximum resident set size */
-    long   ru_ixrss;         /* integral shared memory size */
-    long   ru_idrss;         /* integral unshared data size */
-    long   ru_isrss;         /* integral unshared stack size */
-    long   ru_minflt;        /* page reclaims */
-    long   ru_majflt;        /* page faults */
-    long   ru_nswap;         /* swaps */
-    long   ru_inblock;       /* block input operations */
-    long   ru_oublock;       /* block output operations */
-    long   ru_msgsnd;        /* messages sent */
-    long   ru_msgrcv;        /* messages received */
-    long   ru_nsignals;      /* signals received */
-    long   ru_nvcsw;         /* voluntary context switches */
-    long   ru_nivcsw;        /* involuntary context switches */
-};
-.fi
-.in -0.5i
 .SH "RETURN VALUE"
 On success, zero is returned.  On error, \-1 is returned, and
 .I errno
@@ -252,14 +225,11 @@ is set appropriately.
 .TP
 .B EFAULT
 .I rlim
-or
-.I usage
 points outside the accessible address space.
 .TP
 .B EINVAL
-.BR getrlimit " or " setrlimit
-is called with a bad \fIresource\fP, or \fBgetrusage\fP is called with a
-bad \fIwho\fP.
+.I resource
+is not valid.
 .TP
 .B EPERM
 An unprivileged process tried to use \fBsetrlimit()\fP to
@@ -271,48 +241,17 @@ the soft or hard RLIMIT_NOFILE limit above the current kernel
 maximum (NR_OPEN).
 .SH "CONFORMING TO"
 SVr4, BSD 4.3
-.SH NOTE
-Including
-.I <sys/time.h>
-is not required these days, but increases portability.
-(Indeed,
-.I struct timeval
-is defined in
-.IR <sys/time.h> .)
-.PP
-On Linux, if the disposition of
-.B SIGCHLD
-is set to
-.B SIG_IGN
-then the resource usages of child processes
-are automatically included in the value returned by
-.BR RUSAGE_CHILDREN ,
-although POSIX 1003.1-2001 explicitly prohibits this.
-.\" See the description of getrusage() in XSH.
-.\" A similar statement was also in SUSv2.
-.LP
-The above struct was taken from BSD 4.3 Reno.
-Not all fields are meaningful under Linux.
-Right now (Linux 2.4, 2.6) only the fields
-.BR ru_utime ,
-.BR ru_stime ,
-.BR ru_minflt ,
-.BR ru_majflt ,
-and
-.BR ru_nswap
-are maintained.
 .SH "SEE ALSO"
 .BR dup (2),
 .BR fcntl (2),
 .BR fork (2),
+.BR getrusage (2),
 .BR mlock (2),
 .BR mlockall (2),
 .BR mmap (2),
 .BR open (2),
 .BR quotactl (2),
 .BR sbrk (2),
-.BR wait3 (2),
-.BR wait4 (2),
 .BR malloc (3),
 .BR ulimit (3),
 .BR capabilities (7),

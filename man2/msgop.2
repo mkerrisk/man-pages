@@ -30,8 +30,11 @@
 .\"		instead of .B)
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on capability requirements
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Added notes on /proc files
 .\"
-.TH MSGOP 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.TH MSGOP 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 msgop \- message operations
 .SH SYNOPSIS
@@ -57,7 +60,18 @@ msgop \- message operations
 .BI "long " msgtyp ,
 .BI "int " msgflg );
 .SH DESCRIPTION
-To send or receive a message, the calling process allocates a structure
+The
+.BR msgsnd ()
+and
+.BR msgrcv ()
+system calls are used, respectively, to send messages to,
+and receive messages from, a message queue.
+The calling process must have write permission on the message queue
+in order to send a message, and read permission to receive a message.
+.PP
+The
+.I msgp
+argument is a pointer to caller-defined structure 
 of the following general form:
 .sp
 .B
@@ -84,24 +98,23 @@ Messages of zero length (i.e., no
 field) are permitted.
 The
 .I mtype
-field must have a strictly positive integer value that can be
+field must have a strictly positive integer value.
+This value can be
 used by the receiving process for message selection
-(see the section about
-.BR msgrcv ).
-.PP
-The calling process must have write permission to send
-and read permission to receive a message on the queue.
+(see the description of
+.BR msgrcv ()
+below).
 .PP
 The
-.B msgsnd
+.BR msgsnd ()
 system call appends a copy of the message pointed to by
 .I msgp
 to the message queue whose identifier is specified
 by
 .IR msqid .
 .PP
-If sufficient space is available on the queue,
-.B msgsnd
+If sufficient space is available in the queue,
+.BR msgsnd ()
 succeeds immediately.
 (The queue capacity is defined by the
 .I msg_bytes
@@ -109,20 +122,20 @@ field in the associated data structure for the message queue.
 During queue creation this field is initialised to
 .B MSGMNB
 bytes, but this limit can be modified using
-.BR msgctl .)
-If insufficient space is available on the queue, then the default
+.BR msgctl ().)
+If insufficient space is available in the queue, then the default
 behaviour of 
-.B msgsnd
+.BR msgsnd ()
 is to block until space becomes available.
 If
 .B IPC_NOWAIT
-is asserted in
-.B msgflg
+is specified in
+.IR msgflg ,
 then the call instead fails with the error
 .BR EAGAIN .
 
 A blocked 
-.B msgsnd
+.BR msgsnd ()
 call may also fail if the queue is removed 
 (in which case the system call fails with
 .I errno
@@ -135,7 +148,7 @@ set to
 .BR EINTR ).
 .RB ( msgsnd " and " msgrcv
 are never automatically restarted after being interrupted by a 
-signal handler, regardless of the  setting  of the
+signal handler, regardless of the setting  of the
 .B SA_RESTART
 flag when establishing a signal handler.)
 .PP
@@ -152,7 +165,7 @@ is incremented by 1.
 is set to the current time.
 .PP
 The system call
-.B msgrcv
+.BR msgrcv ()
 reads a message from the message queue specified by
 .I msqid
 into the
@@ -170,13 +183,19 @@ of the structure pointed to by the
 argument.
 If the message text has length greater than
 .IR msgsz ,
-then if the
-.I msgflg
-argument asserts
-.BR MSG_NOERROR ,
+then the behaviour depends on whether 
+.BR MSG_NOERROR 
+is specified in 
+.IR msgflg .
+If
+.BR MSG_NOERROR
+is specified, then
 the message text will be truncated (and the truncated part will be
-lost), otherwise the message isn't removed from the queue and
-the system call fails returning with
+lost); if 
+.BR MSG_NOERROR
+is not specified, then
+the message isn't removed from the queue and
+the system call fails returning \-1 with
 .I errno
 set to
 .BR E2BIG .
@@ -187,53 +206,51 @@ specifies the type of message requested as follows:
 .IP
 If
 .I msgtyp
-is
-.BR 0 ,
+is 0,
 then the first message in the queue is read.
 .IP
 If
 .I msgtyp
-is greater than
-.BR 0 ,
-then the first message on the queue of type
+is greater than 0,
+then the first message in the queue of type
 .I msgtyp
 is read, unless
 .B MSG_EXCEPT
-was asserted in
+was specified in
 .IR msgflg ,
 in which case
-the first message on the queue of type not equal to
+the first message in the queue of type not equal to
 .I msgtyp
 will be read.
 .IP
 If
 .I msgtyp
-is less than
-.BR 0 ,
-then the first message on the queue with the lowest type less than or
+is less than 0,
+then the first message in the queue with the lowest type less than or
 equal to the absolute value of
 .I msgtyp
 will be read.
 .PP
 The
 .I msgflg
-argument asserts none, one or more (or\-ing them) of the following
-flags:
-.IP
+argument is a bit mask constructed by ORing together zero or more
+of the following flags:
+.TP
 .B IPC_NOWAIT
-For immediate return if no message of the requested type is on the queue.
-The system call fails with errno set to
+For immediate return if no message of the requested type is in the queue.
+The system call fails with
+.I errno
+set to
 .BR ENOMSG .
-.IP
+.TP
 .B MSG_EXCEPT
 Used with
 .I msgtyp
-greater than
-.B 0
-to read the first message on the queue with message type that differs
+greater than 0
+to read the first message in the queue with message type that differs
 from
 .IR msgtyp .
-.IP
+.TP
 .B MSG_NOERROR
 To truncate the message text if longer than
 .I msgsz
@@ -241,11 +258,11 @@ bytes.
 .PP
 If no message of the requested type is available and
 .B IPC_NOWAIT
-isn't asserted in
+isn't specified in
 .IR msgflg ,
 the calling process is blocked until one of the following conditions occurs:
 .IP
-A message of the desired type is placed on the queue.
+A message of the desired type is placed in the queue.
 .IP
 The message queue is removed from the system.
 In this case the system call fails with
@@ -271,39 +288,37 @@ is decremented by 1.
 .I msg_rtime
 is set to the current time.
 .SH "RETURN VALUE"
-On a failure both functions return
-.B \-1
+On failure both functions return \-1
 with
 .I errno
 indicating the error,
 otherwise
-.B msgsnd
-returns
-.B 0
+.BR msgsnd ()
+returns 0
 and
-.B msgrvc
+.BR msgrvc ()
 returns the number of bytes actually copied into the
 .I mtext
 array.
 .SH ERRORS
 When
-.B msgsnd
-fails, at return
+.BR msgsnd ()
+fails, 
 .I errno
 will be set to one among the following values:
-.TP
+.TP 11
 .B EACCES
 The calling process does not have write permission on the message queue,
 and does not have the
 .BR CAP_IPC_OWNER
 capability.
-.TP 11
+.TP 
 .B EAGAIN
 The message can't be sent due to the
 .I msg_qbytes
 limit for the queue and
 .B IPC_NOWAIT
-was asserted in
+was specified in
 .IR mgsflg .
 .TP
 .B EFAULT
@@ -333,8 +348,8 @@ The system has not enough memory to make a copy of the supplied
 .IR msgbuf .
 .PP
 When
-.B msgrcv
-fails, at return
+.BR msgrcv ()
+fails, 
 .I errno
 will be set to one among the following values:
 .TP 11
@@ -343,7 +358,7 @@ The message text length is greater than
 .I msgsz
 and
 .B MSG_NOERROR
-isn't asserted in
+isn't specified in
 .IR msgflg .
 .TP
 .B EACCES
@@ -363,36 +378,37 @@ the message queue was removed.
 .TP
 .B EINTR
 While the process was sleeping to receive a message,
-the process received a signal that had to be caught.
+the process caught a signal.
 .TP
 .B EINVAL
-Illegal
 .I msgqid
-value, or
+was invalid, or
 .I msgsz
-less than
-.BR 0 .
+was less than 0.
 .TP
 .B ENOMSG
 .B IPC_NOWAIT
-was asserted in
+was specified in
 .I msgflg
 and no message of the requested type existed on the message queue.
 .SH NOTES
-The followings are system limits affecting a
-.B msgsnd
+The following are system limits affecting a
+.BR msgsnd ()
 system call:
 .TP 11
 .B MSGMAX
-Maximum size for a message text: the implementation set this value to
-8192 bytes.
+Maximum size for a message text: 8192 bytes
+(on Linux, this limit can be read and modified via
+.IR /proc/sys/kernel/msgmax ).
 .TP
 .B MSGMNB
-Default maximum size in bytes of a message queue: 16384 bytes.
-The super\-user can increase the size of a message queue beyond
+Default maximum size in bytes of a message queue: 16384 bytes
+(on Linux, this limit can be read and modified via
+.IR /proc/sys/kernel/msgmnb ).
+The superuser can increase the size of a message queue beyond
 .B MSGMNB
 by a
-.B msgctl
+.BR msgctl ()
 system call.
 .PP
 The implementation has no intrinsic limits for the system wide maximum

@@ -24,8 +24,11 @@
 .\" Modified 2002-01-08, Michael Kerrisk <mtk-manpages@gmx.net>
 .\" Modified 2003-04-28, Ernie Petrides <petrides@redhat.com>
 .\" Modified 2004-05-27, Michael Kerrisk <mtk-manpages@gmx.net>
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Added notes on /proc files
 .\"
-.TH SEMOP 2 2003-04-28 "Linux 2.4" "Linux Programmer's Manual" 
+.TH SEMOP 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual" 
 .SH NAME
 semop, semtimedop \- semaphore operations
 .SH SYNOPSIS
@@ -47,8 +50,7 @@ semop, semtimedop \- semaphore operations
 .BI "unsigned " nsops ,
 .BI "struct timespec *" timeout );
 .SH DESCRIPTION
-A semaphore is represented by an anonymous structure
-including the following members:
+Each semaphore in a semaphore set has the following associated values:
 .sp
 .in +4n
 .nf
@@ -59,23 +61,23 @@ pid_t           sempid;   /* process that did last op */
 .sp
 .in -4n
 .fi
-The function
-.B semop
-performs operations on selected members of the semaphore set indicated by
+.BR semop ()
+performs operations on selected semaphores in the set indicated by
 .IR semid .
 Each of the
 .I nsops
 elements in the array pointed to by
 .I sops
-specifies an operation to be performed on a semaphore by a
-.B "struct sembuf"
-including the following members:
+specifies an operation to be performed on a single semaphore.
+The elements of this structure are of type
+.BR "struct sembuf" ,
+containing the following members:
 .sp
 .in +4n
 .nf
-unsigned short sem_num;	/* semaphore number */
-short sem_op;			/* semaphore operation */
-short sem_flg;			/* operation flags */
+unsigned short sem_num;  /* semaphore number */
+short          sem_op;   /* semaphore operation */
+short          sem_flg;  /* operation flags */
 .sp
 .in -4n
 .fi
@@ -85,9 +87,9 @@ are
 .B IPC_NOWAIT
 and
 .BR SEM_UNDO .
-If an operation asserts
+If an operation specifies
 .BR SEM_UNDO ,
-it will be undone when the process exits.
+it will be automatically undone when the process terminates.
 .PP
 The set of operations contained in
 .I sops
@@ -105,8 +107,7 @@ fields, as noted below.
 Each operation is performed on the
 .IR sem_num \-th
 semaphore of the semaphore set, where the first semaphore of the set
-is semaphore
-.BR 0 .
+is numbered 0.
 There are three types of operation, distinguished by the value of
 .IR sem_op .
 .PP
@@ -117,7 +118,7 @@ the semaphore value
 .RI  ( semval ).
 Furthermore, if
 .B SEM_UNDO
-is asserted for this operation, the system updates the process undo count
+is specified for this operation, the system updates the process undo count
 .RI ( semadj )
 for this semaphore.
 This operation can always proceed \- it never forces a process to wait.
@@ -125,16 +126,17 @@ The calling process must have alter permission on the semaphore set.
 .PP
 If
 .I sem_op
-is zero, the process must have read access permission on the semaphore
+is zero, the process must have read permission on the semaphore
 set.
 This is a "wait-for-zero" operation: if
 .I semval
 is zero, the operation can immediately proceed.
 Otherwise, if
 .B IPC_NOWAIT
-is asserted in
+is specified in
 .IR sem_flg ,
-the system call fails with
+.BR semop ()
+fails with
 .I errno
 set to
 .B EAGAIN
@@ -153,7 +155,9 @@ becomes 0, at which time the value of
 is decremented.
 .IP \(bu
 The semaphore set
-is removed: the system call fails, with
+is removed:
+.BR semop ()
+fails, with
 .I errno
 set to
 .BR EIDRM .
@@ -161,7 +165,9 @@ set to
 The calling process catches a signal:
 the value of
 .I semzcnt
-is decremented and the system call fails, with
+is decremented and
+.BR semop ()
+fails, with
 .I errno
 set to
 .BR EINTR .
@@ -169,8 +175,10 @@ set to
 The time limit specified by
 .I timeout
 in a
-.B semtimedop
-call expires: the system call fails, with
+.BR semtimedop ()
+call expires:
+.BR semop ()
+fails, with
 .I errno
 set to
 .BR EAGAIN .
@@ -190,7 +198,7 @@ is subtracted from
 .IR semval ,
 and, if
 .B SEM_UNDO
-is asserted for this operation, the system updates the process undo count
+is specified for this operation, the system updates the process undo count
 .RI ( semadj )
 for this semaphore.
 If the absolute value of
@@ -199,9 +207,10 @@ is greater than
 .IR semval ,
 and
 .B IPC_NOWAIT
-is asserted in
+is specified in
 .IR sem_flg ,
-the system call fails, with
+.BR semop ()
+fails, with
 .I errno
 set to
 .B EAGAIN
@@ -225,11 +234,13 @@ is subtracted from
 .I semval
 and, if
 .B SEM_UNDO
-is asserted for this operation, the system updates the process undo count
+is specified for this operation, the system updates the process undo count
 .RI ( semadj )
 for this semaphore.
 .IP \(bu
-The semaphore set is removed from the system: the system call fails with
+The semaphore set is removed from the system:
+.BR semop ()
+fails, with
 .I errno
 set to
 .BR EIDRM .
@@ -237,7 +248,9 @@ set to
 The calling process catches a signal:
 the value of
 .I semncnt
-is decremented and the system call fails with
+is decremented and 
+.BR semop ()
+fails, with
 .I errno
 set to
 .BR EINTR .
@@ -245,7 +258,7 @@ set to
 The time limit specified by
 .I timeout
 in a
-.B semtimedop
+.BR semtimedop ()
 call expires: the system call fails, with
 .I errno
 set to
@@ -262,10 +275,9 @@ In addition, the
 .\" .I sem_ctime
 is set to the current time.
 .PP
-The function
-.B semtimedop
-behaves identically to the function
-.B semop
+.BR semtimedop ()
+behaves identically to 
+.BR semop ()
 except that in those cases were the calling process would sleep,
 the duration of that sleep is limited by the amount of elapsed
 time specified by the
@@ -273,7 +285,8 @@ time specified by the
 structure whose address is passed in the
 .I timeout
 parameter.  If the specified time limit has been reached,
-the system call fails with
+.BR semtimedop ()
+fails with
 .I errno
 set to
 .B EAGAIN
@@ -285,14 +298,16 @@ If the
 parameter is
 .BR NULL ,
 then
-.B semtimedop
+.BR semtimedop ()
 behaves exactly like
-.BR semop .
+.BR semop ().
 .SH "RETURN VALUE"
-If successful the system call returns
-.BR 0 ,
-otherwise it returns
-.B \-1
+If successful
+.BR semop ()
+and 
+.BR semtimedop ()
+return 0;
+otherwise they return -1
 with
 .I errno
 indicating the error.
@@ -319,7 +334,7 @@ capability.
 .B EAGAIN
 An operation could not proceed immediately and either
 .BR IPC_NOWAIT
-was asserted in its
+was specified in
 .I sem_flg
 or the time limit specified in
 .I timeout
@@ -354,7 +369,7 @@ has a non-positive value.
 .B ENOMEM
 The
 .I sem_flg
-of some operation asserted
+of some operation specified
 .B SEM_UNDO
 and the system does not have enough memory to allocate the undo
 structure.
@@ -371,15 +386,15 @@ The
 .I sem_undo
 structures of a process aren't inherited across a
 .BR fork (2)
-system call, but they are inherited across a
+system call, but they are inherited across an
 .BR execve (2)
 system call.
 .PP
-.B semop
+.BR semop ()
 is never automatically restarted after being interrupted by a signal handler,
 regardless of the setting of the
 .B SA_RESTART
-flags when establishing a signal handler.
+flag when establishing a signal handler.
 .PP
 .I semadj
 is a per\-process integer which is simply the (negative) count
@@ -402,13 +417,16 @@ for a semaphore can all be retrieved using appropriate
 calls.
 .PP
 The followings are limits on semaphore set resources affecting a
-.B semop
+.BR semop ()
 call:
 .TP
 .B SEMOPM
 Maximum number of operations allowed for one
-.B semop
-call (32).
+.BR semop ()
+call (32)
+(on Linux, this limit can be read and modified via the third field of
+.IR /proc/sys/kernel/sem ).
+.\" This /proc file is not available in Linux 2.2 and earlier -- MTK
 .TP
 .B SEMVMX
 Maximum allowable value for

@@ -9,7 +9,7 @@
 .\" manual under the conditions for verbatim copying, provided that the
 .\" entire resulting derived work is distributed under the terms of a
 .\" permission notice identical to this one.
-.\" 
+.\"
 .\" Since the Linux kernel and libraries are constantly changing, this
 .\" manual page may be incorrect or out-of-date.  The author(s) assume no
 .\" responsibility for errors or omissions, or for damages resulting from
@@ -17,7 +17,7 @@
 .\" have taken the same level of care in the production of this manual,
 .\" which is licensed free of charge, as they might when working
 .\" professionally.
-.\" 
+.\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
@@ -28,8 +28,12 @@
 .\" Modified 2002-01-05, 2004-05-27, 2004-06-17,
 .\"    Michael Kerrisk <mtk-manpages@gmx.net>
 .\" Modified 2004-10-11, aeb
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Updated shmid_ds structure definitions
+.\"	Added information on SHM_DEST and SHM_LOCKED flags
 .\"
-.TH SHMCTL 2 2004-06-17 "Linux 2.6.7" "Linux Programmer's Manual"
+.TH SHMCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 shmctl \- shared memory control
 .SH SYNOPSIS
@@ -42,81 +46,121 @@ shmctl \- shared memory control
 .ad b
 .SH DESCRIPTION
 \fBshmctl()\fP
-allows the user to receive information on a shared memory segment,
-set the owner, group, and permissions of a shared memory segment,
-or destroy a segment. The information about the segment identified by
-\fIshmid\fP is returned in a \fIshmid_ds\fP
-structure:
+allows the caller to obtain information about a shared memory segment,
+set the owner, group, and permissions of a segment,
+or destroy a segment.
+.PP
+The
+.I buf
+argument is a pointer to a \fIshmid_ds\fP structure,
+defined in <sys/shm.h> as follows:
 .PP
 .in +4n
 .nf
 struct shmid_ds {
-    struct ipc_perm shm_perm;  /* operation perms */
-    int shm_segsz;             /* size of segment (bytes) */
-    time_t shm_atime;          /* last attach time */
-    time_t shm_dtime;          /* last detach time */
-    time_t shm_ctime;          /* last change time */
-    unsigned short shm_cpid;   /* pid of creator */
-    unsigned short shm_lpid;   /* pid of last operator */
-    short shm_nattch;          /* no. of current attaches */
+    struct ipc_perm shm_perm;    /* Ownership and permissions */
+    size_t          shm_segsz;   /* Size of segment (bytes) */
+    time_t          shm_atime;   /* Last attach time */
+    time_t          shm_dtime;   /* Last detach time */
+    time_t          shm_ctime;   /* Last change time */
+    pid_t           shm_cpid;    /* PID of creator */
+    pid_t           shm_lpid;    /* PID of last stmat()/shmdt() */
+    shmatt_t        shm_nattch;  /* No. of current attaches */
     ...
 };
 .fi
 .in -4n
 .PP
-The highlighted fields in the member \fIshm_perm\fP can be set:
+The
+.I ipc_perm
+structure is defined in <sys/ipc.h> as follows
+(the highlighted fields are settable using
+.BR IPC_SET ):
 .PP
 .in +4n
 .nf
 struct ipc_perm {
-    key_t  key;
-    \fBushort uid\fP;   /* \fBowner\fP euid and egid */
-    \fBushort gid\fP;
-    ushort cuid;  /* creator euid and egid */
-    ushort cgid;
-    \fBushort mode\fP;  /* lower 9 bits of access modes */
-    ushort seq;   /* sequence number */
+    key_t key;            /* Key supplied to shmget() */
+    uid_t \fBuid\fP;            /* Effective UID of owner */
+    gid_t \fBgid\fP;            /* Effective GID of owner */
+    uid_t cuid;           /* Effective UID of creator */
+    gid_t cgid;           /* Effective GID of creator */
+    unsigned short \fBmode\fP;  /* \fBPermissions\fP + SHM_DEST and
+                             SHM_LOCKED flags */
+    unsigned short seq;   /* Sequence number */
 };
 .fi
 .in -4n
 .PP
-The following \fIcmds\fP are available:
+Valid values for
+.I cmd
+are:
 .br
 .TP 12
 .B IPC_STAT
-is used to copy the information about the shared memory segment into
-the buffer \fIbuf\fP. The user must have \fBread\fP access to the
+Copy information from the kernel data structure associated with
+.I shmid
+into the
+.I shmid_ds
+structure pointed to by \fIbuf\fP.
+The caller must have read permission on the
 shared memory segment.
 .TP
 .B IPC_SET
-is used to apply the changes the user has made to the \fIuid\fP, \fIgid\fP,
-or \fImode\fP members of the \fIshm_perms\fP field.  Only the lowest 9 bits
-of \fImode\fP are used.  The
+Write the values of some members of the
+.I shmid_ds
+structure pointed to by
+.I arg.buf
+to the kernel data structure associated with this shared memory segment,
+updating also its
 .I shm_ctime
-member is also updated.  The user must be the owner or creator, or be
-privileged.
+member.
+The following fields can be changed:
+\fIshm_perms.uid\fP, \fIshm_perms.gid\fP,
+and (the least significant 9 bits of) \fIshm_perms.mode\fP.
+The effective UID of the calling process must match the owner
+.RI ( shm_perm.uid )
+or creator
+.RI ( shm_perm.cuid )
+of the shared memory segment, or the caller must be privileged.
 .TP
 .B IPC_RMID
-is used to mark the segment as destroyed. It will actually be destroyed
-after the last detach.  (I.e., when the
+Mark the segment to be destroyed.
+The segment will only actually be destroyed
+after the last process detaches it (i.e., when the
 .I shm_nattch
 member of the associated structure
 .I shmid_ds
-is zero.)  The user must be the owner or creator, or be privileged.
+is zero).
+The caller must be the owner or creator, or be privileged.
+If a segment has been marked for destruction, then the (non-standard)
+.B SHM_DEST
+flag of the
+.I shm_perm.mode
+field in the associated data structure retrieved by
+.B IPC_STAT
+will be set.
 .PP
-The user \fImust\fP ensure that a segment is eventually destroyed; otherwise
-its pages that were faulted in will remain in memory or swap.
+The caller \fImust\fP ensure that a segment is eventually destroyed;
+otherwise its pages that were faulted in will remain in memory or swap.
 .SS "Linux additions"
-A privileged user can prevent or allow swapping of a shared
-memory segment with the following \fIcmds\fP:
+A privileged caller can prevent or allow swapping of a shared
+memory segment with the following \fIcmd\fP values:
 .br
 .TP 12
 .B SHM_LOCK
-prevents swapping of a shared memory segment. The user must fault in
+Prevent swapping of the shared memory segment. The caller must fault in
 any pages that are required to be present after locking is enabled.
+If a segment has been locked, then the (non-standard)
+.B SHM_LOCKED
+flag of the
+.I shm_perm.mode
+field in the associated data structure retrieved by
+.B IPC_STAT
+will be set.
 .TP
 .B SHM_UNLOCK
-allows the shared memory segment to be swapped out.
+Unlock the segment, allowing it to be swapped out.
 .PP
 The
 .BR IPC_INFO ,
@@ -162,7 +206,7 @@ is not a valid command.
 .B EOVERFLOW
 \fBIPC_STAT\fP is attempted, and the gid or uid value
 is too large to be stored in the structure pointed to by
-.IR buf . 
+.IR buf .
 .TP
 .B EPERM
 \fBIPC_SET\fP or \fBIPC_RMID\fP is attempted, and the
@@ -195,6 +239,7 @@ SVr4, SVID.  SVr4 documents additional error conditions EINVAL,
 ENOENT, ENOSPC, ENOMEM, EEXIST.  Neither SVr4 nor SVID documents
 an EIDRM error condition.
 .SH "SEE ALSO"
+.BR mlock (2),
 .BR shmget (2),
 .BR shmop (2),
 .BR capabilities (7)

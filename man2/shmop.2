@@ -8,7 +8,7 @@
 .\" manual under the conditions for verbatim copying, provided that the
 .\" entire resulting derived work is distributed under the terms of a
 .\" permission notice identical to this one.
-.\" 
+.\"
 .\" Since the Linux kernel and libraries are constantly changing, this
 .\" manual page may be incorrect or out-of-date.  The author(s) assume no
 .\" responsibility for errors or omissions, or for damages resulting from
@@ -16,7 +16,7 @@
 .\" have taken the same level of care in the production of this manual,
 .\" which is licensed free of charge, as they might when working
 .\" professionally.
-.\" 
+.\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
@@ -29,8 +29,12 @@
 .\"	Added SHM_REMAP flag description
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on capability requirements
+.\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
+.\"	Language and formatting clean-ups
+.\"	Changed wording and placement of sentence regarding attachment
+.\"		of segments marked for destruction
 .\"
-.TH SHMOP 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual" 
+.TH SHMOP 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
 shmop \- shared memory operations
 .SH SYNOPSIS
@@ -47,10 +51,9 @@ shmop \- shared memory operations
 .sp
 .BI "int shmdt(const void *" shmaddr );
 .SH DESCRIPTION
-The function
-.B shmat
+.BR shmat ()
 attaches the shared memory segment identified by
-.B shmid
+.I shmid
 to the address space of the calling process.
 The attaching address is specified by
 .I shmaddr
@@ -69,7 +72,7 @@ isn't
 .B NULL
 and
 .B SHM_RND
-is asserted in
+is specified in
 .IR shmflg ,
 the attach occurs at the address equal to
 .I shmaddr
@@ -81,7 +84,7 @@ must be a page-aligned address at which the attach occurs.
 .PP
 If
 .B SHM_RDONLY
-is asserted in
+is specified in
 .IR shmflg ,
 the segment is attached for reading and the process must have
 read permission for the segment.
@@ -91,10 +94,10 @@ There is no notion of a write-only shared memory segment.
 .PP
 The (Linux-specific)
 .B SHM_REMAP
-flag may be asserted in
+flag may be specified in
 .I shmflg
 to indicate that the mapping of the segment should replace
-any existing mapping in the range starting at 
+any existing mapping in the range starting at
 .I shmaddr
 and continuing for the size of the segment.
 (Normally an
@@ -106,89 +109,84 @@ must not be
 .BR NULL .
 .PP
 The
-.B brk
+.BR brk (2)
 value of the calling process is not altered by the attach.
 The segment will automatically be detached at process exit.
 The same segment may be attached as a read and as a read-write
 one, and more than once, in the process's address space.
 .PP
-On a successful
-.B shmat
-call the system updates the members of the
+A successful
+.BR shmat ()
+call updates the members of the
 .B shmid_ds
-structure associated to the shared memory segment as follows:
+structure (see
+.BR shmctl (2))
+associated with the shared memory segment as follows:
 .IP
-.B shm_atime
+.I shm_atime
 is set to the current time.
 .IP
-.B shm_lpid
+.I shm_lpid
 is set to the process-ID of the calling process.
 .IP
-.B shm_nattch
+.I shm_nattch
 is incremented by one.
 .PP
-Note that the attach succeeds also if the shared memory segment is
-marked to be deleted.
-.PP
-The function
-.B shmdt
+.BR shmdt ()
 detaches the shared memory segment located at the address specified by
 .I shmaddr
 from the address space of the calling process.
 The to\-be\-detached segment must be currently
 attached with
 .I shmaddr
-equal to the value returned by the its attaching
-.B shmat
+equal to the value returned by the attaching
+.BR shmat ()
 call.
 .PP
 On a successful
-.B shmdt
+.BR shmdt ()
 call the system updates the members of the
-.B shmid_ds
+.I shmid_ds
 structure associated with the shared memory segment as follows:
 .IP
-.B shm_dtime
+.I shm_dtime
 is set to the current time.
 .IP
-.B shm_lpid
+.I shm_lpid
 is set to the process-ID of the calling process.
 .IP
-.B shm_nattch
+.I shm_nattch
 is decremented by one.
 If it becomes 0 and the segment is marked for deletion,
 the segment is deleted.
-.PP
-The occupied region in the user space of the calling process is
-unmapped.
 .SH "SYSTEM CALLS"
 .TP 11
-.B fork()
+.BR fork ()
 After a
-.B fork()
+.BR fork ()
 the child inherits the attached shared memory segments.
 .TP
-.B exec()
+.BR exec ()
 After an
-.B exec()
+.BR exec ()
 all attached shared memory segments are detached from the process.
 .TP
-.B exit()
+.BR exit ()
 Upon
-.B exit()
+.BR exit ()
 all attached shared memory segments are detached from the process.
 .SH "RETURN VALUE"
 On success
-.B shmat
+.BR shmat ()
 returns the address of the attached shared memory segment, and
-.B shmdt
+.BR shmdt ()
 returns 0.
 On failure both functions return \-1 with
 .I errno
 indicating the error.
 .SH ERRORS
 When
-.B shmat
+.BR shmat ()
 fails,
 .I errno
 is set to one of the following:
@@ -208,27 +206,26 @@ specified) or invalid
 value, or failing attach at
 .BR brk ,
 .\" FIXME What does "failing attach at brk" mean?
-or 
+or
 .B SHM_REMAP
 was specified and
 .I shmaddr
-was 
+was
 .BR NULL .
 .TP
 .B ENOMEM
 Could not allocate memory for the descriptor or for the page tables.
 .PP
-The function
-.B shmdt
+.BR shmdt ()
 can fail only if there is no shared memory segment attached at
-.IR shmaddr ,
-in such a case at return
+.IR shmaddr ;
+in this case,
 .I errno
 will be set to
 .BR EINVAL .
 .SH NOTES
 Using
-.B shmat
+.BR shmat ()
 with
 .I shmaddr
 equal to
@@ -239,11 +236,16 @@ may be attached at different addresses in different processes.
 Therefore, any pointers maintained within the shared memory must be
 made relative (typically to the starting address of the segment),
 rather than absolute.
+.PP
+On Linux, it is possible to attach a shared memory segment even if it
+already marked to be deleted.
+However, POSIX.1-2001 does not specify this behaviour and
+many other implementations do not support it.
 .LP
-The following system parameter affects a
-.B shmat
-system call:
+The following system parameter affects
+.BR shmat ():
 .TP 11
+.\" FIXME A good explanation of the purpose of SHMLBA would be useful
 .B SHMLBA
 Segment low boundary address multiple.
 Must be page aligned.
@@ -251,6 +253,8 @@ For the current implementation the
 .B SHMBLA
 value is
 .BR PAGE_SIZE .
+.\" FIXME That last sentence isn't true for all Linux
+.\" architectures -- MTK, Nov 04
 .PP
 The implementation has no intrinsic limit to the per\-process maximum
 number of shared memory segments

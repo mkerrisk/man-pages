@@ -34,6 +34,7 @@
 .\"	Added information on SHM_DEST and SHM_LOCKED flags
 .\"	Noted that CAP_IPC_LOCK is not required for SHM_UNLOCK 
 .\"		since kernel 2.6.9
+.\" Modified, 2004-11-25, mtk, notes on 2.6.9 RLIMIT_MEMLOCK changes
 .\"
 .TH SHMCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
@@ -205,6 +206,17 @@ isn't accessible.
 \fIshmid\fP is not a valid identifier, or \fIcmd\fP
 is not a valid command.
 .TP
+.B ENOMEM
+(In kernels since 2.6.9),
+.B SHM_LOCK
+was specified and the size of the to-be-locked segment would mean 
+that the total bytes in locked shared memory segments would exceed
+the limit for the real user ID of the calling process.
+This limit is defined by the
+.BR RLIMIT_MEMLOCK
+soft resource limit (see
+.BR setrlimit (2)).
+.TP
 .B EOVERFLOW
 \fBIPC_STAT\fP is attempted, and the gid or uid value
 is too large to be stored in the structure pointed to by
@@ -222,15 +234,17 @@ and the process was not privileged (Linux: did not have the
 .B CAP_SYS_ADMIN
 capability).
 
-Or,
+Or (in kernels before 2.6.9),
 .B SHM_LOCK
 or
-(in Linux kernels before 2.6.9)
 .B SHM_UNLOCK
 was specified, but the process was not privileged
 (Linux: did not have the
 .B CAP_IPC_LOCK
 capability).
+(Since Linux 2.6.9, this error can also occur if the
+.BR RLIMIT_MEMLOCK
+is 0 and the caller is not privileged.)
 .SH NOTE
 Various fields in a \fIstruct shmid_ds\fP were shorts under Linux 2.2
 and have become longs under Linux 2.4. To take advantage of this,
@@ -243,6 +257,7 @@ ENOENT, ENOSPC, ENOMEM, EEXIST.  Neither SVr4 nor SVID documents
 an EIDRM error condition.
 .SH "SEE ALSO"
 .BR mlock (2),
+.BR setrlimit (2),
 .BR shmget (2),
 .BR shmop (2),
 .BR capabilities (7)

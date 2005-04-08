@@ -45,6 +45,10 @@
 .\"     Added notes on capability requirements
 .\" Modified 2004-12-08, added O_NOATIME after note from Martin Pool
 .\" 2004-12-10, mtk, noted F_GETOWN bug after suggestion from aeb. 
+.\" 2005-04-08 Jamie Lokier <jamie@shareable.org>, mtk
+.\"	Described behaviour of F_SETOWN/F_SETSIG in
+.\"	multi-threaded processes, and generally cleaned
+.\"	up the discussion of F_SETOWN.
 .\"
 .TH FCNTL 2 2004-12-08 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
@@ -334,40 +338,85 @@ are used to manage I/O availability signals:
 Get the process ID or process group currently receiving SIGIO
 and SIGURG signals for events on file descriptor
 .IR fd .
-Process groups are returned as negative values (but see BUGS below).
+Process IDs are returned as positive values;
+process group IDs are returned as negative values (but see BUGS below).
 .TP
 .B F_SETOWN
-Set the process ID or process group that will receive SIGIO
+Set the process ID or process group ID that will receive SIGIO
 and SIGURG signals for events on file descriptor
 .IR fd .
-Process groups are specified using negative values.
-.RB ( F_SETSIG
-can be used to specify a different signal instead of SIGIO).
+A process ID is specified as a positive value;
+a process group ID is specified as a negative value.
 
 .\" From glibc.info:
 If you set the
 .B O_ASYNC
 status flag on a file descriptor (either by providing this flag with the
-.IR open (2)
+.BR open (2)
+.\" FIXME setting O_ASYNC via open() does not seem to be effective -- MTK
 call, or by using the
 .B F_SETFL
 command of
 .BR fcntl ),
 a SIGIO signal is sent whenever input or output becomes possible
 on that file descriptor.
+.B F_SETSIG
+can be used to obtain delivery of a signal other than SIGIO.
 .sp
-The process or process group to receive the signal can be selected by
-using the
+If the file descriptor
+.I fd
+refers to a socket,
 .B F_SETOWN
-command to the
-.B fcntl
-function.  If the file descriptor is a socket, this also selects
+also selects
 the recipient of SIGURG signals that are delivered when out-of-band
 data arrives on that socket.  (SIGURG is sent in any situation where
 .BR select (2)
 would report the socket as having an "exceptional condition".)
-If the file descriptor corresponds to a terminal device, then SIGIO
-signals are sent to the foreground process group of the terminal.
+.\" The following appears to be rubbish.  It doesn't seem to
+.\" be true according to the kernel source, and I can write 
+.\" a program that gets a terminal-generated SIGIO even though
+.\" it is not the foreground process group of the terminal.
+.\" -- MTK, 8 Apr 05
+.\" 
+.\" If the file descriptor
+.\" .I fd
+.\" refers to a terminal device, then SIGIO
+.\" signals are sent to the foreground process group of the terminal.
+
+If a non-zero value is given to
+.B F_SETSIG
+in a multi-threaded process, then a positive value value given to 
+.B F_SETOWN
+has a different meaning:
+.\" The relevant place in the (2.6) kernel source is the 
+.\" 'switch' in fs/fcntl.c::send_sigio_to_task() -- MTK, Apr 2005
+instead of being a process ID identifying a whole process,
+it is a thread ID identifying a specific thread within a process.
+Consequently, it may be necessary to pass
+.B F_SETOWN
+the result of
+.BR gettid ()
+instead of
+.BR getpid ()
+to get sensible results when
+.B F_SETSIG
+is used.
+(In current Linux threading implementations,
+a main thread's thread ID is the same as its process ID.
+This means that a single-threaded program can equally use
+.BR gettid ()
+or
+.BR getpid ()
+in this scenario.)
+Note, however, that the statements in this paragraph do not apply
+to the SIGURG signal generated for out-of-band data on a socket:
+this signal is always sent to either a process or a process group,
+depending on the value given to
+.BR F_SETOWN .
+.\" send_sigurg()/send_sigurg_to_task() bypasses 
+.\" kill_fasync()/send_sigio()/send_sigio_to_task()
+.\" to directly call send_group_sig_info() 
+.\"	-- MTK, Apr 2005 (kernel 2.6.11)
 .TP
 .B F_GETSIG
 Get the signal sent when input or output becomes possible.  A value of
@@ -381,7 +430,17 @@ zero means to send the default SIGIO signal.  Any other value (including
 SIGIO) is the signal to send instead, and in this case additional info
 is available to the signal handler if installed with SA_SIGINFO.
 .sp
-By using F_SETSIG with a non-zero value, and setting SA_SIGINFO for the
+Additionally, passing a non-zero value to
+.B F_SETSIG
+changes the signal recipient from a whole process to a specific thread
+within a process.
+See the desciption of
+.B F_SETOWN 
+for more details.
+.sp
+By using
+.B F_SETSIG
+with a non-zero value, and setting SA_SIGINFO for the
 signal handler (see
 .BR sigaction (2)),
 extra information about I/O events is passed to

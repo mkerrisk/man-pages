@@ -27,6 +27,8 @@
 .\" Modified 1 Feb 2003 - added CLONE_SIGHAND restriction, aeb.
 .\" Modified 1 Jan 2004 - various updates, aeb
 .\" Modified 2004-09-10 - added CLONE_PARENT_SETTID etc - aeb.
+.\" 2005-04-12, mtk, noted the PID caching behaviour of NPTL's getpid()
+.\"	wrapper under BUGS.
 .\"
 .TH CLONE 2 2004-09-10 "Linux 2.6" "Linux Programmer's Manual"
 .SH NAME
@@ -495,6 +497,26 @@ and
 .B sys_clone
 calls are Linux-specific and should not be used in programs
 intended to be portable.
+
+.SH BUGS
+Versions of the GNU C library that include the NPTL threading library
+contain a wrapper function for 
+.BR getpid ()
+that performs caching of PIDs.
+In programs linked against such libraries, calls to 
+.BR getpid ()
+may return the same value, even when the threads were not created using
+.B CLONE_THREAD
+(and thus are not in the same thread group).
+To get the truth, it may be necessary to use code such as the following
+.nf
+
+    #include <syscall.h>
+
+    pid_t mypid;
+
+    mypid = syscall(SYS_getpid);
+.fi
 
 .SH "SEE ALSO"
 .BR fork (2),

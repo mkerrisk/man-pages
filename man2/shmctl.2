@@ -35,8 +35,10 @@
 .\"	Noted that CAP_IPC_LOCK is not required for SHM_UNLOCK 
 .\"		since kernel 2.6.9
 .\" Modified, 2004-11-25, mtk, notes on 2.6.9 RLIMIT_MEMLOCK changes
+.\" 2005-04-25, mtk -- noted aberrant Linux behaviour w.r.t. new
+.\"	attaches to a segment that has already been marked for deletion.
 .\"
-.TH SHMCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
+.TH SHMCTL 2 2005-04-25 Linux 2.6.11" "Linux Programmer's Manual"
 .SH NAME
 shmctl \- shared memory control
 .SH SYNOPSIS
@@ -119,8 +121,8 @@ updating also its
 .I shm_ctime
 member.
 The following fields can be changed:
-\fIshm_perms.uid\fP, \fIshm_perms.gid\fP,
-and (the least significant 9 bits of) \fIshm_perms.mode\fP.
+\fIshm_perm.uid\fP, \fIshm_perm.gid\fP,
+and (the least significant 9 bits of) \fIshm_perm.mode\fP.
 The effective UID of the calling process must match the owner
 .RI ( shm_perm.uid )
 or creator
@@ -182,7 +184,7 @@ is set appropriately.
 .TP 11
 .B EACCES
 \fBIPC_STAT\fP or \fBSHM_STAT\fP is requested and
-\fIshm_perm.modes\fP does not allow read access for
+\fIshm_perm.mode\fP does not allow read access for
 .IR shmid ,
 and the calling process does not have the
 .BR CAP_IPC_OWNER
@@ -245,7 +247,15 @@ capability).
 (Since Linux 2.6.9, this error can also occur if the
 .BR RLIMIT_MEMLOCK
 is 0 and the caller is not privileged.)
-.SH NOTE
+.SH NOTES
+Linux permits a process to attach 
+.RB ( shmat ())
+a shared memory segment that has already been marked for deletion
+using
+.IR shmctl(IPC_RMID) .
+This feature is not available on other Unix implementations;
+portable applications should avoid relying on it.
+
 Various fields in a \fIstruct shmid_ds\fP were shorts under Linux 2.2
 and have become longs under Linux 2.4. To take advantage of this,
 a recompilation under glibc-2.1.91 or later should suffice.

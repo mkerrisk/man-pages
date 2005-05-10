@@ -29,6 +29,7 @@
 .\" Modified 2004-09-10 - added CLONE_PARENT_SETTID etc - aeb.
 .\" 2005-04-12, mtk, noted the PID caching behaviour of NPTL's getpid()
 .\"	wrapper under BUGS.
+.\" 2005-05-10, mtk, added CLONE_SYSVSEM, CLONE_UNTRACED, CLONE_STOPPED
 .\"
 .TH CLONE 2 2004-09-10 "Linux 2.6" "Linux Programmer's Manual"
 .SH NAME
@@ -139,7 +140,6 @@ when the child terminates.
 may also be bitwise-or'ed with one or several of the following
 constants, in order to specify what is shared between the calling process
 and the child process:
-
 .TP
 .BR CLONE_PARENT " (since Linux 2.3.12)"
 If
@@ -161,7 +161,6 @@ if
 .B CLONE_PARENT
 is set, then the parent of the calling process, rather than the 
 calling process itself, will be signaled.
-
 .TP
 .B CLONE_FS
 If
@@ -187,7 +186,6 @@ Calls to
 .BR chdir (2),
 .BR umask (2)
 performed later by one of the processes do not affect the other process.
-
 .TP
 .B CLONE_FILES
 If
@@ -206,7 +204,6 @@ opened in the calling process at the time of
 .BR clone .
 Operations on file descriptors performed later by either the calling process or
 the child process do not affect the other process.
-
 .TP
 .BR CLONE_NEWNS " (since Linux 2.4.19)
 Start the child in a new namespace.
@@ -247,7 +244,6 @@ and
 in the same
 .BR clone 
 call.
-
 .TP
 .B CLONE_SIGHAND
 If
@@ -271,14 +267,47 @@ is called.  Calls to
 .BR sigaction (2)
 performed later by one of the processes have no effect on the other
 process.
-
 .TP
 .B CLONE_PTRACE
 If 
 .B CLONE_PTRACE
-is specified, and the calling process is being traced, then trace the child also (see
+is specified, and the calling process is being traced,
+then trace the child also (see
 .BR ptrace (2)).
-
+.TP
+.BR CLONE_UNTRACED " (since Linux 2.5.46)"
+If 
+.B CLONE_UNTRACED
+is specified, then a tracing process cannot force
+.B CLONE_PTRACE
+on this child process.
+.TP
+.BR CLONE_STOPPED " (since Linux 2.6.0-test2)"
+If
+.B CLONE_STOPPED
+is set, then the child is initially stopped (as though it was sent a
+.B SIGSTOP
+signal), and must be resumed by sending it a
+.B SIGCONT
+signal.
+.TP
+.B CLONE_VFORK
+If
+.B CLONE_VFORK
+is set, the execution of the calling process is suspended
+until the child releases its virtual memory
+resources via a call to
+.BR execve (2)
+or
+.TP
+.BR CLONE_STOPPED " (since Linux 2.6.0-test2)"
+If
+.B CLONE_STOPPED
+is set, then the child is initially stopped (as though it was sent a
+.B SIGSTOP
+signal), and must be resumed by sending it a
+.B SIGCONT
+signal.
 .TP
 .B CLONE_VFORK
 If
@@ -297,7 +326,6 @@ If
 is not set then both the calling process and the child are schedulable
 after the call, and an application should not rely on execution occurring
 in any particular order.
-
 .TP
 .B CLONE_VM
 If
@@ -319,7 +347,6 @@ space of the calling process at the time of
 Memory writes or file mappings/unmappings performed by one of the
 processes do not affect the other, as with
 .BR fork (2).
-
 .TP
 .BR CLONE_PID " (obsolete)"
 If
@@ -329,7 +356,6 @@ the calling process. This is good for hacking the system, but otherwise
 of not much use. Since 2.3.21 this flag can be
 specified only by the system boot process (PID 0).
 It disappeared in Linux 2.5.16.
-
 .TP
 .BR CLONE_THREAD " (since Linux 2.4.0-test8)"
 If
@@ -349,7 +375,15 @@ POSIX threads notion of a set of threads sharing a single PID.  In Linux
 since 2.4, calls to 
 .BR getpid (2)
 return the thread group ID of the caller.)
-
+.TP
+.BR CLONE_SYSVSEM " (since Linux 2.5.10)"
+If
+.B CLONE_SYSVSEM
+is set, then the child and the calling process share
+a single list of System V semaphore undo values (see
+.BR semop (2)).
+If this flag is not set, then the child has a separate undo list,
+which is initially empty.
 .TP
 .BR CLONE_SETTLS " (since Linux 2.5.32)"
 The
@@ -357,20 +391,17 @@ The
 parameter is the new TLS (Thread Local Storage) descriptor.
 (See
 .BR set_thread_area (2).)
-
 .TP
 .BR CLONE_PARENT_SETTID " (since Linux 2.5.49)"
 Store child thread ID at location
 .I parent_tidptr
 in parent and child memory.
 (In Linux 2.5.32-2.5.48 there was a flag CLONE_SETTID that did this.)
-
 .TP
 .BR CLONE_CHILD_SETTID " (since Linux 2.5.49)"
 Store child thread ID at location
 .I child_tidptr
 in child memory.
-
 .TP
 .BR CLONE_CHILD_CLEARTID " (since Linux 2.5.49)"
 Erase child thread ID at location

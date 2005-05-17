@@ -421,8 +421,8 @@ using
 (The thread is said to be
 .IR detached .)
 
-Only after all of the threads in a thread group terminate
-is the parent process of the thread group sent a
+After all of the threads in a thread group terminate
+the parent process of the thread group is sent a
 .B SIGCHLD
 (or other termination) signal.
 
@@ -438,7 +438,39 @@ must also include
 if
 .B CLONE_THREAD
 is specified.
-.\" FIXME Say more about CLONE_THREAD threads and signals
+
+Signals may be sent to a thread group as a whole (i.e., a TGID) using
+.BR kill (2),
+or to a specific thread (i.e., TID) using
+.BR tgkill (2).
+
+Signal dispositions and actions are process-wide:
+if an unhandled signal is delivered to a thread, then
+it will affect (terminate, stop, continue, be ignored in)
+all members of the thread group.
+
+Each thread has its own signal mask, as set
+.BR sigprocmask (2),
+but signals can be pending (see
+.BR sigpending (2))
+either for the whole process
+(i.e., deliverable to any member of the thread group),
+when sent with
+.BR kill (2)
+or for an individual thread, when sent with
+.BR tgkill (2).
+
+If 
+.BR kill (2)
+is used to send a signal to a thread group,
+and the thread group has installed a handler for the signal, then
+the handler will be invoked in exactly one, arbitrarily selected
+member of the thread group that has not blocked the signal.
+If multiple threads in a group are waiting to accept the same signal using 
+.BR sigwaitinfo (2),
+the kernel will arbitrarily select one of these threads
+to receive a signal sent using 
+.BR kill (2).
 .TP
 .BR CLONE_SYSVSEM " (since Linux 2.5.10)"
 If

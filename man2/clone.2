@@ -17,7 +17,7 @@
 .\"		between "calling process" and "parent process"
 .\"	Added CLONE_PTRACE and CLONE_VFORK
 .\"	Added EPERM and EINVAL error codes
-.\"	Renamed "__clone" to "clone" (which is the protype in <sched.h>)
+.\"	Renamed "__clone" to "clone" (which is the prototype in <sched.h>)
 .\"	various other minor tidy ups and clarifications.
 .\" Modified 26 Jun 2001 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"	Updated notes for 2.4.7+ behaviour of CLONE_THREAD
@@ -29,9 +29,10 @@
 .\" Modified 2004-09-10 - added CLONE_PARENT_SETTID etc - aeb.
 .\" 2005-04-12, mtk, noted the PID caching behaviour of NPTL's getpid()
 .\"	wrapper under BUGS.
-.\" 2005-05-10, mtk, added CLONE_SYSVSEM, CLONE_UNTRACED, CLONE_STOPPED
+.\" 2005-05-10, mtk, added CLONE_SYSVSEM, CLONE_UNTRACED, CLONE_STOPPED.
+.\" 2005-05-17, mtk, Substantially enhanced discussion of CLONE_THREAD.
 .\"
-.TH CLONE 2 2004-09-10 "Linux 2.6" "Linux Programmer's Manual"
+.TH CLONE 2 2005-05-17 "Linux 2.6" "Linux Programmer's Manual"
 .SH NAME
 clone \- create a child process
 .SH SYNOPSIS
@@ -124,8 +125,10 @@ the child stack.
 
 The low byte of
 .I flags
-contains the number of the signal sent to the parent when the child
-dies.  If this signal is specified as anything other than
+contains the number of the
+.I "termination signal"
+sent to the parent when the child dies.
+If this signal is specified as anything other than
 .BR SIGCHLD ,
 then the parent process must specify the
 .B __WALL 
@@ -137,8 +140,8 @@ If no signal is specified, then the parent process is not signaled
 when the child terminates.
 
 .I flags
-may also be bitwise-or'ed with one or several of the following
-constants, in order to specify what is shared between the calling process
+may also be bitwise-or'ed with zero or more of the following constants,
+in order to specify what is shared between the calling process
 and the child process:
 .TP
 .BR CLONE_PARENT " (since Linux 2.3.12)"
@@ -361,20 +364,81 @@ It disappeared in Linux 2.5.16.
 If
 .B CLONE_THREAD
 is set, the child is placed in the same thread group as the calling process.
+To make the remainder of the discussion of
+.B CLONE_THREAD
+more readable, the term "thread" is used to refer to the
+processes within a thread group.
 .\" For a while there was CLONE_DETACHED (introduced in 2.5.32):
 .\" parent wants no child-exit signal. In 2.6.2 the need to give this
 .\" together with CLONE_THREAD disappeared.
 
-If
-.B CLONE_THREAD
-is not set, then the child is placed in its own (new) 
-thread group, whose ID is the same as the process ID.
-
-(Thread groups are feature added in Linux 2.4 to support the
-POSIX threads notion of a set of threads sharing a single PID.  In Linux
-since 2.4, calls to 
+Thread groups were a feature added in Linux 2.4 to support the
+POSIX threads notion of a set of threads that share a single PID.
+Internally, this shared PID is the so-called
+thread group identifier (TGID) for the thread group.
+Since Linux 2.4, calls to 
 .BR getpid (2)
-return the thread group ID of the caller.)
+return the TGID of the caller.
+
+The threads within a group can be distinguished by their (system-wide)
+unique thread IDs (TID).
+A new thread's TID is available as the function result
+returned to the caller of
+.BR clone (),
+and a thread can obtain
+its own TID using
+.BR gettid (2).
+
+When a call is made to 
+.BR clone ()
+without specifying
+.BR CLONE_THREAD ,
+then the resulting thread is placed in a new thread group
+whose TGID is the same as the thread's TID.
+This thread is the
+.I leader
+of the new thread group.
+
+A new thread created with
+.B CLONE_THREAD
+has the same parent process as the caller of
+.BR clone ()
+(i.e., like 
+.BR CLONE_PARENT ),
+so that calls to
+.BR getppid (2)
+return the same value for all of the threads in a thread group.
+When a
+.B CLONE_THREAD 
+thread terminates, the thread that created it using
+.BR clone ()
+is not sent a
+.B SIGCHLD
+(or other termination) signal;
+nor can the status of such a thread be obtained
+using
+.BR wait (2).
+(The thread is said to be
+.IR detached .)
+
+Only after all of the threads in a thread group terminate
+is the parent process of the thread group sent a
+.B SIGCHLD
+(or other termination) signal.
+
+If any of the threads in a thread group performs an
+.BR execve (2),
+then all threads other than the thread group leader are terminated,
+and the new program is executed in the thread group leader.
+
+Since Linux 2.6,
+.I flags
+must also include
+.B CLONE_SIGHAND
+if
+.B CLONE_THREAD
+is specified.
+.\" FIXME Say more about CLONE_THREAD threads and signals
 .TP
 .BR CLONE_SYSVSEM " (since Linux 2.5.10)"
 If
@@ -518,8 +582,15 @@ in libc5.  glibc2 provides
 as described in this manual page.
 
 .SH NOTES
-For kernel versions 2.4.7-2.4.18 the CLONE_THREAD flag implied the
-CLONE_PARENT flag.
+In the kernel 2.4.x series,
+.B CLONE_THREAD
+generally does not make the parent of the new thread the same
+as the parent of the calling process.
+However, for kernel versions 2.4.7 to 2.4.18 the
+.B CLONE_THREAD
+flag implied the
+.B CLONE_PARENT 
+flag (as in kernel 2.6).
 
 .SH "CONFORMING TO"
 The
@@ -559,3 +630,4 @@ To get the truth, it may be necessary to use code such as the following
 .BR tkill (2),
 .BR wait (2),
 .BR capabilities (7)
+.\" FIXME Eventually: threads (7)

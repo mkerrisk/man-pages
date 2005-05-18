@@ -2,7 +2,7 @@
 .\"
 .\" Copyright (C) 1993 Rickard E. Faith <faith@cs.unc.edu>
 .\" Copyright (C) 1994 Andries E. Brouwer <aeb@cwi.nl>
-.\" Copyright (C) 2002 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" Copyright (C) 2002, 2005 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -33,8 +33,9 @@
 .\" Modified 2002-06-11 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"	Enhanced descriptions of MS_MOVE, MS_BIND, and MS_REMOUNT
 .\" Modified 2004-06-17 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 2005-05-18, mtk, Added MNT_EXPIRE, plus a few other tidy-ups.
 .\"
-.TH MOUNT 2 2004-06-17 "Linux 2.6" "Linux Programmer's Manual"
+.TH MOUNT 2 2004-05-18 "Linux 2.6.12" "Linux Programmer's Manual"
 .SH NAME
 mount, umount \- mount and unmount filesystems
 .SH SYNOPSIS
@@ -97,8 +98,7 @@ The
 arguments are ignored.
 .\" with the exception of the "hidden" MS_REC mountflags bit
 .TP
-.B MS_DIRSYNC
-(Since Linux 2.5.19.)
+.BR MS_DIRSYNC " (since Linux 2.5.19)"
 Make directory changes on this file system synchronous.
 (This property can be obtained for individual directories
 or subtrees using
@@ -193,14 +193,33 @@ unmounts a target, but allows additional
 .I flags
 controlling the behaviour of the operation:
 .TP
-.B MNT_FORCE
+.BR MNT_FORCE " (since Linux 2.6.116)"
 Force unmount even if busy.
-(Since 2.1.116. Only for NFS mounts.)
+(Only for NFS mounts.)
 .TP
-.B MNT_DETACH
+.BR MNT_DETACH " (since Linux 2.4.11)"
 Perform a lazy unmount: make the mount point unavailable for
 new accesses, and actually perform the unmount when the mount point
-ceases to be busy. (Since 2.4.11.)
+ceases to be busy.
+.TP
+.BR MNT_EXPIRE " (since Linux 2.6.8)"
+Mark the mount point as expired.
+If a mount point is not currently in use, then an initial call to
+.BR umount2 ()
+with this flag fails with the error
+.BR EAGAIN ,
+but marks the mount point as expired.
+The mount point remains expired as long as it isn't accessed
+by any process.
+A second
+.BR umount2 ()
+call specifying
+.B MNT_EXPIRE
+unmounts an expired mount point.
+This flag cannot be specified with either 
+.B MNT_FORCE
+or
+.BR MNT_DETACH .
 .SH "RETURN VALUE"
 On success, zero is returned.  On error, \-1 is returned, and
 .I errno
@@ -214,13 +233,14 @@ own special behavior.  See the kernel source code for details.
 .B EACCES
 A component of a path was not searchable. (See also
 .BR path_resolution (2).)
-.br
 Or, mounting a read-only filesystem was attempted without giving the
-MS_RDONLY flag.
-.br
+.B MS_RDONLY 
+flag.
 Or, the block device
 .I source
-is located on a filesystem mounted with the MS_NODEV option.
+is located on a filesystem mounted with the
+.B MS_NODEV
+option.
 .\" mtk: Probably: write permission is required for MS_BIND, with
 .\" the error EPERM if not present; CAP_DAC_OVERRIDE is required.
 .TP
@@ -242,16 +262,28 @@ One of the pointer arguments points outside the user address space.
 .B EINVAL
 .I source
 had an invalid superblock.
-Or, a remount was attempted, while
+Or, a remount
+.RB ( MS_REMOUNT )
+was attempted, but
 .I source
 was not already mounted on
 .IR target .
-Or, a move was attempted, while
+Or, a move 
+.RB ( MS_MOVE )
+was attempted, but
 .I source
 was not a mount point, or was '/'.
-Or, an umount was attempted, while
+Or, an unmount was attempted, but
 .I target
 was not a mount point.
+Or,
+.BR umount2 ()
+was called with
+.B MNT_FORCE
+and either
+.B MNT_DETACH
+or
+.BR MNT_FORCE .
 .TP
 .B ELOOP
 Too many link encountered during pathname resolution.

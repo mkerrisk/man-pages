@@ -49,6 +49,9 @@
 .\"	Described behaviour of F_SETOWN/F_SETSIG in
 .\"	multi-threaded processes, and generally cleaned
 .\"	up the discussion of F_SETOWN.
+.\" 2005-05-20, Johannes Nicolai <johannes.nicolai@hpi.uni-potsdam.de>, 
+.\"	mtk: Noted F_SETOWN bug for socket file descriptor in Linux 2.4
+.\"	and earlier.  Added text on permissions required to send signal.
 .\"
 .TH FCNTL 2 2004-12-08 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
@@ -347,6 +350,11 @@ and SIGURG signals for events on file descriptor
 .IR fd .
 A process ID is specified as a positive value;
 a process group ID is specified as a negative value.
+Most commonly, the calling process specifies itself as the owner
+(that is,
+.I arg
+is specified as
+.IR getpid ()).
 
 .\" From glibc.info:
 If you set the
@@ -362,6 +370,16 @@ a SIGIO signal is sent whenever input or output becomes possible
 on that file descriptor.
 .B F_SETSIG
 can be used to obtain delivery of a signal other than SIGIO.
+If this permission check fails, then the signal is
+silently discarded.
+
+Sending a signal to the owner process (group) specified by
+.B F_SETOWN
+is subject to the same permissions checks as are described for
+.BR kill (2),
+where the sending process is the one that employs
+.BR F_SETOWN 
+(but see BUGS below).
 .sp
 If the file descriptor
 .I fd
@@ -816,6 +834,23 @@ will contain the (positive) process group ID.
 .\" indicate that ANY negative PGID value will cause F_GETOWN
 .\" to misinterpret the return as an error. Some other architectures
 .\" seem to have the same range check as x86.  -- MTK
+
+In Linux 2.4 and earlier, there is bug that can occur
+when an unprivileged process uses
+.B F_SETOWN
+to specify the owner
+of a socket file descriptor 
+as a process (group) other than the caller.
+In this case,
+.BR fcntl ()
+can return \-1 with
+.I errno
+set to
+.BR EPERM ,
+even when the owner process (group) is one that the caller
+has permission to send signals to.
+Despite this error return, the file descriptor owner is set,
+and signals will be sent to the owner.
 .SH "CONFORMING TO"
 SVr4, SVID, POSIX, X/OPEN, BSD 4.3.  Only the operations F_DUPFD,
 F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_GETLK, F_SETLK, F_SETLKW, 

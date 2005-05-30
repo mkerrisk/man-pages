@@ -38,7 +38,7 @@
 .\" 2005-04-25, mtk -- noted aberrant Linux behaviour w.r.t. new
 .\"	attaches to a segment that has already been marked for deletion.
 .\"
-.TH SHMCTL 2 2005-04-25 Linux 2.6.11" "Linux Programmer's Manual"
+.TH SHMCTL 2 2005-05-30 Linux 2.6.11" "Linux Programmer's Manual"
 .SH NAME
 shmctl \- shared memory control
 .SH SYNOPSIS
@@ -149,7 +149,16 @@ will be set.
 The caller \fImust\fP ensure that a segment is eventually destroyed;
 otherwise its pages that were faulted in will remain in memory or swap.
 .SS "Linux additions"
-A privileged caller can prevent or allow swapping of a shared
+The
+.BR IPC_INFO ,
+.BR SHM_STAT
+and
+.B SHM_INFO
+control calls are used by the
+.BR ipcs (8)
+program to provide information on allocated resources.
+.PP
+The caller can prevent or allow swapping of a shared
 memory segment with the following \fIcmd\fP values:
 .br
 .TP 12
@@ -167,14 +176,23 @@ will be set.
 .B SHM_UNLOCK
 Unlock the segment, allowing it to be swapped out.
 .PP
-The
-.BR IPC_INFO ,
-.BR SHM_STAT
+In kernels before 2.6.10, only a privileged process
+could employ
+.B SHM_LOCK
 and
-.B SHM_INFO
-control calls are used by the
-.BR ipcs (8)
-program to provide information on allocated resources.
+.BR SHM_UNLOCK .
+Since kernel 2.6.10, an unprivileged process can employ these operations 
+if its effective UID matches the owner or creator UID of the segment, and
+(for
+.BR SHM_LOCK )
+the amount of memory to be locked falls within the
+.BR RLIMIT_MEMLOCK
+resource limit (see
+.BR setrlimit (2)).
+.\" There was some weirdness in 2.6.9: SHM_LOCK and SHM_UNLOCK could 
+.\" be applied to a segment, regardless of ownership of the segment.
+.\" This was a botch-up in the move to RLIMIT_MEMLOCK, and was fixed 
+.\" in 2.6.10.  MTK, May 2005
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned, and

@@ -1,0 +1,332 @@
+'\" t
+.\" Copyright (c) 2005 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH PTHREADS 7  2005-06-07 "Linux 2.6.12" "Linux Programmer's Manual"
+.SH NAME
+pthreads \- POSIX threads
+.SH DESCRIPTION
+POSIX.1 specifies a set of interfaces (functions, header files) for 
+threaded programming commonly known as POSIX threads, or Pthreads.
+A single process can contain multiple threads, 
+all of which are executing the same program.
+These threads share the same global memory (data and heap segments),
+but each thread has its own stack (automatic variables).
+
+POSIX.1 also requires that threads share a range of other attributes
+(i.e., these attributes are process-wide rather than per-thread):
+.IP \- 3
+process ID
+.IP \- 3
+parent process ID
+.IP \- 3
+process group ID and session ID
+.IP \- 3
+controlling terminal
+.IP \- 3
+user and group IDs
+.IP \- 3
+open file descriptors
+.IP \- 3
+record locks (see
+.BR fcntl (2))
+.IP \- 3
+signal dispositions
+.IP \- 3
+file mode creation mask
+.RB ( umask (2))
+.IP \- 3
+current directory 
+.RB ( chdir (2))
+and
+root directory
+.RB ( chroot (2))
+.IP \- 3
+interval timers
+.RB ( setitimer (2))
+and POSIX timers
+.RB ( timer_create ())
+.IP \- 3
+nice value
+.RB ( setpriority (2))
+.IP \- 3
+resource limits
+.RB ( setrlimit (2))
+.IP \- 3
+measurements of the consumption of CPU time 
+.RB ( times (2))
+and resources 
+.RB ( getrusage (2))
+.PP
+As well as the stack, POSIX.1 specifies that various other
+attributes are distinct for each thread, including:
+.IP \- 3
+thread ID (the
+.I pthread_t
+data type)
+.IP \- 3
+signal mask
+.RM ( pthread_sigmask ())
+.IP \- 3
+the
+.I errno
+variable
+.IP \- 3
+alternate signal stack 
+.RB ( sigaltstack (2))
+.IP \- 3
+real-time scheduling policy and priority
+.RB ( sched_setscheduler (2)
+and
+.BR sched_setparam (2))
+.PP
+The following Linux-specific features are also per-thread:
+.IP \- 3
+capabilities (see
+.BR capabilities (7))
+.IP \- 3
+CPU affinity 
+.RB ( sched_setaffinity (2))
+.SS "Compiling on Linux"
+On Linux, programs that use the Pthreads API should be compiled using
+.IR "cc -pthread" .
+.SS "Linux Implementations of POSIX Threads"
+Over time, two threading implementations have been provided by
+the GNU C library on Linux:
+.IP \- 3
+.B LinuxThreads.
+This is the original (now obsolete) Pthreads implementation.
+.IP \- 3
+.B NPTL 
+(Native POSIX Threads Library)
+This is the modern Pthreads implementation.
+By comparison with LinuxThreads, NPTL provides closer conformance to
+the requirements of the POSIX.1 specification and better performance 
+when creating large numbers of threads.
+NPTL requires a Linux 2.6 kernel.
+.PP
+Both of these are so-called 1:1 implementations, meaning that each
+thread maps to a kernel scheduling entity.
+
+Both threading implementations employ the Linux
+.BR clone (2)
+system call.
+In NPTL, thread synchronisation primitives (mutexes, 
+thread joining, etc.) are implemented using the Linux
+.BR futex (2)
+system call.
+.PP
+Modern GNU C libraries provide both LinuxThreads and NPTL, with the
+latter being the default (if supported by the underlying kernel).
+.SS LinuxThreads
+The notable features of this implementation are the following:
+.IP \- 3
+In addition to the main (initial) thread, and the threads it creates
+using
+.BR pthread_create (),
+the implementation creates a "manager" thread.
+This thread handles thread creation and termination.
+(Problems can result if this thread is inadvertently killed.)
+.IP \- 3
+Signals are used internally by the implementation.
+On Linux 2.2 and later, the first three real-time signals are used.
+On older Linux kernels, SIGUSR1 and SIGUSR2 are used.
+Applications must avoid the use of whichever set of signals is 
+employed by the implementation.
+.IP \- 3
+Threads do not share process IDs.
+(In effect, LinuxThreads threads are implemented as processes which share
+more information than usual, but which do not share a common process ID.)
+LinuxThreads threads (including the manager thread)
+are visible as separate processes using
+.BR ps (1).
+.PP
+The LinuxThreads implementation deviates from the POSIX.1
+specification in a number of ways, including the following:
+.IP \- 3
+Calls to
+.BR getpid (2)
+return a different value in each thread.
+.IP \- 3
+Calls to 
+.BR getppid (2)
+in threads other than the main thread return the process ID of the
+manager thread; instead
+.BR getppid (2)
+in these threads should return the same value as
+.BR getppid (2)
+in the main thread.
+.IP \- 3
+When one thread creates a new child process using
+.BR fork (2),
+any thread should be able to
+.BR wait (2)
+on the child.
+However, the implementation only allows the thread that 
+created the child to
+.BR wait (2)
+on it.
+.IP \- 3
+When a thread calls
+.BR execve (2),
+all other threads are terminated (as required by POSIX.1).
+However, the resulting process has the same PID as the thread that called
+.BR execve (2):
+it should have the same PID as the main thread.
+.IP \- 3
+Threads do not share user and group IDs.
+This can cause complications with set-UID programs and
+can cause failures in Pthreads functions if an application
+changes its credentials using
+.BR seteuid (2)
+or similar.
+.IP \- 3
+Threads do not share a common session ID and process group ID.
+.IP \- 3
+Threads do not share record locks created using
+.BR fcntl (2).
+.IP \- 3
+The information returned by
+.BR times (2)
+and
+.BR getrusage (2)
+is per-thread rather than process-wide.
+.IP \- 3
+Threads do not share semaphore undo values (see
+.BR semop (2)).
+.IP \- 3
+Threads do not share interval timers.
+.IP \- 3
+Threads do not share a common nice value.
+.IP \- 3
+POSIX.1 distinguishes the notions of signals that are directed
+to the process as a whole and signals are directed to individual
+threads.
+According to POSIX.1, a process-directed signal (sent using
+.BR kill (2),
+for example) should be handled by a single,
+arbitrarily selected thread within the process.
+LinuxThreads does not support the notion of process-directed signals:
+signals may only be sent to specific threads.
+.IP \- 3
+A new thread inherits alternate signal stack settings 
+from the thread that created it.
+(A new thread should start with no alternate signal stack defined.)
+.SS NPTL
+With NPTL, all of the threads in a process are placed
+in the same thread group;
+all members of a thread groups share the same PID.
+NPTL does not employ a manager thread;
+nor does it make internal use of signals.
+NPTL still has a few non-conformances with POSIX.1:
+.IP \- 3
+A new thread inherits alternate signal stack settings 
+from the thread that created it.
+.IP \- 3
+Threads do not share a common nice value.
+.IP \- 3
+Only the main thread is permitted to start a new session using
+.BR setsid (2).
+.\" FIXME why is there this limitation on setsid()?
+.IP \- 3
+Only the main thread is permitted to make the process into a 
+process group leader using
+.BR setpgid (2).
+.\" FIXME why is there this limitation on setpgid()?
+.PP
+Some NPTL non-conformances only occur with older kernels:
+.IP \- 3
+The information returned by
+.BR times (2)
+and
+.BR getrusage (2)
+is per-thread rather than process-wide (fixed in kernel 2.6.9).
+.IP \- 3
+Threads do not share resource limits (fixed in kernel 2.6.10).
+.IP \- 3
+Threads do not share interval timers (fixed in kernel 2.6.12).
+.SS "Determining the Threading Implementation"
+Since glibc 2.3.2, the 
+.BR getconf (1)
+command can be used to determine
+the system's default threading implementation, for example:
+.nf
+.in +4
+
+bash$ getconf GNU_LIBPTHREAD_VERSION
+NPTL 2.3.4
+.in -4
+.fi
+.PP
+With older glibc versions, a command such as the following should
+be sufficient to determine the default threading implementation:
+.nf
+.in +4
+
+bash$ $( ldd /bin/ls | grep libc.so | awk '{print $3}' ) | \\
+                egrep -i 'threads|ntpl'
+        Native POSIX Threads Library by Ulrich Drepper et al
+.in -4
+.fi
+.SS "Selecting the Threading Implementation: LD_ASSUME_KERNEL"
+On systems with a glibc that supports both LinuxThreads and NPTL,
+the LD_ASSUME_KERNEL environment variable can be used to override
+the dynamic linker's default choice of threading implementation.
+This variable tells the dynamic linker to assume that it is 
+running on top of a particular kernel version.
+By specifying a kernel version that does not
+provide the support required by NPTL, we can force the use
+of LinuxThreads.
+(The most likely reason for doing this is to run a
+(broken) application that depends on some non-conformant behavior
+in LinuxThreads.)
+For example:
+.nf
+.in +4
+
+bash$ $( LD_ASSUME_KERNEL=2.2.5 ldd /bin/ls | grep libc.so | \\
+                awk '{print $3}' ) | egrep -i 'threads|ntpl'
+        linuxthreads-0.10 by Xavier Leroy
+.in -4
+.fi
+.SH "SEE ALSO"
+.BR clone (2),
+.BR futex (2),
+.BR gettid (2),
+.BR futex (4),
+and various Pthreads manual pages, for example:
+.BR pthread_atfork (3),
+.BR pthread_cleanup_push (3),
+.BR pthread_cond_signal (3),
+.BR pthread_cond_wait (3),
+.BR pthread_create (3),
+.BR pthread_detach (3),
+.BR pthread_equal (3),
+.BR pthread_exit (3),
+.BR pthread_key_create (3),
+.BR pthread_kill (3),
+.BR pthread_mutex_lock (3),
+.BR pthread_mutex_unlock (3),
+.BR pthread_once (3),
+.BR pthread_setcancelstate (3),
+.BR pthread_setcanceltype (3),
+.BR pthread_setspecific (3),
+.BR pthread_sigmask (3),
+and
+.BR pthread_testcancel (3).

@@ -9,12 +9,12 @@
 .\" manual under the conditions for verbatim copying, provided that the
 .\" entire resulting derived work is distributed under the terms of a
 .\" permission notice identical to this one.
-.\" 
+.\"
 .\" Since the Linux kernel and libraries are constantly changing, this
 .\" manual page may be incorrect or out-of-date.  The author(s) assume no
 .\" responsibility for errors or omissions, or for damages resulting from
 .\" the use of the information contained herein.
-.\" 
+.\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
@@ -22,9 +22,9 @@
 .SH NAME
 pthreads \- POSIX threads
 .SH DESCRIPTION
-POSIX.1 specifies a set of interfaces (functions, header files) for 
+POSIX.1 specifies a set of interfaces (functions, header files) for
 threaded programming commonly known as POSIX threads, or Pthreads.
-A single process can contain multiple threads, 
+A single process can contain multiple threads,
 all of which are executing the same program.
 These threads share the same global memory (data and heap segments),
 but each thread has its own stack (automatic variables).
@@ -52,7 +52,7 @@ signal dispositions
 file mode creation mask
 .RB ( umask (2))
 .IP \- 3
-current directory 
+current directory
 .RB ( chdir (2))
 and
 root directory
@@ -69,9 +69,9 @@ nice value
 resource limits
 .RB ( setrlimit (2))
 .IP \- 3
-measurements of the consumption of CPU time 
+measurements of the consumption of CPU time
 .RB ( times (2))
-and resources 
+and resources
 .RB ( getrusage (2))
 .PP
 As well as the stack, POSIX.1 specifies that various other
@@ -88,7 +88,7 @@ the
 .I errno
 variable
 .IP \- 3
-alternate signal stack 
+alternate signal stack
 .RB ( sigaltstack (2))
 .IP \- 3
 real-time scheduling policy and priority
@@ -101,7 +101,7 @@ The following Linux-specific features are also per-thread:
 capabilities (see
 .BR capabilities (7))
 .IP \- 3
-CPU affinity 
+CPU affinity
 .RB ( sched_setaffinity (2))
 .SS "Compiling on Linux"
 On Linux, programs that use the Pthreads API should be compiled using
@@ -113,11 +113,11 @@ the GNU C library on Linux:
 .B LinuxThreads.
 This is the original (now obsolete) Pthreads implementation.
 .IP \- 3
-.B NPTL 
+.B NPTL
 (Native POSIX Threads Library)
 This is the modern Pthreads implementation.
 By comparison with LinuxThreads, NPTL provides closer conformance to
-the requirements of the POSIX.1 specification and better performance 
+the requirements of the POSIX.1 specification and better performance
 when creating large numbers of threads.
 NPTL requires a Linux 2.6 kernel.
 .PP
@@ -127,7 +127,7 @@ thread maps to a kernel scheduling entity.
 Both threading implementations employ the Linux
 .BR clone (2)
 system call.
-In NPTL, thread synchronisation primitives (mutexes, 
+In NPTL, thread synchronisation primitives (mutexes,
 thread joining, etc.) are implemented using the Linux
 .BR futex (2)
 system call.
@@ -137,8 +137,8 @@ latter being the default (if supported by the underlying kernel).
 .SS LinuxThreads
 The notable features of this implementation are the following:
 .IP \- 3
-In addition to the main (initial) thread, and the threads it creates
-using
+In addition to the main (initial) thread, 
+and the threads that the program creates using
 .BR pthread_create (),
 the implementation creates a "manager" thread.
 This thread handles thread creation and termination.
@@ -147,7 +147,7 @@ This thread handles thread creation and termination.
 Signals are used internally by the implementation.
 On Linux 2.2 and later, the first three real-time signals are used.
 On older Linux kernels, SIGUSR1 and SIGUSR2 are used.
-Applications must avoid the use of whichever set of signals is 
+Applications must avoid the use of whichever set of signals is
 employed by the implementation.
 .IP \- 3
 Threads do not share process IDs.
@@ -164,7 +164,7 @@ Calls to
 .BR getpid (2)
 return a different value in each thread.
 .IP \- 3
-Calls to 
+Calls to
 .BR getppid (2)
 in threads other than the main thread return the process ID of the
 manager thread; instead
@@ -178,7 +178,7 @@ When one thread creates a new child process using
 any thread should be able to
 .BR wait (2)
 on the child.
-However, the implementation only allows the thread that 
+However, the implementation only allows the thread that
 created the child to
 .BR wait (2)
 on it.
@@ -225,19 +225,28 @@ arbitrarily selected thread within the process.
 LinuxThreads does not support the notion of process-directed signals:
 signals may only be sent to specific threads.
 .IP \- 3
-A new thread inherits alternate signal stack settings 
-from the thread that created it.
-(A new thread should start with no alternate signal stack defined.)
+Threads have distinct alternate signal stack settings.
+However, a new thread's alternate signal stack settings
+are copied from the the thread that created it, so that
+the threads initially share an alternate signal stack.
+(A new thread should start with no alternate signal stack defined.
+If two threads handle signals on their shared alternate signal
+stack at the same time, unpredictable program failures are
+likely to occur.)
 .SS NPTL
 With NPTL, all of the threads in a process are placed
 in the same thread group;
 all members of a thread groups share the same PID.
-NPTL does not employ a manager thread;
-nor does it make internal use of signals.
+NPTL does not employ a manager thread.
+NPTL makes internal use of the first two real-time signals;
+these signals cannot be used in applications.
+
 NPTL still has a few non-conformances with POSIX.1:
 .IP \- 3
-A new thread inherits alternate signal stack settings 
-from the thread that created it.
+Threads have distinct alternate signal stack settings.
+However, a new thread's alternate signal stack settings
+are copied from the the thread that created it, so that
+the threads initially share an alternate signal stack.
 .IP \- 3
 Threads do not share a common nice value.
 .IP \- 3
@@ -245,7 +254,7 @@ Only the main thread is permitted to start a new session using
 .BR setsid (2).
 .\" FIXME why is there this limitation on setsid()?
 .IP \- 3
-Only the main thread is permitted to make the process into a 
+Only the main thread is permitted to make the process into a
 process group leader using
 .BR setpgid (2).
 .\" FIXME why is there this limitation on setpgid()?
@@ -262,7 +271,7 @@ Threads do not share resource limits (fixed in kernel 2.6.10).
 .IP \- 3
 Threads do not share interval timers (fixed in kernel 2.6.12).
 .SS "Determining the Threading Implementation"
-Since glibc 2.3.2, the 
+Since glibc 2.3.2, the
 .BR getconf (1)
 command can be used to determine
 the system's default threading implementation, for example:
@@ -288,7 +297,7 @@ bash$ $( ldd /bin/ls | grep libc.so | awk '{print $3}' ) | \\
 On systems with a glibc that supports both LinuxThreads and NPTL,
 the LD_ASSUME_KERNEL environment variable can be used to override
 the dynamic linker's default choice of threading implementation.
-This variable tells the dynamic linker to assume that it is 
+This variable tells the dynamic linker to assume that it is
 running on top of a particular kernel version.
 By specifying a kernel version that does not
 provide the support required by NPTL, we can force the use

@@ -53,6 +53,7 @@ Timer values are defined by the following structures:
 .PD 0
 .RS .5i
 .nf
+
 struct itimerval {
     struct timeval it_interval; /* next value */
     struct timeval it_value;    /* current value */
@@ -107,10 +108,10 @@ and
 are significant in determining the duration of a timer.
 .LP
 Timers will never expire before the requested time,
-instead expiring some short, constant time afterwards, dependent
-on the system timer resolution (currently 10ms).  Upon expiration, a
-signal will be generated and the timer reset.  If the timer expires
-while the process is active (always true for
+but may expire some (short) time afterwards, which depends
+on the system timer resolution and on the system load.
+Upon expiration, a signal will be generated and the timer reset.
+If the timer expires while the process is active (always true for
 .BR ITIMER_VIRT )
 the signal will be delivered immediately when generated.  Otherwise the
 delivery will be offset by a small time dependent on the system loading.
@@ -141,11 +142,13 @@ POSIX.1-2001, SVr4, 4.4BSD (this call first appeared in 4.2BSD).
 .BR sigaction (2),
 .BR signal (2)
 .SH BUGS
-Under Linux, the generation and delivery of a signal are distinct, and
-there each signal is permitted only one outstanding event.  It's therefore
-conceivable that under pathologically heavy loading,
+The generation and delivery of a signal are distinct, and
+only one instance of each of the signals listed above may be pending
+for a process.
+Under very  heavy loading, an
 .B ITIMER_REAL
-will expire before the signal from a previous expiration has been delivered.
+timer may expire before the signal from a previous expiration
+has been delivered.
 The second signal in such an event will be lost.
 
 On Linux, timer values are represented in jiffies.
@@ -157,6 +160,11 @@ then the timer is silently truncated to this ceiling value.
 On Linux 2.6 on x86 (where a jiffy is 0.001 seconds),
 this means that the ceiling value for a timer is
 approximately 24.86 days.
+
+On certain systems (including x86), the Linux kernel has a bug which will
+produce premature timer expirations of up to one jiffy under some
+circumstances.
+.\" As at June 2005, the above holds in 2.4.x and 2.6.c (e.g., 2.6.12.)
 
 POSIX.1 says that
 .B setitimer

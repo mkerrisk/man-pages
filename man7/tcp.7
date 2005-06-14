@@ -22,31 +22,31 @@ tcp \- TCP protocol
 .SH DESCRIPTION
 This is an implementation of the TCP protocol defined in
 RFC793, RFC1122 and RFC2001 with the NewReno and SACK
-extensions.  It provides a reliable, stream oriented, full
-duplex connection between two sockets on top of
+extensions.  It provides a reliable, stream-oriented, 
+full-duplex connection between two sockets on top of
 .BR ip (7),
 for both v4 and v6 versions.
 TCP guarantees that the data arrives in order and
-retransmits lost packets.  It generates and checks a per
-packet checksum to catch transmission errors.  TCP does not
-preserve record boundaries.
+retransmits lost packets.
+It generates and checks a per-packet checksum to catch transmission errors.
+TCP does not preserve record boundaries.
 
-A fresh TCP socket has no remote or local address and is not
+A newly created TCP socket has no remote or local address and is not
 fully specified.  To create an outgoing TCP connection use
 .BR connect (2)
 to establish a connection to another TCP socket.
-To receive new incoming connections
+To receive new incoming connections, first
 .BR bind (2) 
-the socket first to a local address and port and then call 
+the socket to a local address and port and then call 
 .BR listen (2)
-to put the socket into listening state.  After that a new
+to put the socket into the listening state.  After that a new
 socket for each incoming connection can be accepted 
 using
 .BR accept (2).
 A socket which has had
-.B accept
+.B accept()
 or 
-.B connect
+.B connect()
 successfully called on it is fully specified and may
 transmit data.  Data cannot be transmitted on listening or
 not yet connected sockets.
@@ -86,7 +86,7 @@ call, and so a succeeding
 call will not return the same size of buffer as requested
 in the 
 .BR setsockopt (2) 
-call.  TCP uses this for administrative purposes and internal
+call.  TCP uses the extra space for administrative purposes and internal
 kernel structures, and the sysctl variables reflect the
 larger sizes compared to the actual TCP windows. 
 On individual connections, the socket buffer size must be
@@ -115,7 +115,7 @@ or
 ioctls. When the 
 .B SO_OOBINLINE
 socket option is enabled, urgent data is put into the normal
-data stream (and can be tested for by the
+data stream (a program can test for its location using the
 .B SIOCATMARK
 ioctl), 
 otherwise it can be only received when the
@@ -125,7 +125,7 @@ flag is set for
 
 Linux 2.4 introduced a number of changes for improved
 throughput and scaling, as well as enhanced functionality.
-Some of these features include support for zerocopy
+Some of these features include support for zero-copy
 .BR sendfile (2), 
 Explicit Congestion Notification, new
 management of TIME_WAIT sockets, keep-alive socket options
@@ -151,7 +151,8 @@ Enable resetting connections if the listening service is too
 slow and unable to keep up and accept them.  It is not
 enabled by default.  It means that if overflow occurred due
 to a burst, the connection will recover.  Enable this option
-_only_ if you are really sure that the listening daemon
+.I only
+if you are really sure that the listening daemon
 cannot be tuned to accept connections faster.  Enabling this
 option can harm the clients of your server. 
 .TP
@@ -195,10 +196,10 @@ Enable TCP Forward Acknowledgement support.  It is enabled by
 default.
 .TP
 .B tcp_fin_timeout
-How many seconds to wait for a final FIN packet before the
+This specifies how many seconds to wait for a final FIN packet before the
 socket is forcibly closed.  This is strictly a violation of
 the TCP specification, but required to prevent
-denial-of-service (DoS) attacks.  The default value in 2.4
+denial-of-service attacks.  The default value in 2.4
 kernels is 60, down from 180 in 2.2.
 .TP
 .B tcp_keepalive_intvl
@@ -228,7 +229,7 @@ application timeouts may be much shorter.
 The maximum number of orphaned (not attached to any user file
 handle) TCP sockets allowed in the system.  When this number
 is exceeded, the orphaned connection is reset and a warning
-is printed.  This limit exists only to prevent simple DoS
+is printed.  This limit exists only to prevent simple denial-of-service
 attacks.  Lowering this limit is not recommended. Network
 conditions might require you to increase the number of
 orphans allowed, but note that each orphan can eat up to ~64K
@@ -251,7 +252,7 @@ recompiled.
 .TP
 .B tcp_max_tw_buckets
 The maximum number of sockets in TIME_WAIT state allowed in
-the system.  This limit exists only to prevent simple DoS
+the system.  This limit exists only to prevent simple denial-of-service
 attacks.  The default value of NR_FILE*2 is adjusted
 depending on the memory in the system.  If this number is
 exceeded, the socket is closed and a warning is printed.
@@ -333,7 +334,7 @@ in the system.
 .I min
 - minimum size of the receive buffer used by each TCP
 socket.  The default value is 4K, and is lowered to
-PAGE_SIZE bytes in low memory systems.  This value
+PAGE_SIZE bytes in low-memory systems.  This value
 is used to ensure that in memory pressure mode,
 allocations below this size will still succeed.  This is not
 used to bound the size of the receive buffer declared
@@ -347,7 +348,7 @@ This value overwrites the initial default buffer size from
 the generic global 
 .B net.core.rmem_default
 defined for all protocols.  The default value is 87380
-bytes, and is lowered to 43689 in low memory systems.  If
+bytes, and is lowered to 43689 in low-memory systems.  If
 larger receive buffer sizes are desired, this value should
 be increased (to affect all sockets).  To employ large TCP
 windows, the
@@ -363,7 +364,7 @@ declared using
 .B SO_RCVBUF
 on a socket.
 The default value of 87380*2 bytes is lowered to 87380
-in low memory systems.
+in low-memory systems.
 .TP
 .B tcp_sack
 Enable RFC2018 TCP Selective Acknowledgements. 
@@ -504,7 +505,7 @@ code intended to be portable.
 .TP
 .B TCP_INFO
 Used to collect information about this socket.  The kernel
-returns a struct tcp_info as defined in the file
+returns a \fIstruct tcp_info\fP as defined in the file
 /usr/include/linux/tcp.h.  This option should not be used in
 code intended to be portable.
 .TP
@@ -582,8 +583,10 @@ kernel imposes a minimum size of SOCK_MIN_RCVBUF/2.
 This option should not be used in code intended to be
 portable.
 .SH IOCTLS
-These ioctls can be accessed using 
-.BR ioctl (2).
+These following
+.BR ioctl (2)
+calls return information in
+.IR value .
 The correct syntax is:
 .PP
 .RS
@@ -592,23 +595,36 @@ The correct syntax is:
 .IB error " = ioctl(" tcp_socket ", " ioctl_type ", &" value ");"
 .fi
 .RE
+.PP
+.I ioctl_type
+is one of the following:
 .TP
 .BR SIOCINQ
-Returns the amount of queued unread data in the receive
-buffer.  Argument is a pointer to an integer.  The socket
-must not be in LISTEN state, otherwise an error (EINVAL)
+Returns the amount of queued unread data in the receive buffer.
+The socket must not be in LISTEN state, otherwise an error (EINVAL)
 is returned.
 .TP
 .B SIOCATMARK
-Returns true when the all urgent data has been already
-received by the user program.  This is used together with
-.BR SO_OOBINLINE .
-Argument is an pointer to an integer for the test result.
+Returns true (i.e., 
+.I value
+is non-zero) if the inbound data stream is at the urgent mark.
+This is normally used together with
+.BR SO_OOBINLINE :
+if
+.B SIOCATMARK
+indicates we are at the urgent mark, then the
+next read from the socket will return the urgent data.
+Note that When
+.B SO_OOBINLINE
+is set, a read never reads across the urgent mark.
+A program can thus advance up to the mark by performing reads 
+(requesting any number of bytes) and testing
+.B SIOCATMARK
+after each read.
 .TP
 .B SIOCOUTQ
-Returns the amount of unsent data in the socket send queue
-in the passed integer value pointer.  The socket must not 
-be in LISTEN state, otherwise an error (EINVAL)
+Returns the amount of unsent data in the socket send queue.
+The socket must not be in LISTEN state, otherwise an error (EINVAL)
 is returned.
 .SH "ERROR HANDLING"
 When a network error occurs, TCP tries to resend the
@@ -673,7 +689,7 @@ IPv6 is not described.
 .\" Info for 2.2 was lost. Should be added again,
 .\" or put into a separate page.
 .SH VERSIONS
-Support for Explicit Congestion Notification, zerocopy 
+Support for Explicit Congestion Notification, zero-copy 
 sendfile, reordering support and some SACK extensions
 (DSACK) were introduced in 2.4.
 Support for forward acknowledgement (FACK), TIME_WAIT recycling, 

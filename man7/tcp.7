@@ -8,7 +8,7 @@
 .\" Modified, 2004-11-11, Michael Kerrisk and Andries Brouwer
 .\"	Updated details of interaction of TCP_CORK and TCP_NODELAY.
 .\"
-.TH TCP  7 2003-08-21 "Linux Man Page" "Linux Programmer's Manual" 
+.TH TCP  7 2005-06-15 "Linux Man Page" "Linux Programmer's Manual" 
 .SH NAME
 tcp \- TCP protocol
 .SH SYNOPSIS
@@ -145,21 +145,36 @@ files or with the
 .BR sysctl (2)
 interface.  In addition, most IP sysctls also apply to TCP; see
 .BR ip (7). 
+.\" FIXME: As at 14 Jun 2005, kernel 2.6.12, the following are
+.\"	not yet documented (shown with default values):
+.\"
+.\"     /proc/sys/net/ipv4/tcp_bic_beta
+.\"     819
+.\"     /proc/sys/net/ipv4/tcp_moderate_rcvbuf
+.\"     1
+.\"     /proc/sys/net/ipv4/tcp_no_metrics_save
+.\"     0
+.\"     /proc/sys/net/ipv4/tcp_vegas_alpha
+.\"     2
+.\"     /proc/sys/net/ipv4/tcp_vegas_beta
+.\"     6
+.\"     /proc/sys/net/ipv4/tcp_vegas_gamma
+.\"     2
 .TP
-.B tcp_abort_on_overflow
+.BR tcp_abort_on_overflow " (Boolean; default: disabled)"
 Enable resetting connections if the listening service is too
-slow and unable to keep up and accept them.  It is not
-enabled by default.  It means that if overflow occurred due
+slow and unable to keep up and accept them.
+It means that if overflow occurred due
 to a burst, the connection will recover.  Enable this option
 .I only
 if you are really sure that the listening daemon
 cannot be tuned to accept connections faster.  Enabling this
 option can harm the clients of your server. 
 .TP
-.B tcp_adv_win_scale
+.BR tcp_adv_win_scale " (integer; default: 2)"
 Count buffering overhead as bytes/2^tcp_adv_win_scale
 (if tcp_adv_win_scale > 0) or bytes-bytes/2^(-tcp_adv_win_scale),
-if it is <= 0. The default is 2.  
+if it is <= 0.
 
 The socket receive buffer space is shared between the
 application and kernel.  TCP maintains part of the buffer as
@@ -167,52 +182,83 @@ the TCP window, this is the size of the receive window
 advertised to the other end.  The rest of the space is used
 as the "application" buffer, used to isolate the network
 from scheduling and application latencies.  The 
-.B tcp_adv_win_scale 
+.BR tcp_adv_win_scale 
 default value of 2 implies that the space
 used for the application buffer is one fourth that of the
 total.  
 .TP 
-.B tcp_app_win 
+.BR tcp_app_win  " (integer; default: 31)"
 This variable defines how many
 bytes of the TCP window are reserved for buffering
 overhead.
 
 A maximum of (window/2^tcp_app_win, mss) bytes in the window
 are reserved for the application buffer.  A value of 0
-implies that no amount is reserved.  The default value is 31.
+implies that no amount is reserved.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
 .TP
-.B tcp_dsack
+.BR tcp_bic " (Boolean; default: disabled)"
+Enable BIC TCP congestion control algorithm.
+BIC-TCP is a sender-side only change that ensures a linear RTT
+fairness under large windows while offering both scalability and
+bounded TCP-friendliness. The protocol combines two schemes
+called additive increase and binary search increase. When the
+congestion window is large, additive increase with a large
+increment ensures linear RTT fairness as well as good
+scalability. Under small congestion windows, binary search
+increase provides TCP friendliness.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
+.TP
+.BR tcp_bic_low_window " (integer; default: 14)"
+Sets the threshold window (in packets) where BIC TCP starts to
+adjust the congestion window. Below this threshold BIC TCP behaves
+the same as the default TCP Reno.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
+.TP
+.BR tcp_bic_fast_convergence " (Boolean; default: enabled)"
+Forces BIC TCP to more quickly respond to changes in congestion
+window. Allows two flows sharing the same connection to converge
+more rapidly.
+.TP
+.BR tcp_dsack " (Boolean; default: enabled)"
 Enable RFC2883 TCP Duplicate SACK support. 
-It is enabled by default.
 .TP
-.B tcp_ecn
-Enable RFC2884 Explicit Congestion Notification.  It is not
-enabled by default.  When enabled, connectivity to some
+.BR tcp_ecn " (Boolean; default: disabled)"
+Enable RFC2884 Explicit Congestion Notification.
+When enabled, connectivity to some
 destinations could be affected due to older, misbehaving
 routers along the path causing connections to be dropped.
 .TP
-.B tcp_fack
-Enable TCP Forward Acknowledgement support.  It is enabled by
-default.
+.BR tcp_fack " (Boolean; default: enabled)"
+Enable TCP Forward Acknowledgement support.
 .TP
-.B tcp_fin_timeout
+.BR tcp_fin_timeout " (integer; default: 60)"
 This specifies how many seconds to wait for a final FIN packet before the
 socket is forcibly closed.  This is strictly a violation of
 the TCP specification, but required to prevent
-denial-of-service attacks.  The default value in 2.4
-kernels is 60, down from 180 in 2.2.
+denial-of-service attacks.  
+In Linux 2.2, the default value was 180.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
 .TP
-.B tcp_keepalive_intvl
+.BR tcp_frto " (Boolean; default: disabled)"
+Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
+timeouts.  It is particularly beneficial in wireless environments
+where packet loss is typically due to random radio interference
+rather than intermediate router congestion.
+.TP
+.BR tcp_keepalive_intvl " (integer; default: 75)"
 The number of seconds between TCP keep-alive probes.
-The default value is 75 seconds.
 .TP
-.B tcp_keepalive_probes
+.BR tcp_keepalive_probes " (integer; default: 9)"
 The maximum number of TCP keep-alive probes to send  
 before giving up and killing the connection if
 no response is obtained from the other end.
-The default value is 9. 
 .TP
-.B tcp_keepalive_time
+.BR tcp_keepalive_time " (integer; default: 7200)"
 The number of seconds a connection needs to be idle
 before TCP begins sending out keep-alive probes. 
 Keep-alives are only sent when the 
@@ -224,8 +270,17 @@ of 75 seconds apart) when keep-alive is enabled.
 
 Note that underlying connection tracking mechanisms and 
 application timeouts may be much shorter.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
 .TP
-.B tcp_max_orphans
+.BR tcp_low_latency  " (Boolean; default: disabled)"
+If enabled, the TCP stack makes decisions that prefer lower
+latency as opposed to higher throughput.
+It this option is disabled, then higher throughput is preferred.
+An example of an application where this default should be
+changed would be a Beowulf compute cluster.
+.TP
+.BR tcp_max_orphans  " (integer; default: see below)"
 The maximum number of orphaned (not attached to any user file
 handle) TCP sockets allowed in the system.  When this number
 is exceeded, the orphaned connection is reset and a warning
@@ -237,7 +292,7 @@ of unswappable memory.  The default initial value is set
 equal to the kernel parameter NR_FILE.  This initial default
 is adjusted depending on the memory in the system.
 .TP
-.B tcp_max_syn_backlog
+.BR tcp_max_syn_backlog " (integer; default: see below)"
 The maximum number of queued connection requests which have
 still not received an acknowledgement from the connecting
 client.  If this number is exceeded, the kernel will begin
@@ -250,14 +305,14 @@ include/net/tcp.h be modified to keep
 TCP_SYNQ_HSIZE*16<=tcp_max_syn_backlog, and the kernel be
 recompiled.
 .TP
-.B tcp_max_tw_buckets
+.BR tcp_max_tw_buckets " (integer; default: see below)"
 The maximum number of sockets in TIME_WAIT state allowed in
 the system.  This limit exists only to prevent simple denial-of-service
 attacks.  The default value of NR_FILE*2 is adjusted
 depending on the memory in the system.  If this number is
 exceeded, the socket is closed and a warning is printed.
 .TP 
-.B tcp_mem
+.BR tcp_mem
 This is a vector of 3 integers: [low, pressure, high].  These
 bounds are used by TCP to track its memory usage.  The
 defaults are calculated at boot time from the amount of
@@ -281,24 +336,22 @@ mark.
 will allocate.  This value overrides any other limits
 imposed by the kernel. 
 .TP
-.B tcp_orphan_retries
+.BR tcp_orphan_retries " (integer; default: 8)"
 The maximum number of attempts made to probe the other
 end of a connection which has been closed by our end.
-The default value is 8.
 .TP
-.B tcp_reordering
+.BR tcp_reordering " (integer; default: 3)"
 The maximum a packet can be reordered in a TCP packet stream
 without TCP assuming packet loss and going into slow start.
-The default is 3.  It is not advisable to change this number.
+It is not advisable to change this number.
 This is a packet reordering detection metric designed to
 minimize unnecessary back off and retransmits provoked by
 reordering of packets on a connection.
 .TP
-.B tcp_retrans_collapse
+.BR tcp_retrans_collapse " (Boolean; default: enabled)"
 Try to send full-sized packets during retransmit. 
-This is enabled by default. 
 .TP
-.B tcp_retries1
+.BR tcp_retries1 " (integer; default: 3)"
 The number of times TCP will attempt to retransmit a
 packet on an established connection normally,
 without the extra effort of getting the network
@@ -307,7 +360,7 @@ retransmits, we first have the network layer
 update the route if possible before each new retransmit.
 The default is the RFC specified minimum of 3.
 .TP
-.B tcp_retries2
+.BR tcp_retries2 " (integer; default: 15)"
 The maximum number of times a TCP packet is retransmitted
 in established state before giving up.  The default
 value is 15, which corresponds to a duration of
@@ -316,14 +369,14 @@ on the retransmission timeout.  The RFC1122 specified
 minimum limit of 100 seconds is typically deemed too
 short.
 .TP
-.B tcp_rfc1337
+.BR tcp_rfc1337 " (Boolean; default: disabled)"
 Enable TCP behaviour conformant with RFC 1337.
-This is not enabled by default.  When not enabled,
+When disabled,
 if a RST is received in TIME_WAIT state, we close 
 the socket immediately without waiting for the end
 of the TIME_WAIT period. 
 .TP
-.B tcp_rmem 
+.BR tcp_rmem 
 This is a vector of 3 integers: [min, default,
 max].  These parameters are used by TCP to regulate receive
 buffer sizes.  TCP dynamically adjusts the size of the
@@ -366,26 +419,24 @@ on a socket.
 The default value of 87380*2 bytes is lowered to 87380
 in low-memory systems.
 .TP
-.B tcp_sack
+.BR tcp_sack " (Boolean; default: enabled)"
 Enable RFC2018 TCP Selective Acknowledgements. 
-It is enabled by default.
 .TP
-.B tcp_stdurg
-Enable the strict RFC793 interpretation of the TCP
-urgent-pointer field.  The default is to use the
+.BR tcp_stdurg " (Boolean; default: disabled)"
+Use the strict RFC793 interpretation of the TCP
+urgent-pointer field.  If this option is disabled, then use the
 BSD-compatible interpretation of the urgent-pointer, pointing
 to the first byte after the urgent data.  The RFC793
 interpretation is to have it point to the last byte of urgent
 data.  Enabling this option may lead to interoperability
 problems.
 .TP
-.B tcp_synack_retries
+.BR tcp_synack_retries " (integer; default: 5)"
 The maximum number of times a SYN/ACK segment
 for a passive TCP connection will be retransmitted.
-This number should not be higher than 255. The default
-value is 5.
+This number should not be higher than 255.
 .TP
-.B tcp_syncookies
+.BR tcp_syncookies " (Boolean)"
 Enable TCP syncookies.  The kernel must be compiled with 
 .BR CONFIG_SYN_COOKIES .
 Send out syncookies when the syn backlog queue of a socket
@@ -399,38 +450,70 @@ loaded servers to help with overloaded or misconfigured
 conditions.  For recommended alternatives see
 .BR tcp_max_syn_backlog ,
 .BR tcp_synack_retries ,
+and
 .BR tcp_abort_on_overflow .
 .TP
-.B tcp_syn_retries
+.BR tcp_syn_retries  " (integer; default: 5)"
 The maximum number of times initial SYNs for an active TCP
 connection attempt will be retransmitted.  This value should
 not be higher than 255.  The default value is 5, which
 corresponds to approximately 180 seconds.
 .TP
-.B tcp_timestamps
-Enable RFC1323 TCP timestamps.  This is enabled
-by default.
+.BR tcp_timestamps " (Boolean; default: enabled)"
+Enable RFC1323 TCP timestamps.
 .TP
-.B tcp_tw_recycle
-Enable fast recycling of TIME-WAIT sockets.  It is 
-not enabled by default.  Enabling this option is not
+.BR tcp_tw_recycle " (Boolean; default: disabled)"
+Enable fast recycling of TIME-WAIT sockets.
+Enabling this option is not
 recommended since this causes problems when working
 with NAT (Network Address Translation). 
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
 .TP
-.B tcp_window_scaling
-Enable RFC1323 TCP window scaling.  It is enabled by
-default.  This feature allows the use of a large window
+.BR tcp_tw_reuse " (Boolean; default: disabled)"
+Allow to reuse TIME-WAIT sockets for new connections when it is
+safe from protocol viewpoint.
+It should not be changed without advice/request of technical
+experts.
+.TP
+.BR tcp_window_scaling " (Boolean; default: disabled)"
+Enable RFC1323 TCP window scaling.
+This feature allows the use of a large window
 (> 64K) on a TCP connection, should the other end support it.
 Normally, the 16 bit window length field in the TCP header
 limits the window size to less than 64K bytes.  If larger
 windows are desired, applications can increase the size of
 their socket buffers and the window scaling option will be
 employed.  If
-.B tcp_window_scaling 
+.BR tcp_window_scaling 
 is disabled, TCP will not negotiate the use of window
 scaling with the other end during connection setup.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
 .TP
-.B tcp_wmem
+.BR tcp_vegas_cong_avoid  " (Boolean; default: disabled)"
+Enable TCP Vegas congestion avoidance algorithm.
+TCP Vegas is a sender-side only change to TCP that anticipates
+the onset of congestion by estimating the bandwidth. TCP Vegas
+adjusts the sending rate by modifying the congestion
+window. TCP Vegas should provide less packet loss, but it is
+not as aggressive as TCP Reno.
+.\"
+.\" The following is from 2.6.12: Doumentation/networking/ip-sysctl.txt
+.TP
+.BR tcp_westwood " (Boolean; default: disabled)"
+Enable TCP Westwood+ congestion control algorithm.
+TCP Westwood+ is a sender-side only modification of the TCP Reno
+protocol stack that optimizes the performance of TCP congestion
+control. It is based on end-to-end bandwidth estimation to set
+congestion window and slow start threshold after a congestion
+episode. Using this estimation, TCP Westwood+ adaptively sets a
+slow start threshold and a congestion window which takes into
+account the bandwidth used  at the time congestion is experienced.
+TCP Westwood+ significantly increases fairness wrt TCP Reno in
+wired networks and throughput over wireless links.
+.TP
+.BR tcp_wmem
 This is a vector of 3 integers: [min, default, max].  These
 parameters are used by TCP to regulate send buffer sizes.
 TCP dynamically adjusts the size of the send buffer from the

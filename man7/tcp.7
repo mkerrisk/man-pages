@@ -21,7 +21,7 @@ tcp \- TCP protocol
 .B tcp_socket = socket(PF_INET, SOCK_STREAM, 0); 
 .SH DESCRIPTION
 This is an implementation of the TCP protocol defined in
-RFC793, RFC1122 and RFC2001 with the NewReno and SACK
+RFC\ 793, RFC\ 1122 and RFC\ 2001 with the NewReno and SACK
 extensions.  It provides a reliable, stream-oriented, 
 full-duplex connection between two sockets on top of
 .BR ip (7),
@@ -51,7 +51,7 @@ successfully called on it is fully specified and may
 transmit data.  Data cannot be transmitted on listening or
 not yet connected sockets.
 
-Linux supports RFC1323 TCP high performance
+Linux supports RFC\ 1323 TCP high performance
 extensions.  These include Protection Against Wrapped
 Sequence Numbers (PAWS), Window Scaling  and 
 Timestamps.  Window scaling allows the use
@@ -107,17 +107,21 @@ option to
 .BR send (2).
 When urgent data is received, the kernel sends a
 .B SIGURG
-signal to the reading process or the process or process
-group that has been set for the socket using the
+signal to the the process or process group that has been set as the 
+socket "owner" using the
 .B SIOCSPGRP
 or 
 .B FIOSETOWN 
-ioctls. When the 
+ioctls (or the SUSv3-specified
+.BR fcntl (2)
+.B F_SETOWN
+operation).
+When the 
 .B SO_OOBINLINE
 socket option is enabled, urgent data is put into the normal
 data stream (a program can test for its location using the
 .B SIOCATMARK
-ioctl), 
+ioctl described below), 
 otherwise it can be only received when the
 .B MSG_OOB
 flag is set for 
@@ -147,6 +151,11 @@ files or with the
 .BR sysctl (2)
 interface.  In addition, most IP sysctls also apply to TCP; see
 .BR ip (7). 
+Variables described as
+.I Boolean
+take an integer value, with a non-zero value ("true") meaning that
+the corresponding option is enabled, and a zero value ("false")
+meaning that the option is disabled.
 .\" FIXME: As at 14 Jun 2005, kernel 2.6.12, the following are
 .\"	not yet documented (shown with default values):
 .\"
@@ -226,10 +235,10 @@ window. Allows two flows sharing the same connection to converge
 more rapidly.
 .TP
 .BR tcp_dsack " (Boolean; default: enabled)"
-Enable RFC2883 TCP Duplicate SACK support. 
+Enable RFC\ 2883 TCP Duplicate SACK support. 
 .TP
 .BR tcp_ecn " (Boolean; default: disabled)"
-Enable RFC2884 Explicit Congestion Notification.
+Enable RFC\ 2884 Explicit Congestion Notification.
 When enabled, connectivity to some
 destinations could be affected due to older, misbehaving
 routers along the path causing connections to be dropped.
@@ -367,7 +376,7 @@ The maximum number of times a TCP packet is retransmitted
 in established state before giving up.  The default
 value is 15, which corresponds to a duration of
 approximately between 13 to 30 minutes, depending
-on the retransmission timeout.  The RFC1122 specified
+on the retransmission timeout.  The RFC\ 1122 specified
 minimum limit of 100 seconds is typically deemed too
 short.
 .TP
@@ -422,19 +431,18 @@ The default value of 87380*2 bytes is lowered to 87380
 in low-memory systems.
 .TP
 .BR tcp_sack " (Boolean; default: enabled)"
-Enable RFC2018 TCP Selective Acknowledgements. 
+Enable RFC\ 2018 TCP Selective Acknowledgements. 
 .TP
 .BR tcp_stdurg " (Boolean; default: disabled)"
-If this option is enabled, then use the "strict" RFC793 interpretation
+If this option is enabled, then use the RFC\ 1122 interpretation
 of the TCP urgent-pointer field.
-(RFC793 was ambiguous in its specification of the meaning of the
-urgent pointer.
-Here, the "strict" interpretation means the
-one imposed by RFC961 and RFC1122.)
+.\" RFC 793 was ambiguous in its specification of the meaning of the
+.\" urgent pointer.  RFC 1122 (and RFC 961) fixed on a particular
+.\" resolution of this ambiguity (unfortunately the "wrong" one).
 According to this interpretation, the urgent pointer points
 to the last byte of urgent data.
 If this option is disabled, then use the BSD-compatible interpretation of 
-the urgent-pointer:
+the urgent pointer:
 the urgent pointer points to the first byte after the urgent data.
 Enabling this option may lead to interoperability problems.
 .TP
@@ -467,7 +475,7 @@ not be higher than 255.  The default value is 5, which
 corresponds to approximately 180 seconds.
 .TP
 .BR tcp_timestamps " (Boolean; default: enabled)"
-Enable RFC1323 TCP timestamps.
+Enable RFC\ 1323 TCP timestamps.
 .TP
 .BR tcp_tw_recycle " (Boolean; default: disabled)"
 Enable fast recycling of TIME-WAIT sockets.
@@ -484,7 +492,7 @@ It should not be changed without advice/request of technical
 experts.
 .TP
 .BR tcp_window_scaling " (Boolean; default: disabled)"
-Enable RFC1323 TCP window scaling.
+Enable RFC\ 1323 TCP window scaling.
 This feature allows the use of a large window
 (> 64K) on a TCP connection, should the other end support it.
 Normally, the 16 bit window length field in the TCP header
@@ -517,8 +525,8 @@ congestion window and slow start threshold after a congestion
 episode. Using this estimation, TCP Westwood+ adaptively sets a
 slow start threshold and a congestion window which takes into
 account the bandwidth used  at the time congestion is experienced.
-TCP Westwood+ significantly increases fairness wrt TCP Reno in
-wired networks and throughput over wireless links.
+TCP Westwood+ significantly increases fairness with respect to
+TCP Reno in wired networks and throughput over wireless links.
 .TP
 .BR tcp_wmem
 This is a vector of 3 integers: [min, default, max].  These
@@ -716,11 +724,18 @@ the urgent data (to actually read the urgent data requires the
 flag).
 .sp
 Note that a read never reads across the urgent mark.
-Thus, having obtained notification of the presence of urgent data, 
-a program can advance up to the mark by performing reads 
-(requesting any number of bytes) and testing
+If an application is informed of the presence of urgent data via
+.BR select (2)
+(using the
+.I exceptfds
+argument) or through delivery of a
+.B SIGURG
+signal,
+then it can advance up to the mark using a loop which repeatedly tests 
 .B SIOCATMARK
-after each read.
+and performs a read (requesting any number of bytes) as long as
+.B SIOCATMARK
+returns false.
 .TP
 .B SIOCOUTQ
 Returns the amount of unsent data in the socket send queue.
@@ -754,10 +769,10 @@ Linux this means if the other end sends newer out-of-band
 data the older urgent data is inserted as normal data into
 the stream (even when
 .B SO_OOBINLINE
-is not set). This differs from BSD based stacks. 
+is not set). This differs from BSD-based stacks. 
 .PP
 Linux uses the BSD compatible interpretation of the urgent
-pointer field by default.  This violates RFC1122, but is
+pointer field by default.  This violates RFC\ 1122, but is
 required for interoperability with other stacks.  It can be
 changed by the
 .B tcp_stdurg
@@ -817,19 +832,19 @@ document.
 .BR ip (7),
 .BR socket (7)
 .sp
-RFC793 for the TCP specification.
+RFC\ 793 for the TCP specification.
 .br
-RFC1122 for the TCP requirements and a description 
+RFC\ 1122 for the TCP requirements and a description 
 of the Nagle algorithm.
 .br
-RFC1323 for TCP timestamp and window scaling options.
+RFC\ 1323 for TCP timestamp and window scaling options.
 .br
-RFC1644 for a description of TIME_WAIT assassination
+RFC\ 1644 for a description of TIME_WAIT assassination
 hazards.
 .br
-RFC2481 for a description of Explicit Congestion
+RFC\ 2481 for a description of Explicit Congestion
 Notification.
 .br
-RFC2581 for TCP congestion control algorithms.
+RFC\ 2581 for TCP congestion control algorithms.
 .br
-RFC2018 and RFC2883 for SACK and extensions to SACK.
+RFC\ 2018 and RFC\ 2883 for SACK and extensions to SACK.

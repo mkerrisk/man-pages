@@ -43,7 +43,6 @@ The parameter
 .I operation
 is one of the following:
 .RS
-.sp
 .TP 1.0i
 .B LOCK_SH
 Place a shared lock.
@@ -59,7 +58,6 @@ file at a given time.
 Remove an existing lock held by this process.
 .sp
 .RE
-
 A call to
 .BR flock ()
 may block if an incompatible lock is held by another process.
@@ -73,7 +71,7 @@ A single file may not simultaneously have both shared and exclusive locks.
 
 Locks created by
 .BR flock ()
-are associated with a file, or, more precisely, an open file table entry.
+are associated with an open file table entry.
 This means that duplicate file descriptors (created by, for example,
 .BR fork "(2) or " dup (2))
 refer to the same lock, and this lock may be modified
@@ -82,6 +80,15 @@ Furthermore, the lock is released either by an explicit
 .B LOCK_UN
 operation on any of these duplicate descriptors, or when all
 such descriptors have been closed.
+
+If a process uses
+.BR open (2)
+(or similar) to obtain more than one descriptor for the same file,
+these descriptors are treated independently by
+.BR flock ().
+An attempt to lock the file using one of these file descriptors
+may be denied by a lock that the calling process has
+already placed via another descriptor.
 
 A process may only hold one type of lock (shared or exclusive)
 on a file.
@@ -164,6 +171,13 @@ and
 .BR fcntl (2)
 locks have different semantics with respect to forked processes and
 .BR dup (2).
+On systems that implement
+.BR flock ()
+using
+.BR fcntl (),
+the semantics of
+.BR flock ()
+will be different from those described in this manual page.
 .PP
 Converting a lock
 (shared to exclusive, or vice versa) is not guaranteed to be atomic:

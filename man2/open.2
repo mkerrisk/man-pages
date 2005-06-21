@@ -51,20 +51,25 @@ open, creat \- open and possibly create a file or device
 .fi
 .SH DESCRIPTION
 The
-.B open()
+.BR open ()
 system call is used to convert a pathname into a file descriptor
 (a small, non-negative integer for use in subsequent I/O as with
 .BR read "(2), " write "(2), etc.)."
 When the call is successful, the file descriptor returned will be
 the lowest file descriptor not currently open for the process.
-This call creates a new open file, not shared with any other process.
-(But shared open files may arise via the
+This call creates a new open file description,
+not shared with any other process.
+(But shared open file descriptions may arise via the
 .BR fork (2)
 system call.)
 The new file descriptor is set to remain open across exec functions
-(see
-.BR fcntl (2)).
-The file offset is set to the beginning of the file. 
+(i.e., the
+.B FD_CLOEXEC
+file descriptor flag described in
+.BR fcntl (2)
+is initially disabled).
+The file offset is set to the beginning of the file (see
+.BR lseek (2)). 
 
 The parameter
 .I flags
@@ -93,8 +98,9 @@ can't be done without a race condition.
 Generate a signal (SIGIO by default, but this can be changed via
 .BR fcntl (2))
 when input or output becomes possible on this file descriptor.
-This feature is only available for terminals, pseudo-terminals, and
-sockets. See
+This feature is only available for terminals, pseudo-terminals, 
+sockets, and (since Linux 2.6) pipes and FIFOs.
+See
 .BR fcntl (2)
 for further details.
 .TP
@@ -144,9 +150,9 @@ When used with
 if the file already exists it is an error and the
 .BR open ()
 will fail. In this context, a symbolic link exists, regardless
-of where its points to.
+of where it points to.
 .B O_EXCL
-is broken on NFS file systems, programs which rely on it for performing
+is broken on NFS file systems; programs which rely on it for performing
 locking tasks will contain a race condition.  The solution for performing
 atomic file locking using a lockfile is to create a unique file on
 the same file system (e.g., incorporating hostname and pid), use
@@ -429,7 +435,7 @@ macro to get their definitions.
 .LP
 The (undefined) effect of
 .B O_RDONLY | O_TRUNC
-various among implementations. On many systems the file is actually
+varies among implementations. On many systems the file is actually
 truncated.
 .\" Linux 2.0, 2.5: truncate
 .\" Solaris 5.7, 5.8: truncate
@@ -446,6 +452,9 @@ query appropriate alignments, and sizes.   FreeBSD 4.x introduced
 a flag of same name, but without alignment restrictions.
 Support was added under Linux in kernel version 2.4.10.
 Older Linux kernels simply ignore this flag.
+One may have to define the
+.B _GNU_SOURCE
+macro to get its definition.
 .SH BUGS
 "The thing that has always disturbed me about O_DIRECT is that the whole
 interface is just stupid, and was probably designed by a deranged monkey
@@ -462,6 +471,7 @@ corresponding to the flags \fBO_SYNC\fR, \fBO_DSYNC\fR and
 .BR close (2),
 .BR fcntl (2),
 .BR link (2),
+.BR lseek (2),
 .BR mknod (2),
 .BR mount (2),
 .BR path_resolution (2),

@@ -66,12 +66,12 @@ fcntl \- manipulate file descriptor
 .BI "int fcntl(int " fd ", int " cmd ", struct flock *" lock );
 .fi
 .SH DESCRIPTION
-.B fcntl
-performs one of various miscellaneous operations on
+.BR fcntl ()
+performs one of the operations described below on the open file descriptor
 .IR fd .
-The operation in question is determined by
+The operation is determined by
 .IR cmd .
-.SS "Handling close-on-exec"
+.SS "Duplicating a file descriptor"
 .TP
 .B F_DUPFD
 Find the lowest numbered available file descriptor
@@ -79,57 +79,62 @@ greater than or equal to
 .I arg
 and make it be a copy of
 .IR fd .
-This is different form
+This is different from
 .BR dup2 (2)
 which uses exactly the descriptor specified.
 .sp
-The old and new descriptors may be used interchangeably. They share locks,
-file position pointers and flags; for example, if the file position is
-modified by using
-.B lseek
-on one of the descriptors, the position is also changed for the other.
-.sp
-The two descriptors do not share the close-on-exec flag, however.
-The close-on-exec flag of the copy is off, meaning that it will
-not be closed on exec.
-.sp
 On success, the new descriptor is returned.
-.TP
-.B F_GETFD
-Read the close-on-exec flag.  If the
+.sp
+See
+.BR dup (2)
+for further details.
+.SS "The file descriptor flags"
+The following commands manipulate the flags associated with
+a file descriptor.  
+Currently, only one such flag is defined:
+.BR FD_CLOEXEC ,
+the close-on-exec flag.
+If the
 .B FD_CLOEXEC
-bit is 0, the file will remain open across
-.BR exec ,
+bit is 0, the file descriptor will remain open across an
+.BR execve (2),
 otherwise it will be closed.
 .TP
+.B F_GETFD
+Read the file descriptor flags.
+.TP
 .B F_SETFD
-Set the close-on-exec flag to the value specified by the
-.B FD_CLOEXEC
-bit of
+Set the file descriptor flags to the value specified by
 .IR arg .
 .SS "The file status flags"
-A file descriptor has certain associated flags, initialized by
+Each open file description has certain associated flags, initialized by
 .BR open (2)
 .\" or
 .\" .BR creat (2),
 and possibly modified by
 .BR fcntl (2).
-The flags are shared between copies (made with
-.BR dup (2),
-.BR fork (2),
-etc.) of the same file descriptor.
+Duplicated file descriptors 
+(made with
+.BR dup (),
+.BR fcntl (F_DUPFD),
+.BR fork (),
+etc.) refer to the same open file description, and thus
+share the same file status flags.
 .sp
-The flags and their semantics are described in
+The file status flags and their semantics are described in
 .BR open (2).
 .TP
 .B F_GETFL
-Read the file descriptor's flags.
+Read the file status flags.
 .TP
 .B F_SETFL
-Set the file status flags part of the descriptor's flags to the value
-specified by
+Set the file status flags to the value specified by
 .IR arg .
-Remaining bits (access mode, file creation flags) in
+File access mode 
+.RB ( O_RDONLY ", " O_WRONLY ", " O_RDWR )
+and file creation flags
+.RB ( O_CREAT ", " O_EXCL ", " O_NOCTTY ", " O_TRUNC )
+in
 .I arg
 are ignored.
 On Linux this command can only change the
@@ -365,7 +370,7 @@ status flag on a file descriptor (either by providing this flag with the
 call, or by using the
 .B F_SETFL
 command of
-.BR fcntl ),
+.BR fcntl ()),
 a SIGIO signal is sent whenever input or output becomes possible
 on that file descriptor.
 .B F_SETSIG
@@ -405,7 +410,7 @@ If a non-zero value is given to
 .B F_SETSIG
 in a multi-threaded process running with a threading library
 that supports thread groups (e.g., NPTL),
-then a positive value value given to 
+then a positive value given to 
 .B F_SETOWN
 has a different meaning:
 .\" The relevant place in the (2.6) kernel source is the 
@@ -790,7 +795,7 @@ Attempted to clear the
 flag on a file that has the append-only attribute set.
 .SH NOTES
 The errors returned by
-.B dup2
+.BR dup2 ()
 are different from those returned by
 .BR F_DUPFD .
 

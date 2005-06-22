@@ -36,7 +36,7 @@
 .\" 2004-12-08, mtk, reordered flags list alphabetically
 .\" 2004-12-08, Martin Pool <mbp@sourcefrog.net> (& mtk), added O_NOATIME
 .\"
-.TH OPEN 2 2004-12-08 "Linux 2.6.9" "Linux Programmer's Manual"
+.TH OPEN 2 2005-06-22 "Linux 2.6.12" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -50,19 +50,18 @@ open, creat \- open and possibly create a file or device
 .BI "int creat(const char *" pathname ", mode_t " mode );
 .fi
 .SH DESCRIPTION
-The
+Given a
+.IR pathname 
+for a file,
 .BR open ()
-system call is used to convert a pathname into a file descriptor
-(a small, non-negative integer for use in subsequent I/O as with
-.BR read "(2), " write "(2), etc.)."
-When the call is successful, the file descriptor returned will be
+returns a file descriptor, a small, non-negative integer 
+for use in subsequent system calls
+.RB ( read "(2), " write "(2), " lseek "(2), " fcntl "(2), etc.)."
+The file descriptor returned by a successful call will be
 the lowest file descriptor not currently open for the process.
-This call creates a new open file description,
-not shared with any other process.
-(But shared open file descriptions may arise via the
-.BR fork (2)
-system call.)
-The new file descriptor is set to remain open across exec functions
+.PP
+The new file descriptor is set to remain open across an 
+.BR execve (2)
 (i.e., the
 .B FD_CLOEXEC
 file descriptor flag described in
@@ -70,15 +69,34 @@ file descriptor flag described in
 is initially disabled).
 The file offset is set to the beginning of the file (see
 .BR lseek (2)). 
-
+.PP
+A call to
+.BR open ()
+creates a new
+.IR "open file description" ,
+an entry in the system-wide table of open files.
+(A file descriptor is essentially a reference to this entry.)
+This entry records the file offset and the file status flags
+(modifiable via the
+.BR fcntl ()
+.B F_SETFL
+operation).
+The new open file description is initially not shared
+with any other process.
+(But sharing may arise via
+.BR fork (2).)
+.PP
 The parameter
 .I flags
-is one of
-.BR O_RDONLY ", " O_WRONLY " or " O_RDWR
-which request opening the file read-only, write-only or read/write,
-respectively,
+must include one of the following
+.IR "access modes" :
+.BR O_RDONLY ", " O_WRONLY ", or " O_RDWR.
+These request opening the file read-only, write-only, or read/write,
+respectively.
+In addition, zero or more of the following may be
 .RI bitwise- or 'd
-with zero or more of the following:
+in
+.IR flags :
 .TP
 .B O_APPEND
 The file is opened in append mode. Before each
@@ -122,11 +140,11 @@ Try to minimize cache effects of the I/O to and from this file.
 In general this will degrade performance, but it is useful in
 special situations, such as when applications do their own caching.
 File I/O is done directly to/from user space buffers.
-The I/O is synchronous, i.e., at the completion of the
+The I/O is synchronous, i.e., at the completion of a
 .BR read (2)
 or
-.BR write (2)
-system call, data is guaranteed to have been transferred.
+.BR write (2),
+data is guaranteed to have been transferred.
 Under Linux 2.4 transfer sizes, and the alignment of user buffer
 and file offset must all be multiples of the logical block size
 of the file system. Under Linux 2.6 alignment to 512-byte boundaries
@@ -194,9 +212,10 @@ process does not have one.
 If \fIpathname\fR is a symbolic link, then the open fails.  This is a
 FreeBSD extension, which was added to Linux in version 2.1.126.
 Symbolic links in earlier components of the pathname will still be
-followed.  The headers from glibc 2.0.100 and later include a
-definition of this flag; \fIkernels before 2.1.126 will ignore it if
-used\fR.
+followed.
+.\" The headers from glibc 2.0.100 and later include a
+.\" definition of this flag; \fIkernels before 2.1.126 will ignore it if
+.\" used\fR.
 .TP
 .BR O_NONBLOCK " or " O_NDELAY
 When possible, the file is opened in non-blocking mode. Neither the
@@ -304,10 +323,10 @@ cannot create them - use
 .BR mknod (2)
 instead.
 .LP
-On NFS file systems with UID mapping enabled, \fBopen\fP may 
+On NFS file systems with UID mapping enabled, \fBopen\fP() may 
 return a file descriptor but e.g. \fBread\fP(2) requests are denied
 with \fBEACCES\fP.
-This is because the client performs \fBopen\fP by checking the
+This is because the client performs \fBopen\fP() by checking the
 permissions, but UID mapping is performed by the server upon
 read and write requests.
 
@@ -469,11 +488,13 @@ corresponding to the flags \fBO_SYNC\fR, \fBO_DSYNC\fR and
 \fBO_RSYNC\fR.  Currently (2.1.130) these are all synonymous under Linux.
 .SH "SEE ALSO"
 .BR close (2),
+.BR dup (2),
 .BR fcntl (2),
 .BR link (2),
 .BR lseek (2),
 .BR mknod (2),
 .BR mount (2),
+.BR mmap (2),
 .BR path_resolution (2),
 .BR read (2),
 .BR socket (2),

@@ -43,32 +43,26 @@ accept \- accept a connection on a socket
 .br
 .B #include <sys/socket.h>
 .sp
-.BI "int accept(int " s ", struct sockaddr *" addr ", socklen_t *" addrlen );
+.BI "int accept(int " sockfd ", struct sockaddr *" addr ", socklen_t *" addrlen );
 .SH DESCRIPTION
 
 The
-.B accept
-function is used with connection-based socket types
+.BR accept ()
+system call is used with connection-based socket types
 .RB ( SOCK_STREAM ,
 .B SOCK_SEQPACKET
 and
 .BR SOCK_RDM ).
 It extracts the first connection request on the queue of pending
-connections, creates a new connected socket with mostly the same properties as
-.IR s ,
-and allocates a new file descriptor for the socket, which is returned.
-The newly created socket is no longer in the listening state.
+connections, creates a new connected socket, and returns a new file
+descriptor referring to that socket.
+The newly created socket is not in the listening state.
 The original socket
-.I s
-is unaffected by this call. Note that any per file descriptor flags 
-(everything that can be set with the 
-.B F_SETFL
-fcntl, like non blocking or async state) are not inherited across
-an
-.IR accept .
+.I sockfd
+is unaffected by this call.
 .PP
 The argument
-.I s
+.I sockfd
 is a socket that has been created with
 .BR socket (2),
 bound to a local address with
@@ -78,17 +72,19 @@ and is listening for connections after a
 
 The argument
 .I addr
-is a pointer to a sockaddr structure. This structure is filled in
-with the address of the connecting entity,
-as known to the communications layer.  The exact format of the
-address passed in the
+is a pointer to a 
+.I sockaddr
+structure.
+This structure is filled in with the address of the peer socket,
+as known to the communications layer.
+The exact format of the address returned
 .I addr
-parameter is determined by the socket's family (see
+is determined by the socket's address family (see
 .BR socket (2) 
 and the respective protocol man pages).
 The
 .I addrlen
-argument is a value-result parameter: it should initially contain the
+argument is a value-result argument: it should initially contain the
 size of the structure pointed to by
 .IR addr ;
 on return it will contain the actual length (in bytes) of the address
@@ -99,11 +95,11 @@ is NULL nothing is filled in.
 If no pending
 connections are present on the queue, and the socket is not marked as
 non-blocking,
-.B accept
+.BR accept ()
 blocks the caller until a connection is present.  If the socket is marked
 non-blocking and no pending connections are present on the queue,
-.B accept
-returns EAGAIN. 
+.BR accept ()
+fails with the error EAGAIN. 
 .PP
 In order to be notified of incoming connections on a socket, you can use
 .BR select (2)
@@ -111,7 +107,7 @@ or
 .BR poll (2).
 A readable event will be delivered when a new connection is attempted and you
 may then call
-.B accept
+.BR accept ()
 to get a socket for that connection.  Alternatively, you can set the socket
 to deliver
 .B SIGIO
@@ -122,7 +118,7 @@ for details.
 For certain protocols which require an explicit confirmation,
 such as
 DECNet,
-.B accept
+.BR accept ()
 can be thought of as merely dequeuing the next connection request and not
 implying confirmation.  Confirmation can be implied by
 a normal read or write on the new file descriptor, and rejection can be
@@ -138,21 +134,21 @@ or
 .BR poll (2)
 return a readability event because the connection might have been
 removed by an asynchronous network error or another thread before
-.B accept
+.BR accept ()
 is called.
 If this happens then the call will block waiting for the next
 connection to arrive.
 To ensure that
-.B accept
+.BR accept ()
 never blocks, the passed socket
-.I s
+.I sockfd
 needs to have the
 .B O_NONBLOCK
 flag set (see
 .BR socket (7)).
 .SH "RETURN VALUE"
 On success,
-.B accept
+.BR accept ()
 returns a non-negative integer that is a descriptor
 for the accepted socket.
 On error, \-1 is returned, and
@@ -160,14 +156,14 @@ On error, \-1 is returned, and
 is set appropriately.
 .SH "ERROR HANDLING"
 Linux 
-.B accept 
+.BR accept ()
 passes already-pending network errors on the new socket 
 as an error code from 
-.BR accept . 
+.BR accept (). 
 This behaviour differs from other BSD socket
 implementations. For reliable operation the application should detect
 the network errors defined for the protocol after 
-.B accept 
+.BR accept ()
 and treat
 them like 
 .BR EAGAIN
@@ -182,7 +178,7 @@ by retrying. In case of TCP/IP these are
 and
 .BR ENETUNREACH .
 .SH ERRORS
-.B accept
+.BR accept ()
 shall fail if:
 .TP
 .BR EAGAIN " or " EWOULDBLOCK
@@ -215,13 +211,13 @@ The descriptor references a file, not a socket.
 The referenced socket is not of type
 .BR SOCK_STREAM . 
 .PP
-.B accept
+.BR accept ()
 may fail if:
 .TP
 .B EFAULT
 The
 .I addr
-parameter is not in a writable part of the user address space.
+argument is not in a writable part of the user address space.
 .TP
 .B ENOBUFS, ENOMEM
 Not enough free memory.  
@@ -232,7 +228,7 @@ limits, not by the system memory.
 Protocol error.
 .PP
 Linux
-.B accept
+.BR accept ()
 may fail if:
 .TP
 .B EPERM
@@ -249,23 +245,32 @@ The value
 .B ERESTARTSYS
 may be seen during a trace.
 .SH "CONFORMING TO"
-SVr4, 4.4BSD (the
-.B accept
-function first appeared in BSD 4.2).
+SVr4, 4.4BSD
+.RB ( accept ()
+first appeared in 4.2BSD).
 The BSD man page documents five possible error returns
 (EBADF, ENOTSOCK, EOPNOTSUPP, EWOULDBLOCK, EFAULT).
 SUSv3 documents errors EAGAIN, EBADF, ECONNABORTED, EINTR, EINVAL, EMFILE,
 ENFILE, ENOBUFS, ENOMEM, ENOTSOCK, EOPNOTSUPP, EPROTO, EWOULDBLOCK. In
 addition, SUSv2 documents EFAULT and ENOSR.
 .LP
-Linux accept does _not_ inherit socket flags like
-.BR O_NONBLOCK .
-This behaviour differs from other BSD socket implementations.
-Portable programs should not rely on this behaviour and always set
-all required flags on the socket returned from accept.
+On Linux, the new socket returned by
+.B accept () 
+does \fInot\fP inherit file status flags such as
+.BR O_NONBLOCK
+and
+.BR O_ASYNC
+from the listening socket.
+This behaviour differs from the canonical BSD sockets implementation.
+.\" Some testing seems to show that Tru64 5.1 and HP-UX 11 also
+.\" do not inherit file status flags -- MTK Jun 05
+Portable programs should not rely on inheritance or non-inheritance 
+of file status flags and always explicitly set all required flags on 
+the socket returned from 
+.BR accept ().
 .SH NOTE
 The third argument of
-.B accept
+.BR accept ()
 was originally declared as an `int *' (and is that under libc4 and libc5
 and on many other systems like BSD 4.*, SunOS 4, SGI); a POSIX 1003.1g draft
 standard wanted to change it into a `size_t *', and that is what it is

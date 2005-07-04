@@ -61,27 +61,38 @@ visible in the password file. When computers got faster and people
 got more security-conscious, this was no longer acceptable.
 Julianne Frances Haugh implemented the shadow password suite
 that keeps the encrypted passwords in
+the shadow password database
+(e.g., the local shadow password file 
 .IR /etc/shadow ,
+NIS, and LDAP),
 readable only by root.
 .LP
-The access routines described below resemble those for
-.IR /etc/passwd .
-This shadow password setup has been superseded by PAM
-(pluggable authentication modules), and the file
-.I /etc/nsswitch.conf
-now describes the sources to be used.
+The functions described below resemble those for
+the traditional password database
+(e.g., see
+.BR getpwnam (3)
+and
+.BR getpwent (3)).
+.\" Jul 2005, mtk: FIXME I've commented out the following for the moment.
+.\" The relationship between PAM and nsswitch.conf needs to be clearly
+.\" documented in one place, which is pointed to by the pages for the 
+.\" user, group, and shadow password funtions.
+.\" This shadow password setup has been superseded by PAM
+.\" (pluggable authentication modules), and the file
+.\" .I /etc/nsswitch.conf
+.\" now describes the sources to be used.
 .LP
 The
 .B getspnam()
 function returns a pointer to a structure containing
-the broken out fields of a line from
-.I /etc/shadow
-for the entry that matches the user name
+the broken-out fields of the record in the shadow password database
+that matches the user name
 .IR name .
 .LP
 The
 .B getspent()
-function returns a pointer to the next entry in the shadow password file.
+function returns a pointer to the next entry in the shadow password
+database.
 The position in the input stream is initialized by
 .BR setspent() .
 When done reading, the program may call
@@ -101,11 +112,13 @@ The
 .B sgetspent()
 function parses the supplied string
 .I s
-into a struct spwd.
+into a struct
+.IR spwd .
 .LP
 The
 .B putspent()
-function writes the contents of the supplied struct spwd
+function writes the contents of the supplied struct
+.I spwd
 .RI * p
 as a text line in the shadow password file format to the stream
 .IR fp .
@@ -114,9 +127,10 @@ are written as an empty string.
 .LP
 The
 .B lckpwdf()
-function is intended to protect against multiple access of the shadow
-password database. It tries to acquire a lock, and returns 0 on success,
-\-1 on failure (lock not obtained within 15 seconds).
+function is intended to protect against multiple simultaneous accesses 
+of the shadow password database.
+It tries to acquire a lock, and returns 0 on success,
+or \-1 on failure (lock not obtained within 15 seconds).
 The
 .B ulckpwdf()
 function releases the lock again.
@@ -125,20 +139,20 @@ password file. Only programs that use
 .B lckpwdf()
 will notice the lock.
 .LP
-These were the routines that formed the original shadow API.
+These were the functions that formed the original shadow API.
 They are widely available.
 .\" Also in libc5
 .\" SUN doesn't have sgetspent()
 .SS "Reentrant versions"
-Analogous to the "reentrant" routines for the password file, glibc
-also has reentrant versions here.
+Analogous to the reentrant functions for the password database, glibc
+also has reentrant functions for the shadow password database.
 The
 .B getspnam_r()
 function is like
 .B getspnam()
-but stores the retrieved shadow passwd structure in the space pointed to by
+but stores the retrieved shadow password structure in the space pointed to by
 .IR spbuf .
-This shadow passwd structure contains pointers to strings, and these strings
+This shadow password structure contains pointers to strings, and these strings
 are stored in the buffer
 .I buf
 of size
@@ -152,41 +166,43 @@ The functions
 .BR fgetspent_r() ,
 and
 .BR sgetspent_r()
-are completely analogous.
+are similarly analogous to their non-reentrant counterparts.
 .LP
 Some non-glibc systems also have functions with these names,
 often with different prototypes.
 .\" SUN doesn't have sgetspent_r()
 .SS Structure
-The shadow passwd structure is defined in \fI<shadow.h>\fP as follows:
+The shadow password structure is defined in \fI<shadow.h>\fP as follows:
 .sp
+.RS +0.25i
 .nf
 struct spwd {
     char *sp_namp;         /* Login name */
     char *sp_pwdp;         /* Encrypted password */
-    long sp_lstchg;        /* Date of last change */
-    long sp_min;           /* Min #days between changes */
-    long sp_max;           /* Max #days between changes */
-    long sp_warn;          /* #days before pwd expires
+    long  sp_lstchg;       /* Date of last change */
+    long  sp_min;          /* Min #days between changes */
+    long  sp_max;          /* Max #days between changes */
+    long  sp_warn;         /* #days before pwd expires
                               to warn user to change it */
-    long sp_inact;         /* #days after pwd expires
+    long  sp_inact;        /* #days after pwd expires
                               until account is disabled */
-    long sp_expire;        /* #days since 1970-01-01
+    long  sp_expire;       /* #days since 1970-01-01
                               until account is disabled */
     unsigned long sp_flag; /* Reserved */
 };
 .fi
+.RE
 .SH "RETURN VALUE"
-Routines return NULL if no more entries are available or if an
-error occurs during processing.
-Routines which have \fBint\fR as the return value return 0 for
+The functions that return a pointer return NULL if no more entries
+are available or if an error occurs during processing.
+The functions which have \fBint\fR as the return value return 0 for
 success and \-1 for failure.
 .LP
 For the non-reentrant functions, the return value may point to static area,
 and may be overwritten by subsequent calls to these functions.
 .LP
 The reentrant functions return zero on success.
-In case of error, an error value is returned.
+In case of error, an error number is returned.
 .SH ERRORS
 .TP
 .B ERANGE
@@ -194,7 +210,7 @@ Supplied buffer is too small.
 .SH FILES
 .TP
 .I /etc/shadow
-shadow password database file
+local shadow password database file
 .TP
 .I /etc/.pwd.lock
 lock file
@@ -204,7 +220,9 @@ The include file
 defines the constant _PATH_SHADOW to the pathname of the shadow
 password file.
 .SH "CONFORMING TO"
-
+The shadow password database and its associated API are 
+not specified in POSIX.1-2001.
+However, many other systems provide a similar API.
 .SH "SEE ALSO"
 .BR getgrnam (3),
 .BR getpwnam (3),

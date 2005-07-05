@@ -33,20 +33,20 @@ shm_open, shm_unlink \- Create/open or unlink POSIX shared memory objects
 .sp
 .BI "int shm_unlink(const char *" name );
 .SH DESCRIPTION
-.B shm_open
+.BR shm_open ()
 creates and opens a new, or opens an existing, POSIX shared memory object.
 A POSIX shared memory object is in effect a handle which can
 be used by unrelated processes to 
 .BR mmap (2)
 the same region of shared memory.  
 The 
-.B shm_unlink
+.BR shm_unlink ()
 function performs the converse operation, 
 removing an object previously created by
-.BR shm_open .
+.BR shm_open ().
 .LP
 The operation of
-.B shm_open
+.BR shm_open ()
 is analogous to that of
 .BR open (2).
 .I name
@@ -76,8 +76,10 @@ Open the object for read-write access.
 .TP
 .B O_CREAT
 Create the shared memory object if it does not exist.  
-The user and group ownership of the object are set as for
-.BR open (2),
+The user and group ownership of the object are taken
+from the corresponding effective IDs of the calling process,
+.\" In truth it is actually the file system IDs on Linux, but these
+.\" are nearly always the same as the effective IDs.  (MTK, Jul 05)
 and the object's
 permission bits are set according to the low-order 9 bits of 
 .IR mode ,
@@ -85,21 +87,21 @@ except that those bits set in the process file mode
 creation mask (see
 .BR umask (2))
 are cleared for the new object.
-(A set of macro constants which can be used to define
+A set of macro constants which can be used to define
 .I mode
 is listed in 
-.BR open (2).)
+.BR open (2).
 .sp
 A new shared memory object initially has zero length \- the size of the
 object can be set using
 .BR ftruncate (2).
-(The newly-allocated bytes of a shared memory
-object are automatically initialised to 0.)
+The newly allocated bytes of a shared memory
+object are automatically initialised to 0.
 .TP 
 .B O_EXCL
 If 
 .B O_CREAT
-was also specified, and a share memory object with the given
+was also specified, and a shared memory object with the given
 .I name 
 already exists, return an error.
 The check for the existence of the object, and its creation if it 
@@ -109,7 +111,7 @@ does not exist, are performed atomically.
 If the shared memory object already exists, truncate it to zero bytes.
 .LP
 On successful completion
-.B shm_open
+.BR shm_open ()
 returns a new file descriptor referring to the shared memory object.
 This file descriptor is guaranteed to be the lowest-numbered file descriptor
 not previously opened within the process.  
@@ -122,7 +124,7 @@ is set for the file descriptor.
 The file descriptor is normally used in subsequent calls 
 to 
 .BR ftruncate (2)
-(for a newly-created object) and
+(for a newly created object) and
 .BR mmap (2).
 After a call to
 .BR mmap (2)
@@ -130,16 +132,16 @@ the file descriptor may be closed without affecting the memory mapping.
 
 The operation
 of 
-.B shm_unlink
+.BR shm_unlink ()
 is analogous to
 .BR unlink (2):
 it removes a shared memory object name, and, once all processes
 have unmapped the object, de-allocates and 
 destroys the contents of the associated memory region.
 After a successful 
-.BR shm_unlink ,
+.BR shm_unlink (),
 attempts to 
-.B shm_open 
+.BR shm_open ()
 an object with the same 
 .I name
 will fail (unless
@@ -147,11 +149,11 @@ will fail (unless
 was specified, in which case a new, distinct object is created).
 .SH "RETURN VALUE"
 On success,
-.B shm_open
+.BR shm_open ()
 returns a non-negative file descriptor.  On failure,
-.B shm_open
+.BR shm_open ()
 returns \-1.
-.B shm_unlink
+.BR shm_unlink ()
 returns 0 on success, or \-1 on error.
 .SH ERRORS
 On failure,
@@ -162,15 +164,15 @@ include the following:
 .TP 
 .B EACCES
 Permission to
-.B shm_unlink
+.BR shm_unlink ()
 the shared memory object was denied.
 .TP
 .B EACCES
 Permission was denied to 
-.B shm_open
+.BR shm_open ()
 .I name
 in the specified
-.IR mode,
+.IR mode ,
 or 
 .B O_TRUNC
 was specified and the caller does not have write permission on the object.
@@ -181,7 +183,7 @@ Both
 and
 .B O_EXCL 
 were specified to
-.B shm_open
+.BR shm_open ()
 and the shared memory object specified by
 .I name
 already exists.
@@ -190,7 +192,7 @@ already exists.
 The
 .I name
 argument to 
-.B shm_open
+.BR shm_open ()
 was invalid.
 .TP
 .B EMFILE
@@ -208,7 +210,7 @@ reached.
 .TP
 .B ENOENT
 An attempt was made to
-.B shm_open
+.BR shm_open ()
 a 
 .I name 
 that did not exist, and
@@ -217,7 +219,7 @@ was not specified.
 .TP
 .B ENOENT
 An attempt was to made to
-.B shm_unlink
+.BR shm_unlink ()
 a 
 .I name 
 that does not exist.
@@ -239,9 +241,13 @@ shared memory object \- this may not be so on other Unices.
 The POSIX shared memory object implementation on Linux 2.4 makes use
 of a dedicated file system, which is normally
 mounted under 
-.BR /dev/shm .
+.IR /dev/shm .
 .SH "CONFORMING TO"
-POSIX 1003.1 (2001).
+POSIX.1-2001.
+.LP
+POSIX.1-2001 says that the group ownership of a newly created shared 
+memory object is set to either the calling process's effective group ID 
+or "a system default group ID"
 .SH "SEE ALSO"
 .BR close (2),
 .BR fchmod (2),

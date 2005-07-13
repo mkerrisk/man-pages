@@ -43,7 +43,7 @@
 .\" Modified 2004-06-16 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on CAP_SYS_RESOURCE
 .\"
-.\" 2004-11-16 -- mtk: the gerlimit.2 page, which formally included 
+.\" 2004-11-16 -- mtk: the getrlimit.2 page, which formally included 
 .\" coverage of getrusage(2), has been split, so that the latter
 .\" is now covered in its own getrusage.2.
 .\"
@@ -57,6 +57,7 @@
 .\"	Added note on RLIMIT_CPU error in older kernels
 .\" 2004-11-03, mtk
 .\"	Added RLIMIT_SIGPENDING
+.\" 2005-07-13, mtk, documented RLIMIT_MSGQUEUE limit.
 .\"
 .TH GETRLIMIT 2 2004-06-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -174,14 +175,13 @@ catch this signal instead, in which case the relevant system call (e.g.,
 fails with the error
 .BR EFBIG .
 .TP
-.B RLIMIT_LOCKS
+.BR RLIMIT_LOCKS " (Early Linux 2.4 only)"
+.\" to be precise: Linux 2.4.0-test9; no longer in 2.4.25 / 2.5.65
 A limit on the combined number of
 .BR flock ()
 locks and 
 .BR fcntl()
 leases that this process may establish.
-(Early Linux 2.4 only.)
-.\" to be precise: Linux 2.4.0-test9; no longer in 2.4.25 / 2.5.65
 .TP
 .B RLIMIT_MEMLOCK
 The maximum number of bytes of memory that may be locked
@@ -217,7 +217,33 @@ memory that could be locked by a privileged process.
 Since Linux 2.6.9, no limits are placed on the amount of memory
 that a privileged process may lock, and this limit instead governs
 the amount of memory that an unprivileged process may lock.
-.\" FIXME Linux 2.6.8 adds RLIMIT_MSGQUEUE
+.TP
+.BR RLIMIT_MSGQUEUE " (Since Linux 2.6.8)"
+Specifies the limit on the number of bytes that can be allocated
+for POSIX message queues for the real user ID of the calling process.
+This limit is enforced for
+.BR mq_open (3).
+.\" FIXME there is no mq_open.3 page yet
+Each message queue that the user creates counts (until it is removed)
+against this limit according to the formula:
+.nf
+
+    bytes = attr.mq_maxmsg * sizeof(struct msg_msg *) +
+            attr.mq_maxmsg * attr.mq_msgsize)
+
+.fi 
+where 
+.I attr
+is the 
+.I mq_attr
+structure specified as the fourth argument to
+.BR mq_open ().
+
+The first addend in the formula, which includes
+.I "sizeof(struct msg_msg *)"
+(4 bytes on Linux/x86), ensures that the user cannot
+create an unlimited number of zero-length messages (such messages
+nevertheless each consume some system memory for bookkeeping overhead).
 .TP
 .B RLIMIT_NOFILE
 Specifies a value one greater than the maximum file descriptor number
@@ -242,11 +268,11 @@ This limit only has effect in Linux 2.4.x, and there only
 affects calls to
 .BR madvise ()
 specifying
-.BR MADVISE_WILLNEED .
-.\" As at kernel 2.6.9, this limit still does nothing in 2.6 though
-.\" talk of making it do something continues in LKML -- MTK, Nov 04
+.BR MADV_WILLNEED .
+.\" As at kernel 2.6.12, this limit still does nothing in 2.6 though
+.\" talk of making it do something continues in LKML -- MTK, Jul 05
 .TP
-.B RLIMIT_SIGPENDING
+.BR RLIMIT_SIGPENDING " (Since Linux 2.6.8)"
 Specifies the limit on the number of signals
 that may be queued for the real user ID of the calling process.
 Both standard and real-time signals are counted for the purpose of
@@ -257,7 +283,6 @@ it is always possible to use
 .BR kill (2)
 to queue one instance of any of the signals that are not already
 queued to the process.
-(Since Linux 2.6.8.)
 .\" This replaces the /proc/sys/kernel/rtsig-max system-wide limit
 .\" that was present in kernels <= 2.6.7.  MTK Dec 04
 .TP
@@ -314,8 +339,9 @@ they are present on the BSDs and Linux, but on few other implementations.
 derives from BSD and is not specified in POSIX.1-2001;
 it is nevertheless present on most implementations.
 .B RLIMIT_SIGPENDING
-is Linux specific.
-.\" FIXME RLIMIT_MSGQUEUE is also Linux specific.
+and
+.B RLIMIT_MSGQUEUE
+are Linux specific.
 .SH "SEE ALSO"
 .BR dup (2),
 .BR fcntl (2),

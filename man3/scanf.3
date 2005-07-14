@@ -39,6 +39,9 @@
 .\" modified to resemble the GNU libio setup used in the Linux libc 
 .\" used in versions 4.x (x>4) and 5   Helmut.Geyer@iwr.uni-heidelberg.de
 .\" Modified, aeb, 970121
+.\" 2005-07-14, mtk, added description of %n$ form; various text 
+.\"	incorporated from the GNU C library documentation ((C) The 
+.\"	Free Software Foundation); other parts substantially rewritten.
 .\"
 .TH SCANF 3  1995-11-01 "LINUX MANPAGE" "Linux Programmer's Manual"
 .SH NAME
@@ -63,13 +66,32 @@ scanf, fscanf, sscanf, vscanf, vsscanf, vfscanf \- input format conversion
 .SH DESCRIPTION
 The
 .B scanf
-family of functions scans input according to a
+family of functions scans input according to
 .I format
 as described below.  This format may contain
-.IR "conversion specifiers" ;
-the results from such conversions, if any, are stored through the
+.IR "conversion specifications" ;
+the results from such conversions, if any,
+are stored in the locations pointed to by the
+.I pointer 
+arguments that follow
+.IR format .
+Each 
 .I pointer
-arguments.  The
+argument must be of a type that is appropriate for the value returned 
+by the corresponding conversion specification.
+
+If the number of conversion specifications in
+.I format
+exceeds the number of
+.I pointer
+arguments, the results are undefined.
+If the number of
+.I pointer
+arguments exceeds the number of conversion specifications, then the excess
+.I pointer
+arguments are evaluated, but are otherwise ignored.
+
+The
 .B scanf
 function reads input from the standard input stream
 .IR stdin ,
@@ -99,63 +121,181 @@ and
 .B vsprintf
 functions respectively.
 .PP
-Each successive
+The
+.I format
+string consists of a sequence of 
+.IR directives 
+which describe how to process the sequence of input characters.
+If processing of a directive fails, no further input is read, and
+.B scanf 
+returns.
+A "failure" can be either of the following:
+.IR "input failure" ,
+meaning that input characters were unavailable, or
+.IR "matching failure" ,
+meaning that the input was inappropriate (see below).
+
+A directive is one of the following:
+.TP
+\(bu
+A sequence of white-space characters (space, tab, newline, etc; see 
+.BR isspace (3)).
+This directive matches any amount of white space,
+including none, in the input.
+.TP
+\(bu
+An ordinary character (i.e., one other than white space or '%').
+This character must exactly match the next character of input.
+.TP
+\(bu
+A conversion specification, which commences with a '%' (percent) character.
+A sequence of characters from the input is converted according to 
+this specification, and the result is placed in the corresponding
 .I pointer
-argument must correspond properly with each successive conversion specifier
-(but see `suppression' below).  All conversions are introduced by the
-.B %
-(percent sign) character.  The
+argument.
+If the next item of input does not match the the conversion specification,
+the conversion fails \(em this is a
+.IR "matching failure" .
+.PP
+Each
+.I conversion specification 
+in
+.I format 
+begins with either the character '%' or the character sequence 
+"\fB%\fP\fIn\fP\fB$\fP"
+(see below for the distinction; see below) followed by:
+.TP
+\(bu
+An optional '*' assignment-suppression character:
+.B scanf
+reads input as directed by the conversion specification,
+but discards the input.
+No corresponding
+.I pointer
+argument is required, and this specification is not
+included in the count of successful assignments returned by
+.BR scanf .
+.TP
+\(bu
+An optional 'a' character.
+This is used with string conversions, and relieves the caller of the 
+need to allocate a corresponding buffer to hold the input: instead,
+.B scanf
+allocates a buffer of sufficient size, 
+and assigns the address of this buffer to the corresponding
+.I pointer
+argument, which should be a pointer to a
+.I "char *"
+variable (this variable does not need to be initialised before the call).
+The caller should subsequently
+.BR free (3)
+this buffer when it is no longer required.
+This is a GNU extension;
+C99 employs the 'a' character as a conversion specifier (and
+it can also be used as such in the GNU implementation).
+.TP
+\(bu
+An optional decimal integer which specifies the
+.IR "maximum field width" .
+Reading of characters stops either when this maximum is reached or 
+when a non-matching character is found, whichever happens first. 
+Most conversions discard initial whitespace characters (the exceptions 
+are noted below), 
+and these discarded characters don't count towards the maximum field width.
+String input conversions store a null terminator ('\\0') 
+to mark the end of the input; 
+the maximum field width does not include this terminator.
+.TP
+\(bu
+An optional 
+.IR "type modifier character" . 
+For example, the
+.B l
+type modifier is used with integer conversions such as 
+.I %d 
+to specify that the corresponding
+.I pointer
+argument refers to a 
+.I "long int"
+rather than a pointer to an 
+.IR int .
+.TP
+\(bu
+A 
+.I "conversion specifier"
+that specifies the type of input conversion to be performed.
+.PP    
+The conversion specifications in
 .I format
-string may also contain other characters.  White space (such as blanks,
-tabs, or newlines) in the
+are of two forms, either beginning with '%' or beginning with 
+"\fB%\fP\fIn\fP\fB$\fP".
+The two forms should not be mixed in the same 
 .I format
-string match any amount of white space, including none, in the input.
-Everything else matches only itself.  Scanning stops when an input
-character does not match such a format character.  Scanning also stops when
-an input conversion cannot be made (see below).
+string, except that a string containing 
+"\fB%\fP\fIn\fP\fB$\fP"
+specifications can include
+.I %%
+and 
+.IR %* .
+If
+.I format
+contains '%'
+specifications then these correspond in order with successive
+.I pointer
+arguments.
+In the
+"\fB%\fP\fIn\fP\fB$\fP"
+form (which is specified in SUSv3, but not C99),
+.I n
+is a decimal integer that specifies that the converted input should 
+be placed in the location referred to by the
+.IR n -th
+.I pointer
+argument following
+.IR format .
 .SH CONVERSIONS
-Following the
-.B %
-character introducing a conversion there may be a number of
-.I flag
-characters, as follows:
-.TP
-.B *
-Suppresses assignment.  The conversion that follows occurs as usual, but no
-pointer is used; the result of the conversion is simply discarded.
-.TP
-.B a 
-(glibc) Indicates that the conversion will be 
-.BR s ,
-the needed memory space for the string will be malloc'ed  and
-the pointer to it will be assigned to the  
-.I  char
-pointer variable, which does not have to be initialized before.
-This flag does not exist in 
-.IR "ANSI C"
-(C89) and has a different meaning in C99.
-.TP
-.B a
-(C99) Equivalent to
-.BR f .
+The following
+.IR "type modifier characters" 
+can appear in a conversion specification:
 .TP
 .B h
 Indicates that the conversion will be one of
-.B dioux
+.B diouxX
 or
 .B n
 and the next pointer is a pointer to a
-.I short  int
+.I short int
+or
+.I unsigned short int
 (rather than
 .IR int ).
 .TP
+.B hh
+As for
+.BR h ,
+but the next pointer is a pointer to a
+.I signed char
+or
+.IR "unsigned char" .
+.TP
+.B j
+As for
+.BR h ,
+but the next pointer is a pointer to a
+.I intmax_t
+or
+.IR uintmax_t .
+This modifier was introduced in C99.
+.TP
 .B l
 Indicates either that the conversion will be one of
-.B dioux
+.B diouxX
 or
 .B n
 and the next pointer is a pointer to a
-.I long  int
+.I long int
+or
+.I unsigned long int
 (rather than
 .IR int ),
 or that the conversion will be one of
@@ -166,9 +306,15 @@ and the next pointer is a pointer to
 .IR float ).
 Specifying two 
 .B l
-flags is equivalent to the 
-.B L
-flag.
+characters is equivalent to
+.BR L .
+If used with
+.I %c 
+or 
+.I %s 
+the corresponding parameter is considered 
+as a pointer to a wide character or wide character string respectively. 
+.\" This use of l was introduced in Amendment 1 to ISO C90.
 .TP
 .B L
 Indicates that the conversion will be either
@@ -179,30 +325,41 @@ or the conversion will be
 .B dioux
 and the next pointer is a pointer to
 .IR "long long" .
-(Note that long long is not an 
-.I ANSI C 
-type. Any program using this will not be portable to all
-architectures).
+.\" MTK, Jul 05: The following is no longer true for modern 
+.\" ANSI C (i.e., C99):
+.\" (Note that long long is not an 
+.\" ANSI C 
+.\" type. Any program using this will not be portable to all
+.\" architectures).
 .TP
 .B q
-equivalent to L. 
-This flag does not exist in 
-.IR "ANSI C" .
+equivalent to 
+.BR L . 
+This specifier does not exist in ANSI C.
+.TP
+.B t
+As for
+.BR h ,
+but the next pointer is a pointer to a
+.IR ptrdiff_t .
+This modifier was introduced in C99.
+.TP
+.B z
+As for
+.BR h ,
+but the next pointer is a pointer to a
+.IR size_t .
+This modifier was introduced in C99.
 .PP
-In addition to these flags, there may be an optional maximum field width,
-expressed as a decimal integer, between the
-.B %
-and the conversion.  If no width is given, a default of `infinity' is used
-(with one exception, below); otherwise at most this many characters are
-scanned in processing the conversion.  Before conversion begins, most
-conversions skip white space; this white space is not counted against the
-field width.
-.PP
-The following conversions are available:
+The following 
+.I "conversion specifiers"
+are available:
 .TP
 .B %
-Matches a literal `%'.  That is, `%\&%' in the format string matches a
-single input `%' character.  No conversion is done, and assignment does not
+Matches a literal '%'.  That is, 
+.I %\&% 
+in the format string matches a
+single input '%' character.  No conversion is done, and assignment does not
 occur.
 .TP
 .B d
@@ -212,17 +369,23 @@ the next pointer must be a pointer to
 .TP
 .B D
 Equivalent to
-.BR ld ;
+.IR ld ;
 this exists only for backwards compatibility.
-(Note: thus only in libc4. In libc5 and glibc the %D is
-silently ignored, causing old programs to fail mysteriously.)
+(Note: thus only in libc4. In libc5 and glibc the
+.I %D 
+is silently ignored, causing old programs to fail mysteriously.)
 .TP
 .B i
 Matches an optionally signed integer; the next pointer must be a pointer to
 .IR int .
-The integer is read in base 16 if it begins with `0x' or `0X', in base 8 if
-it begins with `0', and in base 10 otherwise.  Only characters that
-correspond to the base are used.
+The integer is read in base 16 if it begins with 
+.I 0x
+or 
+.IR 0X , 
+in base 8 if it begins with 
+.IR 0 , 
+and in base 10 otherwise.
+Only characters that correspond to the base are used.
 .TP
 .B o
 Matches an unsigned octal integer; the next pointer must be a pointer to
@@ -259,23 +422,25 @@ Equivalent to
 Equivalent to
 .BR f .
 .TP
+.B a
+(C99) Equivalent to
+.BR f .
+.TP
 .B s
-Matches a sequence of non-white-space characters; the next pointer must be
-a pointer to
-.IR char ,
-and the array must be large enough to accept all the sequence and the
-terminating
-.B NUL
-character.  The input string stops at white space or at the maximum field
+Matches a sequence of non-white-space characters;
+the next pointer must be a pointer to character array that is 
+long enough to hold the input sequence and the terminating null 
+character ('\\0'), which is added automatically.
+The input string stops at white space or at the maximum field
 width, whichever occurs first.
 .TP
 .B c
-Matches a sequence of
-.I width
-count characters (default 1); the next pointer must be a pointer to
+Matches a sequence of characters whose length is specified by the
+.I maximum field width
+(default 1); the next pointer must be a pointer to
 .IR char ,
 and there must be enough room for all the characters (no terminating
-.B NUL
+null character
 is added).  The usual skip of leading white space is suppressed.  To skip
 white space first, use an explicit space in the format.
 .TP
@@ -284,9 +449,8 @@ Matches a nonempty sequence of characters from the specified set of
 accepted characters; the next pointer must be a pointer to
 .IR char ,
 and there must be enough room for all the characters in the string, plus a
-terminating
-.B NUL
-character.  The usual skip of leading white space is suppressed.  The
+terminating null character.
+The usual skip of leading white space is suppressed.  The
 string is to be made up of characters in (or not in) a particular set; the
 set is defined by the characters between the open bracket
 .B [
@@ -296,20 +460,24 @@ character.  The set
 .I excludes
 those characters if the first character after the open bracket is a
 circumflex
-.BR ^ .
+.RR ( ^ ).
 To include a close bracket in the set, make it the first character after
 the open bracket or the circumflex; any other position will end the set.
 The hyphen character
 .B \-
 is also special; when placed between two other characters, it adds all
 intervening characters to the set.  To include a hyphen, make it the last
-character before the final close bracket.  For instance, `[^]0\-9-\]' means
-the set `everything except close bracket, zero through nine, and hyphen'.
+character before the final close bracket.  For instance, 
+.B [^]0\-9-\]
+means
+the set "everything except close bracket, zero through nine, and hyphen".
 The string ends with the appearance of a character not in the (or, with a
 circumflex, in) set or when the field width runs out.
 .TP
 .B p
-Matches a pointer value (as printed by `%p' in
+Matches a pointer value (as printed by 
+.I %p
+in
 .BR printf (3);
 the next pointer must be a pointer to a pointer to
 .IR void .
@@ -323,26 +491,27 @@ This is
 .I not
 a conversion, although it can be suppressed with the
 .B *
-flag.
-The C standard says: `Execution of a %n directive does not increment
-the assignment count returned at the completion of execution'
+assignment-suppression character.
+The C standard says: "Execution of a 
+.I %n 
+directive does not increment
+the assignment count returned at the completion of execution"
 but the Corrigendum seems to contradict this. Probably it is wise
-not to make any assumptions on the effect of %n conversions on
-the return value.
+not to make any assumptions on the effect of
+.I %n 
+conversions on the return value.
 
 .PP
 .SH "RETURN VALUE"
-These functions return the number of input items assigned, which can be
-fewer than provided for, or even zero, in the event of a matching failure.
-A return of zero indicates that, while there was input available,
-no conversions were assigned; 
-typically this is due to an invalid input character, such as an
-alphabetic character for a `%d' conversion.  
+These functions return the number of input items 
+successfully matched and assigned, 
+which can be fewer than provided for, 
+or even zero in the event of an early matching failure.
 
 The value
 .B EOF
 is returned if the end of input is reached before the first 
-successful conversion or matching failure.
+successful conversion or matching failure occurs.
 .B EOF
 is also returned if a read error occurs, 
 in which case the error indicator for the stream (see
@@ -350,10 +519,6 @@ in which case the error indicator for the stream (see
 is set, and
 .I errno
 is set indicate the error.
-
-If an error or end-of-file occurs after conversion has
-begun, the number of conversions which were successfully completed is
-returned.
 .SH "SEE ALSO"
 .BR getc (3),
 .BR printf (3),
@@ -370,7 +535,7 @@ conform to ANSI X3.159-1989 (``ANSI C'').
 .PP
 The 
 .B q
-flag is the 
+specifier is the 
 .I BSD 4.4
 notation for 
 .IR "long long" ,
@@ -391,7 +556,7 @@ documentation of
 for a more concise description. 
 .SH BUGS
 All functions are fully ANSI X3.159-1989 conformant, but provide the 
-additional flags 
+additional specifiers 
 .B q
 and
 .B a
@@ -399,20 +564,16 @@ as well as an additional behaviour of the
 .B L
 and 
 .B l 
-flags. The latter may be considered to be a bug, as it changes the
-behaviour of flags defined in ANSI X3.159-1989.
+specifiers. The latter may be considered to be a bug, as it changes the
+behaviour of specifiers defined in ANSI X3.159-1989.
 .PP
-Some combinations of flags defined by
-.I ANSI C
-are not making sense in 
-.IR "ANSI C" 
+Some combinations of the type modifiers and conversion 
+specifiers defined by ANSI C do not make sense 
 (e.g. 
 .BR "%Ld" ).
 While they may have a well-defined behaviour on Linux, this need not
 to be so on other architectures. Therefore it usually is better to use
-flags that are not defined by 
-.I ANSI C
-at all, i.e. use 
+modifiers that are not defined by ANSI C at all, i.e. use 
 .B q
 instead of 
 .B L

@@ -26,12 +26,14 @@
 .\"	$FreeBSD: src/share/man/man5/elf.5,v 1.21 2001/10/01 16:09:23 ru Exp $
 .\"
 .\" Slightly adapted - aeb, 2004-01-01
+.\" 2005-07-15, Mike Frysinger <vapier@gentoo.org>, various fixes
+.\"
 .Dd July 31, 1999
 .Dt ELF 5
 .Os
 .Sh NAME
 .Nm elf
-.Nd format of ELF executable binary files
+.Nd format of Executable and Linking Format (ELF) files
 .Sh SYNOPSIS
 .\" .Fd #include <elf_abi.h>
 .Fd #include <elf.h>
@@ -206,6 +208,9 @@ the interpretation of those fields is determined by the value of this byte.
 E.g.:
 .Pp
 .Bl -tag -width "ELFOSABI_STANDALONE" -compact
+.It Dv ELFOSABI_NONE
+Same as ELFOSABI_SYSV
+.\" 0
 .It Dv ELFOSABI_SYSV
 UNIX System V ABI.
 .\" 0
@@ -328,7 +333,7 @@ MIPS RS3000 (big-endian only).
 .\" EM_MIPS_RS3_LE (MIPS R3000 little-endian)
 .\" 10
 .It Dv EM_PARISC
-HPPA.
+HP/PA.
 .\" 15
 .It Dv EM_SPARC32PLUS
 SPARC with enhanced instruction set.
@@ -336,18 +341,26 @@ SPARC with enhanced instruction set.
 .It Dv EM_PPC
 PowerPC.
 .\" 20
-.\" EM_PPC64
+.It Dv EM_PPC64
+PowerPC 64-bit.
 .\" 21
-.\" EM_S390
+.It Dv EM_S390
+IBM S/390
 .\" 22
-.\" EM_SH
+.It Dv EM_ARM
+Advanced RISC Machines
+.\" 40
+.It Dv EM_SH
+Renesas SuperH
 .\" 42
 .It Dv EM_SPARCV9
 SPARC v9 64-bit.
 .\" 43
-.\" EM_IA_64
+.It Dv EM_IA_64
+Intel Itanium
 .\" 50
-.\" EM_X86_64
+.It Dv EM_X86_64
+AMD x86-64
 .\" 62
 .It Dv EM_VAX
 DEC Vax.
@@ -714,7 +727,9 @@ typedef struct {
 	uint64_t        sh_entsize;
 } Elf64_Shdr;
 .Ed
-.Bl -tag -width "sh_addralign"
+.Pp
+No real differences exist between the 32-bit and 64-bit section headers.
+.Bl -tag -width "sh_addralign" -offset indent
 .It Dv sh_name
 This member specifies the name of the section.
 Its value is an index
@@ -889,7 +904,7 @@ fixed-size entries.
 .El
 .Pp
 Various sections hold program and control information:
-.Bl -tag -width ".shstrtab"
+.Bl -tag -width ".shstrtab" -offset indent
 .It .bss
 This section holds uninitialized data that contributes to the program's
 memory image.
@@ -1162,7 +1177,10 @@ typedef struct {
 	uint64_t        st_size;
 } Elf64_Sym;
 .Ed
-.Bl -tag -width "st_value"
+.Pp
+The 32-bit and 64-bit versions have the same members, just in a different 
+order.
+.Bl -tag -width "st_value" -offset indent
 .It Dv st_name
 This member holds an index into the object file's symbol string table,
 which holds character representations of the symbol names.
@@ -1235,26 +1253,23 @@ is reserved for processor-specific semantics.
 .Pp
 There are macros for packing and unpacking the binding and type fields:
 .Pp
-.Bl -tag -width "ELF32_ST_INFO(bind, type)" -compact
-.It Xo
+.Bl -tag -width "ELF_ST_INFO" -compact
 .Fn ELF32_ST_BIND info
-.Xc
 or
 .Fn ELF64_ST_BIND info
 extract a binding from an st_info value.
-.It Xo
-.Fn ELF64_ST_TYPE info
-.Xc
-or
+.Pp
 .Fn ELF32_ST_TYPE info
+or
+.Fn ELF64_ST_TYPE info
+.br
 extract a type from an st_info value.
-.It Xo
+.Pp
 .Fn ELF32_ST_INFO bind type
-.Xc
 or
 .Fn ELF64_ST_INFO bind type
+.br
 convert a binding and a type into an st_info value.
-.El
 .El
 .Pp
 .It Dv st_other
@@ -1304,7 +1319,7 @@ typedef struct {
 	int64_t         r_addend;
 } Elf64_Rela;
 .Ed
-.Bl -tag -width "r_offset"
+.Bl -tag -width "r_offset" -offset indent
 .It Dv r_offset
 This member gives the location at which to apply the relocation action.
 For a relocatable file, the value is the byte offset from the beginning
@@ -1329,6 +1344,103 @@ member.
 .It Dv r_addend
 This member specifies a constant addend used to compute the value to be
 stored into the relocatable field.
+.El
+.Pp
+The .dynamic section contains a series of structures that hold relevant 
+dynamic linking information.  The d_tag member controls the interpretation 
+of d_un.
+.Bd -literal -offset indent
+typedef struct {
+	Elf32_Sword     d_tag;
+	union {
+	   Elf32_Word   d_val;
+	   Elf32_Addr   d_ptr;
+	} d_un;
+} Elf32_Dyn;
+extern Elf32_Dyn _DYNAMIC[];
+.Ed
+.Bd -literal -offset indent
+typedef struct {
+	Elf64_Sxword    d_tag;
+	union {
+	   Elf64_Xword  d_val;
+	   Elf64_Addr   d_ptr;
+	} d_un;
+} Elf64_Dyn;
+extern Elf64_Dyn _DYNAMIC[];
+.Ed
+.Bl -tag -width "d_tag" -offset indent
+.It Dv d_tag
+This member may have any of the following values:
+.Bl -tag -width "DT_SYMBOLIC"
+.It Dv DT_NULL
+Marks end of dynamic section
+.It Dv DT_NEEDED
+String table offset to name of a needed library
+.It Dv DT_PLTRELSZ
+Size in bytes of PLT relocs
+.It Dv DT_PLTGOT
+Address of PLT and/or GOT
+.It Dv DT_HASH
+Address of symbol hash table
+.It Dv DT_STRTAB
+Address of string table
+.It Dv DT_SYMTAB
+Address of symbol table
+.It Dv DT_RELA
+Address of Rela relocs table
+.It Dv DT_RELASZ
+Size in bytes of Rela table
+.It Dv DT_RELAENT
+Size in bytes of a Rela table entry
+.It Dv DT_STRSZ
+Size in bytes of string table
+.It Dv DT_SYMENT
+Size in bytes of a symbol table entry
+.It Dv DT_INIT
+Address of the initialization function
+.It Dv DT_FINI
+Address of the termination function
+.It Dv DT_SONAME
+String table offset to name of shared object
+.It Dv DT_RPATH
+String table offset to library search path (deprecated)
+.It Dv DT_SYMBOLIC
+Alert linker to search this shared object before the executable for symbols
+.It Dv DT_REL
+Address of Rel relocs table
+.It Dv DT_RELSZ
+Size in bytes of Rel table
+.It Dv DT_RELENT
+Size in bytes of a Rel table entry
+.It Dv DT_PLTREL
+Type of reloc the PLT refers (Rela or Rel)
+.It Dv DT_DEBUG
+Undefined use for debugging
+.It Dv DT_TEXTREL
+Absence of this indicates no relocs should apply to a non-writable segment
+.It Dv DT_JMPREL
+Address of reloc entries solely for the PLT
+.It Dv DT_BIND_NOW
+Instruct dynamic linker to process all relocs before transferring control to 
+the executable
+.It Dv DT_RUNPATH
+String table offset to library search path
+.It Dv DT_LOPROC
+Start of processor-specific semantics
+.It Dv DT_HIPROC
+End of processor-specific semantics
+.El
+.It Dv d_val
+This member represents integer values with various interpretations.
+.It Dv d_ptr
+This member represents program virtual addresses.  When interpreting 
+these addresses, the actual address should be computed based on the 
+original file value and memory base address.  Files do not contain 
+relocation entries to fixup these addresses.
+.It Dv _DYNAMIC
+Array containing all the dynamic structures in the .dynamic section.  
+This is automatically populated by the linker.
 .El
 .Sh SEE ALSO
 .Xr as 1 ,

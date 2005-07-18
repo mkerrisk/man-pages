@@ -44,55 +44,57 @@ stat, fstat, lstat \- get file status
 .br
 .B #include <unistd.h>
 .sp
-.BI "int stat(const char *" file_name ", struct stat *" buf );
+.BI "int stat(const char *" path ", struct stat *" buf );
 .br
 .BI "int fstat(int " filedes ", struct stat *" buf );
 .br
-.BI "int lstat(const char *" file_name ", struct stat *" buf );
+.BI "int lstat(const char *" path ", struct stat *" buf );
 .SH DESCRIPTION
 .PP
-These functions return information about the specified file.  You do
-not need any access rights to the file to get this information but you
-need search rights to all directories named in the path leading to the
-file.
+These functions return information about a file.
+No permissions are required on the file itself, but \(em in the case of
+.BR stat ()
+and 
+.BR lstat ()
+\(em
+execute (search) permission is required on all of the directories in
+.I path
+that lead to the file.
 .PP
-.B stat
+.BR stat ()
 stats the file pointed to by 
-.I file_name
+.I path
 and fills in
 .IR buf .
 
-.B lstat
+.BR lstat ()
 is identical to
-.BR stat ,
-except in the case of a symbolic link, where the link itself is stat-ed,
+.BR stat (),
+except that if
+.I path
+is a symbolic link, then the link itself is stat-ed,
 not the file that it refers to.
 
-.B fstat
+.BR fstat ()
 is identical to
-.BR stat ,
-only the open file pointed to by 
-.I filedes
-(as returned by
-.BR open (2))
-is stat-ed in place of 
-.IR file_name .
-
+.BR stat (),
+except that the file to be stat-ed is specified by the file descriptor
+.IR filedes .
 .PP
-They all return a
+All of these system calls return a
 .I stat
 structure, which contains the following fields:
 .PP
 .RS 0.25i
 .nf
 struct stat {
-    dev_t     st_dev;     /* device */
-    ino_t     st_ino;     /* inode */
+    dev_t     st_dev;     /* ID of device containing file */
+    ino_t     st_ino;     /* inode number */
     mode_t    st_mode;    /* protection */
     nlink_t   st_nlink;   /* number of hard links */
     uid_t     st_uid;     /* user ID of owner */
     gid_t     st_gid;     /* group ID of owner */
-    dev_t     st_rdev;    /* device type (if inode device) */
+    dev_t     st_rdev;    /* device ID (if special file) */
     off_t     st_size;    /* total size, in bytes */
     blksize_t st_blksize; /* blocksize for filesystem I/O */
     blkcnt_t  st_blocks;  /* number of blocks allocated */
@@ -103,21 +105,31 @@ struct stat {
 .fi
 .RE
 .PP
-The value
+The
+.I stdev
+field describes the device on which this file resides.
+
+The
+.I st_rdev
+field describes the device that this file (inode) represents.
+
+The
 .I st_size
-gives the size of the file (if it is a regular file or a symlink)
-in bytes. The size of a symlink is the length of the pathname
+field gives the size of the file (if it is a regular 
+file or a symbolic link) in bytes. 
+The size of a symlink is the length of the pathname
 it contains, without trailing NUL.
 
-The value
+The
 .I st_blocks
-gives the size of the file in 512-byte blocks.
+field gives the size of the file in 512-byte blocks.
 (This may be smaller than
-.IR st_size /512
-e.g. when the file has holes.)
-The value
+.IR st_size /512,
+for example, when the file has holes.)
+
+The
 .IR st_blksize
-gives the "preferred" blocksize for efficient file system I/O.
+field gives the "preferred" blocksize for efficient file system I/O.
 (Writing to a file in smaller chunks may cause
 an inefficient read-modify-rewrite.)
 .PP
@@ -184,7 +196,7 @@ S_ISBLK(m)
 block device?
 .TP
 S_ISFIFO(m)
-fifo?
+FIFO (named pipe)?
 .TP
 S_ISLNK(m)
 symbolic link? (Not in POSIX.1-1996.)
@@ -196,7 +208,6 @@ socket? (Not in POSIX.1-1996.)
 The following flags are defined for the
 .I st_mode
 field:
-.P
 .TS
 l l l.
 S_IFMT	0170000	bitmask for the file type bitfields
@@ -206,9 +217,9 @@ S_IFREG	0100000	regular file
 S_IFBLK	0060000	block device
 S_IFDIR	0040000	directory
 S_IFCHR	0020000	character device
-S_IFIFO	0010000	fifo
+S_IFIFO	0010000	FIFO
 S_ISUID	0004000	set UID bit
-S_ISGID	0002000	set GID bit (see below)
+S_ISGID	0002000	set-group-ID bit (see below)
 S_ISVTX	0001000	sticky bit (see below)
 S_IRWXU	00700	mask for file owner permissions
 S_IRUSR	00400	owner has read permission
@@ -224,13 +235,13 @@ S_IWOTH	00002	others have write permission
 S_IXOTH	00001	others have execute permission
 .TE
 .P
-The set GID bit (S_ISGID) has several special uses:
+The set-group-ID bit (S_ISGID) has several special uses.
 For a directory it indicates that BSD semantics is to be used
 for that directory: files created there inherit their group ID from
 the directory, not from the effective group ID of the creating process,
 and directories created there will also get the S_ISGID bit set.
 For a file that does not have the group execution bit (S_IXGRP) set,
-it indicates mandatory file/record locking.
+the set-group-ID bit indicates mandatory file/record locking.
 .P
 The `sticky' bit (S_ISVTX) on a directory means that a file
 in that directory can be renamed or deleted only by the owner
@@ -245,7 +256,7 @@ is set appropriately.
 .B EACCES
 Search permission is denied for one of the directories
 in the path prefix of
-.IR file_name .
+.IR path .
 (See also
 .BR path_resolution (2).)
 .TP
@@ -264,7 +275,7 @@ File name too long.
 .TP
 .B ENOENT
 A component of the path
-.I file_name
+.I path
 does not exist, or the path is an empty string.
 .TP
 .B ENOMEM
@@ -274,19 +285,19 @@ Out of memory (i.e. kernel memory).
 A component of the path is not a directory.
 .SH "CONFORMING TO"
 The
-.B stat
+.BR stat ()
 and
-.B fstat
+.BR fstat ()
 calls conform to SVr4, SVID, POSIX, X/OPEN, BSD 4.3.  The
-.B lstat
+.BR lstat ()
 call conforms to 4.3BSD and SVr4.
 SVr4 documents additional
-.B fstat
+.BR fstat ()
 error conditions EINTR, ENOLINK, and EOVERFLOW.  SVr4
 documents additional
-.B stat
+.BR stat ()
 and
-.B lstat
+.BR lstat ()
 error conditions EINTR, EMULTIHOP, ENOLINK, and EOVERFLOW.
 Use of the
 .I st_blocks
@@ -313,7 +324,7 @@ hex	name	ls	octal	description
 f000	S_IFMT		170000	mask for file type
 0000			000000	SCO out-of-service inode, BSD unknown type
 				SVID-v2 and XPG2 have both 0 and 0100000 for ordinary file
-1000	S_IFIFO	p|	010000	fifo (named pipe)
+1000	S_IFIFO	p|	010000	FIFO (named pipe)
 2000	S_IFCHR	c	020000	character special (V7)
 3000	S_IFMPC		030000	multiplexed character special (V7)
 4000	S_IFDIR	d/	040000	directory (V7)
@@ -338,8 +349,8 @@ e000	S_IFWHT	w%	160000	BSD whiteout (not used for inode)
 				On directories: restricted deletion flag (SVID-v4.2)
 0400	S_ISGID		002000	set group ID on execution (V7)
 				for directories: use BSD semantics for propagation of gid
-0400	S_ENFMT		002000	SysV file locking enforcement (shared w/ S_ISGID)
-0800	S_ISUID		004000	set user ID on execution (V7)
+0400	S_ENFMT		002000	SysV file locking enforcement (shared with S_ISGID)
+0800	S_ISUID		004000	set-user-ID on execution (V7)
 0800	S_CDF		004000	directory is a context dependent file (HP-UX)
 .TE
 

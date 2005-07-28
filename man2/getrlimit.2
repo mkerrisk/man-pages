@@ -55,11 +55,11 @@
 .\"	Rewrote discussion on RLIMIT_MEMLOCK to incorporate kernel
 .\"		2.6.9 changes.
 .\"	Added note on RLIMIT_CPU error in older kernels
-.\" 2004-11-03, mtk
-.\"	Added RLIMIT_SIGPENDING
+.\" 2004-11-03, mtk, Added RLIMIT_SIGPENDING
 .\" 2005-07-13, mtk, documented RLIMIT_MSGQUEUE limit.
+.\" 2005-07-28, mtk, Added descriptions of RLIMIT_NICE and RLIMIT_RTPRIO
 .\"
-.TH GETRLIMIT 2 2004-06-16 "Linux" "Linux Programmer's Manual"
+.TH GETRLIMIT 2 2005-07-28 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getrlimit, setrlimit \- get/set resource limits
 .SH SYNOPSIS
@@ -245,6 +245,20 @@ The first addend in the formula, which includes
 create an unlimited number of zero-length messages (such messages
 nevertheless each consume some system memory for bookkeeping overhead).
 .TP
+.BR RLIMIT_NICE "(since kernel 2.6.12)"
+Specifies a ceiling to which the process nice value can be raised using
+.BR setpriority (2)
+or
+.BR nice (2).
+The actual ceiling for the nice value is calculated as
+.IR "19\ \-\ rlim_cur" .
+(This strangeness occurs because of the differences in user-land
+and kernel representations of the nice value, as described in
+.BR getpriority (2)).
+.\" FIXME (28 Jul 05) -- must check later whether glibc hides this issue
+.\"          by performing a calculation similar to "unice == 20 - knice"
+.\"	     (like [gs]setpriority()) when dealing with RLIMIT_NICE
+.TP
 .B RLIMIT_NOFILE
 Specifies a value one greater than the maximum file descriptor number
 that can be opened by this process.
@@ -272,6 +286,13 @@ specifying
 .\" As at kernel 2.6.12, this limit still does nothing in 2.6 though
 .\" talk of making it do something has surfaced from time to time in LKML 
 .\"       -- MTK, Jul 05
+.TP
+.BR RLIMIT_RTPRIO " (Since Linux 2.6.12, but see BUGS)"
+Specifies a ceiling on the real-time priority that the calling
+process may set using
+.BR sched_setscheduler (2)
+and
+.BR sched_setparam (2).
 .TP
 .BR RLIMIT_SIGPENDING " (Since Linux 2.6.8)"
 Specifies the limit on the number of signals
@@ -329,6 +350,10 @@ signals delivered when a process encountered the soft and hard
 .B RLIMIT_CPU
 limits were delivered one (CPU) second later than they should have been.
 This was fixed in kernel 2.6.8.
+
+A kernel bug means that
+.B RLIMIT_RTPRIO
+does not work in kernel 2.6.12; the problem is fixed in kernel 2.6.13.
 .SH "CONFORMING TO"
 SVr4, 4.3BSD.
 .BR RLIMIT_MEMLOCK
@@ -339,9 +364,11 @@ they are present on the BSDs and Linux, but on few other implementations.
 .BR RLIMIT_RSS
 derives from BSD and is not specified in POSIX.1-2001;
 it is nevertheless present on most implementations.
-.B RLIMIT_SIGPENDING
+.BR RLIMIT_MSGQUEUE ,
+.BR RLIMIT_NICE ,
+.BR RLIMIT_RTPRIO ,
 and
-.B RLIMIT_MSGQUEUE
+.BR RLIMIT_SIGPENDING ,
 are Linux specific.
 .SH "SEE ALSO"
 .BR dup (2),

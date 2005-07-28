@@ -33,7 +33,7 @@
 .\"	A couple of grammar clean-ups
 .\" Modified 2004-05-27 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
-.TH SETSCHEDULER 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
+.TH SETSCHEDULER 2 2005-07-28 "Linux 2.6.12" "Linux Programmer's Manual"
 .SH NAME
 sched_setscheduler, sched_getscheduler \-
 set and get scheduling algorithm/parameters
@@ -94,10 +94,8 @@ intended for special time-critical applications that need precise
 control over the way in which runnable processes are selected for
 execution. Processes scheduled with \fISCHED_OTHER\fP must be assigned
 the static priority 0, processes scheduled under \fISCHED_FIFO\fP or
-\fISCHED_RR\fP can have a static priority in the range 1 to 99. Only
-processes with superuser privileges can get a static priority higher
-than 0 and can therefore be scheduled under \fISCHED_FIFO\fP or
-\fISCHED_RR\fP. The system calls \fBsched_get_priority_min\fP and
+\fISCHED_RR\fP can have a static priority in the range 1 to 99. 
+The system calls \fBsched_get_priority_min\fP and
 \fBsched_get_priority_max\fP can be used to find out the valid
 priority range for a scheduling policy in a portable way on all
 POSIX.1b conforming systems.
@@ -136,7 +134,6 @@ runnable processes with equal static priority. A \fISCHED_FIFO\fP
 process runs until either it is blocked by an I/O request, it is
 preempted by a higher priority process, or it calls \fBsched_yield\fP.
 
-
 .SS SCHED_RR: Round Robin scheduling
 \fISCHED_RR\fP is a simple enhancement of \fISCHED_FIFO\fP. Everything
 described above for \fISCHED_FIFO\fP also applies to \fISCHED_RR\fP,
@@ -162,6 +159,33 @@ by the \fBnice\fP or \fBsetpriority\fP system call) and increased for
 each time quantum the process is ready to run, but denied to run by
 the scheduler. This ensures fair progress among all \fISCHED_OTHER\fP
 processes.
+
+.SS Privileges and resource limits
+A process calling 
+.BR sched_setscheduler
+needs an effective user ID equal to the real user ID or effective 
+user ID of the process identified by
+.IR pid ,
+or it must be privileged (Linux: have the
+.B CAP_SYS_NICE
+capability).
+
+In Linux kernels before 2.6.12, only privileged
+.RB ( CAP_SYS_NICE )
+processes can set a non-zero static priority.
+Since Linux 2.6.12, the
+.B RLIMIT_RTPRIO
+resource limit defines a ceiling on the value to which an 
+unprivileged process can set a static priority for the
+.B SCHED_RR
+and
+.BR SCHED_FIFO 
+policies.
+See
+.BR getrlimit (2)
+for further information on
+.BR RLIMIT_RTPRIO .
+Privileged processes bypass this limit.
 
 .SS Response time
 A blocked high priority process waiting for the I/O has a certain
@@ -219,14 +243,7 @@ or the parameter \fIp\fP does not make sense for the \fIpolicy\fP.
 The calling process does not have appropriate privileges
 (Linux: does not have the
 .B CAP_SYS_NICE
-capability). Only privileged processes are allowed to
-activate the \fISCHED_FIFO\fP and \fISCHED_RR\fP
-policies. A process calling 
-.BR sched_setscheduler
-needs an effective user ID equal to the user ID or effective user ID
-of the process identified by
-.IR pid ,
-or it must be privileged.
+capability).
 .TP
 .B ESRCH
 The process whose ID is \fIpid\fP could not be found.

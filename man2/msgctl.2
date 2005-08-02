@@ -29,6 +29,7 @@
 .\" Modified, 11 Nov 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"	Language and formatting clean-ups
 .\"	Added msqid_ds and ipc_perm structure definitions
+.\" 2005-08-02, mtk: Added IPC_INFO, MSG_INFO, MSG_STAT descriptions
 .\"
 .TH MSGCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
 .SH NAME
@@ -61,18 +62,17 @@ data structure is defined in <sys/msg.h> as follows:
 
 struct msqid_ds {
     struct ipc_perm msg_perm;     /* Ownership and permissions
-    time_t          msg_stime;    /* Time of last msgsnd() */
-    time_t          msg_rtime;    /* Time of last msgrcv() */
-    time_t          msg_ctime;    /* Time of last change */
-    unsigned long   __msg_cbytes; /* Current number of bytes in 
-                                     queue (non-standard) */
-    msgqnum_t       msg_qnum;     /* Current number of messages 
-                                     in queue */
-    msglen_t        msg_qbytes;   /* Maximum number of bytes 
-                                     allowed in queue */
-    pid_t           msg_lspid;    /* PID of last msgsnd() */
-    pid_t           msg_lrpid;    /* PID of last msgrcv() */
-
+    time_t         msg_stime;    /* Time of last msgsnd() */
+    time_t         msg_rtime;    /* Time of last msgrcv() */
+    time_t         msg_ctime;    /* Time of last change */
+    unsigned long  __msg_cbytes; /* Current number of bytes in 
+                                    queue (non-standard) */
+    msgqnum_t      msg_qnum;     /* Current number of messages 
+                                    in queue */
+    msglen_t       msg_qbytes;   /* Maximum number of bytes 
+                                    allowed in queue */
+    pid_t          msg_lspid;    /* PID of last msgsnd() */
+    pid_t          msg_lrpid;    /* PID of last msgrcv() */
 };
 .in -4n
 .fi
@@ -147,10 +147,101 @@ set to
 The calling process must have appropriate privileges
 or its effective user ID must be either that of the creator or owner
 of the message queue.
+.TP
+.BR IPC_INFO " (Linux specific)"
+Returns information about system-wide message queue limits and 
+parameters in the structure pointed to by
+.IR buf .
+This structure is of type
+.IR msginfo 
+(thus, a cast is required),
+defined in
+.I <sys/msg.h>
+if the _GNU_SOURCE feature test macro is defined:
+.nf
+.in +2n
+
+struct msginfo {
+    int msgpool; /* Size in bytes of buffer pool used 
+                    to hold message data; unused */
+    int msgmap;  /* Max. # of entries in message
+                    map; unused */
+    int msgmax;  /* Max. # of bytes that can be
+                    written in a single message */
+    int msgmnb;  /* Max. # of bytes that can be written to
+                    queue; used to initialize msg_qbytes 
+                    during queue creation (msgget()) */
+    int msgmni;  /* Max. # of message queues */
+    int msgssz;  /* Message segment size; unused */
+    int msgtql;  /* Max. # of messages on all queues 
+                    in system; unused */
+    unsigned short int msgseg;
+                 /* Max. # of segments; unused */
+};
+
+.in -2n
+.fi
+The 
+.IR msgmni ,
+.IR msgmax ,
+and
+.I msgmnb
+settings can be changed via
+.I /proc 
+files of the same name; see
+.BR proc (5) 
+for details.
+.TP
+.BR MSG_INFO " (Linux specific)"
+Returns a
+.I msginfo
+structure containing the same information as for
+.BR IPC_INFO ,
+except that the following fields are returned with information 
+about system resources consumed by message queues: the
+.I msgpool
+field returns the number of message queues that currently exist 
+on the system; the
+.I msgmap
+field returns the total number of messages in all queues 
+on the system; and the
+.I msgtql
+field returns the total number of bytes in all messages 
+in all queues on the system.
+.TP
+.BR MSG_STAT " (Linux specific)"
+Returns a 
+.I msqid_ds 
+structure as for
+.BR IPC_STAT .
+However, the
+.I msqid
+argument is not a queue identifier, but instead an index into
+the kernel's internal array that maintains information about
+all message queues on the system.
 .SH "RETURN VALUE"
-On success, the return value will be 0
-otherwise \-1
-with
+On success,
+.BR IPC_STAT ,
+.BR IPC_SET ,
+and
+.BR IPC_RMID
+return 0.
+A successful
+.B IPC_INFO
+or 
+.B MSG_INFO
+operation returns the index of the highest used entry in the
+kernel's internal array recording information about all
+message queues.
+(This information can be used with repeated
+.B MSG_STAT 
+operations to obtain information about all queues on the system.)
+A successful
+.B MSG_STAT
+operation returns the identifier of the queue whose index was given in
+.IR msqid .
+
+On error, \-1 is returned with
 .I errno
 indicating the error.
 .SH ERRORS
@@ -162,7 +253,7 @@ is set to one of the following:
 The argument
 .I cmd
 is equal to
-.B IPC_STAT
+.BR IPC_STAT
 or
 .BR MSG_STAT ,
 but the calling process does not have read permission on the message queue
@@ -190,6 +281,11 @@ Invalid value for
 .I cmd
 or
 .IR msqid .
+Or: for a
+.B MSG_STAT
+operation, the index value specified in 
+.I msqid
+referred to an array slot that is currently unused.
 .TP
 .B EPERM
 The argument
@@ -209,6 +305,17 @@ and the process is not privileged (Linux: it does not have the
 .B CAP_SYS_ADMIN
 capability).
 .SH NOTES
+The
+.BR IPC_INFO ,
+.BR MSG_STAT
+and
+.B MSG_INFO
+operations are used by the
+.BR ipcs (8)
+program to provide information on allocated resources.
+In the future these may modified or moved to a /proc file system
+interface.
+
 Various fields in the \fIstruct msqid_ds\fP were shorts under Linux 2.2
 and have become longs under Linux 2.4. To take advantage of this,
 a recompilation under glibc-2.1.91 or later should suffice.

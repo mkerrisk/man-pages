@@ -33,6 +33,7 @@
 .\"	Language and formatting clean-ups
 .\"	Rewrote semun text
 .\"	Added semid_ds and ipc_perm structure definitions
+.\" 2005-08-02, mtk: Added IPC_INFO, SEM_INFO, SEM_STAT descriptions.
 .\"
 .TH SEMCTL 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual" 
 .SH NAME
@@ -163,6 +164,75 @@ The argument
 .I semnum
 is ignored.
 .TP
+.BR IPC_INFO " (Linux specific)"
+Returns information about system-wide semaphore limits and 
+parameters in the structure pointed to by
+.IR arg.__buf .
+This structure is of type
+.IR seminfo ,
+defined in
+.I <sys/sem.h>
+if the _GNU_SOURCE feature test macro is defined:
+.nf
+.in +2n
+
+struct  seminfo {
+    int semmap;  /* # of entries in semaphore map; 
+                    unused */
+    int semmni;  /* Max. # of semaphore sets */
+    int semmns;  /* Max. # of semaphores in all 
+                    semaphore sets */
+    int semmnu;  /* System-wide max. # of undo 
+                    structures; unused */
+    int semmsl;  /* Max. # of semaphores in a set */
+    int semopm;  /* Max. # of operations for semop() */
+    int semume;  /* Max. # of undo entries per 
+                    process; unused */
+    int semusz;  /* size of struct sem_undo */
+    int semvmx;  /* Maximum semaphore value */
+    int semaem;  /* Max. value that can be recorded for 
+                    semaphore adjustment (SEM_UNDO) */
+};
+
+.in -2n
+.fi
+The 
+.IR semmsl ,
+.IR semmns ,
+.IR semopm ,
+and
+.I semmni
+settings can be changed via
+.IR /proc/sys/kernel/sem ;
+see
+.BR proc (5) 
+for details.
+.TP
+.BR SEM_INFO " (Linux specific)"
+Returns a
+.I seminfo
+structure containing the same information as for
+.BR IPC_INFO ,
+except that the following fields are returned with information 
+about system resources consumed by semaphores: the
+.I semusz
+field returns the number of semaphore sets that currently exist 
+on the system; and the
+.I semaem
+field returns the total number of semaphores in all semaphore sets 
+on the system.
+.TP
+.BR SEM_STAT " (Linux specific)"
+Returns a 
+.I semid_ds 
+structure as for
+.BR IPC_STAT .
+However, the
+.I semid
+argument is not a semaphore identifier, but instead an index into
+the kernel's internal array that maintains information about
+all semaphore sets on the system.
+.TP
 .B GETALL
 Return
 .B semval
@@ -269,6 +339,7 @@ returns \-1
 with
 .I errno
 indicating the error.
+
 Otherwise the system call returns a nonnegative value depending on
 .I cmd
 as follows:
@@ -288,6 +359,22 @@ the value of
 .B GETZCNT
 the value of
 .BR semzcnt .
+.TP
+.B IPC_INFO
+the index of the highest used entry in the
+kernel's internal array recording information about all
+semaphore sets.
+(This information can be used with repeated
+.B SEM_STAT 
+operations to obtain information about all semaphore sets on the system.)
+.TP
+.B SEM_INFO
+As for 
+.BR IPC_INFO .
+.TP
+.B SEM_STAT
+the identifier of the semaphore set whose index was given in
+.IR semid .
 .LP
 All other
 .I cmd
@@ -331,6 +418,11 @@ Invalid value for
 .I cmd
 or
 .IR semid .
+Or: for a
+.B SEM_STAT
+operation, the index value specified in 
+.I semid
+referred to an array slot that is currently unused.
 .TP
 .B EPERM
 The argument
@@ -368,7 +460,7 @@ The
 .BR SEM_STAT
 and
 .B SEM_INFO
-control calls are used by the
+operations are used by the
 .BR ipcs (8)
 program to provide information on allocated resources.
 In the future these may modified or moved to a /proc file system

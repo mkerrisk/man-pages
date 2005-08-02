@@ -37,6 +37,7 @@
 .\" Modified, 2004-11-25, mtk, notes on 2.6.9 RLIMIT_MEMLOCK changes
 .\" 2005-04-25, mtk -- noted aberrant Linux behaviour w.r.t. new
 .\"	attaches to a segment that has already been marked for deletion.
+.\" 2005-08-02, mtk: Added IPC_INFO, SHM_INFO, SHM_STAT descriptions.
 .\"
 .TH SHMCTL 2 2005-05-30 Linux 2.6.11" "Linux Programmer's Manual"
 .SH NAME
@@ -148,32 +149,97 @@ will be set.
 .PP
 The caller \fImust\fP ensure that a segment is eventually destroyed;
 otherwise its pages that were faulted in will remain in memory or swap.
-.SS "Linux additions"
-The
-.BR IPC_INFO ,
-.BR SHM_STAT
+.TP
+.BR IPC_INFO " (Linux specific)"
+Returns information about system-wide shared memory limits and 
+parameters in the structure pointed to by
+.IR buf .
+This structure is of type
+.IR shminfo 
+(thus, a cast is required),
+defined in
+.I <sys/shm.h>
+if the _GNU_SOURCE feature test macro is defined:
+.nf
+.in +2n
+
+struct  shminfo {
+    unsigned long shmmax; /* Max. segment size */
+    unsigned long shmmin; /* Min. segment size; always 1 */
+    unsigned long shmmni; /* Max. # of segments */
+    unsigned long shmseg; /* Max. # of segments that a 
+                             process can attach; unused */
+    unsigned long shmall; /* Max. # of pages of shared 
+                             memory, system-wide */
+};
+
+.in -2n
+.fi
+The 
+.IR shmmni ,
+.IR shmmax ,
 and
-.B SHM_INFO
-control calls are used by the
-.BR ipcs (8)
-program to provide information on allocated resources.
+.I shmall
+settings can be changed via
+.I /proc 
+files of the same name; see
+.BR proc (5) 
+for details.
+.TP
+.BR SHM_INFO " (Linux specific)"
+Returns a
+.I shm_info
+structure whose fileds contain information 
+about system resources consumed by shared memory.
+This structure is defined in
+.I <sys/shm.h>
+if the _GNU_SOURCE feature test macro is defined:
+.nf
+.in +2n
+
+struct shm_info {
+    int used_ids;           /* # of currently existing 
+                               segments */
+    unsigned long shm_tot;  /* Total number of shared 
+                               memory pages */
+    unsigned long shm_rss;  /* # of resident shared 
+                               memory pages */
+    unsigned long shm_swp;  /* # of swapped shared 
+                               memory pages */
+    unsigned long swap_attempts;  /* Unused since Linux 2.4 */
+    unsigned long swap_successes; /* Unused since Linux 2.4 */
+};
+
+.in -2n
+.fi
+.TP
+.BR SHM_STAT " (Linux specific)"
+Returns a 
+.I shmid_ds 
+structure as for
+.BR IPC_STAT .
+However, the
+.I shmid
+argument is not a segment identifier, but instead an index into
+the kernel's internal array that maintains information about
+all shared memory segments on the system.
 .PP
 The caller can prevent or allow swapping of a shared
 memory segment with the following \fIcmd\fP values:
 .br
 .TP 12
-.B SHM_LOCK
+.BR SHM_LOCK " (Linux specific)"
 Prevent swapping of the shared memory segment. The caller must fault in
 any pages that are required to be present after locking is enabled.
 If a segment has been locked, then the (non-standard)
-.B SHM_LOCKED
+.BR SHM_LOCKED
 flag of the
 .I shm_perm.mode
 field in the associated data structure retrieved by
 .B IPC_STAT
 will be set.
 .TP
-.B SHM_UNLOCK
+.BR SHM_UNLOCK " (Linux specific)"
 Unlock the segment, allowing it to be swapped out.
 .PP
 In kernels before 2.6.10, only a privileged process
@@ -194,7 +260,24 @@ resource limit (see
 .\" This was a botch-up in the move to RLIMIT_MEMLOCK, and was fixed 
 .\" in 2.6.10.  MTK, May 2005
 .SH "RETURN VALUE"
-On success, zero is returned.
+A successful
+.B IPC_INFO
+or 
+.B SHM_INFO
+operation returns the index of the highest used entry in the
+kernel's internal array recording information about all
+shared memory segments.
+(This information can be used with repeated
+.B SHM_STAT 
+operations to obtain information about all shared memory segments 
+on the system.)
+A successful
+.B SHM_STAT
+operation returns the identifier of the shared memory segment 
+whose index was given in
+.IR shmid .
+Other operations return 0 on success.
+
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
@@ -225,6 +308,11 @@ isn't accessible.
 .B EINVAL
 \fIshmid\fP is not a valid identifier, or \fIcmd\fP
 is not a valid command.
+Or: for a
+.B SHM_STAT
+operation, the index value specified in 
+.I shmid
+referred to an array slot that is currently unused.
 .TP
 .B ENOMEM
 (In kernels since 2.6.9),
@@ -266,6 +354,17 @@ capability).
 .BR RLIMIT_MEMLOCK
 is 0 and the caller is not privileged.)
 .SH NOTES
+The
+.BR IPC_INFO ,
+.BR SHM_STAT
+and
+.B SHM_INFO
+operations are used by the
+.BR ipcs (8)
+program to provide information on allocated resources.
+In the future these may modified or moved to a /proc file system
+interface.
+
 Linux permits a process to attach 
 .RB ( shmat ())
 a shared memory segment that has already been marked for deletion

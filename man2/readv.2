@@ -36,7 +36,7 @@ readv, writev \- read or write data into multiple buffers
 .fi
 .SH DESCRIPTION
 The
-.B readv()
+.BR readv ()
 function reads
 .I count
 blocks from the file associated with the file descriptor
@@ -45,7 +45,7 @@ into the multiple buffers described by
 .IR vector .
 .PP
 The
-.B writev()
+.BR writev ()
 function writes at most
 .I count
 blocks described by
@@ -56,41 +56,40 @@ to the file associated with the file descriptor
 The pointer
 .I vector
 points to a
-.B struct iovec
+.I struct iovec
 defined in
-.B <sys/uio.h>
+.I <sys/uio.h>
 as
 .PP
 .br
+.in +0.25in
 .nf
-.in 10
 struct iovec {
-.in 14
-void *iov_base;   /* Starting address */
-size_t iov_len;   /* Number of bytes */
-.in 10
+    void *iov_base;   /* Starting address */
+    size_t iov_len;   /* Number of bytes */
 };
 .fi
+.in 0.25in
 .PP
 Buffers are processed in the order specified.
 .PP
 The
-.B readv()
+.BR readv ()
 function works just like
 .BR read (2)
 except that multiple buffers are filled.
 .PP
 The
-.B writev()
+.BR writev ()
 function works just like
 .BR write (2)
 except that multiple buffers are written out.
 .PP
 .SH "RETURN VALUE"
 On success, the
-.B readv()
+.BR readv ()
 function returns the number of bytes read; the
-.B writev()
+.BR writev ()
 function returns the number of bytes written.
 On error, \-1 is returned, and \fIerrno\fP is set appropriately.
 .SH ERRORS
@@ -98,30 +97,61 @@ The errors are as given for
 .BR read (2)
 and
 .BR write (2).
-Additionally the following error is defined.
+Additionally the following error is defined:
 .TP
 .B EINVAL
 The sum of the
 .I iov_len
 values overflows an
-.B ssize_t
+.I ssize_t
 value. Or,
-the vector count \fIcount\fR is zero or greater than \fBMAX_IOVEC\fR.
+the vector count \fIcount\fR is less than zero or greater than the
+permitted maximum.
 .SH "CONFORMING TO"
 4.4BSD (the
-.B readv
+.BR readv ()
 and
-.B writev
+.BR writev ()
 functions first appeared in 4.2BSD), Unix98, POSIX 1003.1-2001.
 Linux libc5 used \fBsize_t\fR as the type of the \fIcount\fR parameter,
 and \fBint\fP as return type for these functions.
 .\" The readv/writev system calls were buggy before Linux 1.3.40.
 .\" (Says release.libc.)
+.SH "LINUX NOTES"
+SUSv3 allows an implementation to place a limit on the number of items
+that can be passed in
+.IR vector .
+An implementation can advertise its limit by defining
+.B IOV_MAX
+in
+.IR <limits.h>
+or at run time via the return value from
+.IR sysconf(_SC_IOV_MAX) .
+On Linux, the limit advertised by these mechanisms is 1024,
+which is the true kernel limit.
+However, the glibc wrapper functions do some extra work if
+they detect that the underlying kernel system call failed because this
+limit was exceeded.  In the case of
+.BR readv ()
+the wrapper function allocates a temporary buffer large enough 
+for all of the items specified by
+.IR vector ,
+passes that buffer in a call to 
+.BR read (),
+copies data from the buffer to the locations specified by the
+.I iov_base
+fields of the elements of 
+.IR vector ,
+and then frees the buffer.
+The wrapper function for
+.BR writev ()
+performs the analogous task using a temporary buffer and a call to
+.BR write ().
 .SH BUGS
 It is not advisable to mix calls to functions like
-.B readv()
+.BR readv ()
 or
-.BR writev() ,
+.BR writev (),
 which operate on file descriptors, with the functions from the stdio
 library; the results will be undefined and probably not what you want.
 .SH "SEE ALSO"

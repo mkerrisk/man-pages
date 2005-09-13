@@ -27,10 +27,12 @@
 .\" 1996-04-12 Tom Bjorkholm <tomb@mydata.se>
 .\"            Update for Linux 1.3.87 and later
 .\"
-.TH MREMAP 2 1996-04-12 "Linux 1.3.87" "Linux Programmer's Manual"
+.TH MREMAP 2 2005-09-13 "Linux 2.6.13" "Linux Programmer's Manual"
 .SH NAME
 mremap \- re-map a virtual memory address 
 .SH SYNOPSIS
+.B #define _GNU_SOURCE
+.br
 .B #include <unistd.h>
 .br
 .B #include <sys/mman.h>
@@ -39,7 +41,7 @@ mremap \- re-map a virtual memory address
 .BI ", size_t " new_size ", unsigned long " flags );
 .fi
 .SH DESCRIPTION
-\fBmremap\fR expands (or shrinks) an existing memory mapping, potentially 
+\fBmremap\fR() expands (or shrinks) an existing memory mapping, potentially 
 moving it at the same time (controlled by the \fIflags\fR argument and 
 the available virtual address space).
 
@@ -49,8 +51,6 @@ aligned. \fIold_size\fR is the old size of the
 virtual memory block.  \fInew_size\fR is the requested size of the
 virtual memory block after the resize. 
 
-The \fIflags\fR argument is a bitmap of flags.
-
 In Linux the memory is divided into pages.  A user process has (one or)
 several linear virtual memory segments.  Each virtual memory segment has one
 or more mappings to real memory pages (in the page table).  Each virtual
@@ -59,26 +59,45 @@ a segmentation violation if the memory is accessed incorrectly (e.g.,
 writing to a read-only segment).  Accessing virtual memory outside of the
 segments will also cause a segmentation violation.
 
-\fBmremap\fR uses the Linux page table scheme.  \fBmremap\fR changes the 
+\fBmremap\fR() uses the Linux page table scheme.
+\fBmremap\fR() changes the 
 mapping between virtual addresses and memory pages.  This can be used to
-implement a very efficient \fBrealloc\fR.
+implement a very efficient \fBrealloc\fR().
 
-.SH FLAGS
+The \fIflags\fR bit-mask argument may be 0, or include the following flag:
 .TP
 .B MREMAP_MAYMOVE
-indicates if the operation should fail, or change the virtual address 
-if the resize cannot be done at the current virtual address.
-
+By default, if there is not sufficient space to expand a mapping
+at its current location, then
+.BR mremap ()
+fails.
+If this flag is specified, then the kernel is permitted to 
+relocate the mapping to a new virtual address, if necessary.
+If the mapping is relocated,
+then absolute pointers into the old mapping location 
+become invalid (offsets relative to the starting address of 
+the mapping should be employed).
+.PP
+If the memory segment specified by 
+.I old_address
+and 
+.I old_size
+is locked (using
+.BR mlock ()
+or similar), then this lock is maintained when the segment is
+resized and/or relocated.
+As a consequence, the amount memory locked by the process may change.
 .SH "RETURN VALUE"
-On success \fBmremap\fR returns a pointer to the new virtual memory area.
+On success \fBmremap\fR() returns a pointer to the new virtual memory area.
 On error, the value
 .B MAP_FAILED
 (that is, (void *) \-1) is returned, and \fIerrno\fR is set appropriately.
-
 .SH ERRORS
 .TP
 .B EAGAIN
-The memory segment is locked and cannot be re-mapped.
+The caller tried to expand a memory segment that is locked, 
+but this was not possible without exceeding the
+RLIMIT_MEMLOCK resource limit.
 .TP
 .B EFAULT
 "Segmentation fault." Some address in the range
@@ -96,10 +115,6 @@ The memory area cannot be expanded at the current virtual address, and the
 .B MREMAP_MAYMOVE
 flag is not set in \fIflags\fP. 
 Or, there is not enough (virtual) memory available.
-.SH NOTES
-With current glibc includes, in order to get the definition of
-.BR MREMAP_MAYMOVE ,
-you need to define _GNU_SOURCE before including <sys/mman.h>.
 .SH "CONFORMING TO"
 This call is Linux-specific, and should not be used in programs
 intended to be portable.  4.2BSD had a (never actually implemented)
@@ -108,6 +123,8 @@ call with completely different semantics.
 .SH "SEE ALSO"
 .BR brk (2),
 .BR getpagesize (2),
+.BR getrlimit (2),
+.BR mlock (2),
 .BR mmap (2),
 .BR sbrk (2),
 .BR malloc (3),

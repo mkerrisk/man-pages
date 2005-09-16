@@ -86,19 +86,18 @@ struct utmp {
      compiled 32- and 64-bit.  This allows data files and shared 
      memory to be shared between 32- and 64-bit applications */
 #if __WORDSIZE == 64 && defined __WORDSIZE_COMPAT32
-   int32_t ut_session;        /* Session ID, used for windowing */
-   struct
-   {
-   int32_t tv_sec;            /* Seconds */
-   int32_t tv_usec;           /* Microseconds */
-   } ut_tv;                   /* Time entry was made */
+  int32_t ut_session;         /* Session ID, used for windowing */
+  struct {
+    int32_t tv_sec;           /* Seconds */
+    int32_t tv_usec;          /* Microseconds */
+  } ut_tv;                    /* Time entry was made */
 #else
-   long int ut_session;       /* Session ID, used for windowing */
-   struct timeval ut_tv;      /* Time entry was made */
+   long int ut_session;        /* Session ID, used for windowing */
+   struct timeval ut_tv;       /* Time entry was made */
 #endif
 
-  int32_t ut_addr_v6[4];     /* IP address of remote host */
-  char __unused[20];         /* Reserved for future use */
+  int32_t ut_addr_v6[4];       /* IP address of remote host */
+  char __unused[20];           /* Reserved for future use */
 };
 
 /* Backwards compatibility hacks.  */
@@ -191,32 +190,37 @@ and some versions of
 Neither of these programs creates the file, so if it is
 removed, record-keeping is turned off.
 .PP
-Note that on \fBbiarch\fP platforms, i.e. systems which can run both
+Note that on \fIbiarch\fP platforms, i.e. systems which can run both
 32-bit and 64-bit applications (x86-64, ppc64, s390x, etc.),
 \fIut_tv\fP is the same size in 32-bit mode as in 64-bit mode.
 The same goes for \fIut_session\fP and \fIut_time\fP if they are present.
 This allows data files and shared memory to be shared between
 32-bit and 64-bit applications. 
-.\" FIXEME -- maybe include the following (MTK, 15 Sep 2005)
-.\" The following example is the recommended
-.\" method for filling in the \fIut_tv\fP member:
-.\" .RS
-.\" .nf
-.\" .sp
-.\" .ta 3i
-.\" struct utmp ut;
-.\" ...
-.\" if (sizeof (ut.ut_tv) == sizeof (struct timeval))
-.\"   gettimeofday((struct timeval *) &ut.ut_tv, NULL);
-.\" else {
-.\"   struct timeval tv;
-.\"   gettimeofday(&tv, NULL);
-.\"   ut.ut_tv.tv_sec = tv.tv_sec;
-.\"   ut.ut_tv.tv_usec = tv.tv_usec;
-.\" }
-.\" .SP
-.\" .fi
-.\" .RE
+Since \fIut_tv\fP may not be the same as \fIstruct timeval\fP,
+then instead of the call:
+.RS
+.nf
+.sp
+.ta 3i
+gettimeofday((struct timeval *) &ut.ut_tv, NULL);
+.SP
+.fi
+.RE
+
+the following method of setting this field is recommended:
+.RS
+.nf
+.sp
+.ta 3i
+struct utmp ut;
+struct timeval tv;
+
+gettimeofday(&tv, NULL);
+ut.ut_tv.tv_sec = tv.tv_sec;
+ut.ut_tv.tv_usec = tv.tv_usec;
+.SP
+.fi
+.RE
 .SH FILES
 /var/run/utmp
 .br

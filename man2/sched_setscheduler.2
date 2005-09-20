@@ -161,31 +161,58 @@ the scheduler. This ensures fair progress among all \fISCHED_OTHER\fP
 processes.
 
 .SS Privileges and resource limits
-A process calling 
-.BR sched_setscheduler
-needs an effective user ID equal to the real user ID or effective 
-user ID of the process identified by
-.IR pid ,
-or it must be privileged (Linux: have the
-.B CAP_SYS_NICE
-capability).
-
+.\" FIXME -- make some general statement about Unix implementations
+.\" A process calling 
+.\" .BR sched_setscheduler
+.\" needs an effective user ID equal to the real user ID or effective 
+.\" user ID of the process identified by
+.\" .IR pid ,
+.\" or it must be privileged (Linux: have the
+.\" .B CAP_SYS_NICE
+.\" capability).
+.\" 
 In Linux kernels before 2.6.12, only privileged
 .RB ( CAP_SYS_NICE )
 processes can set a non-zero static priority.
+The only change that an unprivileged process can make is to set the
+.B SCHED_OTHER
+policy, and this can only be done if the effective user ID of the caller of
+.BR sched_setscheduler
+matches the real or effective user ID of the target process 
+(i.e., the process specified by
+.IR pid )
+whose policy is being changed.
+
 Since Linux 2.6.12, the
 .B RLIMIT_RTPRIO
-resource limit defines a ceiling on the value to which an 
-unprivileged process can set a static priority for the
+resource limit defines a ceiling on an unprivileged process's
+priority for the
 .B SCHED_RR
 and
 .BR SCHED_FIFO 
 policies.
+If an unprivileged process has a non-zero 
+.B RLIMIT_RTPRIO
+soft limit, then it can change its scheduling policy and priority, 
+subject to the restriction that the priority cannot be set to a 
+value higher than the 
+.B RLIMIT_RTPRIO
+soft limit.
+If the 
+.B RLIMIT_RTPRIO
+soft limit is 0, then the only permitted change is to lower the priority.
+Subject to the same reules, 
+another unprivileged process can also make these changes, 
+as long as the effective user ID of the process making the change 
+matches the real or effective user ID of the target process.
 See
 .BR getrlimit (2)
 for further information on
 .BR RLIMIT_RTPRIO .
-Privileged processes bypass this limit.
+Privileged
+.RB ( CAP_SYS_NICE )
+processes ignore this limit; as with older older kernels,
+they can make arbitrary changes to scheduling policy and priority.
 
 .SS Response time
 A blocked high priority process waiting for the I/O has a certain
@@ -210,10 +237,7 @@ As a non-blocking end-less loop in a process scheduled under
 priority forever, a software developer should always keep available on
 the console a shell scheduled under a higher static priority than the
 tested application. This will allow an emergency kill of tested
-real-time applications that do not block or terminate as expected. As
-\fISCHED_FIFO\fP and \fISCHED_RR\fP processes can preempt other
-processes forever, only root processes are allowed to activate these
-policies under Linux.
+real-time applications that do not block or terminate as expected.
 
 POSIX systems on which
 .B sched_setscheduler
@@ -240,10 +264,7 @@ The scheduling \fIpolicy\fP is not one of the recognized policies,
 or the parameter \fIp\fP does not make sense for the \fIpolicy\fP.
 .TP
 .B EPERM
-The calling process does not have appropriate privileges
-(Linux: does not have the
-.B CAP_SYS_NICE
-capability).
+The calling process does not have appropriate privileges.
 .TP
 .B ESRCH
 The process whose ID is \fIpid\fP could not be found.

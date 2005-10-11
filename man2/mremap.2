@@ -26,6 +26,7 @@
 .\"            First version written (1.3.86)
 .\" 1996-04-12 Tom Bjorkholm <tomb@mydata.se>
 .\"            Update for Linux 1.3.87 and later
+.\" 2005-10-11 mtk: Added NOTES for MREMAP_FIXED; revised EINVAL text.
 .\"
 .TH MREMAP 2 2005-09-13 "Linux 2.6.13" "Linux Programmer's Manual"
 .SH NAME
@@ -107,14 +108,66 @@ You can also get EFAULT even if there exist mappings that cover the
 whole address space requested, but those mappings are of different types.
 .TP
 .B EINVAL
-An invalid argument was given. Most likely \fIold_address\fR was not 
-page aligned.
+An invalid argument was given.
+Possible causes are: \fIold_address\fR was not 
+page aligned; a value other than
+.B MREMAP_MAYMOVE
+or 
+.B MREMAP_FIXED
+was specified in
+.IR flags ;
+.I new_size
+was zero;
+.I new_size
+or 
+.I new_address
+was invalid;
+or the new address range specified by
+.I new_address 
+and 
+.I new_size
+overlapped the old address range specified by
+.I old_address
+and
+.IR old_size ;
+or 
+.B MREMAP_FIXED
+was specified without also specifying
+.BR MREMAP_MAYMOVE .
 .TP
 .B ENOMEM
 The memory area cannot be expanded at the current virtual address, and the
 .B MREMAP_MAYMOVE
 flag is not set in \fIflags\fP. 
 Or, there is not enough (virtual) memory available.
+.SH NOTES
+Linux 2.3.31 added an additional
+.I flags
+value:
+.BR MREMAP_FIXED ,
+with a similar purpose to the
+.B MAP_FIXED
+flag for
+.BR mmap (2).
+If this flag is specified, then
+.BR mremap ()
+accepts a fifth argument,
+.IR new_address ,
+which specifies a fixed address to which the mapping should be moved.
+This address must be page aligned.
+If 
+.B MREMAP_FIXED
+is specified, then 
+.BR MREMAP_MAYMOVE 
+must also be specified.
+Currently, neither the definition of
+.B MREMAP_FIXED
+nor a prototype for the 
+.I new_address
+argument are exposed by glibc.
+.\" FIXME (Oct 05)
+.\" But check http://sourceware.org/bugzilla/show_bug.cgi?id=1458
+.\" to see whether glibc has been fixed to expose these interfaces
 .SH "CONFORMING TO"
 This call is Linux-specific, and should not be used in programs
 intended to be portable.  4.2BSD had a (never actually implemented)

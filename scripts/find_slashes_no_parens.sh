@@ -59,3 +59,4 @@ echo "Built regexp file; now about to grep..." 1>&2
 grep -f $regexp_file $*
 
 rm -f $regexp_file
+exit 0

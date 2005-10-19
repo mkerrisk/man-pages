@@ -62,6 +62,5 @@ echo '}' >> $awk_script_file
 grep '^\.[BRI][BRI]* [a-zA-Z0-9_][a-zA-Z0-9_]*[^a-zA-Z_]*$' $* | 
 	awk -f $awk_script_file | grep -v '([0-9]*)'
 
-exit 0
 rm -f $awk_script_file
-
+exit 0

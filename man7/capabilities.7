@@ -25,7 +25,7 @@
 .\"
 .\" FIXME Capabilities are actually per-thread.
 .\"
-.TH CAPABILITIES 7 2004-12-08 "Linux 2.6.14" "Linux Programmer's Manual"
+.TH CAPABILITIES 7 2005-10-28 "Linux 2.6.14" "Linux Programmer's Manual"
 .SH NAME
 capabilities \- overview of Linux capabilities
 .SH DESCRIPTION
@@ -42,23 +42,19 @@ while unprivileged processes are subject to full permission
 checking based on the process's credentials
 (usually: effective UID, effective GID, and supplementary group list).
 
-Starting with kernel 2.2, Linux provides an
-(as yet incomplete) system of
+Starting with kernel 2.2, Linux divides the privileges traditionally associated with superuser into distinct units, known as 
 .IR capabilities ,
-which divide the privileges traditionally associated with superuser
-into distinct units that can be independently enabled and disabled.
+which can be independently enabled and disabled.
 .SS Capabilities List
 
-As at Linux 2.6.11, the following capabilities are implemented:
-.\" FIXME Linux 2.6.11 added CAP_AUDIT_CONTROL and CAP_AUDIT_WRITE;
-.\"	these need to be documented.
+As at Linux 2.6.14, the following capabilities are implemented:
 .TP
 .BR CAP_AUDIT_CONTROL " (since Linux 2.6.11)"
 Enable and disable kernel auditing; change auditing filter rules;
 retrieve auditing status and filtering rules.
 .TP
 .BR CAP_AUDIT_WRITE " (since Linux 2.6.11)"
-Allow records to be written to kerenl auditing log.
+Allow records to be written to kernel auditing log.
 .TP
 .B CAP_CHOWN
 Allow arbitrary changes to file UIDs and GIDs (see
@@ -190,12 +186,16 @@ Extended Attributes (see
 .BR attr (5));
 allow forged UID when passing socket credentials;
 exceed
-.I /proc/sys/fs/file-max
-limit in system calls that open files (e.g.,
+.IR /proc/sys/fs/file-max ,
+the system-wide limit on the number of open files,
+in system calls that open files (e.g.,
 .BR accept (2),
 .BR execve (2),
 .BR open (2),
-.BR pipe (2))
+.BR pipe (2); 
+without this capability these system calls will fail with the error 
+.B ENFILE 
+if this limit is encountered).
 .\" FIXME 2.6.14-rc1: CAP_SYS_ADMIN: 
 .\"		/* Allow setting zone reclaim policy */
 .TP
@@ -282,29 +282,25 @@ perform permission checks for the process.
 the capabilities that the process may assume
 (i.e., a limiting superset for the effective and inheritable sets).
 If a process drops a capability from its permitted set,
-it can never re-acquire that capability (unless it execs a
-set-user-ID-root program).
+it can never re-acquire that capability (unless it 
+.BR exec ()s 
+a set-user-ID-root program).
 .TP
 .IR inheritable :
 the capabilities preserved across an
 .BR execve (2).
 .PP
-In the current implementation, a process is granted all permitted and
-effective capabilities (subject to the operation of the
-capability bounding set described below)
-when it execs a set-user-ID-root program,
-or if a process with a real UID of zero execs a new program.
-.PP
 A child created via
 .BR fork (2)
 inherits copies of its parent's capability sets.
+See below for a discussion of the treatment of capabilities during
+.BR exec ().
 .PP
 Using
 .BR capset (2),
 a process may manipulate its own capability sets, or, if it has the
 .B CAP_SETPCAP
 capability, those of another process.
-
 .SS Capability bounding set
 When a program is execed, the permitted and effective capabilities
 are ANDed with the current value of the so-called
@@ -330,7 +326,6 @@ To remove this restriction (dangerous!), modify the definition of
 in
 .I include/linux/capability.h
 and rebuild the kernel.
-
 .SS Current and Future Implementation
 A full implementation of capabilities requires:
 .IP 1. 4
@@ -351,14 +346,14 @@ Eventually, it should be possible to associate three
 capability sets with an executable file, which,
 in conjunction with the capability sets of the process,
 will determine the capabilities of a process after an
-.IR exec ():
+.BR exec ():
 .TP
-.IR Allowed :
+.IR Inheritable " (formerly known as " allowed ):
 this set is ANDed with the process's inheritable set to determine which
 inheritable capabilities are permitted to the process after the 
-,BR exec ().
+.BR exec ().
 .TP
-.IR Forced :
+.IR Permitted " (formerly known as " forced ):
 the capabilities automatically permitted to the process,
 regardless of the process's inheritable capabilities.
 .TP
@@ -375,11 +370,12 @@ All three file capability sets are initially assumed to be cleared.
 .IP 2. 4
 If a set-user-ID-root program is being execed,
 or the real user ID of the process is 0 (root)
-then the file allowed and forced sets are defined to be all ones
-(i.e., all capabilities set).
+then the file inheritable and permitted sets are defined to be all ones
+(i.e., all capabilities enabled).
 .IP 3. 4
 If a set-user-ID-root program is being executed,
 then the file effective set is defined to be all ones.
+.SS Transformation of Process Capabilities During exec()
 .PP
 During an 
 .BR exec (), 
@@ -388,7 +384,8 @@ the process using the following algorithm:
 .in +4
 .nf
 
-P'(permitted) = (P(inheritable) & F(allowed)) | (F(forced) & cap_bset)
+P'(permitted) = (P(inheritable) & F(inheritable)) | 
+                (F(permitted) & cap_bset)
 
 P'(effective) = P'(permitted) & F(effective)
 
@@ -407,6 +404,58 @@ denotes the value of a capability set after the
 denotes a file capability set
 .IP cap_bset 10
 is the value of the capability bounding set.
+.PP
+In the current implementation, the upshot of this algorithm is that
+when a process 
+.BR exec ()s
+a set-user-ID-root program, or when a process with an effective UID of 0
+.BR exec ()s
+a program,
+it gains all capabilities in its permitted and effective capability sets, 
+except those masked out by the capability bounding set (i.e., 
+.BR CAP_SETPCAP ).
+This provides semantics that are the same as those provided by
+traditional Unix systems.
+.SS Effect of User ID Changes on Capabilities
+To preserve the traditional semantics for transitions between 
+0 and non-zero user IDs, 
+the kernel makes the following changes to a process's capability 
+sets on changes to the process's real, effective, saved set, 
+and file system user IDs (using
+.BR setuid (2),
+.BR setresuid (2),
+or similar):
+.IP 1. 4
+If one or more of the real, effective or saved set user IDs was previously 0,
+and as a result of the UID changes all of these IDs have a non-zero value, 
+then all capabilities are cleared from the permitted and effective 
+capability sets.
+.IP 2. 4
+If the effective user ID is changed from 0 to non-zero, 
+then all capabilities are cleared from the effective set.
+.IP 3. 4
+If the effective user ID is changed from non-zero to 0,
+then the permitted set is copied to the effective set. 
+.IP 4. 4
+If the file system user ID is changed from 0 to non-zero (see
+.BR setfsuid (2))
+then the following capabilities are cleared from the effective set:
+.BR CAP_CHOWN ,
+.BR CAP_DAC_OVERRIDE ,
+.BR CAP_DAC_READ_SEARCH ,
+.BR CAP_FOWNER ,
+and
+.BR CAP_FSETID .
+If the file system UID is changed from non-zero to 0,
+then any of these capabilities that are enabled in the permitted set 
+are enabled in the effective set.
+.PP
+If a process that has a 0 value for one or more of its user IDs wants
+to prevent its permitted capability set being cleared when it resets
+all of its user IDs to non-zero values, it can do so using the
+.BR prctl ()
+.B PR_SET_KEEPCAPS
+operation.
 .SH NOTES
 The
 .I libcap
@@ -424,4 +473,5 @@ There is as yet no file system support allowing capabilities to be
 associated with executable files.
 .SH "SEE ALSO"
 .BR capget (2),
-.BR prctl (2)
+.BR prctl (2),
+.BR setfsuid (2)

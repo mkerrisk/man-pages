@@ -597,13 +597,8 @@ or
 .BR truncate ()
 that conflicts with a lease established via
 .BR F_SETLEASE ,
-the system call is blocked by the kernel, unless the
-.B O_NONBLOCK
-flag was specified to
-.BR open (),
-in which case the system call will return with the error
-.BR EWOULDBLOCK .
-The kernel notifies the lease holder by sending it a signal
+the system call is blocked by the kernel and
+the kernel notifies the lease holder by sending it a signal
 (SIGIO by default).
 The lease holder should respond to receipt of this signal by doing
 whatever cleanup is required in preparation for the file to be
@@ -633,6 +628,27 @@ then the kernel forcibly removes or downgrades the lease holder's lease.
 Once the lease has been voluntarily or forcibly removed or downgraded,
 and assuming the lease breaker has not unblocked its system call,
 the kernel permits the lease breaker's system call to proceed.
+
+If the lease breaker's blocked
+.BR open () 
+or 
+.BR truncate ()
+is interrupted by a signal handler, 
+then the system call fails with the error 
+.BR EINTR , 
+but the other steps still occur as described above.
+If the lease breaker is killed by a signal while blocked in 
+.BR open () 
+or 
+.BR truncate (),
+then the other steps still occur as described above.
+If the lease breaker specifies the 
+.B O_NONBLOCK 
+flag when calling 
+.BR open (),
+then the call immediately fails with the error 
+.BR EWOULDBLOCK , 
+but the other steps still occur as described above.
 
 The default signal used to notify the lease holder is SIGIO,
 but this can be changed using the

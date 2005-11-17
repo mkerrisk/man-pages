@@ -1,3 +1,4 @@
+.\" Copyright (C) 2005 Michael Kerrisk (mtk-manpages@gmx.net)
 .\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -22,6 +23,8 @@
 .\"
 .\" Rewritten old page, 960210, aeb@cwi.nl
 .\" Updated, added strtok_r. 2000-02-13 Nicolás Lichtmaier <nick@debian.org>
+.\" 2005-11-17, mtk: Substantial parts rewritten
+.\"
 .TH STRTOK 3  2000-02-13 "GNU" "Linux Programmer's Manual"
 .SH NAME
 strtok, strtok_r \- extract tokens from strings
@@ -29,52 +32,117 @@ strtok, strtok_r \- extract tokens from strings
 .nf
 .B #include <string.h>
 .sp
-.BI "char *strtok(char *" s ", const char *" delim );
+.BI "char *strtok(char *" str ", const char *" delim );
 .sp
-.BI "char *strtok_r(char *" s ", const char *" delim ", char **" ptrptr );
+.BI "char *strtok_r(char *" str ", const char *" delim ", char **" saveptr );
 .fi
 .SH DESCRIPTION
-A `token' is a nonempty string of characters not occurring in
-the string \fIdelim\fP, followed by \e0 or by a character occurring
-in \fIdelim\fP.
-.PP
-The \fBstrtok\fP() function can be used to parse the string \fIs\fP
-into tokens. The first call to \fBstrtok\fP() should have \fIs\fP
-as its first argument. Subsequent calls should have the first argument
-set to NULL. Each call returns a pointer to the next token, or NULL
-when no more tokens are found.
-.PP
-If a token ends with a delimiter, this delimiting character is
-overwritten with a \e0 and a pointer to the next character is
-saved for the next call to \fBstrtok\fP().
-The delimiter string \fIdelim\fP may be different for each call.
-.PP
+The \fBstrtok\fP() function parses a string into a sequence of tokens. 
+On the first call to \fBstrtok\fP() the string to be parsed should be
+specified in \fIstr\fP.
+In each subsequent call that should parse the same string, 
+\fIstr\fP should be NULL.
+
+The \fIdelim\fP argument specifies a set of characters that
+delimit the tokens in the parsed string.
+The caller may specify different strings in \fIdelim\fP in successive 
+calls that parse the same string.
+
+Each call to \fBstrtok\fP() returns a pointer to a 
+null-terminated string containing the next token.
+This string does not include the delimiting character.
+If no more tokens are found, \fBstrtok\fP() returns NULL.
+
+A sequence of two or more contiguous delimiter characters in 
+the parsed string is considered to be a single delimiter.
+Delimiter characters at the start or end of the string are ignored.
+Put another way: the tokens returned by \fBstrtok\fP() 
+are always non-empty strings.
+
 The 
 .BR strtok_r ()
-function is a reentrant version of the
-.BR strtok ()
-function, which instead of using its own static buffer, requires a pointer
-to a user allocated char*. This pointer, the
-.I ptrptr
-parameter, must be the same while parsing the same string.
-.\" .SH EXAMPLE
-.\" The following parses words out of a string, using 'white space'
-.\" separators, with
-.\" .BR strtok_r () :
-.\" .PP
-.\" .nf
-.\" char buf[128];
-.\" char *sep = " \\t\\n";
-.\" char *tok, *cb;
-.\" 
-.\"     snprintf(buf, sizeof(buf), "%s", "   One Two\\tThree\\nFour\\n\\n");
-.\" 
-.\"     for ( tok = strtok_r(buf, sep, &cb); tok;
-.\"           tok = strtok_r(NULL, sep, &cb) )
-.\"             printf("%s\\n", tok);
-.\" .fi
+function is a reentrant version
+.BR strtok ().
+The \fIsaveptr\fP argument is a pointer to a 
+\fIchar *\fP variable that is used internally by
+.BR strtok_r ()
+in order to maintain context between successive calls that parse the
+same string.
+
+On the first call to 
+.BR strtok_r (),
+.I str
+should point to the string to be parsed, and the value of 
+.I saveptr
+is ignored.
+In subsequent calls, \fIstr\fP should be NULL, and
+\fIsaveptr\fP should be unchanged since the previous call.
+
+Different strings may be parsed concurrently using sequences of calls to
+.BR strtok_r ()
+that specify different \fIsaveptr\fP arguments.
+.SH EXAMPLES
+The following program uses nested loops that employ
+.BR strtok_r ()
+to break a string into a two-level hierarchy of tokens.
+The first command-line argument specifies the string to be parsed.
+The second argument specifies the delimiter character(s)
+to be used to separate that string into "major" tokens.
+The third argument specifies the delimiter character(s)
+to be used to separate the "major" tokens into subtokens.
+.PP
+.nf
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int
+main(int argc, char *argv[])
+{
+    char *str1, *str2, *token, *subtoken;
+    char *saveptr1, *saveptr2;
+    int j;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s string delim subdelim\\n", 
+                argv[0]);
+        exit(EXIT_FAILURE);
+    } 
+
+    for (j = 1, str1 = argv[1]; ; j++, str1 = NULL) {
+        token = strtok_r(str1, argv[2], &saveptr1);
+        if (token == NULL)
+            break;
+        printf("%d: %s\n", j, token);
+
+        for (str2 = token; ; str2 = NULL) {
+            subtoken = strtok_r(str2, argv[3], &saveptr2);
+            if (subtoken == NULL)
+                break;
+            printf("\t --> %s\n", subtoken);
+        } 
+    } 
+
+    exit(EXIT_SUCCESS);
+} /* main */
+.fi
+.PP
+An example of the output produced by this program is the following:
+.PP
+.nf
+$ ./a.out 'a/bbb///cc;xxx:yyy:' ':;' '/'
+1: a/bbb///cc
+         --> a
+         --> bbb
+         --> cc
+2: xxx
+         --> xxx
+3: yyy
+         --> yyy
+.fi
 .SH BUGS
-Never use these functions. If you do, note that:
+Avoid using these functions.
+If you do use them, note that:
 .PP
 .RS
 These functions modify their first argument.
@@ -90,15 +158,15 @@ function uses a static buffer while parsing, so it's not thread safe. Use
 if this matters to you.
 .RE
 .SH "RETURN VALUE"
-The \fBstrtok\fP() function returns a pointer to the next token, or
-NULL if there are no more tokens.
+The \fBstrtok\fP() and \fBstrtok_r\fP()functions returns a pointer to 
+the next token, or NULL if there are no more tokens.
 .SH "CONFORMING TO"
 .TP
 .BR strtok ()
-SVID 3, POSIX, 4.3BSD, ISO 9899
+SVID 3, POSIX.1-2001, 4.3BSD, ISO 9899
 .TP
 .BR strtok_r ()
-POSIX.1c
+POSIX.1-2001
 .SH "SEE ALSO"
 .BR index (3),
 .BR memchr (3),

@@ -81,7 +81,6 @@ was specified as a value other than
 then
 .I sig
 is removed from the process's signal mask.
-.\" FIXME But this case is broken in glibc 2.3.5!
 .PP
 The dispositions for
 .B SIGKILL
@@ -122,12 +121,13 @@ On error,
 returns \-1, with 
 .I errno
 set to indicate the error.
-.\" FIXME But as at 2.3.5, glibc's sigset() is broken for the SIG_HOLD case:
-.\" it will only return SIG_HOLD if 'disp' is SIG_HOLD; if the signal is
-.\" blocked, then sigset() should return SIG_HOLD even if 'disp' is
-.\" specified as something other than SIG_HOLD (I have tested this
-.\" on Solaris 8 and HP-UX 11).
+.\" FIXME But as at 2.3.5, glibc's sigset() is broken for the SIG_HOLD 
+.\" case: it will only return SIG_HOLD if 'disp' is SIG_HOLD; if the 
+.\" signal is blocked, then sigset() should return SIG_HOLD even if 
+.\" 'disp' is specified as something other than SIG_HOLD (I have tested 
+.\" this on Solaris 8 and HP-UX 11).
 .\" -- mtk, 29 Nov 05
+.\" See http://sourceware.org/bugzilla/show_bug.cgi?id=1951
 
 The
 .BR sighold (),
@@ -157,6 +157,8 @@ For
 see the errors under
 .BR sigaction (2).
 .SH NOTES
+These functions appeared in glibc version 2.1.
+
 The
 .I sighandler_t
 type is a GNU extension; it is only used on this page to make the
@@ -196,6 +198,46 @@ but this function has a different argument on the two systems.
 See
 .BR sigpause (3)
 for details.
+.SH BUGS
+In versions of glibc before 2.2,
+.BR sigset ()
+did not unblock 
+.I sig
+if 
+.I disp
+was specified as a value other than
+.BR SIG_HOLD .
+
+In all versions of glibc up to and including 2.3.5,
+.BR sigset ()
+does not correctly return the previous disposition of the signal 
+in two cases.
+First, if
+.I disp
+is specified as 
+.BR SIG_HOLD ,
+then a successful
+.BR sigset ()
+always returns
+.BR SIG_HOLD .
+Instead, it should return the previous disposition of the signal
+(unless the signal was blocked, in which case
+.BR SIG_HOLD
+should be returned).
+Second, if the signal is currently blocked, then
+the return value of a successful
+.BR sigset ()
+should be
+.BR SIG_HOLD .
+Instead, the previous disposition of the signal is returned.
+.\"FIXME -- This has been reported on 30 Nov 05 -- mtk
+.\" See http://sourceware.org/bugzilla/show_bug.cgi?id=1951
+.\"
+.\" The SUSv3 disposition of sigset() says:
+.\"     Upon successful completion, sigset() shall return SIG_HOLD if the
+.\"     signal had been blocked and the signal's previous disposition if
+.\"     it had not been blocked. Otherwise, SIG_ERR shall be returned and
+.\"     errno set to indicate the error.
 .SH "CONFORMING TO"
 SVr4.
 These functions are obsolete: do not use them in new programs.

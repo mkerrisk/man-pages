@@ -1,0 +1,188 @@
+.\"  Copyright 2005 walter harms (walter.harms@informatik.uni-oldenburg.de),
+.\" Michael Kerrisk <mtk-manpages@gmx.net> and the Free Software Foundation
+.\" This page draws heavily on information in the glibc info page.
+.\"  Distributed under GFDL
+.\"
+.TH FMEMOPEN 3 2005-12-08 "GNU" "glibc function"
+.SH NAME
+fmemopen, open_memstream \-  open memory as stream
+.SH SYNOPSIS
+.B #define _GNU_SOURCE
+.br
+.B #include <stdio.h>
+.sp
+.BI "FILE *fmemopen (void *"buf ", size_t "size ","
+.BI "const char *" mode ");"
+.sp
+.BI "FILE * open_memstream(char ** "ptr ", size_t *" sizeloc )
+.SH DESCRIPTION
+The
+.BR fmemopen ()
+function opens a stream that permits the access specified by
+.IR mode .
+This stream allows I/O to be performed on a string or memory buffer, 
+specified in
+.IR buf .  
+This buffer must be at least
+.I size
+bytes long.
+.PP
+If 
+.I buf 
+is specified as NULL, then
+.BR  fmemopen ()
+dynamically allocates an array
+.I size
+bytes long. 
+This is only useful if
+you are going to write things to the buffer and then read them back
+in again, because there is no way of actually getting a pointer to
+the buffer (but see the description of 
+.BR open_memstream ()
+below).
+The buffer is automatically freed when the stream is closed.
+.PP
+The argument
+.I mode
+is the same as for
+.BR fopen () .
+If
+.I mode
+specifies an append mode, then
+the initial file position is set to the first null character ('\\0');
+otherwise the initial file position is set to the beginning of the buffer.
+.PP
+When a stream that has been opened for writing is flushed or closed, a null
+character ('\\0') is written at the end of the buffer if there is space.
+You should add an extra byte to the
+.I size
+argument to account for this.  
+Attempts to write more than
+.I size
+bytes to the buffer result in an error.
+.\" FIXME They should give an error, but see 
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=1995
+.PP
+For a stream open for reading, null characters ('\\0') in the
+buffer do not count as "end of file".  
+Read operations indicate
+end of file only when the file position advances past
+.I size
+bytes.
+If you want to read characters from a NUL-terminated string,
+you should supply the length of the string as the
+.I size
+argument.
+
+The
+.BR open_memstream ()
+opens a stream for writing to a buffer.  
+The buffer
+is allocated dynamically (as with 
+.BR malloc (3)),
+and grown as necessary.
+.\" FIXME The glibc doc doesn't say that the buffer must be freed,
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=1997
+After closing the stream, the caller should
+.BR free (3)
+this buffer
+
+When the stream is closed with 
+.BR fclose (3) 
+or flushed with 
+.BR fflush (3)
+the locations 
+.I ptr 
+and 
+.I sizeloc
+are updated to contain the pointer to the buffer and its size.  
+The values thus stored remain valid
+only as long as no further output on the stream takes place.  
+If you do more output, you must flush the stream again before
+trying to access these variables again.
+
+A null character ('\\0') is written at the end of the buffer.  
+This character is 
+.I not 
+included in the size value stored at 
+.IR sizeloc .
+.\" 
+.\" FIXME the following is from the glibc info doc, but appears not
+.\" to be true: http://sourceware.org/bugzilla/show_bug.cgi?id=1996
+.\" The stream's file position can be changed with with 
+.\" .BR fseek (3) 
+.\" or 
+.\" .BR fseeko (3).
+.\" Moving the file position past the end
+.\" of the data already written fills the intervening space with
+.\" zeroes.
+.SH "RETURN VALUE"
+Upon successful completion  
+.BR fmemopen () 
+and
+.BR open_memstream ()
+return a
+.B FILE 
+pointer.  
+Otherwise, NULL is  returned  and  the  global  variable
+.I errno 
+is set to indicate the error.
+
+.SH "EXAMPLE"
+The program below uses 
+.BR fmemopen ()
+to open an input buffer, and
+.BR open_memstream ()
+to open a dynamically sized output buffer.
+The program scans its input string (taken from the program's
+first command-line argument) reading integers,
+and writes the squares of these integers to the output buffer.
+An example of the output produded by this program is the following:
+.nf
+
+$ ./a.out "1 23 43"
+size=11; ptr=1 529 1849
+
+#define _GNU_SOURCE
+#include <assert.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
+{
+    FILE *out, *in;
+    int v, s;
+    size_t size;
+    char *ptr;
+
+    assert(argc == 2);
+
+    in = fmemopen(argv[1], strlen(argv[1]), "r");
+    if (in == NULL) { perror("fmemopen"); exit(EXIT_FAILURE);}
+
+    out = open_memstream(&ptr, &size);
+    if (out == NULL) { perror("fmemopen"); exit(EXIT_FAILURE);}
+
+    for (;;) {
+        s = fscanf(in, "%d", &v);
+        if (s <= 0)
+            break;
+
+        s = fprintf(out, "%d ", v * v);
+        if (s == -1) { perror("fprintf"); exit(EXIT_FAILURE); }
+    }
+    fclose(in);
+    fclose(out);
+    printf("size=%ld; ptr=%s\\n", (long) size, ptr);
+    free(ptr);
+    exit(EXIT_SUCCESS);
+}
+.fi
+.sp
+.SH "CONFORMING TO"
+These functions are GNU extensions.
+.SH "SEE ALSO"
+.BR open (3)
+.\" FIXME There is no open_memstream.3 man page yet.
+.\" .BR open_memstream (3)

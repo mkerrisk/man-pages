@@ -30,7 +30,7 @@ A pipe has a
 and a 
 .IR "write end" .
 Data written to the write end of a pipe can be read
-by a process that has the read end of the pipe open.
+from the read end of the pipe.
 
 A pipe is created using 
 .BR pipe (2),
@@ -58,23 +58,14 @@ See
 for further details.
 .IR Note : 
 although FIFOs have a pathname in the file system,
-I/O on FIFOs does not involve disk operations.
+I/O on FIFOs does not involve operations on the underlying device 
+(if there is one).
 .SS "I/O on Pipes and FIFOs"
 The only difference between pipes and FIFOs is the manner in which
 they are created and opened.  
 Once these tasks have been accomplished, 
 I/O on pipes and FIFOs has exactly the same semantics.
-I/O is performed using
-.BR read (2) 
-and 
-.BR write (2).
 
-The communication channel provided by a pipe is a
-.IR "byte stream" : 
-there is no concept of message boundaries;
-data can be read and written in arbitrary amounts.
-
-By default, I/O on pipes and FIFOs is blocking. 
 If a process attempts to read from an empty pipe, then
 .BR read (2) 
 will block until data is available.
@@ -88,6 +79,10 @@ Non-blocking I/O is possible by using the
 operation to enable the
 .B O_NONBLOCK
 open file status flag.
+
+The communication channel provided by a pipe is a
+.IR "byte stream" : 
+there is no concept of message boundaries.
 
 If all file descriptors referring to the write end of a pipe 
 have been closed, then an attempt to 
@@ -116,9 +111,9 @@ this ensures that end-of-file and
 .BR SIGPIPE / EPIPE 
 are delivered when appropriate.
 
-It is not possible to use
+It is not possible to apply
 .BR lseek (2)
-to randomly access the bytes in a pipe.
+to a pipe.
 .SS "Pipe Capacity"
 A pipe has a limited capacity.
 If the pipe is full, then a
@@ -206,6 +201,24 @@ the caller should check the return value from
 .BR write (2)
 to see how many bytes were actually written),
 and these bytes may be interleaved with writes by other processes.
+.SS "Open File Status Flags"
+The only open file status flags that can be meaningfully applied to 
+a pipe or FIFO are
+.B O_NONBLOCK
+and 
+.BR O_ASYNC .
+
+Setting the
+.B O_ASYNC
+flag for the read end of a pipe causes a signal 
+.RB ( SIGIO
+by default) to be generated when new input becomes available on the pipe
+(see
+.BR fcntl (2)
+for details).
+On Linux,
+.B O_ASYNC 
+is supported for pipes and FIFOs only since kernel 2.6.
 .SS "Portability notes"
 On some systems (but not Linux), pipes are bidirectional: 
 data can be transmitted in both directions between the pipe ends.

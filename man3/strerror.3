@@ -30,20 +30,25 @@
 .\" Modified Mon Oct 15 21:16:25 2001 by John Levon <moz@compsoc.man.ac.uk>
 .\" Modified Tue Oct 16 00:04:43 2001 by Andries Brouwer <aeb@cwi.nl>
 .\" Modified Fri Jun 20 03:04:30 2003 by Andries Brouwer <aeb@cwi.nl>
+.\" 2005-12-13, mtk, Substantial rewrite of strerror_r() description.
 .\"
-.TH STRERROR 3  2001-10-16 "" "Linux Programmer's Manual"
+.TH STRERROR 3  2005-12-13 "" "Linux Programmer's Manual"
 .SH NAME
-strerror, strerror_r \- return string describing error code
+strerror, strerror_r \- return string describing error number
 .SH SYNOPSIS
 .nf
 .B #include <string.h>
 .sp
 .BI "char *strerror(int " errnum );
 .sp
-.B #define _XOPEN_SOURCE 600
+.BI "char *strerror_r(int " errnum ", char *" buf ", size_t " buflen );
+                        /* GNU-specific strerror_r() */
+.sp
+.B #define _XOPEN_SOURCE 600  
 .B #include <string.h>
 .sp
-.BI "int strerror_r(int " errnum ", char *" buf ", size_t " n );
+.BI "int strerror_r(int " errnum ", char *" buf ", size_t " buflen );
+                        /* XSI-compliant strerror_r() */
 .fi
 .SH DESCRIPTION
 The \fBstrerror\fP() function returns a string describing the error
@@ -54,18 +59,50 @@ modified by a subsequent call to \fBperror\fP() or \fBstrerror\fP().
 No library function will modify this string.
 
 The \fBstrerror_r\fP() function is similar to \fBstrerror\fP(), but is
-thread safe. It returns the string in the user-supplied buffer
+thread safe. 
+This function is available in two versions: 
+an XSI-compliant version specified in SUSv3, 
+and a GNU-specific version (available since glibc 2.0).
+If _XOPEN_SOURCE is defined with the value 600, 
+then the XSI-compliant version is provided, 
+otherwise the GNU-specific version is provided.
+
+The XSI-compliant 
+.BR strerror_r () 
+is preferred for portable applications.
+It returns the error string in the user-supplied buffer
 .I buf
 of length
-.IR n .
+.IR buflen .
+
+The GNU-specific 
+.BR strerror_r () 
+returns a pointer to a string containing the error message.
+This may be either a pointer to a string that the function stores in
+.IR buf ,
+or a pointer to some (immutable) static string
+(in which case
+.I buf 
+is unused).
+If the function stores a string in 
+.IR buf ,
+then at most
+.I buflen
+bytes are stored (the string may be truncated if
+.I buflen
+is too small) and the string always includes a terminating null byte.
 
 .SH "RETURN VALUE"
-The \fBstrerror\fP() function returns the appropriate error description
-string, or an unknown error message if the error code is unknown.
-The value of \fIerrno\fP is not changed for a successful call, and is
-set to a non-zero value upon error.
-The \fBstrerror_r\fP() function returns 0 on success and \-1 on failure,
-setting \fIerrno\fP.
+The \fBstrerror\fP() function returns
+the appropriate error description string, 
+or an "Unknown error nnn" message if the error number is unknown.
+.\" The value of \fIerrno\fP is not changed for a successful call, and is
+.\" set to a non-zero value upon error.
+
+The XSI-compliant \fBstrerror_r\fP() function returns 0 on success;
+on error, \-1 is returned and
+.I errno
+is set to indicate the error.
 
 .SH ERRORS
 .TP
@@ -78,19 +115,31 @@ is not a valid error number.
 Insufficient storage was supplied to contain the error description string.
 
 .SH "CONFORMING TO"
-SVID 3, POSIX, 4.3BSD, ISO/IEC 9899:1990 (C89).
-.br
+POSIX.1
+
+The GNU-specific 
 .BR strerror_r ()
-with prototype as given above is specified by SUSv3, and was in use
-under Digital Unix and HP Unix. An incompatible function, with prototype
-.sp
-.BI "char *strerror_r(int " errnum ", char *" buf ", size_t " n );
-.sp
-is a GNU extension used by glibc (since 2.0),
-and must be regarded as obsolete in view of SUSv3.
-The GNU version may, but need not, use the user-supplied buffer.
-If it does, the result may be truncated in case the supplied buffer
-is too small. The result is always NUL-terminated.
+function is a non-standard extension.
+
+POSIX.1 permits
+.BR strerror ()
+to set 
+.I errno
+if the call encounters an error, but does not specify what 
+value should be returned as the function result in the event of an error.
+On some systems,
+.\" e.g., Solaris 8, HP-UX 11
+.BR strerror ()
+returns NULL if the error number is unknown.
+On other systems, 
+.\" e.g., FreeBSD 5.4, Tru64 5.1B
+.BR strerror ()
+returns a string something like "Error nnn occurred" and sets 
+.I errno
+to 
+.B EINVAL
+if the error number is unknown.
+
 .SH "SEE ALSO"
 .BR errno (3),
 .BR perror (3),

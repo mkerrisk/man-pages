@@ -85,9 +85,8 @@ The command line arguments appear in this file as a set of
 null-separated strings, with a further null byte after the last string.
 .TP
 .I /proc/[number]/cwd
-This is a link to the current working directory of the process.  To find 
-out
-the cwd of process 20, for instance, you can do this:
+This is a isymbolic link to the current working directory of the process.  
+To find out the cwd of process 20, for instance, you can do this:
 
 .br
 .nf
@@ -96,8 +95,16 @@ cd /proc/20/cwd; /bin/pwd
 .fi
 .ft
 
-Note that the pwd command is often a shell builtin, and might
+Note that the 
+.I pwd 
+command is often a shell builtin, and might
 not work properly. In bash, you may use pwd \-P.
+
+.\" The following was still true as at kernel 2.6.13
+In a multithreaded process, the contents of this symbolic link 
+are not available if the main thread has already terminated 
+(typically by calling
+.BR pthread_exit (3).
 .TP
 .I /proc/[number]/environ
 This file contains the environment for the process.
@@ -123,6 +130,11 @@ it will open the executable.  You can even type
 .I /proc/[number]/exe
 to run another copy of the same executable as is being run by 
 process [number].
+.\" The following was still true as at kernel 2.6.13
+In a multithreaded process, the contents of this symbolic link 
+are not available if the main thread has already terminated 
+(typically by calling
+.BR pthread_exit (3)).
 
 Under Linux 2.0 and earlier
 .I /proc/[number]/exe
@@ -144,6 +156,12 @@ This is a subdirectory containing one entry for each file which the
 process has open, named by its file descriptor, and which is a
 symbolic link to the actual file.  Thus, 0 is
 standard input, 1 standard output, 2 standard error, etc.
+
+.\" The following was still true as at kernel 2.6.13
+In a multithreaded process, the contents of this directory
+are not available if the main thread has already terminated 
+(typically by calling
+.BR pthread_exit (3)).
 
 Programs that will take a filename, but will not take the standard
 input, and which write to a file, but will not send their output to
@@ -230,6 +248,12 @@ filesystem, set by the
 .BR chroot (2)
 system call.  This file is a symbolic link that points to the process's
 root directory, and behaves as exe, fd/*, etc. do.
+
+.\" The following was still true as at kernel 2.6.13
+In a multithreaded process, the contents of this symbolic link 
+are not available if the main thread has already terminated 
+(typically by calling
+.BR pthread_exit (3)).
 .\" FIXME Describe /proc/[number]/seccomp
 .\"       Added in 2.6.12
 .TP
@@ -423,6 +447,43 @@ Provides much of the information in
 and
 .I /proc/[number]/statm
 in a format that's easier for humans to parse.
+.TP
+.IR /proc/[number]/task " (since kernel 2.6.0-test6)"
+This is a directory that contains one subdirectory
+for each thread in the process.
+The name of each subdirectory is the numerical thread ID of the
+thread (see
+.BR gettid (2)).
+Within each of these subdirectories, there is a set of
+files with the same names and contents as under the
+.I /proc/[number]
+directories.
+For attributes that are shared by all threads, the contents for
+each of the files under the
+.I task/[thread-ID]
+subdirectories will be the same as in the corresponding
+file in the parent 
+.I /proc/[number]
+directory
+(e.g., in a multithreaded process, all of the 
+.I task/[thread-ID]/cwd
+files will have the same value as the 
+.I /proc/[number]/cwd
+file in the parent directory, since all of the threads in a process 
+share a working directory).
+For attributes that are distinct for each thread,
+the corresponding files under 
+.I task/[thread-ID]
+may have different values (e.g., various fields in each of the
+.I task/[thread-ID]/status
+files may be different for each thread).
+
+.\" The following was still true as at kernel 2.6.13
+In a multithreaded process, the contents of the
+.I /proc/[number]/task
+directory are not available if the main thread has already terminated 
+(typically by calling
+.BR pthread_exit (3)).
 .TP
 .I /proc/apm
 Advanced power management version and battery information

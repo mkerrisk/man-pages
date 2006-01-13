@@ -1,7 +1,6 @@
 .\"  Copyright 2005 walter harms (walter.harms@informatik.uni-oldenburg.de),
-.\" Michael Kerrisk <mtk-manpages@gmx.net> and the Free Software Foundation
-.\" This page draws heavily on information in the glibc info page.
-.\"  Distributed under GFDL
+.\" Michael Kerrisk <mtk-manpages@gmx.net>
+.\" Distributed under the GPL.
 .\"
 .TH FMEMOPEN 3 2005-12-08 "GNU" "glibc function"
 .SH NAME
@@ -20,89 +19,92 @@ The
 .BR fmemopen ()
 function opens a stream that permits the access specified by
 .IR mode .
-This stream allows I/O to be performed on a string or memory buffer, 
-specified in
+The stream allows I/O to be performed on the string or memory buffer 
+pointed to by
 .IR buf .  
 This buffer must be at least
 .I size
 bytes long.
 .PP
-If 
-.I buf 
-is specified as NULL, then
-.BR  fmemopen ()
-dynamically allocates an array
-.I size
-bytes long. 
-This is only useful if
-you are going to write things to the buffer and then read them back
-in again, because there is no way of actually getting a pointer to
-the buffer (but see the description of 
-.BR open_memstream ()
-below).
-The buffer is automatically freed when the stream is closed.
-.PP
 The argument
 .I mode
 is the same as for
-.BR fopen () .
+.BR fopen (3) .
 If
 .I mode
-specifies an append mode, then
-the initial file position is set to the first null character ('\\0');
-otherwise the initial file position is set to the beginning of the buffer.
+specifies an append mode, then the initial file position is set to 
+location of the first null byte ('\\0') in the buffer;
+otherwise the initial file position is set to the start of the buffer.
 .PP
-When a stream that has been opened for writing is flushed or closed, a null
-character ('\\0') is written at the end of the buffer if there is space.
-You should add an extra byte to the
-.I size
-argument to account for this.  
+When a stream that has been opened for writing is flushed  
+.RB ( fflush (3))
+or closed
+.RB ( fclose (3)),
+a null byte is written at the end of the buffer if there is space.
+The caller should ensure that an extra byte is available in the 
+buffer
+(and that
+.IR size
+counts that byte)
+to allow for this.  
+
 Attempts to write more than
 .I size
 bytes to the buffer result in an error.
 .\" FIXME They should give an error, but see 
 .\" http://sourceware.org/bugzilla/show_bug.cgi?id=1995
 .PP
-For a stream open for reading, null characters ('\\0') in the
-buffer do not count as "end of file".  
-Read operations indicate
-end of file only when the file position advances past
+In a stream opened for reading, 
+null bytes ('\\0') in the buffer do not cause read 
+operations to return an end-of-file indication.
+A read from the buffer will only indicate end-of-file
+when the file pointer advances 
 .I size
-bytes.
-If you want to read characters from a NUL-terminated string,
-you should supply the length of the string as the
+bytes past the start of the buffer.
+.PP
+If 
+.I buf 
+is specified as NULL, then
+.BR  fmemopen ()
+dynamically allocates a buffer
 .I size
-argument.
+bytes long. 
+This is useful for an application that wants to write data to
+a temporary buffer and then read it back again.
+The buffer is automatically freed when the stream is closed.
+Note that the caller has no way to obtain a pointer to the
+temporary buffer allocated by this call (but see
+.BR open_memstream ()
+below).
 
 The
 .BR open_memstream ()
 opens a stream for writing to a buffer.  
 The buffer
-is allocated dynamically (as with 
+is dynamically allocated (as with 
 .BR malloc (3)),
-and grown as necessary.
-.\" FIXME The glibc doc doesn't say that the buffer must be freed,
-.\" http://sourceware.org/bugzilla/show_bug.cgi?id=1997
+and automatically grows as required.
 After closing the stream, the caller should
 .BR free (3)
 this buffer.
 
-When the stream is closed with 
-.BR fclose (3) 
-or flushed with 
-.BR fflush (3)
-the locations 
+When the stream is closed 
+.RB ( fclose (3))
+or flushed 
+.RB ( fflush (3)),
+the locations pointed to by
 .I ptr 
 and 
 .I sizeloc
-are updated to contain the pointer to the buffer and its size.  
-The values thus stored remain valid
-only as long as no further output on the stream takes place.  
-If you do more output, you must flush the stream again before
-trying to access these variables again.
+are updated to contain, respectively, a pointer to the buffer and the
+current size of the buffer.  
+These values remain valid only as long as the caller 
+performs no further output on the stream.  
+If further output is performed, then the stream 
+must again be flushed before trying to access these variables.
 
-A null character ('\\0') is written at the end of the buffer.  
-This character is 
+A null byte is maintained at the end of the buffer.  
+This byte is 
 .I not 
 included in the size value stored at 
 .IR sizeloc .
@@ -137,7 +139,7 @@ to open a dynamically sized output buffer.
 The program scans its input string (taken from the program's
 first command-line argument) reading integers,
 and writes the squares of these integers to the output buffer.
-An example of the output produded by this program is the following:
+An example of the output produced by this program is the following:
 .nf
 
 $ ./a.out "1 23 43"
@@ -182,7 +184,7 @@ int main(int argc, char *argv[])
 .sp
 .SH "CONFORMING TO"
 These functions are GNU extensions.
+.\" Jan 06: But they appear to be going up for standardization by
+.\" POSIX/PASC/IEEE.
 .SH "SEE ALSO"
 .BR open (3)
-.\" FIXME There is no open_memstream.3 man page yet.
-.\" .BR open_memstream (3)

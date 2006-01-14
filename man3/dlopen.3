@@ -117,36 +117,65 @@ then these are also automatically loaded by the dynamic linker
 using the same rules.  (This process may occur recursively,
 if those libraries in turn have dependencies, and so on.)
 .PP
-The value of
-.I flag
-can be either
+One of the following two values must be included in
+.IR flag :
+.TP
 .B RTLD_LAZY
-or
-.BR RTLD_NOW .
-When
+Perform lazy binding. 
+Only resolve undefined symbols as the code that referenced 
+them is executed.
+If the symbol is never referenced, then it is never resolved.
+(Lazy binding is only performed for function references;
+references to variables are always immediately bound when
+the library is loaded.)
+.TP
 .B RTLD_NOW
-is specified, or the environment variable
+If this value is specified, or the environment variable
 .B LD_BIND_NOW
 is set to a non-empty string,
 all undefined symbols in the library are resolved before
 .BR dlopen ()
 returns. If this cannot be done, an error is returned.
-Otherwise binding is lazy: symbol values are first resolved
-when needed.
 .PP
-Optionally,
+Zero of more of the following values may also be ORed in
+.IR flag :
+.TP
 .B RTLD_GLOBAL
-may be or'ed into
-.IR flag ,
-in which case the external symbols defined in the library will be
+The external symbols defined in the library will be
 made available for symbol resolution of subsequently loaded libraries.
-(The converse of
-.B RTLD_GLOBAL
-is
-.BR RTLD_LOCAL .
-.\" that indicates that the symbols in this library should not be made
-.\" available for resolution of symbols of subsequently loaded libraries.
-This is the default.)
+.TP 
+.B RTLD_LOCAL
+This is the converse of 
+.BR RTLD_GLOBAL ,
+and the default if neither flag is specified.
+Symbols defined in this library are not made available to resolve
+references in subsequently loaded libraries.
+.TP
+.BR RTLD_NODELETE " (since glibc 2.2)
+Do not unload the library during
+.BR dlclose ().
+Consequently, the library's static variables are not reinitialised
+if the library is reloaded with 
+.BR dlopen ()
+at a later time.
+This flag is not specified in POSIX.1-2001.
+.\" (But it is present on Solaris.)
+.TP
+.BR RTLD_NOLOAD " (since glibc 2.2)
+Don't load the library.
+This can be used to test if the library is already resident
+.RB ( dlopen ()
+returns NULL if it is not, or the library's handle if it is resident).
+This flag can also be used to promote the flags on a library 
+that is already loaded.
+For example, a library that was previously loaded with
+.B RTLD_LOCAL
+can be re-opened with 
+.BR RTLD_NOLOAD\ |\ RTLD_GLOBAL .
+This flag is not specified in POSIX.1-2001.
+.\" (But it is present on Solaris.)
+.\"
+.\" FIXME: document RTLD_DEEPBIND (new in glibc 2.3.4).
 .PP
 If
 .I filename

@@ -34,7 +34,7 @@
 .\"	Language and formatting clean-ups
 .\"	Added notes on /proc files
 .\"
-.TH MSGOP 2 2004-11-10 "Linux 2.6.9" "Linux Programmer's Manual"
+.TH MSGOP 2 2006-02-02 "Linux 2.6.15" "Linux Programmer's Manual"
 .SH NAME
 msgop \- message operations
 .SH SYNOPSIS
@@ -50,12 +50,12 @@ msgop \- message operations
 .fi
 .sp
 .BI "int msgsnd(int " msqid ,
-.BI "struct msgbuf *" msgp ,
+.BI "const void *" msgp ,
 .BI "size_t " msgsz ,
 .BI "int " msgflg );
 .sp
 .BI "ssize_t msgrcv(int " msqid ,
-.BI "struct msgbuf *" msgp ,
+.BI "void *" msgp ,
 .BI "size_t " msgsz ,
 .BI "long " msgtyp ,
 .BI "int " msgflg );
@@ -166,13 +166,11 @@ is set to the current time.
 .PP
 The system call
 .BR msgrcv ()
-reads a message from the message queue specified by
+removes a message from the queue specified by
 .I msqid
-into the
-.I msgbuf
-pointed to by the
-.I msgp
-argument, removing the read message from the queue.
+and places it in the buffer
+pointed to 
+.IR msgp .
 .PP
 The argument
 .I msgsz
@@ -237,7 +235,7 @@ argument is a bit mask constructed by ORing together zero or more
 of the following flags:
 .TP
 .B IPC_NOWAIT
-For immediate return if no message of the requested type is in the queue.
+Return immediately if no message of the requested type is in the queue.
 The system call fails with
 .I errno
 set to
@@ -344,8 +342,9 @@ value (less than 0 or greater than the system value
 .BR MSGMAX ).
 .TP
 .B ENOMEM
-The system has not enough memory to make a copy of the supplied
-.IR msgbuf .
+The system does not have enough memory to make a copy of the 
+message pointed to by
+.IR msgp .
 .PP
 When
 .BR msgrcv ()
@@ -391,7 +390,15 @@ was less than 0.
 was specified in
 .I msgflg
 and no message of the requested type existed on the message queue.
+.SH "CONFORMING TO"
+SVr4, SVID, SUSv3.
 .SH NOTES
+The 
+.I msgp
+argument is declared as \fIstruct msgbuf *\fP with
+libc4, libc5, glibc 2.0, glibc 2.1. It is declared as \fIvoid *\fP
+with glibc 2.2 and later, as required by SUSv2 and SUSv3.
+
 The following limits on message queue resources affect the
 .BR msgsnd ()
 call:
@@ -416,12 +423,6 @@ number of message headers
 .RB ( MSGTQL )
 and for the system wide maximum size in bytes of the message pool
 .RB ( MSGPOOL ).
-.SH "CONFORMING TO"
-SVr4, SVID.
-.SH NOTE
-The pointer argument is declared as \fIstruct msgbuf *\fP with
-libc4, libc5, glibc 2.0, glibc 2.1. It is declared as \fIvoid *\fP
-(\fIconst void *\fP for \fImsgsnd\fP()) with glibc 2.2, following the SUSv2.
 .SH "SEE ALSO"
 .BR msgctl (2),
 .BR msgget (2),

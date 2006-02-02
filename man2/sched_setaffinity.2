@@ -1,6 +1,7 @@
 .\" man2/sched_setaffinity.2 - sched_setaffinity and sched_getaffinity man page
 .\"
 .\" Copyright (C) 2002 Robert Love
+.\" Copyright (C) 2006 Michael Kerrisk
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -27,87 +28,111 @@
 .\" 2004-04-22 aeb - added glibc prototype history
 .\" 2005-05-03 mtk - noted that sched_setaffinity may cause thread 
 .\"	migration and that CPU affinity is a per-thread attribute.
+.\" 2006-02-03 mtk -- Major rewrite
 .\"
-.TH SCHED_SETAFFINITY 2 2005-05-03 "Linux" "Linux Programmer's Manual"
+.TH SCHED_SETAFFINITY 2 2006-02-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sched_setaffinity, sched_getaffinity \- set and get a process's CPU
 affinity mask
 .SH SYNOPSIS
 .B #include <sched.h>
 .sp
-.BI "int sched_setaffinity(pid_t " pid ", unsigned int " len ,
+.BI "int sched_setaffinity(pid_t " pid ", unsigned int " cpusetsize ,
 .BI "cpu_set_t *" mask );
 .sp
-.BI "int sched_getaffinity(pid_t " pid ", unsigned int " len ,
+.BI "int sched_getaffinity(pid_t " pid ", unsigned int " cpusetsize ,
 .BI "cpu_set_t *" mask );
 .sp
-.BI "CPU_CLR(int " cpu ", cpu_set_t *" set );
+.BI "void CPU_CLR(int " cpu ", cpu_set_t *" set );
 .br
-.BI "CPU_ISSET(int " cpu ", cpu_set_t *" set );
+.BI "int CPU_ISSET(int " cpu ", cpu_set_t *" set );
 .br
-.BI "CPU_SET(int " cpu ", cpu_set_t *" set );
+.BI "void CPU_SET(int " cpu ", cpu_set_t *" set );
 .br
-.BI "CPU_ZERO(cpu_set_t *" set );
+.BI "void CPU_ZERO(cpu_set_t *" set );
 .SH DESCRIPTION
+A process's CPU affinity mask determines the set of CPUs on which
+it is eligible to run.
+On a multiprocessor system, setting the CPU affinity mask
+can be used to obtain performance benefits.  
+For example,
+by dedicating one CPU to a particular process 
+(i.e., setting the affinity mask of that process to specify a single CPU, 
+and setting the affinity mask of all other processes to exclude that CPU), 
+it is possible to ensure maximum execution speed for that process.
+Restricting a process to run on a single CPU also prevents
+the performance cost caused by the cache invalidation that occurs 
+when a process ceases to execute on one CPU and then 
+recommences execution on a different CPU.
+
+A CPU affinity mask is represented by the 
+.I cpu_set_t 
+structure, a "CPU set", pointed to by
+.IR mask .
+Four macros are provided to manipulate CPU sets.
+.BR CPU_ZERO ()
+clears a set.
+.BR CPU_SET ()
+and
+.BR CPU_CLR ()
+respectively add and remove a given CPU from a set.
+.BR CPU_ISSET ()
+tests to see if a CPU is part of the set; this is useful after
+.BR sched_getaffinity ()
+returns.
+The first available CPU on the system corresponds to a
+.I cpu
+value of 0, the next CPU corresponds to a
+.I cpu
+value of 1, and so on.
+The constant
+.B CPU_SETSIZE
+(1024) specifies a value one greater than the maximum CPU 
+number that can be stored in a CPU set.
+
 .BR sched_setaffinity ()
-sets the CPU affinity mask of the process denoted by
-.IR pid .
+sets the CPU affinity mask of the process whose ID is
+.IR pid
+to the value specified by
+.IR mask .
 If
 .I pid
-is zero, then the current process is used.
-.sp
-The affinity mask is represented by the 
-.I cpu_set_t 
-value pointed to by
+is zero, then the calling process is used.
+The argument
+.I cpusetsize
+is the length (in bytes) of the data pointed to by
 .IR mask .
+Normally this argument would be specified as
+.IR "sizeof(cpu_set_t)" .
 
-The least significant bit corresponds to the first logical processor
-number on the system, while the most significant bit corresponds to
-the last logical processor number on the system.
-A set bit corresponds to a legally schedulable CPU while an unset
-bit corresponds to an illegally schedulable CPU.
-In other words, a process is bound to and will only run on
-processors whose corresponding bit is set.
-Usually, all bits in the mask are set.
-.sp
 If the process specified by
 .I pid
-is not curently running on one of the CPUs specified in
+is not currently running on one of the CPUs specified in
 .IR mask ,
 then that process is migrated to one of the CPUs specified in
 .IR mask .
-.sp
-The argument
-.I len
-is the length (in bytes) of the data pointed to by
-.IR mask .
-Normally this is the size of a word on the system.  For compatibility with
-future versions of the Linux kernel, since this size can change, the bitmask
-supplied must be at least as large as the affinity mask stored in the kernel.
-.sp
-The function
+
 .BR sched_getaffinity ()
-writes into the pointer supplied by
-.I mask
-that has size
-.I len
-the affinity mask of process
-.IR pid .
+writes the affinity mask of the process whose ID is
+.IR pid
+into the 
+.I cpu_set_t
+structure pointed to by
+.IR mask .
+The 
+.I cpusetsize
+argument specifies the size (in bytes) of
+.IR mask .
 If
 .I pid
-is zero, then the mask of the current process is returned.
+is zero, then the mask of the calling process is returned.
 
 .SH "RETURN VALUE"
 On success,
 .BR sched_setaffinity ()
-returns 0.
-On error, \-1 is returned, and
-.I errno
-is set appropriately.
-
-On success,
+and
 .BR sched_getaffinity ()
-always returns the size (in bytes) of the affinity mask used by the kernel.
+return 0.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
@@ -120,8 +145,11 @@ A supplied memory address was invalid.
 .B EINVAL
 The affinity bitmask
 .I mask
-contains no processors that are physically on the system, or the length
-.I len
+contains no processors that are physically on the system,
+.\" The following can only (?) occur with the raw sched_getaffinity() 
+.\" system call (MTK, 3 Feb 2006):
+or 
+.I cpusetsize
 is smaller than the size of the affinity mask used by the kernel.
 .TP
 .B EPERM
@@ -137,6 +165,8 @@ capability.
 .TP
 .B ESRCH
 The process whose ID is \fIpid\fR could not be found.
+.SH "CONFORMING TO"
+These system calls are Linux specific.
 .SH "NOTES"
 The affinity mask is actually a per-thread attribute that can be
 adjusted independently for each of the threads in a thread group.
@@ -144,22 +174,35 @@ The value returned from a call to
 .BR gettid (2)
 can be passed in the argument
 .IR pid .
+
+A child created via 
+.BR fork (2)
+inherits its parent's CPU affinity mask.
+The affinity mask is preserved across an
+.BR execve (2).
+
+This manual page describes the glibc interface for the CPU affinity calls.
+The actual system call interface is slightly different, with the 
+.I mask
+being typed as
+.IR "unsigned long *" ,
+reflecting that the fact that the underlying implementation of CPU 
+sets is a simple bitmask.
+On success, the raw 
+.BR sched_getaffinity ()
+system call returns the size (in bytes) of the 
+.I cpumask_t
+data type that is used internally by the kernel to 
+represent the CPU set bitmask.
 .SH "HISTORY"
-The affinity syscalls were introduced in Linux kernel 2.5.8.
-The library calls were introduced in glibc 2.3, and are still in
-glibc 2.3.2. Later glibc 2.3.2 development versions changed this
-interface to one without the
-.I len
-field, and still later versions reverted again. The glibc prototype is now
-.sp
-.nf
-/* Set the CPU affinity for a task */
-extern int sched_setaffinity (pid_t pid, size_t cpusetsize,
-                              const cpu_set_t *cpuset);
-.sp
-/* Get the CPU affinity for a task */
-extern int sched_getaffinity (pid_t pid, size_t cpusetsize,
-                              cpu_set_t *cpuset);
+The CPU affinity system calls were introduced in Linux kernel 2.5.8.
+The library interfaces were introduced in glibc 2.3. 
+Initially, the glibc interfaces included a
+.I cpusetsize
+argument.
+In glibc 2.3.2, the
+.I cpusetsize
+argument was removed, but this argument was restored in glibc 2.3.4.
 .fi
 .SH "SEE ALSO"
 .BR clone (2),

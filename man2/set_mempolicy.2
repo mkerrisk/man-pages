@@ -1,0 +1,128 @@
+.\" Copyright 2003,2004 Andi Kleen, SuSE Labs.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" 
+.\" 2006-02-03, mtk, substantial wording changes and other improvements
+.\"
+.TH SET_MEMPOLICY 2 "2006-02-07" "SuSE Labs" "Linux Programmer's Manual"
+.SH NAME
+set_mempolicy \- Set default NUMA memory policy for a process and its children.
+
+.SH SYNOPSIS
+.B "#include <numaif.h>" 
+.sp
+.BI "int set_mempolicy(int " policy ", unsigned long *" nodemask , 
+.BI "unsigned long " maxnode ) 
+.sp				  
+.SH DESCRIPTION
+.BR set_mempolicy ()
+sets the NUMA memory policy of the calling process to 
+.IR policy .
+
+A NUMA machine has different
+memory controllers with different distances to specific CPUs.
+The memory policy defines in which node memory is allocated for 
+the process. 
+
+This system call defines the default policy for the process;
+in addition a policy can be set for specific memory ranges using 
+.BR mbind (2).
+The policy is only applied when a new page is allocated
+for the process. For anonymous memory this is when the page is first
+touched by the application.
+
+Available policies are 
+.BR MPOL_DEFAULT ,
+.BR MPOL_BIND ,
+.BR MPOL_INTERLEAVE ,
+.BR MPOL_PREFERRED .
+All policies except 
+.B MPOL_DEFAULT
+require the caller to specify the nodes to which the policy applies in the
+.I nodemask 
+parameter.
+.I nodemask 
+is pointer to a bit field of nodes that contains up to 
+.I maxnode
+bits. The bit field size is rounded to the next multiple of 
+.IR "sizeof(unsigned long)" , 
+but the kernel will only use bits up to 
+.IR maxnode .
+
+The 
+.B MPOL_DEFAULT
+policy is the default and means to allocate memory locally, 
+i.e., on the node of the CPU that triggered the allocation. 
+.I nodemask 
+should be specified as NULL.
+
+The
+.B MPOL_BIND
+policy is a strict policy that restricts memory allocation to the 
+nodes specified in 
+.IR nodemask .
+There won't be allocations on other nodes.
+
+.B MPOL_INTERLEAVE
+interleaves allocations to the nodes specified in 
+.IR nodemask .
+This optimizes for bandwidth instead of latency.
+To be effective the memory area should be fairly large, 
+at least 1MB or bigger.
+
+.B MPOL_PREFERRED
+sets the preferred node for allocation. 
+The kernel will try to allocate in this
+node first and fall back to other nodes if the preferred node is low on free 
+memory.  Only the first node in the 
+.I nodemask 
+is used. 
+If no node is set in the mask, then the memory is allocated on 
+the node of the CPU that triggered the allocation allocation (like
+.BR MPOL_DEFAULT ).
+
+The memory policy is inherited by child processes created using
+.BR fork (2) 
+or 
+.BR clone (2).
+
+.SH NOTES
+Process policy is not remembered if the page is swapped out.
+
+.SH RETURN VALUE
+On success,
+.BR set_mempolicy ()
+returns 0;
+on error, \-1 is returned and
+.I errno 
+is set to indicate the error.
+
+.\" .SH ERRORS
+.\" FIXME writeme
+.\" .TP
+.\" .B EINVAL
+.\" .I mode is invalid.
+.SH "VERSIONS AND LIBRARY SUPPORT"
+See
+.BR mbind (2).
+
+.SH SEE ALSO
+.BR mbind (2),
+.BR get_mempolicy (2),
+.BR numactl (8),
+.BR numa (3)

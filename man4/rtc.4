@@ -1,0 +1,224 @@
+.\" rtc.4
+.\" Copyright 2002 Urs Thuermann (urs@isnogud.escape.de)
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" USA.
+.\"
+.\" $Id: rtc.4,v 1.4 2005/12/05 17:19:49 urs Exp $
+.\"
+.\" 2006-02-08 Various additions by mtk
+.\"
+.TH RTC 4 "2005-12-05" "Linux" "Linux Programmer's Manual"
+.SH NAME
+rtc \- real-time clock
+.SH SYNOPSIS
+#include <linux/rtc.h>
+.SH DESCRIPTION
+This is the driver for the real-time clock (RTC).  
+
+Most computers have a built-in hardware clock, usually called the
+real-time clock.  
+This clock is normally battery powered so
+that it keeps the time even while the computer is switched off.  
+It represents the current time as year, month, day of month, hour,
+minute, and second.
+
+The RTC is a chip that maintains the time and date and is able to
+generate interrupts at specified times.  This chip typically used to
+be a Motorola MC146818, a Dallas DS12887, or similar,
+but today it is usually implemented in the mainboard's chipset.
+
+The RTC should not be confused with the system time which is an
+independent, interrupt-driven software clock maintained by the kernel.
+The software clock is maintained by an interrupt routine that
+typically has a frequency of 100, 250, or 1000 Hz.
+The software clock counts seconds and microsecond since the POSIX
+Epoch, i.e., Jan 1, 1970, 0:00 UTC.
+This clock does not involve any special hardware.
+
+The RTC can be read and set with
+.BR hwclock (8).
+
+The RTC is almost never used by the Linux kernel.  Instead,
+the kernel uses the software clock time for
+.BR time (2),
+.BR gettimeofday (2),
+timestamps on files, etc.
+However, at boot time the kernel initializes its software clock by 
+reading the RTC.
+
+Besides counting the date and time, the RTC can also generate
+interrupts
+.IP *
+on every clock update (i.e. once per second);
+.IP *
+at periodic intervals with a frequency that can be set to
+any power-of-2 multiple in the range 2 Hz to 8192 Hz;
+.IP *
+on reaching a previously specified alarm time.
+.PP
+Each of these interrupt sources can be enabled or disabled separately.
+
+The
+.B /dev/rtc
+device can be opened only once simultaneously and it is read-only.  On
+.BR read (2)
+and
+.BR select (2)
+the calling process is blocked until the next interrupt from the RTC
+is received.
+Following the interrupt, the process can read a long integer, of which
+the least significant byte contains the type of interrupt that occurred,
+while the remaining 3 bytes contain the number of interrupts since the
+last
+.BR read (2).
+
+The following 
+.BR ioctl (2)
+operations are provided:
+.TP
+.B RTC_RD_TIME
+Returns the RTC time in the following structure:
+.PP
+.RS
+.in +0.5i
+.nf
+struct rtc_time {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;     /* unused */
+    int tm_yday;     /* unused */
+    int tm_isdst;    /* unused */
+};
+.fi
+.in -0.5i
+.RE
+.IP
+The fields in this structure have the same meaning and ranges as for the
+.I tm
+structure described in
+.BR gmtime (3).
+A pointer to this structure should be passed as the third
+.BR ioctl ()
+argument.
+.TP
+.B RTC_SET_TIME
+Sets the RTC time to the time specified by the 
+.I rtc_time
+structure pointed to by the third 
+.BR ioctl ()
+argument.
+To set the
+RTC time the process must be privileged (i.e., have the
+.B CAP_SYS_TIME
+capability).
+.TP
+.BR RTC_ALM_READ ", " RTC_ALM_SET
+Read and set the alarm time.  
+The third \fBioctl\fP() argument is a pointer to an
+.I rtc_time 
+structure.  
+Only the 
+.IR tm_sec ,
+.IR tm_min ,
+and
+.IR tm_hour
+fields of this structure are used.
+.TP
+.BR RTC_IRQP_READ ", " RTC_IRQP_SET
+Read and set the frequency for periodic interrupts.  
+The third \fBioctl\fP() argument is a
+.I "long\ *"
+or a 
+.IR long , 
+respectively.
+The value is the frequency in interrupts per second.  
+The set of allowable frequencies is the multiples of two 
+in the range 2 to 8192.
+Only a privileged process (i.e., one having the
+.B CAP_SYS_RESOURCE
+capability) can set frequencies above the value specified in
+.IR /proc/sys/dev/rtc/max-user-freq .
+(This file contains the value 64 by default.)
+.TP
+.BR RTC_AIE_ON ", " RTC_AIE_OFF
+Enable or disable the alarm interrupt.
+The third \fBioctl\fP() argument is ignored.
+.TP
+.BR RTC_UIE_ON ", " RTC_UIE_OFF
+Enable or disable the interrupt on every clock update.  
+The third \fBioctl\fP() argument is ignored.
+.TP
+.BR RTC_PIE_ON ", " RTC_PIE_OFF
+Enable or disable the periodic interrupt.  
+The third \fBioctl\fP() argument is ignored.
+Only a privileged process (i.e., one having the
+.B CAP_SYS_RESOURCE
+capability) can enable the periodic interrupt if the frequency is 
+currently set above the value specified in
+.IR /proc/sys/dev/rtc/max-user-freq .
+.TP
+.BR RTC_EPOCH_READ ", " RTC_EPOCH_SET
+The RTC encodes the year in an 8-bit register which is either
+interpreted as an 8-bit binary number or as a BCD number.  
+In both cases,
+the number is interpreted relative to the RTC Epoch.  
+The RTC Epoch is
+initialized to 1900 on most systems but on Alpha and Mips it might
+also be initialized to 1952, 1980, or 2000, depending on the value of
+RTC register for the year.  
+These operations can be used to read or to set the RTC Epoch, respectively.
+To set the RTC Epoch the process must be privileged (i.e., have the
+.B CAP_SYS_TIME
+capability).
+.SH FILES
+.IR /dev/rtc : 
+the RTC special character device file.
+
+.IR /proc/driver/rtc : 
+status of the RTC.
+.SH NOTES
+When the kernel's system time is synchronized with an external
+reference using
+.BR adjtimex (2)
+it will update the RTC periodically every 11 minutes.  To
+do so, the kernel has to briefly turn off periodic interrupts;
+this might affect programs using the RTC.
+
+The RTC Epoch has nothing to do with the POSIX Epoch which is only
+used for the system clock.
+
+If the year according to the RTC Epoch and the RTC's year register is
+less than 1970 it is assumed to be 100 years later, i.e. between 2000
+and 2069.
+.SH "SEE ALSO"
+.BR hwclock (8),
+.BR date (1),
+.BR time (2),
+.BR stime (2),
+.BR gettimeofday (2),
+.BR settimeofday (2),
+.BR adjtimex (2),
+.BR gmtime (3),
+/usr/src/linux/Documentation/rtc.txt

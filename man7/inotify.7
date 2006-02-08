@@ -1,0 +1,295 @@
+'\" t
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH INOTIFY 7 2006-02-07 "Linux 2.6.15" "Linux Programmer's Manual"
+.SH NAME
+inotify - monitoring file system events
+.SH DESCRIPTION
+The
+.I inotify 
+API provides a mechanism for monitoring file system events.
+Inotify can be used to monitor individual files,
+or to monitor directories.
+When a directory is monitored, inotify will return events
+for the directory itself, and for files inside the directory.
+
+The following system calls are used with this API: 
+.BR inotify_init (),
+.BR inotify_add_watch (),
+.BR read (),
+and
+.BR inotify_rm_watch (),
+and 
+.BR close ().
+
+.BR inotify_init (2)
+creates an inotify instance and returns a file descriptor 
+referring to the inotify object.
+
+.BR inotify_add_watch (2)
+manipulates the "watch list" associated with an inotify object.
+Each item ("watch") in the watch list specifies a pathname of
+a file or directory, 
+along with some set of events that the kernel should monitor for the
+file referred to by that pathname.
+.BR inotify_add_watch ()
+either creates a new watch item, or modifies an existing watch.
+Each watch has a unique "watch descriptor", an integer
+returned by
+.BR inotify_add_watch ()
+when the watch is created.
+
+.BR inotify_rm_watch (2)
+removes an item from an inotify watch list.
+
+When all file descriptors referring to an inotify object have been closed,
+the underlying object and its resources are freed for re-use by the kernel;
+all associated watches are automatically freed.
+
+To determine what events have occurred, an application
+.BR read (2)s
+from the inotify file descriptor.
+If no events have so far occurred, then, 
+assuming a non-blocking file descriptor,
+.BR read ()
+will block until at least one event occurs.
+
+Each successful
+.BR read ()
+returns a buffer containing one or more of the following structures:
+.in +0.25i
+.nf
+
+struct inotify_event {
+    int      wd;       /* Watch descriptor */
+    uint32_t mask;     /* Mask of events */
+    uint32_t cookie;   /* Unique cookie associating related 
+                          events (for rename(2)) */
+    uint32_t len;      /* Size of 'name' field */
+    char     name[];   /* Optional null-terminated name */
+};
+.fi
+.in -0.25i
+
+.I wd
+identifies the watch for which this event occurs.
+It is one of the watch descriptors returned by a previous call to 
+.BR inotify_add_watch ().
+
+.I mask
+contains bits that describe the event that occurred (see below).
+
+.I cookie
+is a unique integer that connects related events.
+Currently this is only used for rename events, and
+allows the resulting pair of
+.B IN_MOVE_FROM
+and 
+.B IN_MOVE_TO
+events to be connected by the application.
+
+The 
+.I name
+field is only present when an event is returned
+for a file inside a watched directory; 
+it identifies the file pathname relative to the watched directory.
+This pathname is null-terminated, 
+and may include further null bytes for alignment to a 
+suitable address boundary.
+
+The
+.I len
+field counts all of the bytes in 
+.IR name ,
+including the null bytes; 
+the length of each
+.I inotify_event
+structure is thus
+.IR "sizeof(inotify_event)+len" .
+.SS inotify events
+The 
+.BR inotify_add_watch (2)
+.I mask
+argument and the 
+.I mask
+field of the
+.I inotify_event
+structure returned when
+.BR read (2)ing
+an inotify file descriptor are both bit masks identifying
+inotify events.
+The following bits can be specified in
+.I mask
+when calling
+.BR inotify_add_watch ()
+and may be returned in the 
+.I mask
+field returned by
+.BR read ():
+.in +0.25i
+.TS
+lB lB
+lB l.
+Bit	Description
+IN_ACCESS	File was accessed (read) (*)
+IN_ATTRIB	Metadata changed (permissions, timestamps, 
+	extended attributes, etc.) (*)
+IN_CLOSE_WRITE	File opened for writing was closed (*)
+IN_CLOSE_NOWRITE	File not opened for writing was closed (*)
+IN_CREATE	File/directory created in watched directory (*)
+IN_DELETE	File/directory deleted from watched directory (*)
+IN_DELETE_SELF	Watched file/directory was itself deleted
+IN_MODIFY	File was modified (*)
+IN_MOVE_SELF	Watched file/directory was itself moved
+IN_MOVED_FROM	File moved out of watched directory (*)
+IN_MOVED_TO	File moved into watched directory (*)
+IN_OPEN	File was opened (*)
+.TE
+.in -0.25i
+.PP
+When monitoring a directory, 
+the events marked with an asterisk (*) above can occur for 
+files in the directory, in which case the
+.I name
+field in the returned
+.I inotify_event
+structure identifies the name of the file within the directory.
+.PP
+The
+.B IN_ALL_EVENTS
+macro is defined as a bit mask of all of the above events.
+This macro can be used as the
+.I mask
+argument when calling
+.BR inotify_add_watch ().
+
+Two additional convenience macros are
+.BR IN_MOVE ,
+which equates to
+IN_MOVED_FROM|IN_MOVED_TO,
+and
+.BR IN_CLOSE
+which equates to
+IN_CLOSE_WRITE|IN_CLOSE_NOWRITE.
+.PP
+The following further bits can be specified in 
+.I mask
+when calling
+.BR inotify_add_watch ():
+.in +0.25i
+.TS
+lB lB
+lB l.
+Bit	Description
+IN_DONT_FOLLOW	Don't dereference \fIpath\fP if it is a symbolic link 
+IN_MASK_ADD	Add (OR) events to watch mask for this path if
+	it already exists (instead of replacing mask)
+IN_ONESHOT	Monitor \fIpath\fP for one event, then remove from 
+	watch list
+IN_ONLYDIR	Only watch \fIpath\fP if it is a directory
+.TE
+.in -0.25i
+.PP
+The following bits may be set in the
+.I mask
+field returned by
+.BR read ():
+.in +0.25i
+.TS
+lB lB
+lB l.
+Bit	Description
+IN_IGNORED	Watch was removed explicitly (\fBinotify_rm_watch\fP()) 
+	or automatically (file was deleted, or
+	file system was unmounted)
+IN_ISDIR	Subject of this event is a directory
+IN_Q_OVERFLOW	Event queue overflowed (\fIwd\fP is \-1 for this event)
+IN_UNMOUNT	File system containing watched object was unmounted
+.TE
+.in -0.25i
+.SS /proc interfaces
+The following interfaces can be used to limit the amount of 
+kernel memory consumed by inotify:
+.TP
+.IR /proc/sys/fs/inotify/max_queued_events
+The value in this file is used when an application calls
+.BR inotify_init (2)
+to set an upper limit on the number of events that can be 
+queued to the corresponding inotify instance.
+Events in excess of this limit are dropped, but an
+.B IN_Q_OVERFLOW
+event is always generated.
+.TP
+.IR /proc/sys/fs/inotify/max_user_instances
+This specifies an upper limit on the number of inotify instances 
+that can be created per real user ID.
+.TP
+.IR /proc/sys/fs/inotify/max_user_watches
+This specifies a limit on the number of watches that can be associated 
+with each inotify instance.
+.SH "NOTES"
+Inotify file descriptors can be monitored using
+.BR select (2),
+.BR poll (2),
+and 
+.BR epoll (4).
+
+If successive output inotify events produced on the 
+inotify file descriptor are identical (same 
+.IR wd , 
+.IR mask , 
+.IR cookie ,
+and
+.IR name )
+then they are coalesced into a single event.
+
+The events returned by reading from an inotify file descriptor 
+form an ordered queue.  
+Thus, for example, it is guaranteed that when renaming from 
+one directory to another, events will be produced in the 
+correct order on the inotify file descriptor.
+
+The
+.B FIONREAD
+.BR ioctl ()
+returns the number of bytes available to read from an 
+inotify file descriptor.
+
+Inotify monitoring of directories is not recursive:
+to monitor subdirectories under a directory,
+additional watches must be created.
+.SH "HISTORY"
+Inotify was merged into the 2.6.13 Linux kernel.
+.SH "CONFORMING TO"
+The inotify API is Linux specific.
+Some other systems provide similar mechanisms, e.g.,
+FreeBSD has 
+.IR kqueue ,
+and Solaris has 
+.IR /dev/poll .
+.SH "SEE ALSO"
+.BR inotify_add_watch (2),
+.BR inotify_init (2),
+.BR inotify_rm_watch (2),
+.BR read (2),
+.BR stat (2),
+.IR Documentation/filesystems/inotify.txt .

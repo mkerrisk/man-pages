@@ -1,0 +1,101 @@
+.\" Copyright (C) 1996 Free Software Foundation, Inc.
+.\" This file is distributed according to the GNU General Public License.
+.\" See the file COPYING in the top level source directory for details.
+.\"
+.\" 2006-02-09, some reformatting by Luc Van Oostenryck; some 
+.\" reformatting and rewordings by mtk
+.\"
+.TH INIT_MODULE 2 "2002" "Linux" "Linux Module Support"
+.SH NAME
+init_module \- initialize a loadable module entry
+.SH SYNOPSIS
+.nf
+.B #include <linux/module.h>
+.sp
+.BI "int init_module(const char *" name ", struct module *" image );
+.fi
+.SH DESCRIPTION
+.BR init_module ()
+loads the relocated module image into kernel space and runs the
+module's
+.I init
+function.
+.PP
+The module image begins with a module structure and is followed by
+code and data as appropriate.
+The module structure is defined as follows:
+.PP
+.RS
+.nf
+struct module {
+    unsigned long         size_of_struct;
+    struct module        *next;
+    const char           *name;
+    unsigned long         size;
+    long                  usecount;
+    unsigned long         flags;
+    unsigned int          nsyms;
+    unsigned int          ndeps;
+    struct module_symbol *syms;
+    struct module_ref    *deps;
+    struct module_ref    *refs;
+    int                 (*init)(void);
+    void                (*cleanup)(void);
+    const struct exception_table_entry *ex_table_start;
+    const struct exception_table_entry *ex_table_end;
+#ifdef __alpha__
+    unsigned long gp;
+#endif
+};
+.fi
+.RE
+.PP
+All of the pointer fields, with the exception of
+.I next
+and
+.IR refs ,
+are expected to point within the module body and be
+initialized as appropriate for kernel space, i.e., relocated with
+the rest of the module.
+.PP
+This system call requires privilege.
+.SH "RETURN VALUE"
+On success, zero is returned.  On error, \-1 is returned and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBUSY
+The module's initialization routine failed.
+.TP
+.B EFAULT
+.I name
+or
+.I image
+is outside the program's accessible address space.
+.TP
+.B EINVAL
+Some
+.I image
+slot is filled in incorrectly,
+.I image->name
+does not correspond to the original module name, some
+.I image->deps
+entry does not correspond to a loaded module, 
+or some other similar inconsistency.
+.TP
+.B ENOENT
+No module by that name exists.
+.TP
+.B EPERM
+The caller was not privileged
+(did not have the
+.B CAP_SYS_MODULE
+capability).
+.SH "CONFORMING TO"
+.BR init_module ()
+is Linux specific.
+.SH "SEE ALSO"
+.BR create_module (2),
+.BR delete_module (2),
+.BR query_module (2)

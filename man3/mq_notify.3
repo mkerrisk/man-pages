@@ -1,0 +1,256 @@
+'\" t
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH MQ_NOTIFY 3 2006-02-25 "Linux 2.6.16" "Linux Programmer's Manual"
+.SH NAME
+mq_notify \- register for notification when a message is available
+.SH SYNOPSIS
+.nf
+.B #include <mqueue.h>
+.sp
+.BI "mqd_t mq_notify(mqd_t " mqdes ", const struct sigevent *" notification );
+.fi
+.SH DESCRIPTION
+.BR mq_notify ()
+allows the calling process to register or unregister for delivery of 
+an asynchronous notification when a new message arrives on 
+the empty message queue referred to by the descriptor
+.IR mqdes .
+
+The 
+.I notification
+argument is a pointer to a 
+.I sigevent
+structure that is defined something like the following:
+.in +0.25i
+.nf
+
+union sigval {                /* Data passed with notification */
+    int     sival_int;        /* Integer value */
+    void   *sival_ptr;        /* Pointer value */
+};
+
+struct sigevent {
+    int    sigev_notify;      /* Notification method */
+    int    sigev_signal;      /* Notification signal */
+    union sigval sigev_value; /* Data passed with notification */
+    void (*sigev_notify_function) (union sigval);
+                              /* Function for thread notification */
+    void  *sigev_notify_attributes;
+                              /* Thread function attributes */
+};
+
+.fi
+.in -0.25i
+
+If 
+.I notification
+is a non-NULL pointer, then 
+.BR mq_notify ()
+registers the calling process to receive message notification.
+The 
+.I sigev_notify 
+field of the
+.I sigevent
+to which
+.I notification
+points specifies how notification is to be performed.
+This field has one of the following values:
+.TP
+.B SIGEV_NONE
+A "null" notification: the calling process is registered as the target 
+for notification, but when a message arrives, no notification is sent.
+.\" When is SIGEV_NONE useful?
+.TP
+.B SIGEV_SIGNAL
+Notify the process by sending the signal specified in
+.IR sigev_signal .
+If the signal is caught with a signal handler that 
+was registered using the
+.BR sigaction (2)
+.B SA_SIGINFO
+flag, then the following fields are set in the
+.I siginfo_t
+structure that is passed as the second argument of the handler:
+.I si_code
+is set to
+.BR SI_MESGQ ;
+.I si_signo
+is set to the signal number;  
+.I si_value
+is set to the value specified in
+.IR notification->sigev_value ;
+.\" I don't know of other implementations that set
+.\" si_pid and si_uid -- MTK
+.I si_pid
+is set to the PID of the process that sent the message; and
+.I si_uid
+is set to the real user ID of the sending process.
+.TP
+.B SIGEV_THREAD
+Deliver notification by invoking
+.I notification->sigev_thread_function
+as the start function of a new thread.
+The function is invoked with
+.IR notification->sigev_value
+as its sole argument.
+If 
+.IR notification->sigev_notify_attributes
+is not NULL, then it should point to a
+.I pthread_attr_t
+structure that defines attributes for the thread.
+.\" FIXME add a cross reference to pthread_attr_init(3), when
+.\" that page is one day written.
+.PP
+Only one process can be registered to receive notification
+from a message queue.
+
+If 
+.I notification
+is NULL, and the calling process is currently registered to receive
+notifications for this message queue, then the registration is removed;
+another process can then register to receive a message notification 
+for this queue.
+
+Message notification only occurs when a new message arrives and 
+the queue was previously empty.
+If the queue was not empty at the time
+.BR mq_notify ()
+was called, then a notification will only occur after 
+the queue is emptied and a new message arrives.
+
+If another process or thread is waiting to read a message
+from an empty queue using
+.BR mq_receive (),
+then any message notification registration is ignored: 
+the message is delivered to the process or thread calling
+.BR mq_receive (),
+and the message notification registration remains in effect.
+
+Notification occurs once: after a notification is delivered, 
+the notification registration is removed, 
+and another process can register for message notification.
+If the notified process wishes to receive the next notification,
+it can use 
+.BR mq_notify ()
+to request a further notification.
+This should be done before emptying all unread messages from the queue.
+(Placing the queue in non-blocking mode is useful for emptying 
+the queue of messages without blocking once it is empty.)
+.SH RETURN VALUE
+On success
+.BR mq_notify ()
+returns 0; on error, \-1 is returned, with
+.I errno 
+set to indicate the error.
+.SH ERRORS
+.TP
+.B EBADF
+The descriptor specified in 
+.I mqdes
+is invalid.
+.TP
+.B EBUSY
+Another process has already registered to receive notification
+for this message queue.
+.TP
+.B EINVAL
+.I notification->sigev_notify
+is not one of the permitted values; or
+.I notification->sigev_notify
+is 
+.B SIGEV_SIGNAL 
+and 
+.I notification->sigev_signo
+is not a a valid signal number.
+.TP
+.B ENOMEM
+Insufficient memory.
+.SH CONFORMING TO
+POSIX.1-2001.
+.SH EXAMPLE
+The following program registers a notification request for the
+message queue named in its command-line argument.
+Notification is performed by creating a thread.
+The thread executes a function which reads one message from the 
+queue and then terminates the process.
+.nf
+
+#include <pthread.h>
+#include <mqueue.h>
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define die(msg) { perror(msg); exit(EXIT_FAILURE); }
+
+static void                     /* Thread start function */
+tfunc(union sigval sv)
+{
+    struct mq_attr attr;
+    ssize_t nr;
+    void *buf;
+    mqd_t mqdes = *((mqd_t *) sv.sival_ptr);
+
+    /* Determine max. msg size; allocate buffer to receive msg */
+
+    if (mq_getattr(mqdes, &attr) == -1) die("mq_getattr");
+    buf = malloc(attr.mq_msgsize);
+    if (buf == NULL) die("malloc");
+
+    nr = mq_receive(mqdes, buf, attr.mq_msgsize, NULL);
+    if (nr == -1) die("mq_receive");
+
+    printf("Read %ld bytes from MQ\n", (long) nr);
+    free(buf);
+    exit(EXIT_SUCCESS);         /* Terminate the process */
+}
+
+int
+main(int argc, char *argv[])
+{
+    mqd_t mqdes;
+    struct sigevent not;
+
+    assert(argc == 2);
+
+    mqdes = mq_open(argv[1], O_RDONLY);
+    if (mqdes == (mqd_t) -1) die("mq_open");
+
+    not.sigev_notify = SIGEV_THREAD;
+    not.sigev_notify_function = tfunc;
+    not.sigev_notify_attributes = NULL;
+    not.sigev_value.sival_ptr = &mqdes;   /* Arg. to thread func. */
+    if (mq_notify(mqdes, &not) == -1) die("mq_notify");
+
+    pause();    /* Process will be terminated by thread function */
+}
+.fi
+.SH "SEE ALSO"
+.BR mq_close (3),
+.BR mq_getattr (3),
+.BR mq_open (3),
+.BR mq_receive (3),
+.BR mq_send (3),
+.BR mq_unlink (3),
+.BR mq_overview (7)

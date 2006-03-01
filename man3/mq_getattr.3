@@ -1,0 +1,140 @@
+'\" t
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH MQ_GETATTR 3 2006-02-25 "Linux 2.6.16" "Linux Programmer's Manual"
+.SH NAME
+mq_getattr, mq_setattr \- get/set message queue attributes
+.SH SYNOPSIS
+.nf
+.B #include <mqueue.h>
+.sp
+.BI "mqd_t mq_getattr(mqd_t " mqdes ", struct mq_attr *" attr );
+.BI "mqd_t mq_setattr(mqd_t " mqdes ", struct mq_attr *" newattr ","
+.BI "                 struct mq_attr *" oldattr );
+.fi
+.SH DESCRIPTION
+.BR mq_getattr ()
+and
+.BR mq_setattr ()
+respectively retrieve and modify attributes of the message queue 
+referred to by the descriptor
+.IR mqdes .
+
+.BR mq_getattr ()
+returns an
+.I mq_attr
+structure in the buffer pointed by 
+.IR attr.
+This structure is defined as:
+.in +0.25i
+.nf
+
+struct mq_attr {
+    long mq_flags;       /* Flags: 0 or O_NONBLOCK */
+    long mq_maxmsg;      /* Max. # of messages on queue */
+    long mq_msgsize;     /* Max. message size (bytes) */
+    long mq_curmsgs;     /* # of messages currently in queue */
+};
+.fi
+.in -0.25i
+.PP
+The
+.I mq_flags
+field contains flags associated with the open message queue description.
+This field is initialised when the queue is created by
+.BR mq_open ().
+The only flag that can appear in this field is
+.BR O_NONBLOCK .
+
+The 
+.I mq_maxmsg
+and
+.I mq_msgsize
+fields are set when the message queue is created by
+.BR mq_open ().
+The
+.I mq_maxmsg
+field is an upper limit on the number of messages 
+that may be placed on the queue using
+.BR mq_send ().
+The
+.I mq_msgsize
+field is an upper limit on the size of messages
+that may be placed on the queue.
+Both of these fields must have a value greater than zero.
+Two 
+.I /proc 
+files that place ceilings on the values for these fields are described in 
+.BR mq_open (3).
+
+The 
+.I mq_curmsgs
+field returns the number of messages currently held in the queue.
+
+.BR mq_setattr ()
+sets message queue attributes using information supplied in the 
+.I mq_attr
+structure pointed to by
+.IR newattr .
+The only attribute that can be modified is the setting of the
+.B O_NONBLOCK
+flag in
+.IR mq_flags .
+The other fields in
+.I newattr
+are ignored.
+If the
+.I oldattr
+field is not NULL,
+then the buffer that it points to is used to return an
+.I mq_attr
+structure that contains the same information that is returned by
+.BR mq_getattr ().
+.SH RETURN VALUE
+On success
+.BR mq_getattr ()
+and
+.BR mq_setattr ()
+return 0; on error, \-1 is returned, with
+.I errno 
+set to indicate the error.
+.SH ERRORS
+.TP
+.B EBADF
+The descriptor specified in 
+.I mqdes
+is invalid.
+.TP
+.B EINVAL
+.I newattr->mq_flags
+contained set bits other than
+.BR O_NONBLOCK .
+.SH CONFORMING TO
+POSIX.1-2001.
+.SH "SEE ALSO"
+.BR mq_close (3),
+.BR mq_notify (3),
+.BR mq_open (3),
+.BR mq_receive (3),
+.BR mq_send (3),
+.BR mq_unlink (3),
+.BR mq_overview (7)

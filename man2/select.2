@@ -37,6 +37,7 @@
 .SH NAME
 select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexing
 .SH SYNOPSIS
+.nf
 /* According to POSIX 1003.1-2001 */
 .br
 .B #include <sys/select.h>
@@ -49,13 +50,12 @@ select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexi
 .br
 .B #include <unistd.h>
 .sp
-\fBint select(int \fIn\fB, fd_set *\fIreadfds\fB,
-fd_set *\fIwritefds\fB, fd_set *\fIexceptfds\fB,
-struct timeval *\fItimeout\fB);
+\fBint select(int \fIn\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
+           fd_set *\fIexceptfds\fB, struct timeval *\fItimeout\fB);
 .sp
-\fBint pselect(int \fIn\fB, fd_set *\fIreadfds\fB,
-fd_set *\fIwritefds\fB, fd_set *\fIexceptfds\fB,
-const struct timespec *\fItimeout\fB, const sigset_t *\fIsigmask\fB);
+\fBint pselect(int \fIn\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
+           fd_set *\fIexceptfds\fB, const struct timespec *\fItimeout\fB, 
+           const sigset_t *\fIsigmask\fB);
 .sp
 .BI "void FD_CLR(int " fd ", fd_set *" set );
 .br
@@ -66,18 +66,16 @@ const struct timespec *\fItimeout\fB, const sigset_t *\fIsigmask\fB);
 .BI "void FD_ZERO(fd_set *" set );
 .fi
 .SH DESCRIPTION
-The functions
 .BR select ()
 and
 .BR pselect ()
-wait for a number of file descriptors to change status.
+wait for one or more file descriptors to change status.
 .PP
-Their function is identical, with three differences:
+Their operation is identical, with three differences:
 .TP
 (i)
-The
 .BR select ()
-function uses a timeout that is a
+uses a timeout that is a
 .I struct timeval
 (with seconds and microseconds), while
 .BR pselect ()
@@ -86,20 +84,18 @@ uses a
 (with seconds and nanoseconds).
 .TP
 (ii)
-The
 .BR select ()
-function may update the
+may update the
 .I timeout
-parameter to indicate how much time was left. The
+argument to indicate how much time was left.
 .BR pselect ()
-function does not change this parameter.
+does not change this argument.
 .TP
 (iii)
-The
 .BR select ()
-function has no
+has no
 .I sigmask
-parameter, and behaves as
+argument, and behaves as
 .BR pselect ()
 called with NULL
 .IR sigmask .
@@ -151,7 +147,7 @@ if it is not NULL, then
 first replaces the current signal mask by the one pointed to by
 .IR sigmask ,
 then does the `select' function, and then restores the original
-signal mask again.
+signal mask.
 .PP
 The idea of
 .BR pselect ()
@@ -169,9 +165,6 @@ then call
 with the desired
 .IR sigmask ,
 avoiding the race.)
-Since Linux today does not have a
-.BR pselect ()
-system call, the current glibc2 routine still contains this race.
 .SS "The timeout"
 The time structures involved are defined in
 .I <sys/time.h>
@@ -207,7 +200,7 @@ zero, and a non-null
 .I timeout
 as a fairly portable way to sleep with subsecond precision.
 .PP
-On Linux, the function
+On Linux, 
 .BR select ()
 modifies
 .I timeout
@@ -295,21 +288,16 @@ main(void) {
 }
 .fi
 .SH "CONFORMING TO"
-4.4BSD (the
-.BR select ()
-function first appeared in 4.2BSD).  Generally portable to/from
+4.4BSD 
+.RB ( select ()
+first appeared in 4.2BSD).  Generally portable to/from
 non-BSD systems supporting clones of the BSD socket layer (including
 System V variants).  However, note that the System V variant typically
 sets the timeout variable before exit, but the BSD variant does not.
 .PP
-The
 .BR pselect ()
-function is defined in IEEE Std 1003.1g-2000 (POSIX.1g), and part of
+is defined in IEEE Std 1003.1g-2000 (POSIX.1g), and in
 POSIX 1003.1-2001.
-It is found in glibc2.1 and later.
-Glibc2.0 has a function with this name, that however does not take a
-.I sigmask
-parameter.
 .SH NOTES
 An fd_set is a fixed size buffer. Executing FD_CLR or FD_SET with a value of
 .I fd
@@ -362,12 +350,37 @@ is defined, under glibc 2.2.2-2.2.4 it gives it when
 .B _XOPEN_SOURCE
 is defined and has a value of 600 or larger.
 No doubt, since POSIX 1003.1-2001, it should give the prototype by default.
-.SH BUGS
+.SH VERSIONS
 .BR pselect ()
-is currently emulated with a user-space wrapper that has a race condition.
-For reliable (and more portable) signal trapping, use the self-pipe trick.
-(Where a signal handler writes to a pipe whose other end is read by the
-main loop.)
+was added to Linux in kernel 2.6.16.
+
+Prior to this,
+.BR pselect ()
+was emulated in glibc (but see BUGS).
+.SH BUGS
+Glibc 2.0 provided a version of
+.BR pselect ()
+that did not take a 
+.I sigmask 
+argument.
+
+Since version 2.1, glibc has provided an emulation of
+.BR pselect () 
+that is implemented using 
+.BR sigprocmask (2)
+and
+.BR select ().
+This implementation remains vulnerable to the very race condition that
+.BR pselect ()
+was designed to prevent.
+On systems that lack
+.BR pselect ()
+reliable (and more portable) signal trapping can be achieved 
+using the self-pipe trick 
+(where a signal handler writes a byte to a pipe whose other end
+is monitored by 
+.BR select ()
+in the main program.)
 
 Under Linux,
 .BR select ()

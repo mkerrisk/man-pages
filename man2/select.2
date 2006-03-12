@@ -32,8 +32,10 @@
 .\" Modified Thu Feb 24 01:41:09 CET 2000 by aeb
 .\" Modified Thu Feb  9 22:32:09 CET 2001 by bert hubert <ahu@ds9a.nl>, aeb
 .\" Modified Mon Nov 11 14:35:00 PST 2002 by Ben Woodard <ben@zork.net>
+.\" 2005-03-11, mtk, modified pselect() text (it is now a system
+.\"     call in 2.6.16.
 .\"
-.TH SELECT 2 2001-02-09 "Linux 2.4" "Linux Programmer's Manual"
+.TH SELECT 2 2006-03-11 "Linux 2.6.16" "Linux Programmer's Manual"
 .SH NAME
 select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexing
 .SH SYNOPSIS
@@ -149,15 +151,40 @@ first replaces the current signal mask by the one pointed to by
 then does the `select' function, and then restores the original
 signal mask.
 .PP
-The idea of
+Other than the difference in the precision of the
+.I timeout
+argument, the following 
 .BR pselect ()
-is that if one wants to wait for an event, either a signal
-or something on a file descriptor, an atomic test is needed to prevent
-race conditions. (Suppose the signal handler sets a global flag and
+call:
+.nf
+
+    ready = pselect(n, &readfds, &writefds, &exceptfds, 
+                    timeout, &sigmask);
+
+.fi
+is equivalent to
+.I atomically
+executing the following calls:
+.nf
+
+    sigset_t origmask;
+
+    sigprocmask(SIG_SETMASK, &sigmask, &origmask);
+    ready = select(nfds, &readfds, &writefds, &exceptfds, timeout);
+    sigprocmask(SIG_SETMASK, &origmask, NULL);
+.fi
+.PP
+The reason that 
+.BR pselect ()
+is needed is that if one wants to wait for either a signal
+or for a file descriptor to become ready, then
+an atomic test is needed to prevent race conditions. 
+(Suppose the signal handler sets a global flag and
 returns. Then a test of this global flag followed by a call of
 .BR select ()
 could hang indefinitely if the signal arrived just after the test
-but just before the call. On the other hand,
+but just before the call. 
+By contrast,
 .BR pselect ()
 allows one to first block signals, handle the signals that have come in,
 then call
@@ -405,6 +432,9 @@ checksum and is discarded. There may be other circumstances.
 .\" returns successfully because of an intervening RST from the client.
 Thus it may be safer to use O_NONBLOCK on sockets that should not block.
 .\" Maybe the kernel should have returned EIO in such a situation?
+.\"
+.\" FIXME select() (and pselect()?) also modify the timeout
+.\" on an EINTR error return; POSIX.1-2001 doesn' permit this.
 .SH "SEE ALSO"
 For a tutorial with discussion and examples, see
 .BR select_tut (2).

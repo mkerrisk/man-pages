@@ -203,10 +203,101 @@ with the socket level set to
 .B SOL_SOCKET 
 for all sockets:
 .\" FIXME Place following list in alphabetical order?
+.\"
+.\" SO_ACCEPTCONN is in SUSv3, and its origin is explained in 
+.\" W R Stevens, UNPv1
+.TP
+.B SO_ACCEPTCONN
+Returns a value indicating whether or not this socket has been marked
+to accept connections with
+.BR listen ().
+The value 0 indicates that this is not a listening socket,
+the value 1 indicates that this is a listening socket.
+Can only be read
+with 
+.BR getsockopt (). 
+.TP
+.B SO_BSDCOMPAT
+Enable BSD bug-to-bug compatibility. 
+This is used by the UDP protocol module in Linux 2.0 and 2.2.
+If enabled ICMP errors received for a UDP socket will not be passed
+to the user program. 
+In later kernel versions, support for this option has been phased out:
+Linux 2.4 silently ignores it, and Linux 2.6 generates a kernel warning
+(printk()) if a program uses this option.
+Linux 2.0 also enabled BSD bug-to-bug compatibility 
+options (random header changing, skipping of the broadcast flag) for raw
+sockets with this option, but that was removed in Linux 2.2. 
+.TP
+.B SO_BINDTODEVICE
+Bind this socket to a particular device like \(lqeth0\(rq,
+as specified in the passed interface name. If the
+name is an empty string or the option length is zero, the socket device
+binding is removed. The passed option is a variable-length null terminated
+interface name string with the maximum size of 
+.BR IFNAMSIZ .
+If a socket is bound to an interface,
+only packets received from that particular interface are processed by the 
+socket. Note that this only works for some socket types, particularly
+.B AF_INET
+sockets. It is not supported for packet sockets (use normal 
+.BR bind (8)
+there).
+.TP
+.B SO_BROADCAST
+Set or get the broadcast flag. When enabled, datagram sockets
+receive packets sent to a broadcast address and they are allowed to send 
+packets to a broadcast address.
+This option has no effect on stream-oriented sockets.
+.TP
+.B SO_DEBUG 
+Enable socket debugging. Only allowed for processes with the
+.B CAP_NET_ADMIN
+capability or an effective user ID of 0.
+.TP
+.B SO_ERROR
+Get and clear the pending socket error. Only valid as a 
+.BR getsockopt ().
+Expects an integer. 
+.TP
+.B SO_DONTROUTE
+Don't send via a gateway, only send to directly connected hosts.
+The same effect can be achieved by setting the 
+.B MSG_DONTROUTE
+flag on a socket 
+.BR send (2)
+operation. Expects an integer boolean flag. 
 .TP
 .B SO_KEEPALIVE
 Enable sending of keep-alive messages on connection-oriented sockets. 
 Expects an integer boolean flag. 
+.TP
+.B SO_LINGER
+Sets or gets the 
+.B SO_LINGER 
+option. The argument is a 
+.I linger 
+structure.
+.sp
+.in +0.25i
+.nf
+struct linger {
+    int l_onoff;    /* linger active */
+    int l_linger;   /* how many seconds to linger for */
+};
+.fi
+.in -0.25i
+.IP
+When enabled, a 
+.BR close (2)
+or
+.BR shutdown (2)
+will not return until all queued messages for the socket have been
+successfully sent or the linger timeout has been reached. Otherwise,
+the call returns immediately and the closing is done in the background.
+When the socket is closed as part of
+.BR exit (2),
+it always lingers in the background.
 .TP
 .B SO_OOBINLINE
 If this option is enabled, 
@@ -216,6 +307,46 @@ Otherwise out-of-band data is only passed when the
 flag is set during receiving. 
 .\" don't document it because it can do too much harm.
 .\".B SO_NO_CHECK
+.TP
+.B SO_PASSCRED
+Enable or disable the receiving of the
+.B SCM_CREDENTIALS
+control message. For more information see 
+.BR unix (7). 
+.TP
+.B SO_PEERCRED
+Return the credentials of the foreign process connected to this socket. 
+This is only possible for connected
+.B PF_UNIX 
+stream sockets and
+.B PF_UNIX 
+stream and datagram socket pairs created using
+.BR socketpair (2); 
+see 
+.BR unix (7). 
+The returned credentials are those that were in effect at the time
+of the call to
+.BR connect (2)
+or
+.BR socketpair (2).
+Argument is a
+.I ucred 
+structure. 
+Only valid as a 
+.BR getsockopt ().
+.TP
+.B SO_PRIORITY
+Set the protocol-defined priority for all packets to be sent on 
+this socket.
+Linux uses this value to order the networking queues: 
+packets with a higher priority may be processed first depending 
+on the selected device queueing discipline. 
+For
+.BR ip (7),
+this also sets the IP type-of-service (TOS) field for outgoing packets.  
+Setting a priority outside the range 0 to 6 requires the
+.B CAP_NET_ADMIN
+capability.
 .TP
 .BR SO_RCVLOWAT " and " SO_SNDLOWAT
 Specify the minimum number of bytes in the buffer until the socket layer
@@ -264,64 +395,29 @@ just as if the socket was specified to be nonblocking.
 If the timeout is set to zero (the default)
 then the operation will never timeout.
 .TP
-.B SO_BSDCOMPAT
-Enable BSD bug-to-bug compatibility. 
-This is used by the UDP protocol module in Linux 2.0 and 2.2.
-If enabled ICMP errors received for a UDP socket will not be passed
-to the user program. 
-In later kernel versions, support for this option has been phased out:
-Linux 2.4 silently ignores it, and Linux 2.6 generates a kernel warning
-(printk()) if a program uses this option.
-Linux 2.0 also enabled BSD bug-to-bug compatibility 
-options (random header changing, skipping of the broadcast flag) for raw
-sockets with this option, but that was removed in Linux 2.2. 
-.TP
-.B SO_PASSCRED
-Enable or disable the receiving of the
-.B SCM_CREDENTIALS
-control message. For more information see 
-.BR unix (7). 
-.TP
-.B SO_PEERCRED
-Return the credentials of the foreign process connected to this socket. 
-This is only possible for connected
-.B PF_UNIX 
-stream sockets and
-.B PF_UNIX 
-stream and datagram socket pairs created using
-.BR socketpair (2); 
-see 
-.BR unix (7). 
-The returned credentials are those that were in effect at the time
-of the call to
-.BR connect (2)
-or
-.BR socketpair (2).
-Argument is a
-.I ucred 
-structure. 
-Only valid as a 
+.B SO_RCVBUF
+Sets or gets the maximum socket receive buffer in bytes. 
+The kernel doubles this value (to allow space for bookkeeping overhead) 
+when it is set using
+.\" Most (all?) other implementations do not do this -- MTK, Dec 05
+.BR setsockopt (),
+and this doubled value is returned by
 .BR getsockopt ().
+The default value is set by the 
+.B rmem_default 
+sysctl and the maximum allowed value is set by the 
+.B rmem_max
+sysctl.   
+The minimum (doubled) value for this option is 256.
 .TP
-.B SO_BINDTODEVICE
-Bind this socket to a particular device like \(lqeth0\(rq,
-as specified in the passed interface name. If the
-name is an empty string or the option length is zero, the socket device
-binding is removed. The passed option is a variable-length null terminated
-interface name string with the maximum size of 
-.BR IFNAMSIZ .
-If a socket is bound to an interface,
-only packets received from that particular interface are processed by the 
-socket. Note that this only works for some socket types, particularly
-.B AF_INET
-sockets. It is not supported for packet sockets (use normal 
-.BR bind (8)
-there).
-.TP
-.B SO_DEBUG 
-Enable socket debugging. Only allowed for processes with the
-.B CAP_NET_ADMIN
-capability or an effective user ID of 0.
+.BR SO_RCVBUFFORCE " (since Linux 2.6.14")
+Using this socket option, a privileged
+.RB ( CAP_NET_ADMIN )
+process can perform the same task as 
+.BR SO_RCVBUF ,
+but the 
+.B rmem_max
+limit can be overridden.
 .TP
 .B SO_REUSEADDR
 Indicates that the rules used in validating addresses supplied in a 
@@ -335,39 +431,6 @@ When the listening socket is bound to
 .B INADDR_ANY
 with a specific port then it is not possible
 to bind to this port for any local address.
-.TP
-.B SO_TYPE
-Gets the socket type as an integer (like 
-.BR SOCK_STREAM ). 
-Can only be read
-with 
-.BR getsockopt (). 
-.\" SO_ACCEPTCONN is in SUSv3, and its origin is explained in 
-.\" W R Stevens, UNPv1
-.TP
-.B SO_ACCEPTCONN
-Returns a value indicating whether or not this socket has been marked
-to accept connections with
-.BR listen ().
-The value 0 indicates that this is not a listening socket,
-the value 1 indicates that this is a listening socket.
-Can only be read
-with 
-.BR getsockopt (). 
-.TP
-.B SO_DONTROUTE
-Don't send via a gateway, only send to directly connected hosts.
-The same effect can be achieved by setting the 
-.B MSG_DONTROUTE
-flag on a socket 
-.BR send (2)
-operation. Expects an integer boolean flag. 
-.TP
-.B SO_BROADCAST
-Set or get the broadcast flag. When enabled, datagram sockets
-receive packets sent to a broadcast address and they are allowed to send 
-packets to a broadcast address.
-This option has no effect on stream-oriented sockets.
 .TP
 .B SO_SNDBUF 
 Sets or gets the maximum socket send buffer in bytes.  
@@ -393,75 +456,6 @@ but the
 .B wmem_max
 limit can be overridden.
 .TP
-.B SO_RCVBUF
-Sets or gets the maximum socket receive buffer in bytes. 
-The kernel doubles this value (to allow space for bookkeeping overhead) 
-when it is set using
-.\" Most (all?) other implementations do not do this -- MTK, Dec 05
-.BR setsockopt (),
-and this doubled value is returned by
-.BR getsockopt ().
-The default value is set by the 
-.B rmem_default 
-sysctl and the maximum allowed value is set by the 
-.B rmem_max
-sysctl.   
-The minimum (doubled) value for this option is 256.
-.TP
-.BR SO_RCVBUFFORCE " (since Linux 2.6.14")
-Using this socket option, a privileged
-.RB ( CAP_NET_ADMIN )
-process can perform the same task as 
-.BR SO_RCVBUF ,
-but the 
-.B rmem_max
-limit can be overridden.
-.TP
-.B SO_LINGER
-Sets or gets the 
-.B SO_LINGER 
-option. The argument is a 
-.I linger 
-structure.
-.sp
-.in +0.25i
-.nf
-struct linger {
-    int l_onoff;    /* linger active */
-    int l_linger;   /* how many seconds to linger for */
-};
-.fi
-.in -0.25i
-.IP
-When enabled, a 
-.BR close (2)
-or
-.BR shutdown (2)
-will not return until all queued messages for the socket have been
-successfully sent or the linger timeout has been reached. Otherwise,
-the call returns immediately and the closing is done in the background.
-When the socket is closed as part of
-.BR exit (2),
-it always lingers in the background.
-.TP
-.B SO_PRIORITY
-Set the protocol-defined priority for all packets to be sent on 
-this socket.
-Linux uses this value to order the networking queues: 
-packets with a higher priority may be processed first depending 
-on the selected device queueing discipline. 
-For
-.BR ip (7),
-this also sets the IP type-of-service (TOS) field for outgoing packets.  
-Setting a priority outside the range 0 to 6 requires the
-.B CAP_NET_ADMIN
-capability.
-.TP
-.B SO_ERROR
-Get and clear the pending socket error. Only valid as a 
-.BR getsockopt ().
-Expects an integer. 
-.TP
 .B SO_TIMESTAMP
 Enable or disable the receiving of the
 .B SO_TIMESTAMP
@@ -476,6 +470,13 @@ reception time of the last packet passed to the user in this call.
 See
 .BR cmsg (3)
 for details on control messages.
+.TP
+.B SO_TYPE
+Gets the socket type as an integer (like 
+.BR SOCK_STREAM ). 
+Can only be read
+with 
+.BR getsockopt (). 
 .SH SIGNALS
 When writing onto a connection-oriented socket that has been shut down
 (by the local or the remote end) 

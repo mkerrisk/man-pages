@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (C) 1997 Andries Brouwer (aeb@cwi.nl)
+.\" and Copyright (C) 2006, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -23,34 +24,41 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
 .\" Additions from Richard Gooch <rgooch@atnf.CSIRO.AU> and aeb, 971207
+.\" 2006-03-13, mtk, Added ppoll() + various other rewordings
 .\"
-.TH POLL 2 1997-12-07 "Linux 2.1.23" "Linux Programmer's Manual"
+.TH POLL 2 2006-03-13 "Linux 2.6.16" "Linux Programmer's Manual"
 .SH NAME
-poll \- wait for some event on a file descriptor
+poll, ppoll \- wait for some event on a file descriptor
 .SH SYNOPSIS
+.nf
 .B #include <sys/poll.h>
 .sp
-.BI "int poll(struct pollfd *" ufds ", nfds_t " nfds ", int " timeout );
+.BI "int poll(struct pollfd *" fds ", nfds_t " nfds ", int " timeout );
+.sp
+.BI "int ppoll(struct pollfd *" fds ", nfds_t " nfds ", "
+.BI "        const struct timespec *" timeout ", const sigset_t *" sigmask );
+.fi
 .SH DESCRIPTION
 .BR poll ()
-is a variation on the theme of 
-.BR select ().
-It specifies an array of
+performs a similar task to
+.BR select (2):
+it waits for one of a set of file descriptors to become ready
+to perform I/O.
+
+The set of file descriptors to be monitored is specified in the
+.I fds
+argument, which is an array of
 .I nfds
-structures of type
-.br
+structures of the following form:
 .nf
 
     struct pollfd {
-        int fd;           /* file descriptor */
+        int   fd;         /* file descriptor */
         short events;     /* requested events */
         short revents;    /* returned events */
     };
 
 .fi
-and a
-.I timeout
-in milliseconds. A negative value means infinite timeout.
 The field
 .I fd
 contains a file descriptor for an open file.
@@ -61,11 +69,14 @@ is interested in.
 The field
 .I revents
 is an output parameter, filled by the kernel with the events that
-actually occurred, either of the type requested, or of one of the
-types
-.B POLLERR
-or
-.B POLLHUP
+actually occurred.
+The bits returned in
+.I revents
+can include any of those specified in 
+.IR events ,
+or one of the values
+.BR POLLERR ,
+.BR POLLHUP ,
 or
 .BR POLLNVAL .
 (These three bits are meaningless in the
@@ -74,19 +85,24 @@ field, and will be set in the
 .I revents
 field whenever the corresponding condition is true.)
 If none of the events requested (and no error) has occurred for any
-of the file descriptors, the kernel waits for
-.I timeout
-milliseconds for one of these events to occur.
-The following possible bits in these masks are defined in <sys/poll.h>:
+of the file descriptors, then
+.BR poll ()
+blocks until one of the events occurs.
+The bits that may be set/returned in
+.I events
+and
+.I revents
+are defined in <sys/poll.h>:
 .br
 .nf
 
     #define POLLIN      0x0001    /* There is data to read */
     #define POLLPRI     0x0002    /* There is urgent data to read */
     #define POLLOUT     0x0004    /* Writing now will not block */
-    #define POLLERR     0x0008    /* Error condition */
-    #define POLLHUP     0x0010    /* Hung up */
-    #define POLLNVAL    0x0020    /* Invalid request: fd not open */
+    #define POLLERR     0x0008    /* Error condition (output only) */
+    #define POLLHUP     0x0010    /* Hung up (output only) */
+    #define POLLNVAL    0x0020    /* Invalid request: fd not open 
+                                     (output only) */
 
 .fi
 When compiling XPG4.2 source one also has:
@@ -109,6 +125,79 @@ Finally, Linux knows about:
     #define POLLMSG     0x0400
     #endif
 .fi
+.PP
+The 
+.I timeout
+argument specifies an upper limit on the time for which
+.BR poll ()
+will block, in milliseconds.
+Specifying a negative value in
+.I timeout
+means an infinite timeout.
+.SS ppoll()
+The relationship between 
+.BR poll ()
+and 
+.BR ppoll () 
+is analogous to the relationship between
+.BR select ()
+and
+.BR pselect ():
+like
+.BR pselect (),
+.BR ppoll ()
+allows an application to safely wait until either a file descriptor
+becomes ready or until a signal is caught.
+.PP
+Other than the difference in the 
+.I timeout
+argument, the following 
+.BR ppoll ()
+call:
+.nf
+
+    ready = ppoll(&fds, nfds, timeout, &sigmask);
+
+.fi
+is equivalent to
+.I atomically
+executing the following calls:
+.nf
+
+    sigset_t origmask;
+
+    sigprocmask(SIG_SETMASK, &sigmask, &origmask);
+    ready = ppoll(&fds, nfds, timeout);
+    sigprocmask(SIG_SETMASK, &origmask, NULL);
+.fi
+.PP
+See the description of
+.BR pselect (2)
+for an explanation of why
+.BR ppoll ()
+is necessary.
+
+The
+.I timeout
+argument specifies an upper limit on the amount of time that 
+.BR ppoll ()
+will block.
+This argument is a pointer to a structure of the following form:
+.in +0.25i
+.nf
+
+struct timespec {
+    long    tv_sec;         /* seconds */
+    long    tv_nsec;        /* nanoseconds */
+};
+.fi
+.in -0.25i
+
+If
+.I timeout
+is specified as NULL, then 
+.BR ppoll ()
+can block indefinitely.
 .SH "RETURN VALUE"
 On success, a positive number is returned; this is
 the number of structures which have non-zero
@@ -137,23 +226,47 @@ value exceeds the RLIMIT_NOFILE value.
 .TP
 .B ENOMEM
 There was no space to allocate file descriptor tables.
+.SH "LINUX NOTES"
+The Linux
+.BR ppoll ()
+system call modifies its 
+.I timeout 
+argument.
+However, the glibc wrapper function hides this behaviour
+by using a local variable for the timeout argument that
+is passed to the system call.
+Thus, the glibc 
+.BR ppoll ()
+function does not modify its timeout argument.
 .SH BUGS
-See the BUGS section of
+See the discussion of spurious readiness notifications under the
+BUGS section of
 .BR select (2).
 .SH "CONFORMING TO"
-XPG4-UNIX.
-.SH AVAILABILITY
+.BR poll ()
+conforms to POSIX.1-2001.
+.BR ppoll ()
+is Linux specific.
+.\" NetBSD 3.0 has a pollts() which is like Linux ppoll().
+.SH VERSIONS
 The
 .BR poll () 
 system call was introduced in Linux 2.1.23.
 The 
 .BR poll ()
 library call was introduced in libc 5.4.28
-(and provides emulation using select if your kernel does not
+(and provides emulation using select() if your kernel does not
 have a 
 .BR poll ()
 system call).
-.SH AVAILABILITY
+
+The
+.BR ppoll ()
+system call was added to Linux in kernel 2.6.16.
+The
+.BR ppoll ()
+library call was added in glibc 2.4.
+.SH NOTES
 Some implementations define the non-standard constant
 .B INFTIM
 with the value \-1 for use as a

@@ -1,5 +1,14 @@
 The following notes are written for people who want to help with 
-maintaining manual pages in the man-pages package.
+maintaining manual pages in the Linux man-pages package.
+
+Send suggestions and corrections to:
+
+        mtk-manpages@gmx.net
+
+Cheers
+
+Michael Kerrisk
+man-pages maintainer
 
 
 THINGS YOU CAN DO TO HELP
@@ -168,10 +177,14 @@ function.  However, note the following:
    description of the interface.  An example program that does nothing 
    other than call an interface usually serves little purpose.
 
--- Example programs should be fairly short.
+-- Example programs should be fairly short (preferably < 100 lines;
+   ideally < 50 lines).
 
 -- Example programs should do error checking after system calls and 
    library function calls.
+
+-- Exaample programs should be commplete, and compile without 
+   warnings when compiled with "cc -Wall",
 
 -- Where possible and appropriate, example programs should allow 
    experimentation, by varying their behaviour based on inputs 
@@ -185,7 +198,7 @@ Ritchie, with a few concessions:
    may be okay.  (Avoid the use of TAB characters in source code!)
 
 -- In the interests of keeping a program short, compressing 
-   error-handling code as follows is acceptable:
+   error-handling code such as the following is acceptable:
 
         if (func(...) == -1)
             { perror("func"); exit(EXIT_FAILURE); }
@@ -242,20 +255,58 @@ If you are thinking of writing one or more of these pages, then:
 System Calls
 ------------
 
-add_key(2)  
-keyctl(2)  
-request_key(2)  
+add_key(2)  	    (new in 2.6.10)
+keyctl(2)  	    (new in 2.6.10)
+request_key(2) 	    (new in 2.6.10)
     See:
         Documentation/keys.txt
         Documentation/keys-request-key.txt
+
         
 ioprio_get(2)       (new in kernel 2.6.13) 
 ioprio_set(2)       (new in kernel 2.6.13)
     See Documentation/block/ioprio.txt
 
+
 restart_syscall(2)  (new in 2.6)
 set_zone_reclaim(2) (new in kernel 2.6.13)
-sys_kexec_load(2)   (new in kernel 2.6.13)
+kexec_load(2)       (new in kernel 2.6.13)
+
+migrate_pages(2)    (new in 2.6.16)
+		    See Documentation/vm/page_migration
+
+preadv(2), pwritev(2) (new in ?? -- see 
+                       http://www.lwn.net/Articles/164887/ )
+    
+    
+epoll_pwait(2)        (probably will arrive in 2.6.17)
+
+    
+The new *at(2) system calls in 2.6.16: 
+
+    openat(2)       S                           [Already documented]
+    faccessat(2)
+    fstatat(2)      S   f (AT_SYMLINK_NOFOLLOW)
+    fchmodat(2)
+    fchownat(2)     S   f (AT_SYMLINK_NOFOLLOW)
+    futimesat(2)    S                           [See also glibc wrapper]
+    mkdirat(2)
+    mknodat(2)
+    linkat(2)         2
+    unlinkat(2)     S   f (AT_REMOVEDIR)
+    symlinkat(2)
+    readlinkat(2)
+    renameat(2)       2
+
+In the above list: functions marked '2' take two dirfd arguments; 
+functions marked 'f' take a flags argument that is not present 
+in their traditional counterparts (and possible flag values
+are listed in parentheses); and functions marked 'S' have
+counterparts (not exactly the same) on Solaris.
+
+Note that openat(2) is already documented and includes some NOTES 
+on the rationale for the *at() interfaces; this page could serve 
+as a template for the documentation of the remaining system calls.
 
 
 /sys file system
@@ -270,26 +321,107 @@ this page.
 Library Functions
 -----------------
 
-(See a further list of missing pages in the "undocumented(3)" manual page.)
+(See a further list of missing pages in the "undocumented(3)" manual page.
+
+Searches like the following are likely to sugest other functions
+that need to be documented:
+
+
+MPDIR=~/man-pages	# Directory containing uncopressed man-pages
+GLIBCDIR=/SOME_DIR      # Directory containing glibc tree
+
+for f in  $(cat $(echo $GLIBCDIR/abilist/*.abilist) | grep -v 'GLIBC' | \
+	awk '{print $1}' | grep -v '^_' | sort -u); do 
+    if ! test -f $MPDIR/man3/$f.3 > /dev/null 2>&1 && \
+		! test -f $MPDIR/man2/$f.2 > /dev/null 2>&1 ; then
+	echo $f; 
+    fi
+done
+)
 
 adjtime(3)  
-dlinfo(3)   (Solaris and FreeBSD have a similar function.)
+bsd_signal(3)
+clock_nanosleep(3)
+crypt_r(3)    (To be added to crypt.3)
+dlinfo(3)     (Solaris and FreeBSD have a similar function.)
 dladdr1(3)
-dlmopen(3) (Since glibc 2.3.4; probably to be documented on dlopen.3 page)
-memmem(3) (GNU extension)
-readdir_r(3) (probably as additional text in readdir.3)
+dlmopen(3)    (Since glibc 2.3.4; probably to be documented in dlopen.3)
+euidaccess(3) / eaccess(3)
+fdopendir(3)  (since glibc 2.4)
+fopencookie(3)
+getsubopt(3)
+getutmp(3)
+getutmpx(3)
+gnu_get_libc_release
+gnu_get_libc_version
+mallinfo(3)
+mallopt(3)
+mcheck(3), mprobe(3)
+memmem(3)     (GNU extension)
+mkfifoat(3) -- see notes on the *at(2) syscalls above (since glibc 2.4)
+readdir_r(3)  (probably as additional text in readdir.3)
+open_wmemstream(3)   (since glibc 2.4)
+posix_madvise(3)
+program_invocation_name(3)
+program_invocation_short_name(3)
 sigstack(3)
 sigwait(3)
+sockatmasrk(3)
 strftime_l(3) (since glibc 2.3)
 strptime_l(3) (since glibc 2.3.2)
+sysv_signal(3)
+updwtmpx(3)
 
-The POSIX semaphores API: sem_close(3), sem_destroy(3), 
-sem_getvalue(3), sem_init(3), sem_open(3), sem_post(3), 
-sem_timedwait(3), sem_trywait(3), sem_unlink(3) 
+sigandset(3), sigosset(3), sigisemptyset(3) 
+    (perhaps on same page as sigemptyset(3))
+
+fwscanf(3), swscanf(3), vfwscanf(3), vswscanf(3), wscanf(3) 
+
+
+argp_error(3)
+argp_failure(3)
+argp_help(3)
+argp_parse(3)
+argp_program_bug_address(3)
+argp_program_version(3)
+argp_program_version_hook(3)
+argp_state_help(3)
+argp_usage(3)
+
+
+posix_spawn(3)
+posix_spawnattr_destroy(3)
+posix_spawnattr_getflags(3)
+posix_spawnattr_getpgroup(3)
+posix_spawnattr_getschedparam(3)
+posix_spawnattr_getschedpolicy(3)
+posix_spawnattr_getsigdefault(3)
+posix_spawnattr_getsigmask(3)
+posix_spawnattr_init(3)
+posix_spawnattr_setflags(3)
+posix_spawnattr_setpgroup(3)
+posix_spawnattr_setschedparam(3)
+posix_spawnattr_setschedpolicy(3)
+posix_spawnattr_setsigdefault(3)
+posix_spawnattr_setsigmask(3)
+posix_spawn_file_actions_addclose(3)
+posix_spawn_file_actions_adddup2(3)
+posix_spawn_file_actions_addopen(3)
+posix_spawn_file_actions_destroy(3)
+posix_spawn_file_actions_init(3)
+posix_spawnp(3)
+
+
+if_freenameindex(3)
+if_indextoname(3)
+if_nameindex(3)
+if_nametoindex(3)
+
 
 getaddrinfo_a(3), gai_cancel(3), gai_error(3), gai_suspend(3) 
 (libanl; since glibc 2.2.3; See 
 http://people.redhat.com/~drepper/asynchnl.pdf)
+
 
 Various wide character functions (with their traditional equivalents 
 mentioned in parentheses):
@@ -315,6 +447,7 @@ wcsftime(3)      (strftime(3))
         After these manual pages are written, add SEE ALSO entries 
         from the pages for the traditional functions to the pages 
         describing their wide-character equivalents.
+
     
 And last, but far from least, the POSIX threads API.  Note that there is
 an existing, outdated set of pages supplied with glibc that document the
@@ -325,8 +458,8 @@ the complete API, describing details where LinuxThreads and NPTL diverge
 from the standard.  The existing pthreads(7) manual page, which gives an 
 overview of Pthreads implementations on Linux,  is designed as a base 
 document for these manual pages.  The list of required manual pages is
-long; those marked with more asterisks are probably the most desirable 
-to get done first:
+long (related functions can be grouped on a single page); those marked 
+with more asterisks are probably the most desirable to get done first:
 
 pthread_atfork()                        *
 pthread_attr_destroy()                  
@@ -436,3 +569,15 @@ pthread_timedjoin_np()
 pthread_tryjoin_np()
 pthread_yield()                         *
 pthread_yield_np()
+
+And new in glibc 2.4:
+
+pthread_mutex_consistent_np()
+pthread_mutexattr_getrobust_np()
+pthread_mutexattr_setrobust_np()
+pthread_mutexattr_getprotocol()
+pthread_mutexattr_setprotocol()
+pthread_mutexattr_getprioceiling()
+pthread_mutexattr_setprioceiling()
+pthread_mutex_getprioceiling()
+pthread_mutex_setprioceiling()

@@ -1,0 +1,163 @@
+.\" (C) 2006, Janak Desai <janak@us.ibm.com>
+.\" (C) 2006, Michael Kerrisk <mtk-manpages@gmx.ne>
+.\" Licensed under the GPL
+.\"
+.TH UNSHARE 2 2005-03-10 "Linux 2.6.16" "Linux Programmer's Manual"
+.SH NAME
+unshare \- disassociate parts of the process execution context
+.SH SYNOPSIS
+.nf
+.B #include <sched.h>
+.sp
+.BI "int unshare(int " flags );
+.fi
+.SH DESCRIPTION
+.BR unshare () 
+allows a process to disassociate parts of its execution
+context that are currently being shared with other processes. 
+Part of the execution context, such as the namespace, is shared 
+implicitly when a new process is created using 
+.BR fork (2)
+or
+.BR vfork (2), 
+while other parts, such as virtual memory, may be
+shared by explicit request when creating a process using 
+.BR clone (2).
+
+The main use of 
+.BR unshare ()
+is to allow a process to control its
+shared execution context without creating a new process.
+
+The 
+.I flags 
+argument is a bit mask that specifies which parts of 
+the execution context should be unshared.  
+This argument is specified by ORing together zero or more
+of the following constants:
+.TP
+.B CLONE_FILES
+Reverse the effect of the
+.BR clone (2)
+.B CLONE_FILES
+flag.
+Unshare the file descriptor table, so that the calling process 
+no longer shares its file descriptors with any other process.
+.TP
+.B CLONE_FS
+Reverse the effect of the
+.BR clone (2)
+.B CLONE_FS 
+flag.
+Unshare file system attributes, so that the calling process 
+no longer shares its root directory, current directory, 
+or umask attributes with any other process.
+.BR chroot (2),
+.BR chdir (2),
+or
+.BR umask (2)
+.TP
+.B CLONE_NEWNS
+.\" These flag name are inconsistent:
+.\" CLONE_NEWNS does the same thing in clone(), but CLONE_VM, 
+.\" CLONE_FS, and CLONE_FILES reverse the action of the clone()
+.\" flags of the same name.
+This flag has the same effect as the
+.BR clone (2)
+.B CLONE_NEWNS
+flag.
+Unshare the namespace, so that the calling process has a private copy of
+its namespace which is not shared with any other process.
+Specifying this flag automatically implies
+.B CLONE_FS
+as well.
+.\" As at 2.6.16, the following forced implications also apply,
+.\" although CLONE_THREAD and CLONE_SIGHAND are not yet implemented.
+.\" If CLONE_THREAD is set force CLONE_VM.
+.\" If CLONE_VM is set, force CLONE_SIGHAND. 
+.\" If CLONE_SIGHAND is set and signals are also being shared 
+.\" (i.e., current->signal->count > 1), force CLONE_THREAD.
+.TP
+.B CLONE_VM
+Reverse the effect of the
+.BR clone (2)
+.B CLONE_VM
+flag.
+.RB ( CLONE_VM
+is also implicitly set by
+.BR vfork (2),
+and can be reversed using this
+.BR unshare ()
+flag.)
+Unshare virtual memory, so that the calling process no 
+longer shares its virtual address space with any other process.
+.PP
+If 
+.I flags
+is specified as zero, then
+.BR unshare ()
+is a no-op;
+no changes are made to the calling process's execution context.
+.SH RETURN VALUE
+On success, zero returned. On failure, \-1 is returned and 
+.I errno 
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EPERM
+.I flags
+specified
+.B CLONE_NEWNS 
+but the calling process was not privileged (did not have the
+.B CAP_SYS_ADMIN
+capability).
+.TP
+.B ENOMEM
+Cannot allocate sufficient memory to copy parts of caller's
+context that need to be unshared.
+.TP
+.B EINVAL
+An invalid bit was specified in
+.IR flags .
+.SH CONFORMING TO
+The
+.BR unshare ()
+system call is Linux-specific.
+.SH NOTES
+The
+.BR unshare ()
+system call was added to Linux in kernel 2.6.16.
+
+Not all of the process attributes that can be shared when 
+a new process is created using
+.BR clone (2)
+can be unshared using
+.BR unshare ().
+In particular, as at kernel 2.6.16,
+.BR unshare () 
+does not implement flags that reverse the effects of
+.BR CLONE_SIGHAND ,
+.\" However we can do unshare(CLONE_SIGHAND) if CLONE_SIGHAND
+.\" was not specified when doing clone(); i.e., unsharing
+.\" signal handlers is permitted if we are not actually
+.\" sharing signal handlers.   mtk
+.BR CLONE_SYSVSEM ,
+or 
+.BR CLONE_THREAD .
+Such functionality may be added in the future, if required.
+.\"
+.\"9) Future Work
+.\"--------------
+.\"The current implementation of unshare does not allow unsharing of
+.\"signals and signal handlers. Signals are complex to begin with and
+.\"to unshare signals and/or signal handlers of a currently running
+.\"process is even more complex. If in the future there is a specific
+.\"need to allow unsharing of signals and/or signal handlers, it can
+.\"be incrementally added to unshare without affecting legacy
+.\"applications using unshare.
+.\"
+.SH SEE ALSO
+.BR clone (2), 
+.BR fork (2), 
+.BR vfork (2), 
+Documentation/unshare.txt

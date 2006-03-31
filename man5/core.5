@@ -1,0 +1,147 @@
+.\" Copyright (c) 2006 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH CORE 5 2006-04-03 "Linux 2.6.16" "Linux Programmer's Manual"
+.SH NAME
+core \- core dump file
+.SH DESCRIPTION
+The default action of certain signals is to cause a process to terminate 
+and produce a
+.IR "core dump file" ,
+a disk file containing an image of the process's memory at 
+the time of termination.
+A list of the signals which cause a process to dump core can be found in
+.BR signal (7).
+
+A process can set the value of its
+.BR RLIMIT_CORE
+resource limit to set an upper limit on the size of the core dump file 
+that will be produced if it receives a "core dump" signal; see
+.BR getrlimit (2)
+for details.
+
+There are various circumstances in which a core dump file is 
+not produced:
+.IP *
+The process does not have permission to write a file named
+.I core
+in the current directory, either because the current directory
+is non-writable, or a file called
+.I core
+exists and is non-writable.
+.IP *
+The directory prefix of the
+.I core_pattern
+file (see below) refers to non-writable directory.
+.IP *
+The 
+.I core_pattern
+file
+names a directory, or refers to a non-writable file.
+.IP *
+.B RLIMIT_CORE
+or 
+.B RLIMIT_FSIZE
+resource limits for a process are set to zero.
+(See
+.BR getrlimit (2).)
+.IP *
+The binary being executed by the process does not have read 
+permission enabled.
+.IP *
+The process is executing a set-user-ID (set-group-ID) program
+that is owned by a user (group) other than the real user (group) 
+ID of the process.
+(However, see the description of the
+.BR prctl (2)
+.B PR_SET_DUMPABLE
+operation, and the description of the
+.I /proc/sys/fs/suid_dumpable
+file in
+.BR proc (5).)
+.SS Naming of core dump files
+By default, a core dump file is named 
+.IR core ,
+but this name can be changed by setting the value of the file 
+.IR /proc/sys/kernel/core_pattern ;
+see
+.BR proc (5)
+for details.
+
+By default, a core dump file is named 
+.IR core ,
+but the 
+.I /proc/sys/kernel/core_pattern
+file
+(new in Linux 2.5) 
+can be set to define a template that is used to name core dump files.
+The template can contain % specifiers which are substituted
+by the following values when a core file is created:
+.nf
+    
+  %%  A single % character
+  %p  PID of dumped process
+  %u  real UID of dumped process
+  %g  real GID of dumped process
+  %s  number of signal causing dump
+  %t  time of dump (seconds since 0:00h, 1 Jan 1970)
+  %h  hostname (same as 'nodename' returned by \fBuname\fP(2))
+  %e  executable filename
+    
+.fi
+A single % at the end of the template is dropped from the 
+core filename, as is the combination of a % followed by any 
+character other than those listed above.
+All other characters in the template become a literal
+part of the core filename.
+The template may include `/' characters, which are interpreted
+as delimiters for directory names.
+The maximum size of the resulting core filename is 64 bytes.
+The default value in this file is "core".
+For backward compatibility, if
+.I /proc/sys/kernel/core_pattern
+does not include "%p" and
+.I /proc/sys/kernel/core_uses_pid
+(see below)
+is non-zero, then .PID will be appended to the core filename.
+
+Linux 2.4 does not provide
+.IR /proc/sys/kernel/core_pattern ,
+but does provide a more primitive method of controlling
+the name of the core dump file.
+If the
+.I /proc/sys/kernel/core_uses_pid
+file contains the value 0, then a core dump file is simply named
+.IR core .
+If this file contains a non-zero value, then the core dump file includes
+the process ID in a name of the form
+.IR core.PID .
+.SH NOTES
+The 
+.BR gdb (1)
+.I gcore
+command can be used to obtain a core dump of a running process.
+.SH SEE ALSO
+.BR gdb (1),
+.BR getrlimit (2),
+.BR prctl (2),
+.BR sigaction (2),
+.BR elf (5),
+.BR proc (5),
+.BR signal (7)

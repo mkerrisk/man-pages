@@ -334,17 +334,46 @@ instead.
 (Non-POSIX.)
 The above record locks may be either advisory or mandatory,
 and are advisory by default.
-To make use of mandatory locks, mandatory locking must be enabled
-(using the "\-o mand" option to
-.BR mount (8))
-for the file system containing the
-file to be locked and enabled on the file itself (by disabling
-group execute permission on the file and enabling the set-group-ID
-permission bit).
 
 Advisory locks are not enforced and are useful only between
-cooperating processes. Mandatory locks are enforced for all
-processes.
+cooperating processes. 
+
+Mandatory locks are enforced for all processes.  
+If a process tries to perform an incompatible access (e.g.,
+.BR read (2)
+or
+.BR write (2))
+on a file region that has an incompatible mandatory lock,
+then the result depends upon whether the
+.B O_NONBLOCK
+flag is enabled for its open file description.
+If the 
+.B O_NONBLOCK
+flag is not enabled, then
+system call is blocked until the lock is removed
+or converted to a mode that is compatible with the access.
+If the 
+.B O_NONBLOCK 
+flag is enabled, then the system call fails with the error
+.BR EAGAIN or
+.BR EWOULDBLOCK.
+
+To make use of mandatory locks, mandatory locking must be enabled
+both on the file system that contains the file to be locked, 
+and on the file itself.
+Mandatory locking is enabled on a file system
+using the "\-o mand" option to
+.BR mount (8),
+or the 
+.B MS_MANDLOCK
+flag for 
+.BR mount (2).
+Mandatory locking is enabled on a file by disabling
+group execute permission on the file and enabling the set-group-ID
+permission bit (see
+.BR chmod (1)
+and 
+.BR chmod (2)).
 .P
 .SS "Managing signals"
 .BR F_GETOWN ", " F_SETOWN ", " F_GETSIG " and " F_SETSIG

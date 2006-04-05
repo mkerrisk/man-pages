@@ -28,8 +28,6 @@
 openat \- open a file at a relative location
 .SH SYNOPSIS
 .nf
-.B #include <sys/types.h>
-.B #include <sys/stat.h>
 .B #include <fcntl.h>
 .sp
 .BI "int openat(int " dirfd ", const char *" pathname ", int " flags );
@@ -59,7 +57,9 @@ is relative and
 .I dirfd
 is the special value
 .BR AT_FDCWD ,
-then pathname is interpreted relative to the current working 
+then
+.I pathname
+is interpreted relative to the current working 
 directory of the calling process (like
 .BR open (2)).
 
@@ -69,16 +69,17 @@ is absolute, then
 .I dirfd 
 is ignored.
 .SH "RETURN VALUE"
+On success,
 .BR openat () 
-returns a new file descriptor, or \-1 if an error occurred
-(in which case,
+returns a new file descriptor.
+On error, \-1 is returned and
 .I errno
-is set appropriately).
+is set to indicate the error.
 .SH ERRORS
 The same errors that occur for
 .BR open (2)
 can also occur for
-.BR openat (2).
+.BR openat ().
 The following additional errors can occur for 
 .BR openat ():
 .TP
@@ -90,29 +91,46 @@ is not a valid file descriptor.
 .I dirfd
 is a file descriptor referring to a file other than a directory.
 .SH NOTES
-The 
 .BR openat ()
-system call (and similar system calls suffixed "at")
-provides functionality that can otherwise only be obtained 
-less efficiently or at the risk of races in user applications.
-It allows the implementation of a per-thread "current working 
+and other similar system calls suffixed "at" are supported
+for two reasons.
+
+First,
+.BR openat ()
+allows an application to avoid race conditions that could 
+occur when using
+.BR open (2)
+to open files in directories other than the current working directory.
+These race conditions result from the fact that some component
+of the directory prefix given to
+.BR open ()
+could be changed in parallel with the call to 
+.BR open ().
+Such races can be avoided by
+opening a file descriptor for the target directory,
+and then specifying that file descriptor as the 
+.I dirfd
+argument of
+.BR openat ().
+
+Second,
+.BR openat ()
+allows the implementation of a per-thread "current working 
 directory", via file descriptor(s) maintained by the application.
 (This functionality can also be obtained by tricks based
 on the use of
 .IR /proc/self/fd/ dirfd, 
 but less efficiently.)
-It also allows the avoidance of various kinds of races that can occur 
-as a result of directory deletions that may occur while an application 
-is traversing a file system.
 .SH "CONFORMING TO"
-This system call is non-standard.  
+This system call is non-standard but is proposed
+for inclusion in a future revision of POSIX.1.
 A similar system call exists on Solaris.
 .\" The 'at' suffix in Solaris is actually double sensed.  It
 .\" primarily referred to "extended *at*tributes", which are
 .\" handled by Solaris' O_XATTR flag, but was also intended
 .\" to refer to the notion of "at a relative location".
 .\" 
-.\" See also the following for a discussion of the inconsistent
+.\" See the following for a discussion of the inconsistent
 .\" naming of the *at() functions:
 .\" http://www.opengroup.org/austin/mailarchives/ag/msg09103.html
 .\" Subject: 	RE: The naming of at()s is a difficult matter
@@ -123,5 +141,9 @@ A similar system call exists on Solaris.
 .BR openat ()
 was added to Linux in kernel 2.6.16.
 .SH "SEE ALSO"
+.BR mkdirat (2),
+.BR mknodat (2),
 .BR open (2),
-.BR path_resolution (2)
+.BR path_resolution (2),
+.BR mkfifoat (3).
+.\" FIXME . eventually list other *at.2 pages here?

@@ -72,7 +72,7 @@ The termios functions describe a general terminal interface that is
 provided to control asynchronous communications ports.
 .LP
 Many of the functions described here have a \fItermios_p\fP argument
-that is a pointer to a \fBtermios\fP structure.  This structure contains
+that is a pointer to a \fItermios\fP structure.  This structure contains
 at least the following members:
 .ne 9
 .sp
@@ -82,9 +82,16 @@ tcflag_t \fIc_iflag\fP;      /* input modes */
 tcflag_t \fIc_oflag\fP;      /* output modes */
 tcflag_t \fIc_cflag\fP;      /* control modes */
 tcflag_t \fIc_lflag\fP;      /* local modes */
-cc_t \fIc_cc\fP[\fBNCCS\fP];       /* control chars */
+cc_t     \fIc_cc\fP[\fBNCCS\fP];   /* control chars */
 .fi
 .RE
+.PP
+The values that may be assigned to these fields are described below.
+In the case of the first four bit-mask fields, 
+the definitions of some of the associated flags that may be set are 
+only exposed if a specific feature test macro (see
+.IR <features.h> )
+is defined, as noted in brackets ("[]").
 .PP
 \fIc_iflag\fP flag constants:
 .TP
@@ -173,34 +180,41 @@ If unset, fill character is ASCII NUL ('\\0').
 .TP
 .B NLDLY
 Newline delay mask.  Values are \fBNL0\fP and \fBNL1\fP.
+[requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
 .TP
 .B CRDLY
 Carriage return delay mask.
 Values are \fBCR0\fP, \fBCR1\fP, \fBCR2\fP, or \fBCR3\fP.
+[requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
 .TP
 .B TABDLY
 Horizontal tab delay mask.
 Values are \fBTAB0\fP, \fBTAB1\fP, \fBTAB2\fP, \fBTAB3\fP (or \fBXTABS\fP).
 A value of TAB3, that is, XTABS, expands tabs to spaces
 (with tab stops every eight columns).
+[requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
 .TP
 .B BSDLY
 Backspace delay mask.  Values are \fBBS0\fP or \fBBS1\fP.
 (Has never been implemented.)
+[requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
 .TP
 .B VTDLY
 Vertical tab delay mask.  Values are \fBVT0\fP or \fBVT1\fP.
 .TP
 .B FFDLY
 Form feed delay mask.  Values are \fBFF0\fP or \fBFF1\fP.
+[requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
 .PP
 \fIc_cflag\fP flag constants:
 .TP
 .B CBAUD
 (not in POSIX) Baud speed mask (4+1 bits).
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B CBAUDEX
 (not in POSIX) Extra baud speed mask (1 bit), included in CBAUD.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .LP
 (POSIX says that the baud speed is stored in the termios structure
 without specifying where precisely, and provides
@@ -238,14 +252,16 @@ Ignore modem control lines.
 .TP
 .B LOBLK
 (not in POSIX) Block output from a noncurrent shell layer.
-(For use by \fBshl\fP.)
+For use by \fBshl\fP (sjhell layers).  (Not implemented on Linux.)
 .TP
 .B CIBAUD
 (not in POSIX) Mask for input speeds. The values for the CIBAUD bits are
 the same as the values for the CBAUD bits, shifted left IBSHIFT bits. 
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B CRTSCTS
 (not in POSIX) Enable RTS/CTS (hardware) flow control.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .PP
 \fIc_lflag\fP flag constants:
 .TP
@@ -264,6 +280,8 @@ If \fBICANON\fP is also set, terminal is uppercase only.
 Input is converted to lowercase, except for characters preceded by \\.
 On output, uppercase characters are preceded by \\ and lowercase
 characters are converted to uppercase.
+.\" [requires _BSD_SOURCE or _SVID_SOURCE or _XOPEN_SOURCE]
+.\" glibc is probably now wrong to allow _XOPEN_SOURCE to expose XCASE.
 .TP
 .B ECHO
 Echo input characters.
@@ -283,14 +301,17 @@ If \fBICANON\fP is also set, echo the NL character even if ECHO is not set.
 TAB, NL, START, and STOP are echoed as ^X, where X is the character with
 ASCII code 0x40 greater than the control signal.  For example, character
 0x08 (BS) is echoed as ^H.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B ECHOPRT
 (not in POSIX) If \fBICANON\fP and \fBIECHO\fP are also set, characters
 are printed as they are being erased.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B ECHOKE
 (not in POSIX) If \fBICANON\fP is also set, KILL is echoed by erasing
 each character on the line, as specified by \fBECHOE\fP and \fBECHOPRT\fP.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B DEFECHO
 (not in POSIX) Echo only when a process is reading.
@@ -299,6 +320,7 @@ each character on the line, as specified by \fBECHOE\fP and \fBECHOPRT\fP.
 (not in POSIX; not supported under Linux)
 Output is being flushed.  This flag is toggled by typing
 the DISCARD character.
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B NOFLSH
 Disable flushing the input and output queues when generating the SIGINT,
@@ -313,6 +335,7 @@ which tries to write to its controlling terminal.
 (not in POSIX; not supported under Linux)
 All characters in the input queue are reprinted when
 the next character is read.  (\fBbash\fP handles typeahead this way.)
+[requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
 .B IEXTEN
 Enable implementation-defined input processing.
@@ -436,7 +459,7 @@ immediately, only giving the currently already available characters.)
 .PP
 .BR tcgetattr ()
 gets the parameters associated with the object referred by \fIfd\fP and
-stores them in the \fBtermios\fP structure referenced by
+stores them in the \fItermios\fP structure referenced by
 \fItermios_p\fP.  This function may be invoked from a background process;
 however, the terminal attributes may be subsequently changed by a
 foreground process.
@@ -444,7 +467,7 @@ foreground process.
 .BR tcsetattr ()
 sets the parameters associated with the terminal (unless support is
 required from the underlying hardware that is not available) from the
-\fBtermios\fP structure referred to by \fItermios_p\fP.  
+\fItermios\fP structure referred to by \fItermios_p\fP.  
 \fIoptional_actions\fP specifies when the changes take effect:
 .IP \fBTCSANOW\fP
 the change occurs immediately.
@@ -509,7 +532,7 @@ The default on open of a terminal file is that neither its input nor its
 output is suspended.
 .LP
 The baud rate functions are provided for getting and setting the values
-of the input and output baud rates in the \fBtermios\fP structure.  The
+of the input and output baud rates in the \fItermios\fP structure.  The
 new values do not take effect
 until \fBtcsetattr\fP() is successfully called.
 
@@ -517,28 +540,30 @@ Setting the speed to \fBB0\fP instructs the modem to "hang up".
 The actual bit rate corresponding to \fBB38400\fP may be altered with
 \fBsetserial\fP(8).	
 .LP
-The input and output baud rates are stored in the \fBtermios\fP
+The input and output baud rates are stored in the \fItermios\fP
 structure.
 .LP
 \fBcfmakeraw\fP() sets the terminal attributes as follows:
 .nf
-            termios_p->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP
-                            |INLCR|IGNCR|ICRNL|IXON);
-            termios_p->c_oflag &= ~OPOST;
-            termios_p->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
-            termios_p->c_cflag &= ~(CSIZE|PARENB);
-            termios_p->c_cflag |= CS8;
+
+    termios_p->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+                    | INLCR | IGNCR | ICRNL | IXON);
+    termios_p->c_oflag &= ~OPOST;
+    termios_p->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    termios_p->c_cflag &= ~(CSIZE | PARENB);
+    termios_p->c_cflag |= CS8;
 .fi
 .LP
 .BR cfgetospeed ()
-returns the output baud rate stored in the \fBtermios\fP structure
+returns the output baud rate stored in the \fItermios\fP structure
 pointed to by
 .IR termios_p .
 .LP
 .BR cfsetospeed ()
-sets the output baud rate stored in the \fBtermios\fP structure pointed
+sets the output baud rate stored in the \fItermios\fP structure pointed
 to by \fItermios_p\fP to \fIspeed\fP, which must be one of these constants:
 .nf
+
 .ft B
 	B0
 	B50
@@ -560,6 +585,7 @@ to by \fItermios_p\fP to \fIspeed\fP, which must be one of these constants:
 	B115200
 	B230400
 .ft P
+
 .fi
 The zero baud rate, \fBB0\fP,
 is used to terminate the connection.  If B0
@@ -569,25 +595,30 @@ for the speeds beyond those defined in POSIX.1 (57600 and above).
 Thus, \fBB57600\fP & \fBCBAUDEX\fP is non-zero.
 .LP
 .BR cfgetispeed ()
-returns the input baud rate stored in the \fBtermios\fP structure.
+returns the input baud rate stored in the \fItermios\fP structure.
 .LP
 .BR cfsetispeed ()
-sets the input baud rate stored in the \fBtermios\fP structure to
-.IR speed .
+sets the input baud rate stored in the \fItermios\fP structure to
+.IR speed , 
+which must be specified as one of the \fBBnnn\fP constants listed above for
+.BR cfsetospeed ().
 If the input baud rate is set to zero, the input baud rate will be
 equal to the output baud rate.
 .LP
 .BR cfsetspeed ()
-is a 4.4 BSD extension. It will set both input and output speed.
+is a 4.4BSD extension. 
+It takes the same arguments as 
+.BR cfsetispeed (),
+and sets both input and output speed.
 .SH "RETURN VALUE"
 .LP
 .BR cfgetispeed ()
 returns the input baud rate stored in the
-\fBtermios\fP
+\fItermios\fP
 structure.
 .LP
 .BR cfgetospeed ()
-returns the output baud rate stored in the \fBtermios\fP structure.
+returns the output baud rate stored in the \fItermios\fP structure.
 .LP
 All other functions return:
 .IP 0

@@ -1,6 +1,6 @@
 '\" t
 .\" Copyright (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
-.\" Copyright (c) 2002 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\" Copyright (c) 2002,2006 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -32,6 +32,8 @@
 .\" Modified 13 Jun 2002, by Michael Kerrisk <mtk-manpages@gmx.net>
 .\"	Noted that SIGSTKFLT is in fact unused
 .\" 2004-12-03, Modified mtk, added notes on RLIMIT_SIGPENDING
+.\" 2006-04-24, mtk, Added text on changing signal dispositions,
+.\"		signal mask, and pending signals.
 .\"
 .TH SIGNAL 7  2002-06-13 "Linux 2.4.18" "Linux Programmer's Manual"
 .SH NAME
@@ -39,6 +41,77 @@ signal \- list of available signals
 .SH DESCRIPTION
 Linux supports both POSIX reliable signals (hereinafter
 "standard signals") and POSIX real-time signals.
+.SS "Signal Dispositions"
+Each signal has a current 
+.IR disposition ,
+which determines how the process behaves when it is delivered 
+the signal.
+
+The entries in the "Action" column of the tables below specify
+the default disposition for each signal, as follows:
+.IP Term
+Default action is to terminate the process.
+.IP Ign
+Default action is to ignore the signal.
+.IP Core
+Default action is to terminate the process and dump core (see
+.BR core (5)).
+.IP Stop
+Default action is to stop the process.
+.IP Cont
+Default action is to continue the process if it is currently stopped.
+.PP
+A process can change the disposition of a signal using
+.BR sigaction (2)
+or (less portably)
+.BR signal (2).
+Using these system calls, a process can elect one of the 
+following behaviours to occur on delivery of the signal: 
+perform the default action; ignore the signal; 
+or catch the signal with a
+.IR "signal handler" , 
+a programmer-defined function that is automatically invoked 
+when the signal is delivered.
+
+The signal disposition is a per-process attribute:
+in a multithreaded application, the disposition of a 
+particular signal is the same for all threads.
+.SS "Signal Mask and Pending Signals"
+A signal may be
+.IR blocked ,
+which means that it will not be delivered until it is later unblocked.
+Between the time when it is generated and when it is delivered
+a signal is said to be 
+.IR pending .
+
+Each thread in a process has an independent 
+.IR "signal mask" , 
+which indicates the set of signals that the thread is currently blocking.
+A thread can manipulate its signal mask using
+.BR pthread_sigmask (3).
+In a traditional single-threaded application, 
+.BR sigprocmask (2)
+can be used to manipulate the signal mask.
+
+A signal may be generated (and thus pending)
+for a process as a whole (e.g., when sent using
+.BR kill (2)) 
+or for a specific thread (e.g., certain signals, 
+such as SIGSEGV and SIGFPE, generated as a 
+consequence of executing a specific machine-language instruction 
+are thread directed, as are signals targeted at a specific thread using
+.BR pthread_kill (2)).
+A process-directed signal may be delivered to any one of the
+threads that does not currently have the signal blocked.
+If more than one of the threads has the signal unblocked, then the 
+kernel chooses an arbitrary thread to which to deliver the signal.
+
+A thread can obtain the set of signals that it currently has pending
+using
+.BR sigpending (2).
+This set will consist of the union of the set of pending 
+process-directed signals and the set of signals pending for 
+the calling thread.
 .SS "Standard Signals"
 Linux supports the standard signals listed below. Several signal numbers
 are architecture dependent, as indicated in the "Value" column.
@@ -47,20 +120,7 @@ alpha and sparc, the middle one for i386, ppc and sh, and
 the last one for mips.
 A \- denotes that a signal is absent on the corresponding architecture.)
 
-The entries in the "Action" column of the table specify
-the default action for the signal, as follows:
-.IP Term
-Default action is to terminate the process.
-.IP Ign
-Default action is to ignore the signal.
-.IP Core
-Default action is to terminate the process and dump core.
-.IP Stop
-Default action is to stop the process.
-.PP
 First the signals described in the original POSIX.1 standard.
-.sp
-.PP
 .TS
 l c c l
 ____
@@ -81,7 +141,7 @@ SIGTERM	15	Term	Termination signal
 SIGUSR1	30,10,16	Term	User\-defined signal 1
 SIGUSR2	31,12,17	Term	User\-defined signal 2
 SIGCHLD	20,17,18	Ign	Child stopped or terminated
-SIGCONT	19,18,25		Continue if stopped
+SIGCONT	19,18,25	Cont	Continue if stopped
 SIGSTOP	17,19,23	Stop	Stop process
 SIGTSTP	18,20,24	Stop	Stop typed at tty
 SIGTTIN	21,21,26	Stop	tty input for background process
@@ -96,8 +156,6 @@ cannot be caught, blocked, or ignored.
 
 Next the signals not in the POSIX.1 standard but described in SUSv2 and
 SUSv3 / POSIX 1003.1-2001.
-.sp
-.PP
 .TS
 l c c l
 ____
@@ -126,8 +184,6 @@ Linux 2.4 conforms to the POSIX 1003.1-2001 requirements for these signals,
 terminating the process with a core dump.
 
 Next various other signals.
-.sp
-.PP
 .TS
 l c c l
 ____
@@ -258,6 +314,7 @@ signal 29 is
 .SH "SEE ALSO"
 .BR kill (1),
 .BR kill (2),
+.BR killpg (2),
 .BR setitimer (2),
 .BR setrlimit (2),
 .BR sigaction (2),
@@ -266,8 +323,11 @@ signal 29 is
 .BR sigprocmask (2),
 .BR sigqueue (2),
 .BR sigsuspend (2),
+.BR sigwaitinfo (2),
+.BR raise (3),
 .BR sigvec (3),
 .BR sigset (3),
+.BR strsignal (3),
 .BR core (5),
 .BR proc (5),
 .BR pthreads (7)

@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
-.\" Copyright 1993 Rickard E. Faith (faith@cs.unc.edu)
+.\" Copyright 1993 Rickard E. Faith (faith@cs.unc.edu) and
+.\" Copyright 2006 Michael Kerrisk
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -31,10 +32,11 @@
 .\" Modified 31 Jan 1997 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified 18 Apr 2001 by Andi Kleen
 .\"   Fix description to describe what it really does; add a few caveats.
+.\" 2006-04-28, mtk, substantial rewrite of various parts.
 .\"
-.TH FSYNC 2 2001-04-18 "Linux 1.3.85" "Linux Programmer's Manual"
+.TH FSYNC 2 2006-04-28 "Linux 1.3.85" "Linux Programmer's Manual"
 .SH NAME
-fsync, fdatasync \- synchronize a file's complete in-core state with that on disk
+fsync, fdatasync \- synchronize a file's in-core state with storage device
 .SH SYNOPSIS
 .B #include <unistd.h>
 .sp
@@ -43,22 +45,48 @@ fsync, fdatasync \- synchronize a file's complete in-core state with that on dis
 .BI "int fdatasync(int " fd );
 .SH DESCRIPTION
 .BR fsync ()
-copies all in-core parts of a file to disk, and waits until the
-device reports that all parts are on stable storage.
-It also updates metadata stat information. It does not necessarily ensure
+transfers ("flushes") all modified in-core data of the 
+file referred to by the file descriptor
+.I fd
+to the disk device (or other permanent storage device) 
+where that file resides.
+The call blocks until the device reports that the transfer has completed.
+It also flushes  metadata information associated with the file (see
+.BR stat (2)). 
+
+Calling
+.BR fsync ()
+does not necessarily ensure
 that the entry in the directory containing the file has also reached disk.
 For that an explicit
 .BR fsync ()
-on the file descriptor of the directory is also needed.
+on a file descriptor for the directory is also needed.
 
 .BR fdatasync ()
-does the same as
-.BR fsync ()
-but only flushes user data, not the meta data like the st_atime or 
-st_mtime
+is similar to 
+.BR fsync (),
+but does not flush modified metadata unless that metadata 
+is needed in order to allow a subsequent data retrieval to be
+correctly handled.
+For example, changes to 
+.I st_atime 
+or 
+.I st_mtime
 (respectively, time of last access and
 time of last modification; see
-.BR stat (2)) .
+.BR stat (2)) 
+do not not require flushing because they are not necessary for
+a subsequent data read to be handled correctly.
+On the other hand, a change to the file size
+.RI ( st_size ,
+as made by say
+.BR ftruncate (2)),
+would require a metadata flush.
+
+The aim of
+.BR fdatasync (2)
+is to reduce disk activity for applications that do not
+require all metadata to be synchronised with the disk.
 .SH "RETURN VALUE"
 On success, zero is returned.  On error, \-1 is returned, and
 .I errno
@@ -76,7 +104,7 @@ An error occurred during synchronization.
 .I fd
 is bound to a special file which does not support synchronization.
 .SH NOTES
-In case the hard disk has write cache enabled,
+If the underlying hard disk has write caching enabled, then
 the data may not really be on permanent storage when
 .BR fsync () 
 / 
@@ -99,7 +127,7 @@ An alternative might be to use the
 flag to
 .BR open (2).
 .SH "CONFORMING TO"
-POSIX.1b (formerly POSIX.4) 
+POSIX.1b
 .SH "SEE ALSO"
 .BR bdflush (2),
 .BR open (2),

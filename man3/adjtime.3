@@ -1,0 +1,113 @@
+.\" Copyright (c) 2006 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH ADJTIME 7 2006-05-01 "Linux 2.6.16" "Linux Programmer's Manual"
+.SH NAME
+adjtime \- correct the time to synchronise the system clock
+.SH SYNOPSIS
+.nf
+.B #define _BSD_SOURCE
+.sp
+.BI "int adjtime(const struct timeval *" delta ", struct timeval *" olddelta );
+.fi
+.SH DESCRIPTION
+The
+.BR adjtime ()
+function gradually adjusts the system clock (as returned by
+.BR gettimeofday ()).
+The amount of time by which the clock is to be adjusted is specified
+in the structure pointed to by
+.IR delta .
+This structure has the following form:
+.in +0.25i
+.nf
+
+struct timeval {
+    time_t      tv_sec;     /* seconds */
+    suseconds_t tv_usec;    /* microseconds */
+};
+.fi
+.in -0.25i
+.PP
+If the adjustment in
+.I delta
+is positive, then the system clock is speeded up by adding a small 
+amount of time to the clock value in each second until the adjustment 
+has been completed.
+If the adjustment in
+.I delta
+is negative, then the clock is slowed down in a similar fashion.
+
+If an earlier clock adjustment is already in progress 
+at the time of the
+.BR adjtime ()
+call, and
+.I delta
+is not NULL, then the earlier adjustment is stopped, 
+but any already completed part of the adjustment is not undone.
+
+If
+.I olddelta
+is not NULL, then the buffer that it points to is used to return 
+the amount of time remaining from any previous adjustment that 
+has not yet been completed.
+.SH NOTES
+The adjustment that
+.BR adjtime ()
+makes to the clock is carried out in such a manner that the clock
+is always monotonically increasing.
+Using
+.BR adjtime ()
+to adjust the time prevents the problems that can be caused for certain
+applications (e.g.,
+.BR make (1))
+by abrupt positive or negative jumps in the system time.
+
+.BR adjtime ()
+is intended to be used to make small adjustments to the system time.
+Most systems impose a limit on the adjustment that can be specified in
+.IR delta .
+In the glibc implementation, 
+.I delta 
+must be less than or equal to (INT_MAX / 1000000 - 2)
+and greater than or equal to (INT_MIN / 1000000 + 2) 
+(respectively 2145 and -2145 seconds on x86).
+.SH "RETURN VALUE"
+On success, 
+.BR adjtime ()
+returns 0.  On failure, \-1 is returned, and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EINVAL
+The adjustment in delta is outside the permitted range.
+.TP
+.B EPERM
+The caller does not have sufficient privilege to adjust the time.
+Under Linux the
+.B CAP_SYS_TIME
+capability is required.
+.SH CONFORMING TO
+4.3BSD.
+.\" Also System V?
+.SH "SEE ALSO"
+.BR adjtimex (2),
+.BR gettimeofday (2),
+.BR time(7)

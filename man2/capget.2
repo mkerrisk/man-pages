@@ -10,7 +10,7 @@
 .\"
 .TH CAPGET 2 2004-06-21 "Linux 2.6.6" "Linux Programmer's Manual"
 .SH NAME
-capget, capset \- set/get process capabilities
+capget, capset \- set/get capabilities
 .SH SYNOPSIS
 .B #undef _POSIX_SOURCE
 .br
@@ -22,9 +22,9 @@ capget, capset \- set/get process capabilities
 .SH DESCRIPTION
 As of Linux 2.2, the power of the superuser (root) has been partitioned into
 a set of discrete capabilities.
-Every process has a set of effective capabilities identifying
+Every thread has a set of effective capabilities identifying
 which capabilities (if any) it may currently exercise.
-Every process also has a set of inheritable capabilities that may be
+Every thread also has a set of inheritable capabilities that may be
 passed through an
 .BR execve (2)
 call, and a set of permitted capabilities
@@ -56,27 +56,48 @@ The structs are defined as follows.
 #define _LINUX_CAPABILITY_VERSION  0x19980330
 
 typedef struct __user_cap_header_struct {
-        int version;
-        int pid;
+    int version;
+    int pid;
 } *cap_user_header_t;
 
 typedef struct __user_cap_data_struct {
-        int effective;
-        int permitted;
-        int inheritable;
+    int effective;
+    int permitted;
+    int inheritable;
 } *cap_user_data_t;
 .fi
 .in -4n
 .sp
-The calls will return EINVAL, and set the version field of
+The calls will return EINVAL, and set the 
+.I version 
+field of
 .I hdr
 to _LINUX_CAPABILITY_VERSION when another version was specified.
 
-The calls refer to the capabilities of the process indicated by
-the pid field of
+The calls operate on the capabilities of the thread specified by the 
+.I pid 
+field of
 .I hdr
-when that is non-zero, or to the current process otherwise.
-
+when that is non-zero, or on the capabilities of the calling thread if
+.I pid
+is 0.
+If 
+.I pid
+refers to a single-threaded process, then 
+.I pid
+can be specified as a traditional process ID;
+operating on a thread of a multithreaded process requires a thread ID
+of the type returned by 
+.BR gettid (2).
+For 
+.BR capset (), 
+.I pid
+can also be: \-1, meaning effect the change on all threads except the
+caller and
+.IR init (8);
+or a value less than \-1, in which case the change is applied
+to all members of the process group whose ID is \-\fIpid\fP.
+    
 For details on the data, see
 .BR capabilities (7).
 .SH "RETURN VALUE"
@@ -101,14 +122,14 @@ a capability in the Effective or Inheritable sets that is not in the
 Permitted set.
 .TP
 .B EPERM
-The calling process attempted to use
+The caller attempted to use
 .BR capset ()
-to modify the capabilities of a process other than itself,
+to modify the capabilities of a thread other than itself,
 but lacked sufficient privilege; the
 .B CAP_SETPCAP
 capability is required.
 (A bug in kernels before 2.6.11 meant that this error could also 
-occur if a process without this capability tried to change its
+occur if a thread without this capability tried to change its
 own capabilities by specifying the
 .I pid
 field as a non-zero value (i.e., the value returned by
@@ -116,7 +137,7 @@ field as a non-zero value (i.e., the value returned by
 instead of 0.)
 .TP
 .B ESRCH
-No such process.
+No such thread.
 .SH "FURTHER INFORMATION"
 The portable interface to the capability querying and setting
 functions is provided by the
@@ -125,6 +146,6 @@ library and is available from here:
 .br
 .B ftp://ftp.kernel.org/pub/linux/libs/security/linux-privs
 .SH "SEE ALSO"
-.\" FIXME add gettid(2), clone(2) to SEE ALSO once we've explained 
-.\" that capabilities are per-thread.
+.BR clone(2),
+.BR gettid (2), 
 .BR capabilities (7)

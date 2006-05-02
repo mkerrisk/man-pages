@@ -23,8 +23,6 @@
 .\" 2004-12-08, mtk Added O_NOATIME for CAP_FOWNER
 .\" 2005-08-16, mtk, Added CAP_AUDIT_CONTROL and CAP_AUDIT_WRITE
 .\"
-.\" FIXME Capabilities are actually per-thread.
-.\"
 .TH CAPABILITIES 7 2005-10-28 "Linux 2.6.14" "Linux Programmer's Manual"
 .SH NAME
 capabilities \- overview of Linux capabilities
@@ -45,6 +43,7 @@ Starting with kernel 2.2, Linux divides the privileges traditionally
 associated with superuser into distinct units, known as 
 .IR capabilities ,
 which can be independently enabled and disabled.
+Capabilities are a per-thread attribute.
 .SS Capabilities List
 
 As at Linux 2.6.14, the following capabilities are implemented:
@@ -239,7 +238,7 @@ use the
 .B MPOL_MF_MOVE_ALL
 with 
 .BR mbind (2).
-.\" FIXME Probably CAP_SYS_NICE will has an affect since 2.6.16
+.\" FIXME Probably CAP_SYS_NICE will have an affect since 2.6.16
 .\" 	  for migrate_pages(2)
 .\" FIXME CAP_SYS_NICE has an affect for ioprio_set()
 .TP
@@ -287,18 +286,18 @@ allow modification of real-time (hardware) clock
 .B CAP_SYS_TTY_CONFIG
 Permit calls to
 .BR vhangup (2).
-.SS Process Capabilities
-Each process has three capability sets containing zero or more
+.SS Capability Sets
+Each thread has three capability sets containing zero or more
 of the above capabilities:
 .TP
 .IR Effective :
 the capabilities used by the kernel to
-perform permission checks for the process.
+perform permission checks for the thread.
 .TP
 .IR Permitted :
-the capabilities that the process may assume
+the capabilities that the thread may assume
 (i.e., a limiting superset for the effective and inheritable sets).
-If a process drops a capability from its permitted set,
+If a thread drops a capability from its permitted set,
 it can never re-acquire that capability (unless it 
 .BR exec ()s 
 a set-user-ID-root program).
@@ -315,9 +314,9 @@ See below for a discussion of the treatment of capabilities during
 .PP
 Using
 .BR capset (2),
-a process may manipulate its own capability sets, or, if it has the
+a thread may manipulate its own capability sets, or, if it has the
 .B CAP_SETPCAP
-capability, those of another process.
+capability, those of a thread in another process.
 .SS Capability bounding set
 When a program is execed, the permitted and effective capabilities
 are ANDed with the current value of the so-called
@@ -350,11 +349,11 @@ kernel version 2.2.11.
 A full implementation of capabilities requires:
 .IP 1. 4
 that for all privileged operations,
-the kernel check whether the process has the required
+the kernel check whether the thread has the required
 capability in its effective set.
 .IP 2. 4
 that the kernel provide 
-system calls allowing a process's capability sets to
+system calls allowing a thread's capability sets to
 be changed and retrieved.
 .IP 3. 4
 file system support for attaching capabilities to an executable file,
@@ -364,21 +363,21 @@ As at Linux 2.6.14, only the first two of these requirements are met.
 
 Eventually, it should be possible to associate three 
 capability sets with an executable file, which,
-in conjunction with the capability sets of the process,
-will determine the capabilities of a process after an
+in conjunction with the capability sets of the thread,
+will determine the capabilities of a thread after an
 .BR exec ():
 .TP
 .IR Inheritable " (formerly known as " allowed ):
-this set is ANDed with the process's inheritable set to determine which
-inheritable capabilities are permitted to the process after the 
+this set is ANDed with the thread's inheritable set to determine which
+inheritable capabilities are permitted to the thread after the 
 .BR exec ().
 .TP
 .IR Permitted " (formerly known as " forced ):
-the capabilities automatically permitted to the process,
-regardless of the process's inheritable capabilities.
+the capabilities automatically permitted to the thread,
+regardless of the thread's inheritable capabilities.
 .TP
 .IR Effective :
-those capabilities in the process's new permitted set are
+those capabilities in the thread's new permitted set are
 also to be set in the new effective set.
 (F(effective) would normally be either all zeroes or all ones.)
 .PP
@@ -395,7 +394,7 @@ then the file inheritable and permitted sets are defined to be all ones
 .IP 3. 4
 If a set-user-ID-root program is being executed,
 then the file effective set is defined to be all ones.
-.SS Transformation of Process Capabilities During exec()
+.SS Transformation of Capabilities During exec()
 .PP
 During an 
 .BR exec (), 
@@ -415,7 +414,7 @@ P'(inheritable) = P(inheritable)    [i.e., unchanged]
 .in -4
 where:
 .IP P 10
-denotes the value of a process capability set before the 
+denotes the value of a thread capability set before the 
 .BR exec ()
 .IP P' 10
 denotes the value of a capability set after the 
@@ -442,8 +441,8 @@ traditional Unix systems.
 .SS Effect of User ID Changes on Capabilities
 To preserve the traditional semantics for transitions between 
 0 and non-zero user IDs, 
-the kernel makes the following changes to a process's capability 
-sets on changes to the process's real, effective, saved set, 
+the kernel makes the following changes to a thread's capability 
+sets on changes to the thread's real, effective, saved set, 
 and file system user IDs (using
 .BR setuid (2),
 .BR setresuid (2),
@@ -474,7 +473,7 @@ If the file system UID is changed from non-zero to 0,
 then any of these capabilities that are enabled in the permitted set 
 are enabled in the effective set.
 .PP
-If a process that has a 0 value for one or more of its user IDs wants
+If a thread that has a 0 value for one or more of its user IDs wants
 to prevent its permitted capability set being cleared when it resets
 all of its user IDs to non-zero values, it can do so using the
 .BR prctl ()
@@ -484,7 +483,7 @@ operation.
 The
 .I libcap
 package provides a suite of routines for setting and
-getting process capabilities that is more comfortable and less likely
+getting capabilities that is more comfortable and less likely
 to change than the interface provided by
 .BR capset (2)
 and
@@ -498,4 +497,5 @@ associated with executable files.
 .SH "SEE ALSO"
 .BR capget (2),
 .BR prctl (2),
-.BR setfsuid (2)
+.BR setfsuid (2),
+.BR pthreads (7)

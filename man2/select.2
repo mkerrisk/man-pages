@@ -52,7 +52,7 @@ select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexi
 .br
 .B #include <unistd.h>
 .sp
-\fBint select(int \fIn\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
+\fBint select(int \fInfds\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
            fd_set *\fIexceptfds\fB, struct timeval *\fItimeout\fB);
 .sp
 .BI "void FD_CLR(int " fd ", fd_set *" set );
@@ -66,7 +66,7 @@ select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexi
 .B #define _XOPEN_SOURCE 600
 .B #include <sys/select.h>
 .sp
-\fBint pselect(int \fIn\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
+\fBint pselect(int \fInfds\fB, fd_set *\fIreadfds\fB, fd_set *\fIwritefds\fB, 
             fd_set *\fIexceptfds\fB, const struct timespec *\fItimeout\fB, 
             const sigset_t *\fIsigmask\fB);
 .fi
@@ -145,7 +145,7 @@ this is useful after
 .BR select ()
 returns.
 .PP
-.I n
+.I nfds
 is the highest-numbered file descriptor in any of the three sets, plus 1.
 .PP
 .I timeout
@@ -176,7 +176,7 @@ argument, the following
 call:
 .nf
 
-    ready = pselect(n, &readfds, &writefds, &exceptfds, 
+    ready = pselect(nfds, &readfds, &writefds, &exceptfds, 
                     timeout, &sigmask);
 
 .fi
@@ -287,19 +287,20 @@ rely on their contents after an error.
 .TP
 .B EBADF
 An invalid file descriptor was given in one of the sets.
+(Perhaps a file descriptor that was already closed, 
+or one on which an error has occurred.)
 .TP
 .B EINTR
-A non blocked signal was caught.
+A signal was caught.
 .TP
 .B EINVAL
-.I n
+.I nfds
 is negative or the value contained within
 .I timeout
 is invalid.
 .TP
 .B ENOMEM
-.BR select ()
-was unable to allocate memory for internal tables.
+unable to allocate memory for internal tables.
 .SH EXAMPLE
 .nf
 #include <stdio.h>
@@ -316,6 +317,7 @@ main(void) {
     /* Watch stdin (fd 0) to see when it has input. */
     FD_ZERO(&rfds);
     FD_SET(0, &rfds);
+
     /* Wait up to five seconds. */
     tv.tv_sec = 5;
     tv.tv_usec = 0;
@@ -482,4 +484,5 @@ For vaguely related stuff, see
 .BR send (2),
 .BR sigprocmask (2),
 .BR write (2),
+.BR epoll (7),
 .BR ftm (7)

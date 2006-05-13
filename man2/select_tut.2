@@ -23,8 +23,10 @@
 .\" very minor changes, aeb
 .\"
 .\" Modified 5 June 2002, Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 2006-05-13, mtk, removed much material that is redundant with select.2
+.\"             various other changes 
 .\"
-.TH SELECT_TUT 2 2006-05-13 "Linux 2.4" "Linux Programmer's Manual"
+.TH SELECT_TUT 2 2006-05-13 "Linux" "Linux Programmer's Manual"
 .SH NAME
 select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \- synchronous I/O multiplexing
 .SH SYNOPSIS
@@ -79,9 +81,7 @@ you are interested in can be added one by one with \fBFD_SET\fP().
 described below; after calling \fBselect\fP() you can test if your file
 descriptor is still present in the set with the \fBFD_ISSET\fP() macro.
 \fBFD_ISSET\fP() returns non-zero if the descriptor is present and zero if
-it is not. \fBFD_CLR\fP() removes a file descriptor from the set although
-I can't see the use for it in a clean program.
-
+it is not. \fBFD_CLR\fP() removes a file descriptor from the set.
 .SH ARGUMENTS
 .TP
 \fIreadfds\fP
@@ -93,7 +93,8 @@ are immediately available for reading with a \fBrecv\fP() (for sockets) or
 .TP
 \fIwritefds\fP
 This set is watched to see if there is space to write data to any of
-its file descriptor. After \fBselect\fP() has returned, \fIwritefds\fP will be
+its file descriptors. 
+After \fBselect\fP() has returned, \fIwritefds\fP will be
 cleared of all file descriptors except for those file descriptors that
 are immediately available for writing with a \fBsend\fP() (for sockets) or
 \fBwrite\fP() (for pipes, files, and sockets) call.
@@ -137,7 +138,7 @@ struct timeval {
 .TP
 \fIntimeout\fP
 .RS
-This argument has the same meaning as \fIutimeout\fP but \fBstruct timespec\fP
+This argument has the same meaning as \fIutimeout\fP but \fIstruct timespec\fP
 has nanosecond precision as follows,
 .PP
 .nf
@@ -153,7 +154,6 @@ This argument holds a set of signals to allow while performing a \fBpselect\fP()
 call (see \fBsigaddset\fP(3) and \fBsigprocmask\fP(2)). It can be passed
 as NULL, in which case it does not modify the set of allowed signals on
 entry and exit to the function. It will then behave just like \fBselect\fP().
-
 .SH COMBINING SIGNAL AND DATA EVENTS
 \fBpselect\fP() must be used if you are waiting for a signal as well as
 data from a file descriptor. Programs that receive signals as events
@@ -203,80 +203,26 @@ int main (int argc, char **argv) {
     }
 }
 .fi
-.PP
-Note that the above \fBpselect\fP() call can be replaced with:
-.PP
-.nf
-        sigprocmask (SIG_BLOCK, &orig_sigmask, 0);
-        r = select (nfds, &rd, &wr, &er, 0);
-        sigprocmask (SIG_BLOCK, &sigmask, 0);
-.fi
-.PP
-but then there is still the possibility that a signal
-could arrive after the first \fBsigprocmask\fP() and before
-the \fBselect\fP(). If you do do this, it is prudent to
-at least put a finite timeout so that the process does
-not block. At present glibc probably works this way.
-The Linux kernel does not have a native \fBpselect\fP()
-system call as yet so this is all probably much of a
-moot point.
-.PP
-
-
 .SH PRACTICAL
-
 So what is the point of \fBselect\fP()? Can't I just read and write to my
-descriptors whenever I want? The point of select is that it watches
+descriptors whenever I want? 
+The point of \fBselect\fP() is that it watches
 multiple descriptors at the same time and properly puts the process to
 sleep if there is no activity. It does this while enabling you to handle
 multiple simultaneous pipes and sockets. Unix programmers often find
-themselves in a position where they have to handle IO from more than one
+themselves in a position where they have to handle I/O from more than one
 file descriptor where the data flow may be intermittent. If you were to
 merely create a sequence of \fBread\fP() and \fBwrite\fP() calls, you would
 find that one of your calls may block waiting for data from/to a file
 descriptor, while another file descriptor is unused though available
 for data. \fBselect\fP() efficiently copes with this situation.
 
-A classic example of \fBselect\fP() comes from the \fBselect\fP()
-man page:
-
-.nf
-#include <stdio.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-int
-main(void) {
-    fd_set rfds;
-    struct timeval tv;
-    int retval;
-
-    /* Watch stdin (fd 0) to see when it has input. */
-    FD_ZERO(&rfds);
-    FD_SET(0, &rfds);
-    /* Wait up to five seconds. */
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
-
-    retval = select(1, &rfds, NULL, NULL, &tv);
-    /* Don't rely on the value of tv now! */
-
-    if (retval == \-1)
-        perror("select()");
-    else if (retval)
-        printf("Data is available now.\\n");
-        /* FD_ISSET(0, &rfds) will be true. */
-    else
-        printf("No data within five seconds.\\n");
-
-    exit(0);
-}
-.fi
-
-
+A simple example of the use of 
+.BR select ()
+can be found in the
+.BR select (2)
+manual page.
 .SH PORT FORWARDING EXAMPLE
-
 Here is an example that better demonstrates the true utility of
 \fBselect\fP().
 The listing below is a TCP forwarding program that forwards
@@ -563,7 +509,7 @@ including OOB signal data transmitted by \fBtelnet\fP servers. It
 handles the tricky problem of having data flow in both directions
 simultaneously. You might think it more efficient to use a \fBfork\fP()
 call and devote a thread to each stream. This becomes more tricky than
-you might suspect. Another idea is to set non-blocking IO using an
+you might suspect. Another idea is to set non-blocking I/O using an
 \fBioctl\fP() call. This also has its problems because you end up having
 to have inefficient timeouts.
 
@@ -571,9 +517,7 @@ The program does not handle more than one simultaneous connection at a
 time, although it could easily be extended to do this with a linked list
 of buffers \(em one for each connection. At the moment, new
 connections cause the current connection to be dropped.
-
 .SH SELECT LAW
-
 Many people who try to use \fBselect\fP() come across behavior that is
 difficult to understand and produces non-portable or borderline
 results. For instance, the above program is carefully written not to
@@ -582,12 +526,11 @@ non-blocking mode at all (see \fBioctl\fP(2)). It is easy to introduce
 subtle errors that will remove the advantage of using \fBselect\fP(),
 hence I will present a list of essentials to watch for when using the
 \fBselect\fP() call.
-
 .TP
 \fB1.\fP
-You should always try use \fBselect\fP() without a timeout. Your program
+You should always try to use \fBselect\fP() without a timeout. Your program
 should have nothing to do if there is no data available. Code that
-depends on timeouts is not usually portable and difficult to debug.
+depends on timeouts is not usually portable and is difficult to debug.
 .TP
 \fB2.\fP
 The value \fInfds\fP must be properly calculated for efficiency as
@@ -600,9 +543,11 @@ appropriately. See next rule.
 .TP
 \fB4.\fP
 After \fBselect\fP() returns, all file descriptors in all sets
-\fImust\fP be checked. Any file descriptor that is available
-for writing \fImust\fP be written to, and any file descriptor
-available for reading \fImust\fP be read, etc.
+should be checked to see if they are ready. 
+.\" mtk, May 2006: the following isn't really true.
+.\" Any file descriptor that is available
+.\" for writing \fImust\fP be written to, and any file descriptor
+.\" available for reading \fImust\fP be read, etc.
 .TP
 \fB5.\fP
 The functions \fBread\fP(), \fBrecv\fP(), \fBwrite\fP(), and
@@ -617,17 +562,20 @@ Never read/write only in single bytes at a time unless your are really
 sure that you have a small amount of data to process. It is extremely
 inefficient not to read/write as much data as you can buffer each time.
 The buffers in the example above are 1024 bytes although they could
-easily be made as large as the maximum possible packet size on your
-local network.
+easily be made larger.
 .TP
 \fB7.\fP
 The functions \fBread\fP(), \fBrecv\fP(), \fBwrite\fP(), and
-\fBsend\fP() as well as the \fBselect\fP() call can return \-1 with an
-errno of \fBEINTR\fP or \fBEAGAIN\fP (\fBEWOULDBLOCK\fP) which are not
-errors. These results must be properly managed (not done properly
+\fBsend\fP() as well as the \fBselect\fP() call can return \-1 with
+.I errno 
+set to \fBEINTR\fP, 
+or with 
+.I errno
+set to \fBEAGAIN\fP (\fBEWOULDBLOCK\fP).
+These results must be properly managed (not done properly
 above). If your program is not going to receive any signals then
 it is unlikely you will get \fBEINTR\fP. If your program does not
-set non-blocking IO, you will not get \fBEAGAIN\fP. Nonetheless
+set non-blocking I/O, you will not get \fBEAGAIN\fP. Nonetheless
 you should still cope with these errors for completeness.
 .TP
 \fB8.\fP
@@ -635,14 +583,14 @@ Never call \fBread\fP(), \fBrecv\fP(), \fBwrite\fP(), or \fBsend\fP()
 with a buffer length of zero.
 .TP
 \fB9.\fP
-Except as indicated in \fB7.\fP, the functions \fBread\fP(),
-\fBrecv\fP(), \fBwrite\fP(), and \fBsend\fP() never have a return value
-less than 1 except if an error has occurred. For instance, a
-\fBread\fP() on a pipe where the other end has died returns zero (so
-does an end-of-file error), \fIbut\fP only returns zero
-once (a followup read or write will return \-1). Should
-any of these functions return 0 or \-1, you should \fInot\fP
-pass that descriptor to select ever again. In the above example,
+If the functions \fBread\fP(),
+\fBrecv\fP(), \fBwrite\fP(), and \fBsend\fP() fail
+with errors other than those listed in \fB7.\fP, 
+or one of the input functions returns 0, indicating end of file, 
+then you should \fInot\fP pass that descriptor to
+.BR select ()
+again. 
+In the above example,
 I close the descriptor immediately, and then set it to \-1
 to prevent it being included in a set.
 .TP
@@ -657,9 +605,7 @@ properly. It also does not cope with \fBselect\fP() calls when no file
 descriptors are set at all. Having no file descriptors set is a useful
 way to sleep the process with sub-second precision by using the timeout.
 (See further on.)
-
 .SH USLEEP EMULATION
-
 On systems that do not have a \fBusleep\fP() function, you can call
 \fBselect\fP() with a finite timeout and no file descriptors as
 follows:
@@ -672,67 +618,45 @@ follows:
 .fi
 .PP
 This is only guaranteed to work on Unix systems, however.
-
 .SH RETURN VALUE
-
 On success, \fBselect\fP() returns the total number of file descriptors
 still present in the file descriptor sets.
 
-If \fBselect\fP() timed out, then the file descriptors sets should be all
-empty (but may not be on some systems). However the return value will
-definitely be zero.
+If \fBselect\fP() timed out, then 
+the return value will be zero.
+The file descriptors set should be all
+empty (but may not be on some systems). 
 
 A return value of \-1 indicates an error, with \fIerrno\fP being
 set appropriately. In the case of an error, the returned sets and
 the timeout struct contents are undefined and should not be used.
 \fBpselect\fP() however never modifies \fIntimeout\fP.
-
-.SH ERRORS
-.TP
-\fBEBADF\fP
-A set contained an invalid file descriptor. This error often occurs when
-you add a file descriptor to a set that you have already issued a
-\fBclose\fP() on, or when that file descriptor has experienced some kind
-of error. Hence you should cease adding to sets any file descriptor that
-returns an error on reading or writing.
-.TP
-\fBEINTR\fP
-An interrupting signal was caught like \fBSIGINT\fP or \fBSIGCHLD\fP etc.
-In this case you should rebuild your file descriptor sets and retry.
-.TP
-\fBEINVAL\fP
-Occurs if \fInfds\fP is negative or an invalid value is specified
-in \fIutimeout\fP or \fIntimeout\fP.
-.TP
-\fBENOMEM\fP
-Internal memory allocation failure.
-
 .SH NOTES
 Generally speaking, all operating systems that support sockets, also
-support \fBselect\fP(). Some people consider \fBselect\fP() to be an
-esoteric and rarely used function. Indeed, many types of programs become
-extremely complicated without it. \fBselect\fP() can be used to solve
+support \fBselect\fP(). 
+Many types of programs become
+extremely complicated without the use of
+.BR select (). 
+\fBselect\fP() can be used to solve
 many problems in a portable and efficient way that naive programmers try
-to solve with threads, forking, IPCs, signals, memory sharing and other
-dirty methods. \fBpselect\fP() is a newer function that is less commonly
-used.
+to solve in a more complicated manner using 
+threads, forking, IPCs, signals, memory sharing, and so on.
 .PP
 The
 .BR poll (2)
 system call has the same functionality as \fBselect\fP(),
-but with less subtle behavior. It is less portable than \fBselect\fP().
-
-.SH CONFORMING TO
-4.4BSD (the \fBselect\fP() function first appeared in 4.2BSD).  Generally
-portable to/from non-BSD systems supporting clones of the BSD socket
-layer (including System V variants). However, note that the System V
-variant typically sets the timeout variable before exit, but the BSD
-variant does not.
+and is somewhat more efficient when monitoring sparse 
+file descriptor sets.
+It is nowadays widely available, 
+but historically was less portable than \fBselect\fP().
 .PP
-The \fBpselect\fP() function is defined in IEEE Std 1003.1g-2000 (POSIX.1g).
-It is found in glibc2.1 and later. Glibc2.0 has a function with this name,
-that however does not take a \fIsigmask\fP parameter.
-
+The Linux-specific 
+.BR epoll (7)
+API provides an interface that that is more efficient than
+.BR select (2)
+and
+.BR poll (2)
+when monitoring large numbers of file descriptors.
 .SH SEE ALSO
 .BR accept (2),
 .BR connect (2),
@@ -750,6 +674,5 @@ that however does not take a \fIsigmask\fP parameter.
 .BR sigfillset (3),
 .BR sigismember (3),
 .BR epoll (7)
-
-.SH AUTHORS
-This man page was written by Paul Sheer.
+.\" .SH AUTHORS
+.\" This man page was written by Paul Sheer.

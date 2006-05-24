@@ -43,18 +43,35 @@ in case
 is a non-NULL string of at most five bytes.
 The directory prefix part of the pathname generated is required to
 be `appropriate' (often that at least implies writable).
+
 Attempts to find an appropriate directory go through the following
-steps: (i) In case the environment variable TMPDIR exists and
+steps: 
+.TP
+a)
+In case the environment variable TMPDIR exists and
 contains the name of an appropriate directory, that is used.
-(ii) Otherwise, if the
+.TP
+b)
+Otherwise, if the
 .I dir
 argument is non-NULL and appropriate, it is used.
-(iii) Otherwise,
+.TP
+c)
+Otherwise,
 .I P_tmpdir
 (as defined in
 .IR <stdio.h> )
 is used when appropriate.
-(iv) Finally an implementation-defined directory may be used.
+.TP
+d)
+Finally an implementation-defined directory may be used.
+.PP 
+The string returned by
+.BR tempnam ()
+is allocated using
+.BR malloc (3)
+and hence should be freed by
+.BR free (3).
 .SH "RETURN VALUE"
 The
 .BR tempnam ()
@@ -62,20 +79,37 @@ function returns a pointer to a unique temporary
 filename, or NULL if a unique name cannot be generated.
 .SH ERRORS
 .TP
-.TP
 .B ENOMEM
 Allocation of storage failed.
 .SH NOTES
+Although 
+.BR tempnam (3)
+generates names that are difficult to guess,
+it is nevertheless possible that between the time that
+.BR tempnam (3)
+returns a pathname, and the time that the program opens it,
+another program might create that pathname using
+.BR open (2), 
+or create it as a symbolic link.
+This can lead to security holes.
+To avoid such possibilities, use the 
+.BR open (2)
+.B O_EXCL
+flag to open the pathname.  Or better yet, use
+.BR mkstemp (3)
+or
+.BR tmpfile (3).
+
 SUSv2 does not mention the use of TMPDIR; glibc will use it only
 when the program is not set-user-ID.
-SVID2 specifies that the directory used under (iv) is
-.IR /tmp .
-SVID2 specifies that the string returned by
-.BR tempnam ()
-was allocated using
-.BR malloc (3)
-and hence can be freed by
-.BR free (3).
+SVID2 specifies that the directory used under \fBd)\fP is
+.IR /tmp 
+(and this is what glibc does).
+.LP
+Because it dynamically allocates memory used to return the pathname,
+.BR tempnam()
+is reentrant, and thus thread safe, unlike
+.BR tmpnam (3).
 .LP
 The
 .BR tempnam ()
@@ -85,10 +119,9 @@ up to TMP_MAX (defined in
 times. If it is called more than TMP_MAX times,
 the behaviour is implementation defined.
 .LP
-In case the
-.I pfx
-argument has length larger than five, glibc will use the first
-five bytes.
+.BR tempnam ()
+uses at most the first five bytes from
+.IR pfx .
 
 The glibc implementation of
 .BR tempnam ()
@@ -98,8 +131,11 @@ upon failure to find a unique name.
 .SH BUGS
 The precise meaning of `appropriate' is undefined;
 it is unspecified how accessibility of a directory is determined.
+
 Never use this function. Use
 .BR mkstemp (3)
+or
+.BR tmpfile (3)
 instead.
 .SH "CONFORMING TO"
 SVID 2, 4.3BSD, POSIX 1003.1-2003

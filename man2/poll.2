@@ -25,9 +25,8 @@
 .\"
 .\" Additions from Richard Gooch <rgooch@atnf.CSIRO.AU> and aeb, 971207
 .\" 2006-03-13, mtk, Added ppoll() + various other rewordings
-.\"
-.\" FIXME . 2.6.17 is likely to get POLLRDHUP (and its analogue 
-.\" EPOLLRDHUP).
+.\" 2006-07-01, mtk, Added POLLRDHUP + various other wording and
+.\"	formatting changes.
 .\"
 .\" FIXME . 2.6.17-rc1 has a definition for POLLREMOVE, but this
 .\" flag is not used in the code.  Check later to see if it
@@ -38,12 +37,12 @@
 poll, ppoll \- wait for some event on a file descriptor
 .SH SYNOPSIS
 .nf
-.B #include <sys/poll.h>
+.B #include <poll.h>
 .sp
 .BI "int poll(struct pollfd *" fds ", nfds_t " nfds ", int " timeout );
 .sp
 .B #define _GNU_SOURCE
-.B #include <sys/poll.h>
+.B #include <poll.h>
 .sp
 .BI "int ppoll(struct pollfd *" fds ", nfds_t " nfds ", "
 .BI "        const struct timespec *" timeout ", const sigset_t *" sigmask );
@@ -72,10 +71,12 @@ structures of the following form:
 The field
 .I fd
 contains a file descriptor for an open file.
+
 The field
 .I events
 is an input parameter, a bitmask specifying the events the application
 is interested in.
+
 The field
 .I revents
 is an output parameter, filled by the kernel with the events that
@@ -94,48 +95,12 @@ or
 field, and will be set in the
 .I revents
 field whenever the corresponding condition is true.)
+
 If none of the events requested (and no error) has occurred for any
 of the file descriptors, then
 .BR poll ()
 blocks until one of the events occurs.
-The bits that may be set/returned in
-.I events
-and
-.I revents
-are defined in <sys/poll.h>:
-.br
-.nf
 
-    #define POLLIN      0x0001    /* There is data to read */
-    #define POLLPRI     0x0002    /* There is urgent data to read */
-    #define POLLOUT     0x0004    /* Writing now will not block */
-    #define POLLERR     0x0008    /* Error condition (output only) */
-    #define POLLHUP     0x0010    /* Hung up (output only) */
-    #define POLLNVAL    0x0020    /* Invalid request: fd not open 
-                                     (output only) */
-
-.fi
-When compiling XPG4.2 source one also has:
-.br
-.nf
-
-    #ifdef _XOPEN_SOURCE
-    #define POLLRDNORM  0x0040    /* Normal data may be read */
-    #define POLLRDBAND  0x0080    /* Priority data may be read */
-    #define POLLWRNORM  0x0100    /* Writing now will not block */
-    #define POLLWRBAND  0x0200    /* Priority data may be written */
-    #endif
-
-.fi
-Finally, Linux knows about:
-.br
-.nf
-
-    #ifdef _GNU_SOURCE
-    #define POLLMSG     0x0400
-    #endif
-.fi
-.PP
 The 
 .I timeout
 argument specifies an upper limit on the time for which
@@ -144,6 +109,68 @@ will block, in milliseconds.
 Specifying a negative value in
 .I timeout
 means an infinite timeout.
+
+The bits that may be set/returned in
+.I events
+and
+.I revents
+are defined in <poll.h>:
+.RS
+.TP
+.B POLLIN
+There is data to read.
+.TP
+.B POLLPRI
+There is urgent data to read (e.g., out-of-band data on TCP socket; 
+pseudo-terminal master in packet mode has seen state change in slave).
+.TP
+.B POLLOUT
+Writing now will not block.
+.TP
+.BR POLLRDHUP " (since Linux 2.6.17)"
+Stream socket peer closed connection, 
+or shut down writing half of connection.
+The 
+.B _GNU_SOURCE
+feature test macro must be defined in order to obtain this definition.
+.TP
+.B POLLERR
+Error condition (output only).
+.TP
+.B POLLHUP
+Hang up (output only).
+.TP
+.B POLLNVAL
+Invalid request: 
+.I fd
+not open (output only).
+.RE
+.PP
+When compiling with 
+.B _XOPEN_SOURCE
+defined, one also has the following, 
+which convey no further information beyond the bits listed above:
+.RS
+.TP
+.B POLLRDNORM
+Equivalent to
+.BR POLLIN .
+.TP
+.B POLLRDBAND
+Priority band data can be read (generally unused on Linux).
+.\" POLLRDBAND is used in the DECnet protocol.
+.TP
+.B POLLWRNORM
+Equivalent to
+.BR POLLOUT .
+.TP
+.B POLLWRBAND
+Priority data may be written.
+.RE
+.PP
+Linux also knows about, but does not use 
+.BR POLLMSG .
+.PP
 .SS ppoll()
 The relationship between 
 .BR poll ()
@@ -247,7 +274,9 @@ by using a local variable for the timeout argument that
 is passed to the system call.
 Thus, the glibc 
 .BR ppoll ()
-function does not modify its timeout argument.
+function does not modify its 
+.I timeout 
+argument.
 .SH BUGS
 See the discussion of spurious readiness notifications under the
 BUGS section of

@@ -1,0 +1,165 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2006 Andrew Morton <akpm@osdl.org>
+.\" and Copyright 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\" 
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\" 
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" 2006-07-05 Initial creation, Michael Kerrisk based on 
+.\"     Andrew Morton's comments in fs/sync.c
+.\"
+.TH SYNC_FILE_RANGE 2 2006-07-05 "Linux 2.6.17" "Linux Programmer's Manual"
+.SH NAME
+sync_file_range \- sync a file segment with disk
+.SH SYNOPSIS
+.nf
+.B #define _GNU_SOURCE
+.B #include <fcntl.h>
+
+.BI "void sync_file_range(int " fd ", off64_t " offset ", off64_t " nbytes , 
+.BI "                     unsigned int " flags );
+.fi
+.SH DESCRIPTION
+.BR sync_file_range ()
+permits fine control when synchronising the open file referred to by the
+file descriptor
+.I fd
+with disk.
+
+.I offset 
+is the starting byte of the file range to be synchronised.
+.I nbytes 
+specifies the length of the range to be synchronised, in bytes; if
+.I nbytes
+is zero, then all bytes from 
+.I offset
+through to the end of file are synchronised.
+Synchronisation is in units of the system page size:
+.I offset 
+is rounded down to a page boundary;
+.I (offset+nbytes-1) 
+is rounded up to a page boundary.
+
+The 
+.I flags 
+bit-mask argument can include any of the following values:
+.TP
+.B SYNC_FILE_RANGE_WAIT_BEFORE
+Wait upon write-out of all pages in the specified range
+that have already been submitted to the device driver for write-out
+before performing any write.
+.TP
+.B SYNC_FILE_RANGE_WRITE
+Initiate write-out of all dirty pages in the specified
+range which are not presently submitted write-out.
+.TP
+.B SYNC_FILE_RANGE_WAIT_AFTER
+Wait upon write-out of all pages in the range
+after performing any write.
+.PP
+Specifying
+.I flags
+as 0 is permitted, as a no-op.
+.SH NOTES
+None of these operations write out the file's metadata.  
+Therefore, unless the application is strictly performing overwrites of
+already-instantiated disk blocks, 
+there are no guarantees that the data will be available after a crash.
+
+.B SYNC_FILE_RANGE_WAIT_BEFORE 
+and 
+.B SYNC_FILE_RANGE_WAIT_AFTER 
+will detect any
+I/O errors or 
+.B ENOSPC 
+conditions and will return these to the caller.
+
+Useful combinations of the 
+.I flags 
+bits are:
+.TP
+.B SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE
+Ensures that all pages
+in the specified range which were dirty when 
+.BR sync_file_range () 
+was called are placed
+under write-out.  
+This is a start-write-for-data-integrity operation.
+.TP
+.B SYNC_FILE_RANGE_WRITE
+Start write-out of all dirty pages in the specified range which
+are not presently under write-out.  This is an asynchronous flush-to-disk
+operation.  
+This is not suitable for data integrity operations.
+.TP
+.BR SYNC_FILE_RANGE_WAIT_BEFORE " (or " SYNC_FILE_RANGE_WAIT_AFTER )
+Wait for
+completion of write-out of all pages in the specified range.  
+This can be used after an earlier 
+SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE 
+operation to wait for completion of that operation, and obtain its result.
+.TP
+.B SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER
+This is a traditional 
+.BR fdatasync(2) 
+operation.
+It is a write-for-data-integrity operation
+that will ensure that all pages in the specified range which were dirty when
+.BR sync_file_range() 
+was called are committed to disk.
+.SH ERRORS
+.TB
+.B EBADF
+.I fd
+is not a valid file descriptor.
+.TP
+.B EIO
+I/O error.
+.TP
+.B EINVAL
+.I flags
+specifies an invalid bit; or 
+.I offset
+or
+.I nbytes
+is invalid.
+.TP
+.B ENOMEM
+Out of memory.
+.TP
+.B ENOSPC
+Out of disk space.
+.TP
+.B ESPIPE
+.I fd
+refers to something other than a regular file, a block device, 
+a directory, or a symbolic link.
+.\" FIXME . (bug?) Actually, how can 'fd' refer to a symbolic link (S_ISLNK)?  
+.\" (In userspace at least) it isn't possible to obtain a file descriptor 
+.\" for a symbolic link.
+.SH "CONFORMING TO"
+This system call is Linux specific, and should be avoided 
+in portable programs.
+.SH "SEE ALSO"
+.BR fdatasync (2),
+.BR fsync (2),
+.BR msync (2),
+.BR sync (2)

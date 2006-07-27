@@ -44,14 +44,14 @@ For the type and the first two functions, see
 The \fBmakecontext\fP() function modifies the context pointed to
 by \fIucp\fP (which was obtained from a call to \fBgetcontext\fP()).
 Before invoking \fBmakecontext\fP(), the caller must allocate a new stack
-for this context, assigning its address to \fIucp->uc_stack\fP, 
-and define a successor context, 
-assigning its address to \fIucp->uc_link\fP.
+for this context and assign its address to \fIucp->uc_stack\fP, 
+and define a successor context and
+assign its address to \fIucp->uc_link\fP.
 
 When this context is later activated (using \fBsetcontext\fP() or
 \fBswapcontext\fP()) the function \fIfunc\fP is called,
 and passed the series of integer 
-.RB ( int )
+.RI ( int )
 arguments that follow
 .IR argc ;
 the caller must specify the number of these arguments in
@@ -67,7 +67,7 @@ When successful, \fBswapcontext\fP()
 does not return. (But we may return later, in case \fIoucp\fP is
 activated, in which case it looks like \fBswapcontext\fP() returns 0.)
 On error, \fBswapcontext\fP() returns \-1 and
-sets \-1 \fIerrno\fP appropriately.
+sets \fIerrno\fP appropriately.
 .SH ERRORS
 .TP
 .B ENOMEM
@@ -82,6 +82,87 @@ Thus, it is not necessary for the user program to
 worry about this direction.
 .SH "CONFORMING TO"
 SUSv2, POSIX 1003.1-2001.
+.SH EXAMPLE
+.PP
+The example program below demonstrates the use of
+.BR getcontext (),
+.BR makecontext (),
+and
+.BR swapcontext ().
+Running the program produces the following output:
+.in +0.5i
+.nf
+
+$ ./a.out
+main: swapcontext(&uctx_main, &uctx_func2)
+func2: started
+func2: swapcontext(&uctx_func2, &uctx_func1)
+func1: started
+func1: swapcontext(&uctx_func1, &uctx_func2)
+func2: returning
+func1: returning
+main: exiting
+
+.fi
+.in -0.5i
+.nf
+#include <ucontext.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static ucontext_t uctx_main, uctx_func1, uctx_func2;
+
+#define die(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+static void
+func1(void)
+{
+    printf("func1: started\\n");
+    printf("func1: swapcontext(&uctx_func1, &uctx_func2)\\n");
+    if (swapcontext(&uctx_func1, &uctx_func2) == -1)
+        die("swapcontext");
+    printf("func1: returning\\n");
+}
+
+static void
+func2(void)
+{
+    printf("func2: started\\n");
+    printf("func2: swapcontext(&uctx_func2, &uctx_func1)\\n");
+    if (swapcontext(&uctx_func2, &uctx_func1) == -1)
+        die("swapcontext");
+    printf("func2: returning\\n");
+}
+
+int
+main(int argc, char *argv[])
+{
+    char func1_stack[16384];
+    char func2_stack[16384];
+
+    if (getcontext(&uctx_func1) == -1)
+        die("getcontext");
+    uctx_func1.uc_stack.ss_sp = func1_stack;
+    uctx_func1.uc_stack.ss_size = sizeof(func1_stack);
+    uctx_func1.uc_link = &uctx_main;
+    makecontext(&uctx_func1, func1, 0);
+
+    if (getcontext(&uctx_func2) == -1)
+        die("getcontext");
+    uctx_func2.uc_stack.ss_sp = func2_stack;
+    uctx_func2.uc_stack.ss_size = sizeof(func2_stack);
+    /* Successor context is f1(), unless argc > 1 */
+    uctx_func2.uc_link = (argc > 1) ? NULL : &uctx_func1;
+    makecontext(&uctx_func2, func2, 0);
+
+    printf("main: swapcontext(&uctx_main, &uctx_func2)\\n");
+    if (swapcontext(&uctx_main, &uctx_func2) == -1)
+        die("swapcontext");
+
+    printf("main: exiting\\n");
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR getcontext (2),
 .BR sigaction (2),

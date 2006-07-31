@@ -109,8 +109,10 @@ Bypass permission checks for sending signals (see
 .BR kill (2)).
 This includes use of the KDSIGACCEPT ioctl.
 .\" FIXME CAP_KILL also has an effect for threads + setting child
-.\"       termination signal to other than SIGCHLD; but what are
-.\"       the details?
+.\"       termination signal to other than SIGCHLD: without this
+.\"       capability, the termination signal reverts to SIGCHLD
+.\"       if the child does an exec().  What is the rationale 
+.\"       for this?
 .TP
 .B CAP_LEASE
 (Linux 2.4 onwards)  Allow file leases to be established on
@@ -210,7 +212,19 @@ in system calls that open files (e.g.,
 .BR pipe (2); 
 without this capability these system calls will fail with the error 
 .B ENFILE 
-if this limit is encountered).
+if this limit is encountered);
+employ 
+.BR CLONE_NEWNS 
+flag with
+.BR clone (2)
+and
+.BR unshare (2);
+perform 
+.B KEYCTL_CHOWN
+and
+.B KEYCTL_SETPERM
+.BR keyctl (2)
+operations.
 .TP
 .B CAP_SYS_BOOT
 Permit calls to
@@ -250,10 +264,15 @@ to be migrated to arbitrary nodes;
 .\" migrate_pages(2):
 .\"     do_migrate_pages(mm, &old, &new,
 .\"         capable(CAP_SYS_NICE) ? MPOL_MF_MOVE_ALL : MPOL_MF_MOVE);
+allow
+.BR move_pages (2)
+to be applied to arbitrary processes;
 use the
 .B MPOL_MF_MOVE_ALL
 flag with 
-.BR mbind (2).
+.BR mbind (2)
+and 
+.BR move_pages (2).
 .TP
 .B CAP_SYS_PACCT
 Permit calls to
@@ -360,10 +379,7 @@ The capability bounding set feature was added to Linux starting with
 kernel version 2.2.11.
 .SS Current and Future Implementation
 A full implementation of capabilities requires:
-.IP 1. 4
-that for all privileged operations,
-the kernel check whether the thread has the required
-capability in its effective set.
+
 .IP 2. 4
 that the kernel provide 
 system calls allowing a thread's capability sets to

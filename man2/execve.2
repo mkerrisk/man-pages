@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\" and Copyright (c) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,8 +29,10 @@
 .\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified 1999-11-12 by Urs Thuermann <urs@isnogud.escape.de>
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 2006-09-04 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 	Added list of process attributes that are not preserved on exec().
 .\"
-.TH EXECVE 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.TH EXECVE 2 2006-09-04 "Linux 2.6.17" "Linux Programmer's Manual"
 .SH NAME
 execve \- execute program
 .SH SYNOPSIS
@@ -56,11 +59,7 @@ argc, char *argv[], char *envp[])\fR.
 
 \fBexecve\fP() does not return on success, and the text, data, bss, and
 stack of the calling process are overwritten by that of the program
-loaded.  The program invoked inherits the calling process's PID, and any
-open file descriptors that are not set to close-on-exec.  Signals pending
-on the calling process are cleared.  Any signals set to be caught by
-the calling process are reset to their default behaviour.
-The SIGCHLD signal (when set to SIG_IGN) may or may not be reset to SIG_DFL.
+loaded.  
 
 If the current program is being ptraced, a \fBSIGTRAP\fP is sent to it
 after a successful \fBexecve\fP().
@@ -92,6 +91,104 @@ shared libraries.  This interpreter is typically
 \fI/lib/ld-linux.so.1\fR for binaries linked with the Linux libc
 version 5, or \fI/lib/ld-linux.so.2\fR for binaries linked with the
 GNU libc version 2.
+
+All process attributes are preserved during an
+.BR execve (),
+except the following:
+.IP * 4
+File descriptors that are marked close-on-exec are closed
+(see the description of
+.BR FD_CLOEXEC
+in
+.BR fcntl (2)).
+.\" FIXME add some statement about the effect on record locks (fcntl()).
+.IP * 4
+The set of pending signals is cleared
+.RB ( sigpending (2)).
+.IP * 4
+The set of pending signals is cleared
+.RB ( sigpending (2)).
+.IP * 4
+The disposition of any signals that are being caught are 
+reset to being ignored.
+.IP * 4
+Any alternate signal stack is not preserved
+.RB ( sigaltstack (2)).
+.IP * 4
+Memory mappings are not preserved
+.RB ( mmap (2)).
+.IP * 4
+Attached System V shared memory segments are detached
+.RB ( shmat (2)).
+.IP * 4
+POSIX shared memory regions are unmapped
+.RB ( shm_open (3)).
+.IP * 4
+Open POSIX message queue descriptors are closed
+.RB ( mq_overview (7)).
+.IP * 4
+Any open POSIX named semaphores are closed
+.RB ( sem_overview (7)).
+.IP * 4
+POSIX timers are not preserved
+.RB ( timer_create (3)).
+.IP * 4
+Any open directory streams are closed
+.RB ( opendir (3)).
+.IP * 4
+Memory locks are not preserved
+.RB ( mlock (2),
+.BR mlockall (2)).
+.IP * 4
+Exit handlers are not preserved
+.RB ( atexit (3),
+.BR on_exit (3)).
+.PP
+The process attributes in the preceding list are all specified 
+in POSIX.1-2001.
+The following Linux-specific process attributes are also 
+not preserved during an
+.BR execve ():
+.IP * 4
+The 
+.BR prctl (2)
+.B PR_SET_DUMPABLE 
+flag is set,
+unless a set-user-ID or set-group ID program is being executed,
+in which case it is cleared.
+.IP * 4
+The 
+.BR prctl (2)
+.B PR_SET_KEEPCAPS
+flag is cleared.
+.IP * 4
+The termination signal is reset to SIGCHLD
+(see
+.BR clone (2)).
+.PP
+Note the following further points:
+.IP * 4
+All threads other than calling thread are destroyed during an
+.BR execve ().
+Mutexes, condition variables, and other pthreads objects are not preserved.
+.IP * 4
+The equivalent of \fIsetlocale(LC_ALL, "C")\fP
+is executed at program start-up.
+.IP * 4
+POSIX.1-2001 specifies that the dispositions of any signals that 
+are ignored or set to the default are left unchanged.
+POSIX.1-2001 specifies one exception: if SIGCHLD is being ignored, 
+then an implementation may leave the disposition unchanged or 
+reset it to the default; Linux does the former.
+.IP * 4
+Any outstanding asynchronous I/O operations are cancelled
+.RB ( aio_read (3),
+.BR aio_write (3)).
+.IP * 4
+For the handling of capabilities during 
+.BR execve (2),
+see
+.BR capabilities (7).
 .SH "RETURN VALUE"
 On success, \fBexecve\fP() does not return, on error \-1 is returned, and
 .I errno

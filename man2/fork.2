@@ -1,6 +1,8 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
-.\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\" Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" and Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu),
+.\" March 28, 1992
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -30,6 +32,9 @@
 .\"   by Andries Brouwer (aeb@cwi.nl)
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added notes on capability requirements
+.\" 2006-09-04, Michael Kerrisk
+.\"     Greatly expanded, to describe all attributes that differ
+.\"	parent and child.
 .\"
 .TH FORK 2 2004-05-27 "Linux 2.6.6" "Linux Programmer's Manual"
 .SH NAME
@@ -42,15 +47,101 @@ fork \- create a child process
 .B pid_t fork(void);
 .SH DESCRIPTION
 .BR fork ()
-creates a child process that differs from the parent process only in its
-PID and PPID, and in the fact that resource utilizations are set to 0.
-File locks and pending signals are not inherited.
+creates a new process by duplicating the calling process.
+The new process, referred to as the \fIchild\fP, 
+is an exact duplicate of the calling process, 
+referred to as the \fIparent\fP, except for the following points:
+.IP * 4
+The child has its own unique process ID,
+and this PID does not match the ID of any existing process group
+.RB ( setpgid (2)).
+.IP * 4
+The child's parent process ID is the same as the parent's process ID.
+.IP * 4
+The child does not inherit its parent's memory locks
+.RB ( mlock (2),
+.BR mlockall (2)).
+.IP * 4
+Process resource utilisations 
+.RB ( getrusage (2))
+and CPU time counters
+.RB ( times (2))
+are reset to zero in the child.
+.IP * 4
+The child set of pending signals is initially empty
+.RB ( sigpending (2)).
+.IP * 4
+The child does not inherit semaphore adjustments from its parent
+.RB ( semop (2)).
+.IP * 4
+The child does not inherit record locks from its parent
+.RB ( fcntl (2)).
+.IP * 4
+The parent does not inherit timers from its parent
+.RB ( setitimer (2)
+.BR alarm (3),
+.BR timer_create (3)).
+.IP * 4
+The child does not inherit outstanding asynchronous I/O operations 
+from its parent
+.RB ( aio_read (3),
+.BR aio_write (3)).
+.PP 
+The process attributes in the preceding list are all specified 
+in POSIX.1-2001.
+The parent and child also differ with respect to the following
+Linux-specific process attributes:
+.IP * 4
+The child does not inherit directory change notifications (dnotify) 
+from its parent
+(see the description of
+.B F_NOTIFY 
+in 
+.BR fcntl (2)).
+.IP * 4
+The
+.BR prctl (2)
+.B PR_SET_PDEATHSIG
+setting is reset so that the child does not receive a signal 
+when its parent terminates.
+.IP * 4
+The termination signal of the child is always SIGCHLD
+(see
+.BR clone (2)).
 .PP
-Under Linux,
-.BR fork ()
-is implemented using copy-on-write pages, so the only penalty that it incurs
-is the time and memory required to duplicate the parent's page tables,
-and to create a unique task structure for the child.
+Note the following further points:
+.IP * 4
+The child process is created with a single thread \(em the 
+one that called 
+.BR fork (2).
+The entire virtual address space of the parent is replicated in the child,
+including the states of mutexes, condition variables, 
+and other pthreads objects; the use of
+.BR pthread_atfork (3)
+may be helpful for dealing with problems that this can cause.
+.IP * 4
+The child inherits copies of the parent's set of open file descriptors.
+Each file descriptor in the child refers to the same 
+open file description (see
+.BR open (2))
+as the corresponding file descriptor in the parent.
+This means that the two descriptors share open file status flags, 
+current file offset, 
+and signal-driven I/O attributes (see the description of
+.B F_SETOWN
+and 
+.B F_SETSIG
+in 
+.BR fcntl (2)).
+.IP * 4
+The child inherits copies of the parent's set of open message 
+queue descriptors (see
+.BR mq_overview (7)).
+Each descriptor in the child refers to the same 
+open message queue description
+as the corresponding descriptor in the parent.
+This means that the two descriptors share the same flags
+.RI ( mq_flags ).
 .SH "RETURN VALUE"
 On success, the PID of the child process is returned in the parent's thread
 of execution, and a 0 is returned in the child's thread of execution.  On
@@ -85,6 +176,13 @@ See
 .BR pipe (2)
 and
 .BR wait (2).
+.SH NOTES
+.PP
+Under Linux,
+.BR fork ()
+is implemented using copy-on-write pages, so the only penalty that it incurs
+is the time and memory required to duplicate the parent's page tables,
+and to create a unique task structure for the child.
 .SH "SEE ALSO"
 .BR clone (2),
 .BR execve (2),

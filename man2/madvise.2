@@ -28,7 +28,6 @@
 .\"
 .\" FIXME 2.6.16 added MADV_REMOVE, MADV_DONTFORK, and MADV_DOFORK.
 .\" These need to be documented.
-.\"	MADV_REMOVE         /* remove these pages & resources */
 .\"	MADV_DONTFORK       /* don't inherit across fork */
 .\"	MADV_DOFORK         /* do inherit across fork */
 .\"     A discussion of MADV_DONTFORK and MADV_DOFORK can be found
@@ -87,6 +86,51 @@ Subsequent accesses of pages in this range will succeed, but will result
 either in re-loading of the memory contents from the underlying mapped file
 (see \fBmmap\fP()) or zero-fill-on-demand pages for mappings
 without an underlying file.
+.TP
+.BR MADV_REMOVE " (Since Linux 2.6.16)"
+Free up a given range of pages
+and its associated backing store. 
+Currently,
+.\" 2.6.18-rc5
+only shmfs/tmpfs supports this; other filesystems return -ENOSYS. 
+.\" Databases want to use this feature to drop a section of their 
+.\" bufferpool (shared memory segments) - without writing back to 
+.\" disk/swap space. This feature is also useful for supporting 
+.\" hot-plug memory on UML.
+.TP
+.BR MADV_DONTFORK " (Since Linux 2.6.16)"
+.\" See http://lwn.net/Articles/171941/
+Do not make the pages in this range available to the child after a
+.BR fork (2).
+This is useful to prevent copy-on-write semantics from changing
+the physical location of a pagei(s) if the parent writes to it after a
+.BR fork (2).
+(Such page relocations cause problems for hardware that
+DMAs into the page(s).)
+.\" [PATCH] madvise MADV_DONTFORK/MADV_DOFORK
+.\" Currently, copy-on-write may change the physical address of 
+.\" a page even if the user requested that the page is pinned in 
+.\" memory (either by mlock or by get_user_pages). This happens 
+.\" if the process forks meanwhile, and the parent writes to that 
+.\" page.  As a result, the page is orphaned: in case of 
+.\" get_user_pages, the application will never see any data hardware 
+.\" DMA's into this page after the COW.  In case of mlock'd memory, 
+.\" the parent is not getting the realtime/security benefits of mlock.
+.\" 
+.\" In particular, this affects the Infiniband modules which do DMA from 
+.\" and into user pages all the time.
+.\" 
+.\" This patch adds madvise options to control whether memory range is 
+.\" inherited across fork. Useful e.g. for when hardware is doing DMA 
+.\" from/into these pages.  Could also be useful to an application 
+.\" wanting to speed up its forks by cutting large areas out of 
+.\" consideration.
+.TP
+.BR MADV_DOFORK " (Since Linux 2.6.16)"
+Undo the effect of
+.BR MADV_DONTFORK ,
+restoring the default behaviour, whereby a mapping is inherited across
+.BR fork (2).
 .SH "RETURN VALUE"
 On success 
 .BR madvise ()
@@ -153,6 +197,12 @@ with constants POSIX_MADV_NORMAL, etc.,
 with a behaviour close to that described here. There is a similar
 .BR posix_fadvise ()
 for file access.
+
+.BR MADV_REMOVE ,
+.BR MADV_DONTFORK ,
+and
+.BR MADV_DOFORK
+are Linux specific.
 .SH "SEE ALSO"
 .BR getrlimit (2),
 .BR mincore (2),

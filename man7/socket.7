@@ -215,18 +215,6 @@ Can only be read
 with 
 .BR getsockopt (). 
 .TP
-.B SO_BSDCOMPAT
-Enable BSD bug-to-bug compatibility. 
-This is used by the UDP protocol module in Linux 2.0 and 2.2.
-If enabled ICMP errors received for a UDP socket will not be passed
-to the user program. 
-In later kernel versions, support for this option has been phased out:
-Linux 2.4 silently ignores it, and Linux 2.6 generates a kernel warning
-(printk()) if a program uses this option.
-Linux 2.0 also enabled BSD bug-to-bug compatibility 
-options (random header changing, skipping of the broadcast flag) for raw
-sockets with this option, but that was removed in Linux 2.2. 
-.TP
 .B SO_BINDTODEVICE
 Bind this socket to a particular device like \(lqeth0\(rq,
 as specified in the passed interface name. If the
@@ -247,6 +235,18 @@ Set or get the broadcast flag. When enabled, datagram sockets
 receive packets sent to a broadcast address and they are allowed to send 
 packets to a broadcast address.
 This option has no effect on stream-oriented sockets.
+.TP
+.B SO_BSDCOMPAT
+Enable BSD bug-to-bug compatibility. 
+This is used by the UDP protocol module in Linux 2.0 and 2.2.
+If enabled ICMP errors received for a UDP socket will not be passed
+to the user program. 
+In later kernel versions, support for this option has been phased out:
+Linux 2.4 silently ignores it, and Linux 2.6 generates a kernel warning
+(printk()) if a program uses this option.
+Linux 2.0 also enabled BSD bug-to-bug compatibility 
+options (random header changing, skipping of the broadcast flag) for raw
+sockets with this option, but that was removed in Linux 2.2. 
 .TP
 .B SO_DEBUG 
 Enable socket debugging. Only allowed for processes with the
@@ -346,6 +346,30 @@ Setting a priority outside the range 0 to 6 requires the
 .B CAP_NET_ADMIN
 capability.
 .TP
+.B SO_RCVBUF
+Sets or gets the maximum socket receive buffer in bytes. 
+The kernel doubles this value (to allow space for bookkeeping overhead) 
+when it is set using
+.\" Most (all?) other implementations do not do this -- MTK, Dec 05
+.BR setsockopt (),
+and this doubled value is returned by
+.BR getsockopt ().
+The default value is set by the 
+.B rmem_default 
+sysctl and the maximum allowed value is set by the 
+.B rmem_max
+sysctl.   
+The minimum (doubled) value for this option is 256.
+.TP
+.BR SO_RCVBUFFORCE " (since Linux 2.6.14")
+Using this socket option, a privileged
+.RB ( CAP_NET_ADMIN )
+process can perform the same task as 
+.BR SO_RCVBUF ,
+but the 
+.B rmem_max
+limit can be overridden.
+.TP
 .BR SO_RCVLOWAT " and " SO_SNDLOWAT
 Specify the minimum number of bytes in the buffer until the socket layer
 will pass the data to the protocol 
@@ -392,30 +416,6 @@ set to EAGAIN or EWOULDBLOCK
 just as if the socket was specified to be nonblocking.
 If the timeout is set to zero (the default)
 then the operation will never timeout.
-.TP
-.B SO_RCVBUF
-Sets or gets the maximum socket receive buffer in bytes. 
-The kernel doubles this value (to allow space for bookkeeping overhead) 
-when it is set using
-.\" Most (all?) other implementations do not do this -- MTK, Dec 05
-.BR setsockopt (),
-and this doubled value is returned by
-.BR getsockopt ().
-The default value is set by the 
-.B rmem_default 
-sysctl and the maximum allowed value is set by the 
-.B rmem_max
-sysctl.   
-The minimum (doubled) value for this option is 256.
-.TP
-.BR SO_RCVBUFFORCE " (since Linux 2.6.14")
-Using this socket option, a privileged
-.RB ( CAP_NET_ADMIN )
-process can perform the same task as 
-.BR SO_RCVBUF ,
-but the 
-.B rmem_max
-limit can be overridden.
 .TP
 .B SO_REUSEADDR
 Indicates that the rules used in validating addresses supplied in a 

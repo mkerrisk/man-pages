@@ -289,7 +289,77 @@ The
 function frees the memory that was allocated
 for the dynamically allocated linked list
 .IR res .
+.SS "Extensions to getaddrinfo() for Internationalized Domain Names"
+.PP
+Starting with glibc 2.3.4,
+.BR getaddrinfo () 
+has been extended to selectively allow the incoming and outgoing 
+host names to be transparently converted to and from the 
+Internationalized Domain Name (IDN) format (see RFC 3490,
+.IR "Internationalizing Domain Names in Applications (IDNA)" ).
+Four new flags are defined:
+.TP
+.B AI_IDN
+If this flag is specified, then the node name given in
+.I node
+is converted to IDN format if necessary.
+The source encoding is that of the current locale.
+
+If the input name contains non-ASCII characters, then the IDN encoding 
+is used.  
+Those parts of the node name (delimited by dots) that contain
+non-ASCII characters are encoded using ASCII Compatible Encoding (ACE) 
+before being passed to the name resolution functions.
+.\" Implementation Detail:
+.\" To minimize effects on system performance the implementation might
+.\" want to check whether the input string contains any non-ASCII
+.\" characters.  If there are none the IDN step can be skipped completely.
+.\" On systems which allow not-ASCII safe encodings for a locale this
+.\" might be a problem.
+.TP
+.B AI_CANONIDN
+After a successful name lookup, and if the 
+.B AI_CANONNAME 
+flag was specified,
+.BR getaddrinfo ()
+will return the canonical name of the
+node corresponding to the 
+.I addrinfo 
+structure value passed back.
+The return value is an exact copy of the value returned by the name
+resolution function.
+
+If the name is encoded using ACE, then it will contain the 
+.I xn-- 
+prefix for one or more components of the name.  
+To convert these components into a readable form the 
+.B AI_CANONIDN 
+flag can be passed in addition to 
+.BR AI_CANONNAME .  
+The resulting string is encoded using the current locale's encoding.
+.\"
+.\"Implementation Detail:
+.\"If no component of the returned name starts with xn-- the IDN
+.\"step can be skipped, therefore avoiding unnecessary slowdowns.
+.TP
+.BR AI_IDN_ALLOW_UNASSIGNED ", " AI_IDN_USE_STD3_ASCII_RULES
+Setting these flags will enable the 
+IDNA_ALLOW_UNASSIGNED (allow unassigned Unicode code points) and
+IDNA_USE_STD3_ASCII_RULES (check output to make sure it is a STD3 
+conforming host name) 
+flags respectively to be used in the IDNA handling.
 .SH "RETURN VALUE"
+.\" FIXME glibc defines the following additonal errors, some which
+.\" can probably be returned by getaddrinfo(); they need to 
+.\" be documented.
+.\" # ifdef __USE_GNU
+.\" #  define EAI_INPROGRESS  -100  /* Processing request in progress.  */
+.\" #  define EAI_CANCELED    -101  /* Request canceled.  */
+.\" #  define EAI_NOTCANCELED -102  /* Request not canceled.  */
+.\" #  define EAI_ALLDONE     -103  /* All requests done.  */
+.\" #  define EAI_INTR        -104  /* Interrupted by a signal.  */
+.\" #  define EAI_IDN_ENCODE  -105  /* IDN encoding failed.  */
+.\" # endif
 .BR getaddrinfo (3)
 returns 0 if it succeeds, or one of the following non-zero error codes:
 .TP

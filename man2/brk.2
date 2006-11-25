@@ -57,10 +57,17 @@ location of the program break.
 .SH "RETURN VALUE"
 On success,
 .BR brk ()
-returns zero, and
+returns zero.
+On error, \-1 is returned, and
+.I errno
+is set to
+.BR ENOMEM .
+(But see LINUX NOTES below.)
+
+On success,
 .BR sbrk ()
-returns a pointer to the start of the new area.  On error, \-1 is returned,
-and
+returns a pointer to the start of the new area.  
+On error, \-1 is returned, and
 .I errno
 is set to
 .BR ENOMEM .
@@ -82,6 +89,30 @@ Common are \fIint\fP, \fIssize_t\fP, \fIptrdiff_t\fP, \fIintptr_t\fP.
 .\" \fIptrdiff_t\fP (libc4, libc5, ulibc, glibc2.0, 2.1),
 .\" \fIintptr_t\fP (e.g. XPGv5, AIX, SunOS 5.8, 5.9, FreeBSD 4.7, NetBSD 1.6,
 .\" Tru64 5.1, glibc2.2).
+.SH LINUX NOTES
+The return value described above for
+.BR brk ()
+is the behaviour provided by the glibc wrapper function for the Linux
+.BR brk ()
+system call.  
+(On most other implementations, the return value from 
+.BR brk () 
+is the same.)
+However, 
+the actual Linux system call returns the new program break on success.
+On failure, the system call returns the current break 
+(thus for example, the call
+.I brk(0)
+can be used to obtain the current break).
+The glibc wrapper function does some work to provide the 0 
+and \-1 return values described above.
+
+On Linux, 
+.BR sbrk ()
+is implemented as a library function that uses the
+.BR brk ()
+system call, and does some internal bookkeeping so that it can 
+return the old break value.
 .SH "SEE ALSO"
 .BR execve (2),
 .BR getrlimit (2),

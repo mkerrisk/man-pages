@@ -46,26 +46,43 @@ mmap, munmap \- map or unmap files or devices into memory
 .BI "int munmap(void *" start ", size_t " length );
 .fi
 .SH DESCRIPTION
-The
 .BR mmap ()
-function asks to map
+creates a new mapping in the virtual address space of 
+the calling process.
+The starting address for the new mapping is specified in
+.IR start .
+The
+.I length
+argument specifies the length of the mapping.
+
+If
+.I start
+is NULL,
+then the kernel chooses the address at which to create the mapping;
+this is the most portable method of creating a new mapping.
+If 
+.I start 
+is not NULL,
+then the kernel takes it as a hint about where to place the mapping;
+on Linux, the mapping will be created at the next higher page boundary.
+The address of the new mapping is returned as the result of the call.
+
+The contents of a file mapping (as opposed to an anonymous mapping; see
+.B MAP_ANONYMOUS
+below), are initialised using 
 .I length
 bytes starting at offset
 .I offset
-from the file (or other object) specified by the file descriptor
-.I fd
-into memory, preferably at address
-.IR start .
-This latter address is a hint only, and is usually specified as 0.
-The actual place where the object is mapped is returned by
-.BR mmap ().
+in the file (or other object) referred to by the file descriptor
+.IR fd .
 .LP
 The
 .I prot
-argument describes the desired memory protection (and must not
-conflict with the open mode of the file). It is either
+argument describes the desired memory protection of the mapping 
+(and must not conflict with the open mode of the file).
+It is either
 .B PROT_NONE
-or is the bitwise OR of one or more of the other PROT_* flags.
+or is the bitwise OR of one or more of the following flags:
 .TP 1.1i
 .B PROT_EXEC
 Pages may be executed.
@@ -84,7 +101,8 @@ The
 parameter specifies the type of the mapped object, mapping options and
 whether modifications made to the mapped copy of the page are private to
 the process or are to be shared with other references.  
-It has bits
+The following values can be ORed in
+.IR flags :
 .TP 1.1i
 .B MAP_FIXED
 Do not select a different address than the one specified.
@@ -127,6 +145,7 @@ and
 .LP
 The above three flags are described in POSIX.1-2001.
 Linux also knows about the following non-standard flags:
+.\" FIXME ? Place the following list in alphabetical order?
 .TP
 .B MAP_DENYWRITE
 This flag is ignored.
@@ -168,7 +187,9 @@ Used for stacks. Indicates to the kernel VM system that the mapping
 should extend downwards in memory.
 .TP
 .B MAP_ANONYMOUS
-The mapping is not backed by any file; the
+The mapping is not backed by any file;
+its contents are initialised to zero.
+The
 .I fd
 and
 .I offset
@@ -178,7 +199,7 @@ The use of this flag in conjunction with
 is only supported on Linux since kernel 2.4.
 .TP
 .B MAP_ANON
-Alias for 
+Synonym for 
 .BR MAP_ANONYMOUS . 
 Deprecated.
 .TP
@@ -285,7 +306,9 @@ On success,
 returns a pointer to the mapped area.
 On error, the value
 .B MAP_FAILED
-(that is, (void *) \-1) is returned, and
+(that is, 
+.I "(void *) \-1)"
+is returned, and
 .I errno
 is set appropriately.
 On success,

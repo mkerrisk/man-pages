@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
-.\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
+.\" Copyright (C) 1996 Andries Brouwer <aeb@cwi.nl>
+.\" and Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -32,15 +33,17 @@
 .\" Modified 2004-09-11 by aeb
 .\" Modified 2004-12-08, from Eric Estievenart <eric.estievenart@free.fr>
 .\" Modified 2004-12-08, mtk, formatting tidy-ups
+.\" Modified 2006-12-04, mtk, various parts rewritten
 .\"
-.TH MMAP 2 2004-12-08 "Linux 2.6.9" "Linux Programmer's Manual"
+.TH MMAP 2 2006-12-04 "Linux 2.6.19" "Linux Programmer's Manual"
 .SH NAME
 mmap, munmap \- map or unmap files or devices into memory
 .SH SYNOPSIS
 .nf
 .B #include <sys/mman.h>
 .sp
-.BI "void *mmap(void *" start ", size_t " length ", int " prot ", int " flags ,
+.BI "void *mmap(void *" start ", size_t " length \
+", int " prot ", int " flags ,
 .BI "           int " fd ", off_t " offset );
 .sp
 .BI "int munmap(void *" start ", size_t " length );
@@ -75,6 +78,9 @@ bytes starting at offset
 .I offset
 in the file (or other object) referred to by the file descriptor
 .IR fd .
+.I offset
+must be a multiple of the page size as returned by
+.IR sysconf(_SC_PAGE_SIZE) .
 .LP
 The
 .I prot
@@ -82,7 +88,7 @@ argument describes the desired memory protection of the mapping
 (and must not conflict with the open mode of the file).
 It is either
 .B PROT_NONE
-or is the bitwise OR of one or more of the following flags:
+or the bitwise OR of one or more of the following flags:
 .TP 1.1i
 .B PROT_EXEC
 Pages may be executed.
@@ -98,14 +104,44 @@ Pages may not be accessed.
 .LP
 The
 .I flags
-parameter specifies the type of the mapped object, mapping options and
-whether modifications made to the mapped copy of the page are private to
-the process or are to be shared with other references.  
-The following values can be ORed in
+argument determines whether updates to the mapping
+are visible to other processes mapping the same region,
+and whether updates are caried through to the underlying file.
+This behaviour is determined by including exactly one 
+of the following values in
 .IR flags :
 .TP 1.1i
+.B MAP_SHARED
+Share this mapping.  
+Updates to the mapping are visible to other processes that map this file,
+and are carried through to the underlying file.
+The file may not actually be updated until
+.BR msync (2)
+or
+.BR munmap (2)
+is called.
+.TP
+.B MAP_PRIVATE
+Create a private copy-on-write mapping.
+Updates to the mapping are not visible to other processes
+mapping the same file, and are not carried through to
+the underlying file.
+It is unspecified whether changes made to the file after the
+.BR mmap ()
+call are visible in the mapped region.
+.LP
+Both of these flags are described in POSIX.1-2001.
+
+In addition, zero or more of the following values can be ORed in
+.IR flags :
+.\" FIXME ? Place the following list in alphabetical order?
+.TP
 .B MAP_FIXED
-Do not select a different address than the one specified.
+Don't interpret
+.I start
+as a hint: place the mapping at exactly that address.
+.I start
+must be a multiple of the page size.
 If the memory region specified by
 .I start
 and
@@ -115,37 +151,8 @@ part of the existing mapping(s) will be discarded.
 If the specified address cannot be used,
 .BR mmap ()
 will fail.
-If
-.B MAP_FIXED 
-is specified,
-.I start
-must be a multiple of the page size.  
-Use of this option is discouraged.
-.TP
-.B MAP_SHARED
-Share this mapping with all other processes that map this object.
-Storing to the region is equivalent to writing to the file.
-The file may not actually be updated until
-.BR msync (2)
-or
-.BR munmap (2)
-are called.
-.TP
-.B MAP_PRIVATE
-Create a private copy-on-write mapping.
-Stores to the region do not affect the original file.
-It is unspecified whether changes made to the file after the
-.BR mmap ()
-call are visible in the mapped region.
-.LP
-You must specify exactly one of 
-.B MAP_SHARED 
-and 
-.BR MAP_PRIVATE .
-.LP
-The above three flags are described in POSIX.1-2001.
-Linux also knows about the following non-standard flags:
-.\" FIXME ? Place the following list in alphabetical order?
+Because requiring a fixed address for a mapping is less portable,
+the use of this option is discouraged.
 .TP
 .B MAP_DENYWRITE
 This flag is ignored.
@@ -183,8 +190,14 @@ This flag is ignored in older kernels.
 .\" If set, the mapped pages will not be swapped out.
 .TP
 .B MAP_GROWSDOWN
-Used for stacks. Indicates to the kernel VM system that the mapping
+Used for stacks. 
+Indicates to the kernel virtual memory system that the mapping
 should extend downwards in memory.
+.TP
+.B MAP_ANON
+Synonym for 
+.BR MAP_ANONYMOUS . 
+Deprecated.
 .TP
 .B MAP_ANONYMOUS
 The mapping is not backed by any file;
@@ -193,15 +206,20 @@ The
 .I fd
 and
 .I offset
-arguments are ignored.  
-The use of this flag in conjunction with 
+arguments are ignored;
+however, some implementations require 
+.I fd
+to be \-1 if 
+.B MAP_ANONYMOUS 
+(or 
+.BR MAP_ANON ) 
+is specified,
+and portable applications should ensure this.
+The use of 
+.B MAP_ANONYMOUS
+in conjunction with 
 .B MAP_SHARED
 is only supported on Linux since kernel 2.4.
-.TP
-.B MAP_ANON
-Synonym for 
-.BR MAP_ANONYMOUS . 
-Deprecated.
 .TP
 .B MAP_FILE
 Compatibility flag. Ignored.
@@ -225,30 +243,16 @@ Don't perform read-ahead:
 only create page tables entries for pages 
 that are already present in RAM.
 .LP
+Of the above flags, only
+.B MAP_FIXED
+is specified in POSIX.1-2001.
+However, most systems also support
+.B MAP_ANONYMOUS
+(or its synonym 
+.BR MAP_ANON ).
+.LP
 Some systems document the additional flags MAP_AUTOGROW, MAP_AUTORESRV,
 MAP_COPY, and MAP_LOCAL.
-.LP
-.I fd
-should be a valid file descriptor, unless 
-.B MAP_ANONYMOUS 
-is set.
-If 
-.B MAP_ANONYMOUS 
-is set, then 
-.I fd
-is ignored on Linux.
-However, some implementations require 
-.I fd
-to be \-1 if 
-.B MAP_ANONYMOUS 
-(or 
-.BR MAP_ANON ) 
-is specified,
-and portable applications should ensure this.
-.LP
-.I offset
-should be a multiple of the page size as returned by
-.BR getpagesize (2).
 .LP
 Memory mapped by
 .BR mmap ()
@@ -320,9 +324,10 @@ is set (probably to
 .SH NOTES
 It is architecture dependent whether
 .B PROT_READ
-includes
+implies
 .B PROT_EXEC
-or not. Portable programs should always set
+or not. 
+Portable programs should always set
 .B PROT_EXEC
 if they intend to execute code in the new mapping.
 .SH ERRORS

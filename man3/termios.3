@@ -31,6 +31,12 @@
 .\" Modified 2001-09-22 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" Modified 2001-12-17, aeb
 .\" Modified 2004-10-31, aeb
+.\" 2006-12-28, mtk:
+.\"     Added .SS headers to give some structure to this page; and a
+.\"     small amount of reordering.
+.\"     Added a section on canonical and non-canonical mode.
+.\"     Enhanced the discussion of "raw" mode for cfmakeraw().
+.\"     Document CMSPAR.
 .\"
 .TH TERMIOS 3 2004-10-31 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -255,7 +261,8 @@ Enable receiver.
 Enable parity generation on output and parity checking for input.
 .TP
 .B PARODD
-Parity for input and output is odd.
+If set, then parity for input and output is odd; 
+otherwise even parity is used.
 .TP
 .B HUPCL
 Lower modem control lines after last process closes the device (hang up).
@@ -280,7 +287,7 @@ Use "stick" (mark/space) parity (supported on certain serial
 devices): if
 .B PARODD 
 is set, the parity bit is always 1; if
-.B PARRODD 
+.B PARODD 
 is not set, then the parity bit is always 0).
 [requires _BSD_SOURCE or _SVID_SOURCE]
 .TP
@@ -295,9 +302,7 @@ When any of the characters INTR, QUIT, SUSP, or DSUSP are received,
 generate the corresponding signal.
 .TP
 .B ICANON
-Enable canonical mode.  This enables the special characters
-EOF, EOL, EOL2, ERASE, KILL, LNEXT, REPRINT, STATUS, and WERASE, and
-buffers by lines.  
+Enable canonical mode (described below).  
 .TP
 .B XCASE
 (not in POSIX; not supported under Linux)
@@ -390,7 +395,8 @@ Recognized when ICANON is set, and then not passed as input.
 .TP
 .B VKILL
 (025, NAK, Ctrl-U, or Ctrl-X, or also @)
-Kill character. This erases the input since the last EOF or beginning-of-line.
+Kill character. 
+This erases the input since the last EOF or beginning-of-line.
 Recognized when ICANON is set, and then not passed as input.
 .TP
 .B VEOF
@@ -473,17 +479,8 @@ These symbolic subscript values are all different, except that
 VTIME, VMIN may have the same value as VEOL, VEOF, respectively.
 In non-canonical mode the special character meaning is replaced
 by the timeout meaning. 
-MIN (indexed using VMIN) represents the minimum number of characters
-that should be received to satisfy the read. 
-TIME (indexed using VTIME) is a decisecond-valued
-timer. When both are set, a read will wait until at least one character
-has been received, and then return as soon as either MIN characters
-have been received or time TIME has passed since the last character
-was received. If only MIN is set, the read will not return before
-MIN characters have been received. If only TIME is set, the read will
-return as soon as either at least one character has been received,
-or the timer times out. If neither is set, the read will return
-immediately, only giving the currently already available characters.
+For an explanation of VMIN and VTIME, see the description of 
+non-canonical mode below.
 .SS "Retrieving and changing terminal settings"
 .PP
 .BR tcgetattr ()
@@ -510,6 +507,107 @@ the change occurs after all output written to the object referred by
 .I fd
 has been transmitted, and all input that has been received but not read
 will be discarded before the change is made.
+.SS "Canonical and non-canonical mode"
+The setting of the
+.B ICANON
+canon flag in
+.I c_lflag
+determines whether the terminal is operating in canonical mode
+.RB ( ICANON
+set) or
+non-canonical mode
+.RB ( ICANON 
+unset).
+By default,
+.B ICANON
+set.
+
+In canonical mode:
+.IP * 2
+Input is made available line by line.
+An input line is available when one of the line delimiters
+is typed (NL, EOL, EOL2; or EOF at the start of line).
+Except in the case of EOF, the line delimiter is included
+in the buffer returned by
+.BR read (2).
+.IP * 2
+Line editing is enabled (ERASE, KILL; 
+and if the 
+.B IEXTEN
+flag is set: WERASE, REPRINT, LNEXT).
+A 
+.BR read ()
+returns at most one line of input; if the
+.BR read ()
+requested fewer bytes than are available in the current line of input,
+then only as many bytes as requested are read,
+and the remaining characters will be available for a future
+.BR read ().
+.PP
+In non-canonical mode input is available immediately (without 
+the user having to type a line-delimiter character),
+and line editing is disabled.
+The settings of MIN 
+.RI ( c_cc[VMIN] )
+and
+.RI ( c_cc[VTIME] )
+determine the circumstances in which a
+.BR read (2)
+completes; there are four distinct cases:
+.IP * 2
+MIN == 0; TIME == 0:
+If data is available,
+.BR read ()
+returns immediately, with the lesser of the number of bytes
+available, or the number of bytes requested.
+If no data is available,
+.BR read ()
+returns 0.
+.IP * 2
+MIN > 0; TIME == 0:
+.BR read ()
+blocks until the lesser of MIN bytes or the number of bytes requested
+are available, and returns the lesser of these two values.
+.IP * 2
+MIN == 0; TIME > 0:
+TIME specifies the limit for a timer in tenths of a second.
+The timer is started when 
+.BR read () 
+is called.
+.BR read ()
+returns either when at least one byte of data is available,
+or when the timer expires.
+If the timer expires without any input becoming available,
+.BR read ()
+returns 0.
+.IP * 2
+MIN > 0; TIME > 0:
+TIME specifies the limit for a timer in tenths of a second.
+Once an initial byte of input becomes available,
+the timer is restarted after each further byte is received.
+.BR read ()
+returns either when the lesser of the number of bytes requested or 
+MIN byte have been read,
+or when the inter-byte timeout expires.
+Because the timer is only started after the initial byte 
+becomes available, at least one byte will be read.
+.SS "Raw mode"
+.LP
+\fBcfmakeraw\fP() sets the terminal to something like the 
+the "raw" mode of the old Version 7 terminal driver:
+input is available character by character,
+echoing is disabled, and all special processing of 
+terminal input and output characters is disabled.
+The terminal attributes are set as follows:
+.nf
+
+    termios_p->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+                    | INLCR | IGNCR | ICRNL | IXON);
+    termios_p->c_oflag &= ~OPOST;
+    termios_p->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    termios_p->c_cflag &= ~(CSIZE | PARENB);
+    termios_p->c_cflag |= CS8;
+.fi
 .SS "Line control"
 .LP
 .BR tcsendbreak ()
@@ -560,19 +658,6 @@ transmitting data to the system.
 .LP
 The default on open of a terminal file is that neither its input nor its
 output is suspended.
-.LP
-.SS "Raw mode"
-.LP
-\fBcfmakeraw\fP() sets the terminal attributes as follows:
-.nf
-
-    termios_p->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
-                    | INLCR | IGNCR | ICRNL | IXON);
-    termios_p->c_oflag &= ~OPOST;
-    termios_p->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-    termios_p->c_cflag &= ~(CSIZE | PARENB);
-    termios_p->c_cflag |= CS8;
-.fi
 .SS "Line speed"
 The baud rate functions are provided for getting and setting the values
 of the input and output baud rates in the \fItermios\fP structure.  The

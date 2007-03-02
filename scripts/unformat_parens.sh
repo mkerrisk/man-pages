@@ -2,8 +2,8 @@
 #
 # unformat_parens.sh
 #
-# The manual pages before 2.10 treat format parentheses
-# inconsistently.  In some cases they are like
+# The manual pages before 2.10 format parentheses
+# inconsistently.  In some cases they are like:
 #
 #       .B name()
 #

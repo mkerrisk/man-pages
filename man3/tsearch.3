@@ -29,15 +29,15 @@ tsearch, tfind, tdelete, twalk, tdestroy \- manage a binary tree
 .B #include <search.h>
 .sp
 .BI "void *tsearch(const void *" key ", void **" rootp ,
-.BI "                int(*" compar ")(const void *, const void *));"
+.BI "                int (*" compar ")(const void *, const void *));"
 .sp
 .BI "void *tfind(const void *" key ", const void **" rootp ,
-.BI "                int(*" compar ")(const void *, const void *));"
+.BI "                int (*" compar ")(const void *, const void *));"
 .sp
 .BI "void *tdelete(const void *" key ", void **" rootp ,
-.BI "                int(*" compar ")(const void *, const void *));"
+.BI "                int (*" compar ")(const void *, const void *));"
 .sp
-.BI "void twalk(const void *" root ", void(*" action ")(const void *" nodep ,
+.BI "void twalk(const void *" root ", void (*" action ")(const void *" nodep ,
 .BI "                                   const VISIT " which ,
 .BI "                                   const int " depth "));"
 .sp
@@ -45,7 +45,7 @@ tsearch, tfind, tdelete, twalk, tdestroy \- manage a binary tree
 .br
 .B #include <search.h>
 .sp
-.BI "void tdestroy (void *" root ", void (*" free_node ")(void *" nodep ));
+.BI "void tdestroy(void *" root ", void (*" free_node ")(void *" nodep ));
 .RE
 .fi
 .SH DESCRIPTION
@@ -133,60 +133,65 @@ tree, where duplicate numbers are collapsed, then prints the numbers
 in order.
 .sp
 .nf
-    #include <search.h>
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <time.h>
+#include <search.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
     
-    void *root = NULL;
+void *root = NULL;
     
-    void *xmalloc(unsigned n) {
-      void *p;
-      p = malloc(n);
-      if (p) return p;
-      fprintf(stderr, "insufficient memory\\n");
-      exit(1);
+void *xmalloc(unsigned n) 
+{
+    void *p;
+    p = malloc(n);
+    if (p) 
+        return p;
+    fprintf(stderr, "insufficient memory\\n");
+    exit(1);
+}
+    
+int compare(const void *pa, const void *pb) {
+    if (*(int *) pa < *(int *) pb) 
+        return \-1;
+    if (*(int *) pa > *(int *) pb)
+        return 1;
+    return 0;
+}
+    
+void action(const void *nodep, const VISIT which, const int depth) {
+    int *datap;
+    
+    switch(which) {
+    case preorder:
+        break;
+    case postorder:
+        datap = *(int **)nodep;
+        printf("%6d\\n", *datap);
+        break;
+    case endorder:
+        break;
+    case leaf:
+        datap = *(int **) nodep;
+        printf("%6d\\n", *datap);
+        break;
     }
+}
     
-    int compare(const void *pa, const void *pb) {
-      if (*(int *)pa < *(int *)pb) return \-1;
-      if (*(int *)pa > *(int *)pb) return 1;
-      return 0;
-    }
-    
-    void action(const void *nodep, const VISIT which, const int depth) {
-      int *datap;
-    
-      switch(which) {
-        case preorder:
-          break;
-        case postorder:
-          datap = *(int **)nodep;
-          printf("%6d\\n", *datap);
-          break;
-        case endorder:
-          break;
-        case leaf:
-          datap = *(int **)nodep;
-          printf("%6d\\n", *datap);
-          break;
-      }
-    }
-    
-    int main() {
-      int i, *ptr;
-      void *val;
+int main() {
+    int i, *ptr;
+    void *val;
 
-      srand(time(NULL));    
-      for (i = 0; i < 12; i++) {
-          ptr = (int *)xmalloc(sizeof(int));
-          *ptr = rand()&0xff;
-          val = tsearch((void *)ptr, &root, compare);
-          if (val == NULL) exit(1);
-      }
-      twalk(root, action);
-      return 0;
+    srand(time(NULL));    
+    for (i = 0; i < 12; i++) {
+        ptr = (int *) xmalloc(sizeof(int));
+        *ptr = rand() & 0xff;
+        val = tsearch((void *) ptr, &root, compare);
+        if (val == NULL) 
+            exit(1);
     }
+    twalk(root, action);
+    return 0;
+}
 .fi
 .SH "CONFORMING TO"
 SVr4, POSIX.1-2001.

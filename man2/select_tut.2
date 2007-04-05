@@ -189,26 +189,29 @@ program would look like:
 .nf
 int child_events = 0;
 
-void child_sig_handler (int x) {
+void 
+child_sig_handler(int x) 
+{
     child_events++;
-    signal (SIGCHLD, child_sig_handler);
+    signal(SIGCHLD, child_sig_handler);
 }
 
-int main (int argc, char **argv) {
+int 
+main(int argc, char **argv) 
+{
     sigset_t sigmask, orig_sigmask;
 
-    sigemptyset (&sigmask);
-    sigaddset (&sigmask, SIGCHLD);
-    sigprocmask (SIG_BLOCK, &sigmask,
-                                &orig_sigmask);
+    sigemptyset(&sigmask);
+    sigaddset(&sigmask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &sigmask, &orig_sigmask);
 
-    signal (SIGCHLD, child_sig_handler);
+    signal(SIGCHLD, child_sig_handler);
 
     for (;;) { /* main loop */
         for (; child_events > 0; child_events\-\-) {
             /* do event work here */
         }
-        r = pselect (nfds, &rd, &wr, &er, 0, &orig_sigmask);
+        r = pselect(nfds, &rd, &wr, &er, 0, &orig_sigmask);
 
         /* main body of program */
     }
@@ -257,65 +260,61 @@ static int forward_port;
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
-static int listen_socket (int listen_port) {
+static int 
+listen_socket(int listen_port) 
+{
     struct sockaddr_in a;
     int s;
     int yes;
-    if ((s = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror ("socket");
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket");
         return \-1;
     }
     yes = 1;
-    if (setsockopt
-        (s, SOL_SOCKET, SO_REUSEADDR,
-         (char *) &yes, sizeof (yes)) < 0) {
-        perror ("setsockopt");
-        close (s);
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+            (char *) &yes, sizeof(yes)) < 0) {
+        perror("setsockopt");
+        close(s);
         return \-1;
     }
-    memset (&a, 0, sizeof (a));
-    a.sin_port = htons (listen_port);
+    memset(&a, 0, sizeof(a));
+    a.sin_port = htons(listen_port);
     a.sin_family = AF_INET;
-    if (bind
-        (s, (struct sockaddr *) &a, sizeof (a)) < 0) {
-        perror ("bind");
-        close (s);
+    if (bind(s, (struct sockaddr *) &a, sizeof(a)) < 0) {
+        perror("bind");
+        close(s);
         return \-1;
     }
-    printf ("accepting connections on port %d\\n",
-            (int) listen_port);
-    listen (s, 10);
+    printf("accepting connections on port %d\\n", listen_port);
+    listen(s, 10);
     return s;
 }
 
-static int connect_socket (int connect_port,
-                           char *address) {
+static int 
+connect_socket(int connect_port, char *address) 
+{
     struct sockaddr_in a;
     int s;
-    if ((s = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror ("socket");
-        close (s);
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket");
+        close(s);
         return \-1;
     }
 
-    memset (&a, 0, sizeof (a));
-    a.sin_port = htons (connect_port);
+    memset(&a, 0, sizeof(a));
+    a.sin_port = htons(connect_port);
     a.sin_family = AF_INET;
 
-    if (!inet_aton
-        (address,
-         (struct in_addr *) &a.sin_addr.s_addr)) {
-        perror ("bad IP address format");
-        close (s);
+    if (!inet_aton(address, (struct in_addr *) &a.sin_addr.s_addr)) {
+        perror("bad IP address format");
+        close(s);
         return \-1;
     }
 
-    if (connect
-        (s, (struct sockaddr *) &a,
-         sizeof (a)) < 0) {
-        perror ("connect()");
-        shutdown (s, SHUT_RDWR);
-        close (s);
+    if (connect(s, (struct sockaddr *) &a, sizeof(a)) < 0) {
+        perror("connect()");
+        shutdown(s, SHUT_RDWR);
+        close(s);
         return \-1;
     }
     return s;
@@ -323,23 +322,25 @@ static int connect_socket (int connect_port,
 
 #define SHUT_FD1 {                      \\
         if (fd1 >= 0) {                 \\
-            shutdown (fd1, SHUT_RDWR);  \\
-            close (fd1);                \\
+            shutdown(fd1, SHUT_RDWR);   \\
+            close(fd1);                 \\
             fd1 = \-1;                   \\
         }                               \\
     }
 
 #define SHUT_FD2 {                      \\
         if (fd2 >= 0) {                 \\
-            shutdown (fd2, SHUT_RDWR);  \\
-            close (fd2);                \\
+            shutdown(fd2, SHUT_RDWR);   \\
+            close(fd2);                 \\
             fd2 = \-1;                   \\
         }                               \\
     }
 
 #define BUF_SIZE 1024
 
-int main (int argc, char **argv) {
+int 
+main(int argc, char **argv) 
+{
     int h;
     int fd1 = \-1, fd2 = \-1;
     char buf1[BUF_SIZE], buf2[BUF_SIZE];
@@ -347,72 +348,70 @@ int main (int argc, char **argv) {
     int buf2_avail, buf2_written;
 
     if (argc != 4) {
-        fprintf (stderr,
-                 "Usage\\n\\tfwd <listen-port> \\
-<forward-to-port> <forward-to-ip-address>\\n");
-        exit (1);
+        fprintf(stderr,
+                 "Usage\\n\\tfwd <listen-port> "
+                 "<forward-to-port> <forward-to-ip-address>\\n");
+        exit(1);
     }
 
-    signal (SIGPIPE, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
 
-    forward_port = atoi (argv[2]);
+    forward_port = atoi(argv[2]);
 
-    h = listen_socket (atoi (argv[1]));
+    h = listen_socket(atoi(argv[1]));
     if (h < 0)
-        exit (1);
+        exit(1);
 
     for (;;) {
         int r, nfds = 0;
         fd_set rd, wr, er;
-        FD_ZERO (&rd);
-        FD_ZERO (&wr);
-        FD_ZERO (&er);
-        FD_SET (h, &rd);
-        nfds = max (nfds, h);
+        FD_ZERO(&rd);
+        FD_ZERO(&wr);
+        FD_ZERO(&er);
+        FD_SET(h, &rd);
+        nfds = max(nfds, h);
         if (fd1 > 0 && buf1_avail < BUF_SIZE) {
-            FD_SET (fd1, &rd);
-            nfds = max (nfds, fd1);
+            FD_SET(fd1, &rd);
+            nfds = max(nfds, fd1);
         }
         if (fd2 > 0 && buf2_avail < BUF_SIZE) {
-            FD_SET (fd2, &rd);
-            nfds = max (nfds, fd2);
+            FD_SET(fd2, &rd);
+            nfds = max(nfds, fd2);
         }
         if (fd1 > 0
             && buf2_avail \- buf2_written > 0) {
-            FD_SET (fd1, &wr);
-            nfds = max (nfds, fd1);
+            FD_SET(fd1, &wr);
+            nfds = max(nfds, fd1);
         }
         if (fd2 > 0
             && buf1_avail \- buf1_written > 0) {
-            FD_SET (fd2, &wr);
-            nfds = max (nfds, fd2);
+            FD_SET(fd2, &wr);
+            nfds = max(nfds, fd2);
         }
         if (fd1 > 0) {
-            FD_SET (fd1, &er);
-            nfds = max (nfds, fd1);
+            FD_SET(fd1, &er);
+            nfds = max(nfds, fd1);
         }
         if (fd2 > 0) {
-            FD_SET (fd2, &er);
-            nfds = max (nfds, fd2);
+            FD_SET(fd2, &er);
+            nfds = max(nfds, fd2);
         }
 
-        r = select (nfds + 1, &rd, &wr, &er, NULL);
+        r = select(nfds + 1, &rd, &wr, &er, NULL);
 
         if (r == \-1 && errno == EINTR)
             continue;
         if (r < 0) {
-            perror ("select()");
-            exit (1);
+            perror("select()");
+            exit(1);
         }
-        if (FD_ISSET (h, &rd)) {
+        if (FD_ISSET(h, &rd)) {
             unsigned int l;
             struct sockaddr_in client_address;
-            memset (&client_address, 0, l =
-                    sizeof (client_address));
-            r = accept (h, (struct sockaddr *)
-                        &client_address, &l);
+            memset(&client_address, 0, l = sizeof(client_address));
+            r = accept(h, (struct sockaddr *) &client_address, &l);
             if (r < 0) {
-                perror ("accept()");
+                perror("accept()");
             } else {
                 SHUT_FD1;
                 SHUT_FD2;
@@ -420,41 +419,39 @@ int main (int argc, char **argv) {
                 buf2_avail = buf2_written = 0;
                 fd1 = r;
                 fd2 =
-                    connect_socket (forward_port,
-                                    argv[3]);
+                    connect_socket(forward_port, argv[3]);
                 if (fd2 < 0) {
                     SHUT_FD1;
                 } else
-                    printf ("connect from %s\\n",
-                            inet_ntoa
-                            (client_address.sin_addr));
+                    printf("connect from %s\\n",
+                            inet_ntoa(client_address.sin_addr));
             }
         }
 /* NB: read oob data before normal reads */
         if (fd1 > 0)
-            if (FD_ISSET (fd1, &er)) {
+            if (FD_ISSET(fd1, &er)) {
                 char c;
                 errno = 0;
-                r = recv (fd1, &c, 1, MSG_OOB);
+                r = recv(fd1, &c, 1, MSG_OOB);
                 if (r < 1) {
                     SHUT_FD1;
                 } else
-                    send (fd2, &c, 1, MSG_OOB);
+                    send(fd2, &c, 1, MSG_OOB);
             }
         if (fd2 > 0)
-            if (FD_ISSET (fd2, &er)) {
+            if (FD_ISSET(fd2, &er)) {
                 char c;
                 errno = 0;
-                r = recv (fd2, &c, 1, MSG_OOB);
+                r = recv(fd2, &c, 1, MSG_OOB);
                 if (r < 1) {
                     SHUT_FD1;
                 } else
-                    send (fd1, &c, 1, MSG_OOB);
+                    send(fd1, &c, 1, MSG_OOB);
             }
         if (fd1 > 0)
-            if (FD_ISSET (fd1, &rd)) {
+            if (FD_ISSET(fd1, &rd)) {
                 r =
-                    read (fd1, buf1 + buf1_avail,
+                    read(fd1, buf1 + buf1_avail,
                           BUF_SIZE \- buf1_avail);
                 if (r < 1) {
                     SHUT_FD1;
@@ -462,9 +459,9 @@ int main (int argc, char **argv) {
                     buf1_avail += r;
             }
         if (fd2 > 0)
-            if (FD_ISSET (fd2, &rd)) {
+            if (FD_ISSET(fd2, &rd)) {
                 r =
-                    read (fd2, buf2 + buf2_avail,
+                    read(fd2, buf2 + buf2_avail,
                           BUF_SIZE \- buf2_avail);
                 if (r < 1) {
                     SHUT_FD2;
@@ -472,24 +469,20 @@ int main (int argc, char **argv) {
                     buf2_avail += r;
             }
         if (fd1 > 0)
-            if (FD_ISSET (fd1, &wr)) {
+            if (FD_ISSET(fd1, &wr)) {
                 r =
-                    write (fd1,
-                           buf2 + buf2_written,
-                           buf2_avail \-
-                           buf2_written);
+                    write(fd1, buf2 + buf2_written,
+                           buf2_avail \- buf2_written);
                 if (r < 1) {
                     SHUT_FD1;
                 } else
                     buf2_written += r;
             }
         if (fd2 > 0)
-            if (FD_ISSET (fd2, &wr)) {
+            if (FD_ISSET(fd2, &wr)) {
                 r =
-                    write (fd2,
-                           buf1 + buf1_written,
-                           buf1_avail \-
-                           buf1_written);
+                    write(fd2, buf1 + buf1_written,
+                           buf1_avail \- buf1_written);
                 if (r < 1) {
                     SHUT_FD2;
                 } else
@@ -502,12 +495,10 @@ int main (int argc, char **argv) {
             buf2_written = buf2_avail = 0;
 /* one side has closed the connection, keep
    writing to the other side until empty */
-        if (fd1 < 0
-            && buf1_avail \- buf1_written == 0) {
+        if (fd1 < 0 && buf1_avail \- buf1_written == 0) {
             SHUT_FD2;
         }
-        if (fd2 < 0
-            && buf2_avail \- buf2_written == 0) {
+        if (fd2 < 0 && buf2_avail \- buf2_written == 0) {
             SHUT_FD1;
         }
     }
@@ -625,7 +616,7 @@ follows:
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = 200000;  /* 0.2 seconds */
-    select (0, NULL, NULL, NULL, &tv);
+    select(0, NULL, NULL, NULL, &tv);
 .fi
 .PP
 This is only guaranteed to work on Unix systems, however.

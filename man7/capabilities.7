@@ -39,8 +39,8 @@ while unprivileged processes are subject to full permission
 checking based on the process's credentials
 (usually: effective UID, effective GID, and supplementary group list).
 
-Starting with kernel 2.2, Linux divides the privileges traditionally 
-associated with superuser into distinct units, known as 
+Starting with kernel 2.2, Linux divides the privileges traditionally
+associated with superuser into distinct units, known as
 .IR capabilities ,
 which can be independently enabled and disabled.
 Capabilities are a per-thread attribute.
@@ -111,7 +111,7 @@ This includes use of the KDSIGACCEPT ioctl.
 .\" FIXME CAP_KILL also has an effect for threads + setting child
 .\"       termination signal to other than SIGCHLD: without this
 .\"       capability, the termination signal reverts to SIGCHLD
-.\"       if the child does an exec().  What is the rationale 
+.\"       if the child does an exec().  What is the rationale
 .\"       for this?
 .TP
 .B CAP_LEASE
@@ -195,11 +195,11 @@ to assign
 and
 .B IOPRIO_CLASS_IDLE
 I/O scheduling classes;
-perform 
+perform
 .BR keyctl (2)
 .B KEYCTL_CHOWN
 and
-.B KEYCTL_SETPERM 
+.B KEYCTL_SETPERM
 operations.
 allow forged UID when passing socket credentials;
 exceed
@@ -209,17 +209,17 @@ in system calls that open files (e.g.,
 .BR accept (2),
 .BR execve (2),
 .BR open (2),
-.BR pipe (2); 
-without this capability these system calls will fail with the error 
-.B ENFILE 
+.BR pipe (2);
+without this capability these system calls will fail with the error
+.B ENFILE
 if this limit is encountered);
-employ 
-.BR CLONE_NEWNS 
+employ
+.BR CLONE_NEWNS
 flag with
 .BR clone (2)
 and
 .BR unshare (2);
-perform 
+perform
 .B KEYCTL_CHOWN
 and
 .B KEYCTL_SETPERM
@@ -253,14 +253,14 @@ and setting scheduling policies and priorities for arbitrary processes
 .RB ( sched_setscheduler (2),
 .BR sched_setparam (2));
 set CPU affinity for arbitrary processes
-.RB ( sched_setaffinity (2)); 
+.RB ( sched_setaffinity (2));
 set I/O scheduling class and priority for arbitrary processes
-.RB ( ioprio_set (2)); 
+.RB ( ioprio_set (2));
 allow
 .BR migrate_pages (2)
 to be applied to arbitrary processes and allow processes
 to be migrated to arbitrary nodes;
-.\" FIXME CAP_SYS_NICE also has the following effect for 
+.\" FIXME CAP_SYS_NICE also has the following effect for
 .\" migrate_pages(2):
 .\"     do_migrate_pages(mm, &old, &new,
 .\"         capable(CAP_SYS_NICE) ? MPOL_MF_MOVE_ALL : MPOL_MF_MOVE);
@@ -269,9 +269,9 @@ allow
 to be applied to arbitrary processes;
 use the
 .B MPOL_MF_MOVE_ALL
-flag with 
+flag with
 .BR mbind (2)
-and 
+and
 .BR move_pages (2).
 .TP
 .B CAP_SYS_PACCT
@@ -330,8 +330,8 @@ perform permission checks for the thread.
 the capabilities that the thread may assume
 (i.e., a limiting superset for the effective and inheritable sets).
 If a thread drops a capability from its permitted set,
-it can never re-acquire that capability (unless it 
-.BR exec ()s 
+it can never re-acquire that capability (unless it
+.BR exec ()s
 a set-user-ID-root program).
 .TP
 .IR inheritable :
@@ -384,7 +384,7 @@ that for all privileged operations,
 the kernel check whether the thread has the required
 capability in its effective set.
 .IP 2. 4
-that the kernel provide 
+that the kernel provide
 system calls allowing a thread's capability sets to
 be changed and retrieved.
 .IP 3. 4
@@ -393,7 +393,7 @@ so that a process gains those capabilities when the file is execed.
 .PP
 As at Linux 2.6.14, only the first two of these requirements are met.
 
-Eventually, it should be possible to associate three 
+Eventually, it should be possible to associate three
 capability sets with an executable file, which,
 in conjunction with the capability sets of the thread,
 will determine the capabilities of a thread after an
@@ -401,7 +401,7 @@ will determine the capabilities of a thread after an
 .TP
 .IR Inheritable " (formerly known as " allowed ):
 this set is ANDed with the thread's inheritable set to determine which
-inheritable capabilities are permitted to the thread after the 
+inheritable capabilities are permitted to the thread after the
 .BR exec ().
 .TP
 .IR Permitted " (formerly known as " forced ):
@@ -414,7 +414,7 @@ also to be set in the new effective set.
 (F(effective) would normally be either all zeroes or all ones.)
 .PP
 In the meantime, since the current implementation does not
-support file capability sets, during an 
+support file capability sets, during an
 .BR exec ():
 .IP 1. 4
 All three file capability sets are initially assumed to be cleared.
@@ -428,14 +428,14 @@ If a set-user-ID-root program is being executed,
 then the file effective set is defined to be all ones.
 .SS Transformation of Capabilities During exec()
 .PP
-During an 
-.BR exec (), 
+During an
+.BR exec (),
 the kernel calculates the new capabilities of
 the process using the following algorithm:
 .in +4
 .nf
 
-P'(permitted) = (P(inheritable) & F(inheritable)) | 
+P'(permitted) = (P(inheritable) & F(inheritable)) |
                 (F(permitted) & cap_bset)
 
 P'(effective) = P'(permitted) & F(effective)
@@ -446,10 +446,10 @@ P'(inheritable) = P(inheritable)    [i.e., unchanged]
 .in -4
 where:
 .IP P 10
-denotes the value of a thread capability set before the 
+denotes the value of a thread capability set before the
 .BR exec ()
 .IP P' 10
-denotes the value of a capability set after the 
+denotes the value of a capability set after the
 .BR exec ()
 .IP F 10
 denotes a file capability set
@@ -457,40 +457,40 @@ denotes a file capability set
 is the value of the capability bounding set.
 .PP
 In the current implementation, the upshot of this algorithm is that
-when a process 
+when a process
 .BR exec ()s
 a set-user-ID-root program, or when a process with an effective UID of 0
 .BR exec ()s
 a program,
-it gains all capabilities in its permitted and effective capability sets, 
-except those masked out by the capability bounding set (i.e., 
+it gains all capabilities in its permitted and effective capability sets,
+except those masked out by the capability bounding set (i.e.,
 .BR CAP_SETPCAP ).
-.\" If a process with real UID 0, and non-zero effective UID does an 
-.\" exec(), then it gets all capabilities (less CAP_SETPCAP) in its 
+.\" If a process with real UID 0, and non-zero effective UID does an
+.\" exec(), then it gets all capabilities (less CAP_SETPCAP) in its
 .\" permitted set, and no effective capabilities
 This provides semantics that are the same as those provided by
 traditional Unix systems.
 .SS Effect of User ID Changes on Capabilities
-To preserve the traditional semantics for transitions between 
-0 and non-zero user IDs, 
-the kernel makes the following changes to a thread's capability 
-sets on changes to the thread's real, effective, saved set, 
+To preserve the traditional semantics for transitions between
+0 and non-zero user IDs,
+the kernel makes the following changes to a thread's capability
+sets on changes to the thread's real, effective, saved set,
 and file system user IDs (using
 .BR setuid (2),
 .BR setresuid (2),
 or similar):
 .IP 1. 4
-If one or more of the real, effective or saved set user IDs 
-was previously 0, and as a result of the UID changes all of these IDs 
-have a non-zero value, 
-then all capabilities are cleared from the permitted and effective 
+If one or more of the real, effective or saved set user IDs
+was previously 0, and as a result of the UID changes all of these IDs
+have a non-zero value,
+then all capabilities are cleared from the permitted and effective
 capability sets.
 .IP 2. 4
-If the effective user ID is changed from 0 to non-zero, 
+If the effective user ID is changed from 0 to non-zero,
 then all capabilities are cleared from the effective set.
 .IP 3. 4
 If the effective user ID is changed from non-zero to 0,
-then the permitted set is copied to the effective set. 
+then the permitted set is copied to the effective set.
 .IP 4. 4
 If the file system user ID is changed from 0 to non-zero (see
 .BR setfsuid (2))
@@ -502,7 +502,7 @@ then the following capabilities are cleared from the effective set:
 and
 .BR CAP_FSETID .
 If the file system UID is changed from non-zero to 0,
-then any of these capabilities that are enabled in the permitted set 
+then any of these capabilities that are enabled in the permitted set
 are enabled in the effective set.
 .PP
 If a thread that has a 0 value for one or more of its user IDs wants

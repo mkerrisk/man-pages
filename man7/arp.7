@@ -6,60 +6,68 @@
 .\" of the modification is added to the header.
 .\" Modified June 1999 Andi Kleen
 .\" $Id: arp.7,v 1.10 2000/04/27 19:31:38 ak Exp $
-.TH ARP 7 1999-06-03 "Linux Man Page" "Linux Programmer's Manual" 
+.TH ARP 7 1999-06-03 "Linux Man Page" "Linux Programmer's Manual"
 .SH NAME
-arp \- Linux ARP kernel module. 
+arp \- Linux ARP kernel module.
 .SH DESCRIPTION
 This kernel protocol module implements the Address Resolution
 Protocol defined in RFC\ 826.
 It is used to convert between Layer2 hardware addresses
-and IPv4 protocol addresses on directly connected networks. 
-The user normally doesn't interact directly with this module except to 
-configure it; 
+and IPv4 protocol addresses on directly connected networks.
+The user normally doesn't interact directly with this module except to
+configure it;
 instead it provides a service for other protocols in the kernel.
 
 A user process can receive ARP packets by using
 .BR packet (7)
-sockets.  There is also a mechanism for managing the ARP cache
+sockets.
+There is also a mechanism for managing the ARP cache
 in user-space by using
 .BR netlink (7)
-sockets. The ARP table can also be controlled via 
-.BR ioctl (2) 
-on any 
-.B PF_INET 
+sockets.
+The ARP table can also be controlled via
+.BR ioctl (2)
+on any
+.B PF_INET
 socket.
 
 The ARP module maintains a cache of mappings between hardware addresses
-and protocol addresses.  The cache has a limited size so old and less
-frequently used entries are garbage-collected.  Entries which are marked
-as permanent are never deleted by the garbage-collector.  The cache can
+and protocol addresses.
+The cache has a limited size so old and less
+frequently used entries are garbage-collected.
+Entries which are marked
+as permanent are never deleted by the garbage-collector.
+The cache can
 be directly manipulated by the use of ioctls and its behaviour can be
-tuned by the sysctls defined below.  
+tuned by the sysctls defined below.
 
 When there is no positive feedback for an existing mapping after some
 time (see the sysctls below) a neighbour cache entry is considered stale.
 Positive feedback can be gotten from a higher layer; for example from
-a successful TCP ACK. Other protocols can signal forward progress
+a successful TCP ACK.
+Other protocols can signal forward progress
 using the
 .B MSG_CONFIRM
 flag to
 .BR sendmsg (2).
 When there is no forward progress ARP tries to reprobe.
 It first tries to ask a local arp daemon
-.B app_solicit 
+.B app_solicit
 times for an updated MAC address.
 If that fails and an old MAC address is known an unicast probe is send
 .B ucast_solicit
-times. If that fails too it will broadcast a new ARP 
-request to the network. Requests are only send when there is data queued
-for sending. 
+times.
+If that fails too it will broadcast a new ARP
+request to the network.
+Requests are only send when there is data queued
+for sending.
 
-Linux will automatically add a non-permanent proxy arp entry when it 
-receives a request for an address it forwards to and proxy arp is 
-enabled on the receiving interface. 
+Linux will automatically add a non-permanent proxy arp entry when it
+receives a request for an address it forwards to and proxy arp is
+enabled on the receiving interface.
 When there is a reject route for the target no proxy arp entry is added.
 .SH IOCTLS
-Three ioctls are available on all 
+Three ioctls are available on all
 .B PF_INET
 sockets.
 They take a pointer to a
@@ -113,23 +121,24 @@ If the
 .B ATF_NETMASK
 flag is set, then
 .I arp_netmask
-should be valid.  
+should be valid.
 Linux 2.2 does not support proxy network ARP entries, so this
-should be set to 0xffffffff, or 0 to remove an existing proxy arp entry. 
+should be set to 0xffffffff, or 0 to remove an existing proxy arp entry.
 .B ATF_USETRAILERS
 is obsolete and should not be used.
 .SH SYSCTLS
 ARP supports a sysctl interface to configure parameters on a global
 or per-interface basis.
-The sysctls can be accessed by reading or writing the 
+The sysctls can be accessed by reading or writing the
 .I /proc/sys/net/ipv4/neigh/*/*
-files or with the 
+files or with the
 .BR sysctl (2)
-interface.  Each interface in the system has its own directory in
+interface.
+Each interface in the system has its own directory in
 /proc/sys/net/ipv4/neigh/.
-The setting in the `default' directory is used for all newly created 
+The setting in the `default' directory is used for all newly created
 devices.
-Unless otherwise specified time related sysctls are specified 
+Unless otherwise specified time related sysctls are specified
 in seconds.
 .TP
 .B anycast_delay
@@ -154,18 +163,18 @@ Defaults to 30 seconds.
 .TP
 .B delay_first_probe_time
 Delay before first probe after it has been decided that a neighbour
-is stale. 
+is stale.
 Defaults to 5 seconds.
 .TP
 .B gc_interval
-How frequently the garbage collector for neighbour entries 
+How frequently the garbage collector for neighbour entries
 should attempt to run.
 Defaults to 30 seconds.
 .TP
 .B gc_stale_time
-Determines how often to check for stale neighbour entries.  When 
-a neighbour entry is considered stale it is resolved again before 
-sending data to it. 
+Determines how often to check for stale neighbour entries.
+When a neighbour entry is considered stale it is resolved again before
+sending data to it.
 Defaults to 60 seconds.
 .TP
 .B gc_thresh1
@@ -193,7 +202,7 @@ mapping (generally due to network misconfiguration).
 Defaults to 1 second.
 .TP
 .B mcast_solicit
-The maximum number of attempts to resolve an address by 
+The maximum number of attempts to resolve an address by
 multicast/broadcast before marking the entry as unreachable.
 Defaults to 3.
 .TP
@@ -223,18 +232,18 @@ The maximum number of packets which may be queued for each unresolved
 address by other network layers.
 Defaults to 3.
 .SH BUGS
-Some timer settings are specified in jiffies, which is architecture 
+Some timer settings are specified in jiffies, which is architecture
 related.
-On the Alpha a jiffy is 1/1024 of a second, on most other 
+On the Alpha a jiffy is 1/1024 of a second, on most other
 architectures it is 1/100s.
 
-There is no way to signal positive feedback from user space. 
-This means connection oriented protocols implemented in user space 
-will generate excessive ARP traffic, because ndisc will regularly 
+There is no way to signal positive feedback from user space.
+This means connection oriented protocols implemented in user space
+will generate excessive ARP traffic, because ndisc will regularly
 reprobe the MAC address.
 The same problem applies for some kernel protocols (e.g. NFS over UDP).
 
-This man page mashes IPv4 specific and shared between IPv4 and IPv6 
+This man page mashes IPv4 specific and shared between IPv4 and IPv6
 functionality together.
 .SH VERSIONS
 The
@@ -244,9 +253,10 @@ changed in Linux 2.0 to include the
 member and the ioctl numbers changed at the same time.
 Support for the old ioctls was dropped in Linux 2.2.
 
-Support for proxy arp entries for networks (netmask not equal 0xffffffff) 
-was dropped in Linux 2.2. It is replaced by automatic proxy arp setup by
-the kernel for all reachable hosts on other interfaces (when 
+Support for proxy arp entries for networks (netmask not equal 0xffffffff)
+was dropped in Linux 2.2.
+It is replaced by automatic proxy arp setup by
+the kernel for all reachable hosts on other interfaces (when
 forwarding and proxy arp is enabled for the interface).
 
 The neigh/* sysctls did not exist before Linux 2.2.

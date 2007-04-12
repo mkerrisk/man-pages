@@ -28,7 +28,7 @@
 .\"            revision
 .\" 1999-08-18 David A. Wheeler <dwheeler@ida.org> added Note.
 .\" Modified, 25 Jun 2002, Michael Kerrisk <mtk-manpages@gmx.net>
-.\"	Corrected description of queue placement by sched_setparam() and 
+.\"	Corrected description of queue placement by sched_setparam() and
 .\"		sched_setscheduler()
 .\"	A couple of grammar clean-ups
 .\" Modified 2004-05-27 by Michael Kerrisk <mtk-manpages@gmx.net>
@@ -57,14 +57,17 @@ set and get scheduling algorithm/parameters
 .SH DESCRIPTION
 .BR sched_setscheduler ()
 sets both the scheduling policy and the associated parameters for the
-process identified by \fIpid\fP. If \fIpid\fP equals zero, the
-scheduler of the calling process will be set. The interpretation of
-the parameter \fIparam\fP depends on the selected policy. Currently, the
+process identified by \fIpid\fP.
+If \fIpid\fP equals zero, the
+scheduler of the calling process will be set.
+The interpretation of
+the parameter \fIparam\fP depends on the selected policy.
+Currently, the
 following three scheduling policies are supported under Linux:
-.IR SCHED_FIFO , 
+.IR SCHED_FIFO ,
 .IR SCHED_RR ,
 .IR SCHED_OTHER ,
-.\" In the 2.6 kernel sources, SCHED_OTHER is actually called 
+.\" In the 2.6 kernel sources, SCHED_OTHER is actually called
 .\" SCHED_NORMAL.
 and
 .IR SCHED_BATCH ;
@@ -72,20 +75,26 @@ their respective semantics are described below.
 
 .BR sched_getscheduler ()
 queries the scheduling policy currently applied to the process
-identified by \fIpid\fP. If \fIpid\fP equals zero, the policy of the
+identified by \fIpid\fP.
+If \fIpid\fP equals zero, the policy of the
 calling process will be retrieved.
 .SS Scheduling Policies
 The scheduler is the kernel part that decides which runnable process
-will be executed by the CPU next. The Linux scheduler offers three
+will be executed by the CPU next.
+The Linux scheduler offers three
 different scheduling policies, one for normal processes and two for
-real-time applications. A static priority value \fIsched_priority\fP
+real-time applications.
+A static priority value \fIsched_priority\fP
 is assigned to each process and this value can be changed only via
-system calls. Conceptually, the scheduler maintains a list of runnable
+system calls.
+Conceptually, the scheduler maintains a list of runnable
 processes for each possible \fIsched_priority\fP value, and
-\fIsched_priority\fP can have a value in the range 0 to 99. In order
+\fIsched_priority\fP can have a value in the range 0 to 99.
+In order
 to determine the process that runs next, the Linux scheduler looks for
 the non-empty list with the highest static priority and takes the
-process at the head of this list. The scheduling policy determines for
+process at the head of this list.
+The scheduling policy determines for
 each process, where it will be inserted into the list of processes
 with equal static priority and how it will move inside this list.
 
@@ -95,12 +104,12 @@ policy used by most processes.
 \fISCHED_FIFO\fP and \fISCHED_RR\fP are
 intended for special time-critical applications that need precise
 control over the way in which runnable processes are selected for
-execution. 
+execution.
 
 Processes scheduled with \fISCHED_OTHER\fP or \fISCHED_BATCH\fP
 must be assigned the static priority 0.
 Processes scheduled under \fISCHED_FIFO\fP or
-\fISCHED_RR\fP can have a static priority in the range 1 to 99. 
+\fISCHED_RR\fP can have a static priority in the range 1 to 99.
 The system calls \fBsched_get_priority_min\fP() and
 \fBsched_get_priority_max\fP() can be used to find out the valid
 priority range for a scheduling policy in a portable way on all
@@ -108,22 +117,26 @@ POSIX.1-2001 conforming systems.
 
 All scheduling is preemptive: If a process with a higher static
 priority gets ready to run, the current process will be preempted and
-returned into its wait list. The scheduling policy only determines the
+returned into its wait list.
+The scheduling policy only determines the
 ordering within the list of runnable processes with equal static
 priority.
 .SS SCHED_FIFO: First In-First Out scheduling
 \fISCHED_FIFO\fP can only be used with static priorities higher than
 0, which means that when a \fISCHED_FIFO\fP processes becomes runnable,
 it will always immediately preempt any currently running
-\fISCHED_OTHER\fP or \fISCHED_BATCH\fP process. 
+\fISCHED_OTHER\fP or \fISCHED_BATCH\fP process.
 \fISCHED_FIFO\fP is a simple scheduling
-algorithm without time slicing. For processes scheduled under the
+algorithm without time slicing.
+For processes scheduled under the
 \fISCHED_FIFO\fP policy, the following rules are applied: A
 \fISCHED_FIFO\fP process that has been preempted by another process of
 higher priority will stay at the head of the list for its priority and
 will resume execution as soon as all processes of higher priority are
-blocked again. When a \fISCHED_FIFO\fP process becomes runnable, it
-will be inserted at the end of the list for its priority. A call to
+blocked again.
+When a \fISCHED_FIFO\fP process becomes runnable, it
+will be inserted at the end of the list for its priority.
+A call to
 \fBsched_setscheduler\fP() or \fBsched_setparam\fP() will put the
 \fISCHED_FIFO\fP (or \fISCHED_RR\fP) process identified by
 \fIpid\fP at the start of the list if it was runnable.
@@ -134,21 +147,27 @@ of the list.)
 .\" In 2.2.x and 2.4.x, the process is placed at the front of the queue
 .\" In 2.0.x, the Right Thing happened: the process went to the back -- MTK
 A process calling \fBsched_yield\fP() will be
-put at the end of the list. No other events will move a process
+put at the end of the list.
+No other events will move a process
 scheduled under the \fISCHED_FIFO\fP policy in the wait list of
-runnable processes with equal static priority. A \fISCHED_FIFO\fP
+runnable processes with equal static priority.
+A \fISCHED_FIFO\fP
 process runs until either it is blocked by an I/O request, it is
 preempted by a higher priority process, or it calls \fBsched_yield\fP().
 .SS SCHED_RR: Round Robin scheduling
-\fISCHED_RR\fP is a simple enhancement of \fISCHED_FIFO\fP. Everything
+\fISCHED_RR\fP is a simple enhancement of \fISCHED_FIFO\fP.
+Everything
 described above for \fISCHED_FIFO\fP also applies to \fISCHED_RR\fP,
 except that each process is only allowed to run for a maximum time
-quantum. If a \fISCHED_RR\fP process has been running for a time
+quantum.
+If a \fISCHED_RR\fP process has been running for a time
 period equal to or longer than the time quantum, it will be put at the
-end of the list for its priority. A \fISCHED_RR\fP process that has
+end of the list for its priority.
+A \fISCHED_RR\fP process that has
 been preempted by a higher priority process and subsequently resumes
 execution as a running process will complete the unexpired portion of
-its round robin time quantum. The length of the time quantum can be
+its round robin time quantum.
+The length of the time quantum can be
 retrieved using \fBsched_rr_get_interval\fP(2).
 .\" On Linux 2.4, the length of the RR interval is influenced
 .\" by the process nice value -- MTK
@@ -157,12 +176,15 @@ retrieved using \fBsched_rr_get_interval\fP(2).
 \fISCHED_OTHER\fP can only be used at static priority 0.
 \fISCHED_OTHER\fP is the standard Linux time-sharing scheduler that is
 intended for all processes that do not require special static priority
-real-time mechanisms. The process to run is chosen from the static
+real-time mechanisms.
+The process to run is chosen from the static
 priority 0 list based on a dynamic priority that is determined only
-inside this list. The dynamic priority is based on the nice level (set
+inside this list.
+The dynamic priority is based on the nice level (set
 by \fBnice\fP(2) or \fBsetpriority\fP(2)) and increased for
 each time quantum the process is ready to run, but denied to run by
-the scheduler. This ensures fair progress among all \fISCHED_OTHER\fP
+the scheduler.
+This ensures fair progress among all \fISCHED_OTHER\fP
 processes.
 .SS SCHED_BATCH: Scheduling batch processes
 (Since Linux 2.6.16.)
@@ -173,24 +195,24 @@ that the process is CPU-intensive.
 Consequently, the scheduler will apply a small scheduling
 penalty so that this process is mildly disfavoured in scheduling
 decisions.
-.\" The following paragraph is drawn largely from the text that 
-.\" accompanied Ingo Molnar's patch for the implementation of 
+.\" The following paragraph is drawn largely from the text that
+.\" accompanied Ingo Molnar's patch for the implementation of
 .\" SCHED_BATCH.
 This policy is useful for workloads that are non-interactive,
-but do not want to lower their nice value, 
-and for workloads that want a deterministic scheduling policy without 
+but do not want to lower their nice value,
+and for workloads that want a deterministic scheduling policy without
 interactivity causing extra preemptions (between the workload's tasks).
 .SS Privileges and resource limits
 .\" FIXME make some general statement about Unix implementations
-.\" A process calling 
+.\" A process calling
 .\" .BR sched_setscheduler
-.\" needs an effective user ID equal to the real user ID or effective 
+.\" needs an effective user ID equal to the real user ID or effective
 .\" user ID of the process identified by
 .\" .IR pid ,
 .\" or it must be privileged (Linux: have the
 .\" .B CAP_SYS_NICE
 .\" capability).
-.\" 
+.\"
 In Linux kernels before 2.6.12, only privileged
 .RB ( CAP_SYS_NICE )
 processes can set a non-zero static priority.
@@ -198,7 +220,7 @@ The only change that an unprivileged process can make is to set the
 .B SCHED_OTHER
 policy, and this can only be done if the effective user ID of the caller of
 .BR sched_setscheduler ()
-matches the real or effective user ID of the target process 
+matches the real or effective user ID of the target process
 (i.e., the process specified by
 .IR pid )
 whose policy is being changed.
@@ -209,21 +231,21 @@ resource limit defines a ceiling on an unprivileged process's
 priority for the
 .B SCHED_RR
 and
-.BR SCHED_FIFO 
+.BR SCHED_FIFO
 policies.
-If an unprivileged process has a non-zero 
+If an unprivileged process has a non-zero
 .B RLIMIT_RTPRIO
-soft limit, then it can change its scheduling policy and priority, 
-subject to the restriction that the priority cannot be set to a 
-value higher than the 
+soft limit, then it can change its scheduling policy and priority,
+subject to the restriction that the priority cannot be set to a
+value higher than the
 .B RLIMIT_RTPRIO
 soft limit.
-If the 
+If the
 .B RLIMIT_RTPRIO
 soft limit is 0, then the only permitted change is to lower the priority.
-Subject to the same rules, 
-another unprivileged process can also make these changes, 
-as long as the effective user ID of the process making the change 
+Subject to the same rules,
+another unprivileged process can also make these changes,
+as long as the effective user ID of the process making the change
 matches the real or effective user ID of the target process.
 See
 .BR getrlimit (2)
@@ -235,7 +257,8 @@ processes ignore this limit; as with older kernels,
 they can make arbitrary changes to scheduling policy and priority.
 .SS Response time
 A blocked high priority process waiting for the I/O has a certain
-response time before it is scheduled again. The device driver writer
+response time before it is scheduled again.
+The device driver writer
 can greatly reduce this response time by using a "slow interrupt"
 interrupt handler.
 .\" as described in
@@ -243,20 +266,21 @@ interrupt handler.
 .SS Miscellaneous
 Child processes inherit the scheduling algorithm and parameters across a
 .BR fork ().
-The scheduling algorithm and parameters are preserved across 
+The scheduling algorithm and parameters are preserved across
 .BR execve (2).
 
-Memory locking is usually needed for real-time processes to avoid 
+Memory locking is usually needed for real-time processes to avoid
 paging delays, this can be done with
 .BR mlock ()
-or 
+or
 .BR mlockall ().
 
 As a non-blocking end-less loop in a process scheduled under
 \fISCHED_FIFO\fP or \fISCHED_RR\fP will block all processes with lower
 priority forever, a software developer should always keep available on
 the console a shell scheduled under a higher static priority than the
-tested application. This will allow an emergency kill of tested
+tested application.
+This will allow an emergency kill of tested
 real-time applications that do not block or terminate as expected.
 
 POSIX systems on which
@@ -269,10 +293,10 @@ in <unistd.h>.
 .SH "RETURN VALUE"
 On success,
 .BR sched_setscheduler ()
-returns zero.  
+returns zero.
 On success,
 .BR sched_getscheduler ()
-returns the policy for the process (a non-negative integer).  
+returns the policy for the process (a non-negative integer).
 On error, \-1 is returned, and
 .I errno
 is set appropriately.

@@ -9,9 +9,9 @@
 .\" Modified, 2004-05-27, Michael Kerrisk, <mtk-manpages@gmx.net>
 .\"	Added SOCK_SEQPACKET
 .\"
-.TH UNIX  7 2004-05-27 "Linux Man Page" "Linux Programmer's Manual" 
+.TH UNIX  7 2004-05-27 "Linux Man Page" "Linux Programmer's Manual"
 .SH NAME
-unix, PF_UNIX, AF_UNIX, PF_LOCAL, AF_LOCAL \- Sockets for local 
+unix, PF_UNIX, AF_UNIX, PF_LOCAL, AF_LOCAL \- Sockets for local
 interprocess communication
 .SH SYNOPSIS
 .B #include <sys/socket.h>
@@ -27,9 +27,10 @@ The
 (also known as
 .BR PF_LOCAL )
 socket family is used to communicate between processes on the same machine
-efficiently. Unix sockets can be either anonymous (created by 
+efficiently.
+Unix sockets can be either anonymous (created by
 .BR socketpair (2))
-or associated with a file of type socket. 
+or associated with a file of type socket.
 Linux also supports an abstract namespace which is independent of the
 file system.
 
@@ -43,21 +44,23 @@ sockets are always reliable and don't reorder datagrams);
 and (since kernel 2.6.4)
 .BR SOCK_SEQPACKET ,
 for a connection-oriented socket that preserves message boundaries
-and delivers messages in the order that they were sent. 
+and delivers messages in the order that they were sent.
 
-Unix sockets support passing file descriptors or process credentials 
+Unix sockets support passing file descriptors or process credentials
 to other processes using ancillary data.
 .SH "ADDRESS FORMAT"
-A Unix address is defined as a filename in the filesystem or 
-as a unique string in the abstract namespace. Sockets created by 
+A Unix address is defined as a filename in the filesystem or
+as a unique string in the abstract namespace.
+Sockets created by
 .BR socketpair (2)
-are anonymous. For non-anonymous sockets the target address can be set 
+are anonymous.
+For non-anonymous sockets the target address can be set
 using
-.BR connect (2). 
+.BR connect (2).
 The local address can be set using
-.BR bind (2). 
+.BR bind (2).
 When a socket is connected and it doesn't already have a local address a
-unique address in the abstract namespace will be generated automatically. 
+unique address in the abstract namespace will be generated automatically.
 
 .in +0.25i
 .nf
@@ -70,41 +73,41 @@ struct sockaddr_un {
 .fi
 .in -0.25i
 
-.B sun_family 
+.B sun_family
 always contains
 .BR AF_UNIX .
 .B sun_path
 contains the zero-terminated pathname of the socket in the file system.
-If 
+If
 .B sun_path
-starts with a null byte (''\0'), 
+starts with a null byte (''\0'),
 then it refers to the abstract namespace maintained by
 the Unix protocol module.
-The socket's address in this namespace is given by the rest of the 
+The socket's address in this namespace is given by the rest of the
 bytes in
 .BR sun_path .
 Note that names in the abstract namespace are not zero-terminated.
 .SH "SOCKET OPTIONS"
-For historical reasons these socket options are specified with a 
+For historical reasons these socket options are specified with a
 SOL_SOCKET type even though they are PF_UNIX specific.
-They can be set with 
+They can be set with
 .BR setsockopt (2)
-and read with 
+and read with
 .BR getsockopt (2)
 by specifying SOL_SOCKET as the socket family.
 .TP
 .B SO_PASSCRED
-Enables the receiving of the credentials of the sending process 
-ancillary message. 
+Enables the receiving of the credentials of the sending process
+ancillary message.
 When this option is set and the socket is not yet connected
 a unique name in the abstract namespace will be generated automatically.
-Expects an integer boolean flag. 
+Expects an integer boolean flag.
 .SH "(UN)SUPPORTED FEATURES"
-The following paragraphs describe domain-specific details and 
+The following paragraphs describe domain-specific details and
 unsupported features of the sockets API for Unix domain sockets on Linux.
 
-Unix domain sockets do not support the transmission of 
-out-of-band data (the 
+Unix domain sockets do not support the transmission of
+out-of-band data (the
 .B MSG_OOB
 flag for
 .BR send (2)
@@ -133,69 +136,72 @@ Ancillary data is sent and received using
 and
 .BR recvmsg (2).
 For historical reasons the ancillary message types listed below
-are specified with a SOL_SOCKET type even though they are PF_UNIX 
+are specified with a SOL_SOCKET type even though they are PF_UNIX
 specific.
 To send them set the
 .B cmsg_level
-field of the struct 
+field of the struct
 .B cmsghdr
-to SOL_SOCKET and the 
-.B cmsg_type 
-field to the type. For more information see 
-.BR cmsg (3). 
+to SOL_SOCKET and the
+.B cmsg_type
+field to the type.
+For more information see
+.BR cmsg (3).
 .TP
 .B SCM_RIGHTS
-Send or receive a set of open file descriptors from another process. 
+Send or receive a set of open file descriptors from another process.
 The data portion contains an integer array of the file descriptors.
 The passed file descriptors behave as though they have been created with
 .BR dup (2).
 .TP
 .B SCM_CREDENTIALS
-Send or receive Unix credentials.  This can be used for authentication.
-The credentials are passed as a 
+Send or receive Unix credentials.
+This can be used for authentication.
+The credentials are passed as a
 .I struct ucred
 ancillary message.
 
 .in +0.25i
 .nf
 struct ucred {
-    pid_t pid;    /* process ID of the sending process */  
-    uid_t uid;    /* user ID of the sending process */ 
-    gid_t gid;    /* group ID of the sending process */ 
+    pid_t pid;    /* process ID of the sending process */
+    uid_t uid;    /* user ID of the sending process */
+    gid_t gid;    /* group ID of the sending process */
 };
 .fi
 .in -0.25i
- 
+
 The credentials which the sender specifies are checked by the kernel.
-A process with effective user ID 0 is allowed to specify values that do 
-not match its own. 
+A process with effective user ID 0 is allowed to specify values that do
+not match its own.
 The sender must specify its own process ID (unless it has the capability
 .BR CAP_SYS_ADMIN ),
 its user ID, effective user ID, or saved set-user-ID (unless it has
 .BR CAP_SETUID ),
-and its group ID, effective group ID, or saved set-group-ID 
+and its group ID, effective group ID, or saved set-group-ID
 (unless it has
 .BR CAP_SETGID ).
 To receive a
 .I struct ucred
 message the
-.B SO_PASSCRED 
+.B SO_PASSCRED
 option must be enabled on the socket.
 .SH VERSIONS
-.B SCM_CREDENTIALS 
+.B SCM_CREDENTIALS
 and the abstract namespace were introduced with Linux 2.2 and should not
 be used in portable programs.
 (Some BSD-derived systems also support credential passing,
 but the implementation details differ.)
 .SH NOTES
 In the Linux implementation, sockets which are visible in the
-filesystem honour the permissions of the directory they are in. Their
-owner, group and their permissions can be changed.
+filesystem honour the permissions of the directory they are in.
+Their owner, group and their permissions can be changed.
 Creation of a new socket will fail if the process does not have write and
 search (execute) permission on the directory the socket is created in.
 Connecting to the socket object requires read/write permission.
 This behavior differs from many BSD-derived systems which
-ignore permissions for Unix sockets. Portable programs should not rely on
+ignore permissions for Unix sockets.
+Portable programs should not rely on
 this feature for security.
 
 Binding to a socket with a filename creates a socket
@@ -203,14 +209,14 @@ in the file system that must be deleted by the caller when it is no
 longer needed (using
 .BR unlink (2)).
 The usual Unix close-behind semantics apply; the socket can be unlinked
-at any time and will be finally removed from the file system when the last 
+at any time and will be finally removed from the file system when the last
 reference to it is closed.
 
 To pass file descriptors or credentials over a SOCK_STREAM, you need
 to send or receive at least one byte of non-ancillary data in the same
-.BR sendmsg () 
+.BR sendmsg ()
 or
-.BR recvmsg () 
+.BR recvmsg ()
 call.
 
 Unix domain stream sockets do not support the notion of out-of-band data.
@@ -221,18 +227,20 @@ Out of memory.
 .TP
 .B ECONNREFUSED
 .BR connect (2)
-called with a socket object that isn't listening. This can happen when
+called with a socket object that isn't listening.
+This can happen when
 the remote socket does not exist or the filename is not a socket.
 .TP
 .B EINVAL
-Invalid argument passed. A common cause is the missing setting of AF_UNIX
-in the 
-.I sun_type 
-field of passed addresses or the socket being in an 
+Invalid argument passed.
+A common cause is the missing setting of AF_UNIX
+in the
+.I sun_type
+field of passed addresses or the socket being in an
 invalid state for the applied operation.
 .TP
 .B EOPNOTSUPP
-Stream operation called on non-stream oriented socket or tried to 
+Stream operation called on non-stream oriented socket or tried to
 use the out-of-band data option.
 .TP
 .B EPROTONOSUPPORT
@@ -240,14 +248,14 @@ Passed protocol is not PF_UNIX.
 .TP
 .B ESOCKTNOSUPPORT
 Unknown socket type.
-.TP 
+.TP
 .B EPROTOTYPE
 Remote socket does not match the local socket type (SOCK_DGRAM vs.
 SOCK_STREAM)
 .TP
 .B EADDRINUSE
-Selected local address is already taken or filesystem socket 
-object already exists. 
+Selected local address is already taken or filesystem socket
+object already exists.
 .TP
 .B EISCONN
 .BR connect (2)
@@ -261,9 +269,11 @@ Socket operation needs a target address, but the socket is not connected.
 Remote socket was unexpectedly closed.
 .TP
 .B EPIPE
-Remote socket was closed on a stream socket. If enabled, a 
-.B SIGPIPE 
-is sent as well. This can be avoided by passing the 
+Remote socket was closed on a stream socket.
+If enabled, a
+.B SIGPIPE
+is sent as well.
+This can be avoided by passing the
 .B MSG_NOSIGNAL
 flag to
 .BR sendmsg (2)
@@ -277,9 +287,9 @@ User memory address was not valid.
 The sender passed invalid credentials in the
 .IR "struct ucred" .
 .PP
-Other errors can be generated by the generic socket layer or 
-by the filesystem while generating a filesystem socket object. See
-the appropriate manual pages for more information. 
+Other errors can be generated by the generic socket layer or
+by the filesystem while generating a filesystem socket object.
+See the appropriate manual pages for more information.
 .SH "SEE ALSO"
 .BR recvmsg (2),
 .BR sendmsg (2),

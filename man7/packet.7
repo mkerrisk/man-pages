@@ -4,9 +4,9 @@
 .\" and in case of nontrivial modification author and date
 .\" of the modification is added to the header.
 .\" $Id: packet.7,v 1.13 2000/08/14 08:03:45 ak Exp $
-.TH PACKET  7 1999-04-29 "Linux Man Page" "Linux Programmer's Manual" 
+.TH PACKET  7 1999-04-29 "Linux Man Page" "Linux Programmer's Manual"
 .SH NAME
-packet, PF_PACKET \- packet interface on device level. 
+packet, PF_PACKET \- packet interface on device level.
 .SH SYNOPSIS
 .nf
 .B #include <sys/socket.h>
@@ -15,70 +15,77 @@ packet, PF_PACKET \- packet interface on device level.
 .br
 .B #include <net/ethernet.h>     /* the L2 protocols */
 .sp
-.BI "packet_socket = socket(PF_PACKET, int " socket_type ", int "protocol ); 
+.BI "packet_socket = socket(PF_PACKET, int " socket_type ", int "protocol );
 .fi
 .SH DESCRIPTION
 Packet sockets are used to receive or send raw packets at the device driver
-(OSI Layer 2)
-level. They allow the user to implement protocol modules in user space 
+(OSI Layer 2) level.
+They allow the user to implement protocol modules in user space
 on top of the physical layer.
 
 The
 .I socket_type
-is either 
-.B SOCK_RAW 
-for raw packets including the link level header or 
+is either
+.B SOCK_RAW
+for raw packets including the link level header or
 .B SOCK_DGRAM
-for cooked packets with the link level header removed. The link level
-header information is available in a common format in a 
-.BR sockaddr_ll . 
-.I protocol 
-is the IEEE 802.3 protocol number in network order. See the 
-.I <linux/if_ether.h> 
-include file for a list of allowed protocols. When protocol 
+for cooked packets with the link level header removed.
+The link level
+header information is available in a common format in a
+.BR sockaddr_ll .
+.I protocol
+is the IEEE 802.3 protocol number in network order.
+See the
+.I <linux/if_ether.h>
+include file for a list of allowed protocols.
+When protocol
 is set to
-.B htons(ETH_P_ALL) 
+.B htons(ETH_P_ALL)
 then all protocols are received.
 All incoming packets of that protocol type will be passed to the packet
 socket before they are passed to the protocols implemented in the kernel.
- 
+
 Only processes with effective UID 0 or the
 .B CAP_NET_RAW
-capability may open packet sockets. 
+capability may open packet sockets.
 
 .B SOCK_RAW
 packets are passed to and from the device driver without any changes in
-the packet data.  
+the packet data.
 When receiving a packet, the address is still parsed and
 passed in a standard
 .B sockaddr_ll
-address structure.  When transmitting a packet, the user supplied buffer
-should contain the physical layer header.  That packet is then
+address structure.
+When transmitting a packet, the user supplied buffer
+should contain the physical layer header.
+That packet is then
 queued unmodified to the network driver of the interface defined by the
-destination address. Some device drivers always add other headers. 
+destination address.
+Some device drivers always add other headers.
 .B SOCK_RAW
-is similar to but not compatible with the obsolete 
+is similar to but not compatible with the obsolete
 .B PF_INET/SOCK_PACKET
 of Linux 2.0.
 
-.B SOCK_DGRAM 
-operates on a slightly higher level. 
-The physical header is removed before the packet is passed to the user.  
+.B SOCK_DGRAM
+operates on a slightly higher level.
+The physical header is removed before the packet is passed to the user.
 Packets sent through a
 .B SOCK_DGRAM
-packet socket get a suitable physical layer header based on the 
-information in the 
-.B sockaddr_ll 
+packet socket get a suitable physical layer header based on the
+information in the
+.B sockaddr_ll
 destination address before they are queued.
 
 By default all packets of the specified protocol type
-are passed to a packet socket. 
+are passed to a packet socket.
 To only get packets from a specific interface use
 .BR bind (2)
 specifying an address in a
 .I struct sockaddr_ll
-to bind the packet socket to an interface. Only the 
-.B sll_protocol 
+to bind the packet socket to an interface.
+Only the
+.B sll_protocol
 and the
 .B sll_ifindex
 address fields are used for purposes of binding.
@@ -93,7 +100,7 @@ flag is passed to
 .BR recvmsg (2),
 .BR recv (2),
 .BR recvfrom (2)
-the real length of the packet on the wire is always returned, 
+the real length of the packet on the wire is always returned,
 even when it is longer than the buffer.
 .SH "ADDRESS TYPES"
 The sockaddr_ll is a device independent physical layer address.
@@ -104,30 +111,32 @@ struct sockaddr_ll {
     unsigned short sll_family;   /* Always AF_PACKET */
     unsigned short sll_protocol; /* Physical layer protocol */
     int            sll_ifindex;  /* Interface number */
-    unsigned short sll_hatype;   /* Header type */    
+    unsigned short sll_hatype;   /* Header type */
     unsigned char  sll_pkttype;  /* Packet type */
-    unsigned char  sll_halen;    /* Length of address */ 
+    unsigned char  sll_halen;    /* Length of address */
     unsigned char  sll_addr[8];  /* Physical layer address */
 };
 .fi
 .in -0.25i
 
-.B sll_protocol 
+.B sll_protocol
 is the standard ethernet protocol type in network order as defined
 in the
 .I <linux/if_ether.h>
-include file.  It defaults to the socket's protocol.
-.B sll_ifindex 
+include file.
+It defaults to the socket's protocol.
+.B sll_ifindex
 is the interface index of the interface
 (see
 .BR netdevice (7));
-0 matches any interface (only legal for binding). 
-.B sll_hatype 
-is a ARP type as defined in the 
+0 matches any interface (only legal for binding).
+.B sll_hatype
+is a ARP type as defined in the
 .I <linux/if_arp.h>
 include file.
-.B sll_pkttype 
-contains the packet type. Valid types are 
+.B sll_pkttype
+contains the packet type.
+Valid types are
 .B PACKET_HOST
 for a packet addressed to the local host,
 .B PACKET_BROADCAST
@@ -139,12 +148,13 @@ for a packet to some other host that has been caught by a device driver
 in promiscuous mode, and
 .B PACKET_OUTGOING
 for a packet originated from the local host that is looped back to a packet
-socket. These types make only sense for receiving.
+socket.
+These types make only sense for receiving.
 .B sll_addr
 and
 .B sll_halen
-contain the physical layer (e.g. IEEE 802.3) address and its length. The 
-exact interpretation depends on the device.
+contain the physical layer (e.g. IEEE 802.3) address and its length.
+The exact interpretation depends on the device.
 
 When you send packets it is enough to specify
 .BR sll_family ,
@@ -162,15 +172,16 @@ and
 .B sll_ifindex
 are used.
 .SH "SOCKET OPTIONS"
-Packet sockets can be used to configure physical layer multicasting 
-and promiscuous mode. It works by calling 
-.BR setsockopt (2) 
-on a packet socket for SOL_PACKET and one of the options 
-.B PACKET_ADD_MEMBERSHIP 
-to add a binding or 
+Packet sockets can be used to configure physical layer multicasting
+and promiscuous mode.
+It works by calling
+.BR setsockopt (2)
+on a packet socket for SOL_PACKET and one of the options
+.B PACKET_ADD_MEMBERSHIP
+to add a binding or
 .B PACKET_DROP_MEMBERSHIP
 to drop it.
-They both expect a 
+They both expect a
 .B packet_mreq
 structure as argument:
 
@@ -180,7 +191,7 @@ struct packet_mreq {
     int            mr_ifindex;    /* interface index */
     unsigned short mr_type;       /* action */
     unsigned short mr_alen;       /* address length */
-    unsigned char  mr_address[8]; /* physical layer address */ 
+    unsigned char  mr_address[8]; /* physical layer address */
 };
 .fi
 .in -0.25i
@@ -194,35 +205,35 @@ parameter specifies which action to perform.
 .B PACKET_MR_PROMISC
 enables receiving all packets on a shared medium (often known as
 ``promiscuous mode''),
-.B PACKET_MR_MULTICAST 
-binds the socket to the physical layer multicast group specified in 
+.B PACKET_MR_MULTICAST
+binds the socket to the physical layer multicast group specified in
 .B mr_address
 and
 .BR mr_alen ,
 and
 .B PACKET_MR_ALLMULTI
-sets the socket up to receive all multicast packets arriving at 
-the interface. 
+sets the socket up to receive all multicast packets arriving at
+the interface.
 
-In addition the traditional ioctls 
+In addition the traditional ioctls
 .BR SIOCSIFFLAGS ,
-.BR SIOCADDMULTI , 
+.BR SIOCADDMULTI ,
 .B SIOCDELMULTI
 can be used for the same purpose.
 .SH IOCTLS
 .B SIOCGSTAMP
-can be used to receive the time stamp of the last received packet. 
-Argument is a 
+can be used to receive the time stamp of the last received packet.
+Argument is a
 .I struct timeval.
 
 In addition all standard ioctls defined in
 .BR netdevice (7)
-and 
+and
 .BR socket (7)
 are valid on packet sockets.
 .SH "ERROR HANDLING"
-Packet sockets do no error handling other than errors occurred 
-while passing the packet to the device driver. 
+Packet sockets do no error handling other than errors occurred
+while passing the packet to the device driver.
 They don't have the concept of a pending error.
 .SH COMPATIBILITY
 In Linux 2.0, the only way to get a packet socket was by calling
@@ -232,7 +243,7 @@ The main difference between the two methods is that
 .B SOCK_PACKET
 uses the old
 .I struct sockaddr_pkt
-to specify an interface, which doesn't provide physical layer 
+to specify an interface, which doesn't provide physical layer
 independence.
 
 .in +0.25i
@@ -245,21 +256,21 @@ struct sockaddr_pkt {
 .fi
 .in -0.25i
 
-.B spkt_family 
-contains 
+.B spkt_family
+contains
 the device type,
-.B spkt_protocol 
+.B spkt_protocol
 is the IEEE 802.3 protocol type as defined in
 .I <sys/if_ether.h>
 and
-.B spkt_device 
-is the device name as a null terminated string, e.g. eth0.  
+.B spkt_device
+is the device name as a null terminated string, e.g. eth0.
 
 This structure is obsolete and should not be used in new code.
 .SH NOTES
-For portable programs it is suggested to use 
+For portable programs it is suggested to use
 .B PF_PACKET
-via 
+via
 .BR pcap (3);
 although this only covers a subset of the
 .B PF_PACKET
@@ -267,29 +278,30 @@ features.
 
 The
 .B SOCK_DGRAM
-packet sockets make no attempt to create or parse the IEEE 802.2 LLC 
-header for a IEEE 802.3 frame. 
-When 
-.B ETH_P_802_3 
-is specified as protocol for sending the kernel creates the 
-802.3 frame and fills out the length field; the user has to supply the LLC 
-header to get a fully conforming packet. 
-Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol 
-fields; instead they are supplied to the user as protocol 
+packet sockets make no attempt to create or parse the IEEE 802.2 LLC
+header for a IEEE 802.3 frame.
+When
+.B ETH_P_802_3
+is specified as protocol for sending the kernel creates the
+802.3 frame and fills out the length field; the user has to supply the LLC
+header to get a fully conforming packet.
+Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol
+fields; instead they are supplied to the user as protocol
 .B ETH_P_802_2
-with the LLC header prepended. It is thus not possible to bind to
+with the LLC header prepended.
+It is thus not possible to bind to
 .BR ETH_P_802_3 ;
-bind to 
-.B ETH_P_802_2 
+bind to
+.B ETH_P_802_2
 instead and do the protocol multiplex yourself.
-The default for sending is the standard Ethernet DIX 
-encapsulation with the protocol filled in. 
+The default for sending is the standard Ethernet DIX
+encapsulation with the protocol filled in.
 
 Packet sockets are not subject to the input or output firewall chains.
 .SH ERRORS
 .TP
 .B ENETDOWN
-Interface is not up. 
+Interface is not up.
 .TP
 .B ENOTCONN
 No interface address passed.
@@ -298,7 +310,7 @@ No interface address passed.
 Unknown device name or interface index specified in interface address.
 .TP
 .B EMSGSIZE
-Packet is bigger than interface MTU. 
+Packet is bigger than interface MTU.
 .TP
 .B ENOBUFS
 Not enough memory to allocate the packet.
@@ -323,11 +335,12 @@ No packet received.
 
 In addition other errors may be generated by the low-level driver.
 .SH VERSIONS
-.B PF_PACKET 
-is a new feature in Linux 2.2. Earlier Linux versions supported only
+.B PF_PACKET
+is a new feature in Linux 2.2.
+Earlier Linux versions supported only
 .BR SOCK_PACKET .
 .SH BUGS
-glibc 2.1 does not have a define for 
+glibc 2.1 does not have a define for
 .BR SOL_PACKET .
 The suggested workaround is to use:
 .in +0.5i
@@ -339,10 +352,10 @@ The suggested workaround is to use:
 
 .fi
 .in -0.5i
-This is fixed in later glibc versions and also does not occur on 
+This is fixed in later glibc versions and also does not occur on
 libc5 systems.
 
-The IEEE 802.2/803.3 LLC handling could be considered as a bug. 
+The IEEE 802.2/803.3 LLC handling could be considered as a bug.
 
 Socket filters are not documented.
 
@@ -355,7 +368,8 @@ packets via SOCK_DGRAM.
 .SH HISTORICAL NOTE
 The include file
 .I <netpacket/packet.h>
-is present since glibc2.1. Older systems need
+is present since glibc2.1.
+Older systems need
 .sp
 .nf
 .B #include <asm/types.h>
@@ -381,6 +395,6 @@ RFC\ 894 for the standard IP Ethernet encapsulation.
 
 RFC\ 1700 for the IEEE 802.3 IP encapsulation.
 
-The 
+The
 .I <linux/if_ether.h>
 include file for physical layer protocols.

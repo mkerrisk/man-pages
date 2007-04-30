@@ -18,19 +18,22 @@
 .\"
 .\"  Davide Libenzi <davidel@xmailserver.org>
 .\"
-.\"
+.\" 2007-04-30: mtk, Added description of epoll_pwait()
 .\" FIXME 2.6.19-rc5 has epoll_pwait(); this should be documented
 .\" on this page.
 .\"
-.TH EPOLL_WAIT 2 "23 October 2002" Linux "Linux Programmer's Manual"
+.TH EPOLL_WAIT 2 "2007-04-30" Linux "Linux Programmer's Manual"
 .SH NAME
-epoll_wait \- wait for an I/O event on an epoll file descriptor
+epoll_wait, epoll_pwait \- wait for an I/O event on an epoll file descriptor
 .SH SYNOPSIS
 .nf
 .B #include <sys/epoll.h>
 .sp
 .BI "int epoll_wait(int " epfd ", struct epoll_event *" events ,
-.BI "               int " maxevents ", int " timeout);
+.BI "               int " maxevents ", int " timeout );
+.BI "int epoll_wait(int " epfd ", struct epoll_event *" events ,
+.BI "               int " maxevents ", int " timeout , 
+.BI "               const sigset_t *" sigmask );
 .fi
 .SH DESCRIPTION
 Wait for events on the
@@ -88,6 +91,47 @@ of each returned structure will contain the same data the user set with a
 while the
 .I events
 member will contain the returned event bit field.
+.SS epoll_pwait()
+The relationship between
+.BR epoll_wait ()
+and
+.BR epoll_pwait ()
+is analogous to the relationship between
+.BR select ()
+and
+.BR pselect ():
+like
+.BR pselect (),
+.BR epoll_pwait ()
+allows an application to safely wait until either a file descriptor
+becomes ready or until a signal is caught.
+
+The following
+.BR epoll_pwait ()
+call:
+.nf
+
+    ready = epoll_pwait(epfd, &events, maxevents, timeout, &sigmask);
+
+.fi
+is equivalent to
+.I atomically
+executing the following calls:
+.nf
+
+    sigset_t origmask;
+
+    sigprocmask(SIG_SETMASK, &sigmask, &origmask);
+    ready = epoll_wait(epfd, &events, maxevents, timeout);
+    sigprocmask(SIG_SETMASK, &origmask, NULL);
+.fi
+
+.BR epoll_pwait ()
+was added to Linux in kernel 2.6.19.
+.SH GLIBC NOTES
+Support for 
+.BR epoll_wait ()
+is provided starting with glibc 2.6.
 .SH "RETURN VALUE"
 When successful,
 .BR epoll_wait (2)

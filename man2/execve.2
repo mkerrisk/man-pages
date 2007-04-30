@@ -30,7 +30,7 @@
 .\" Modified 1999-11-12 by Urs Thuermann <urs@isnogud.escape.de>
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" 2006-09-04 Michael Kerrisk <mtk-manpages@gmx.net>
-.\" 	Added list of process attributes that are not preserved on exec().
+.\"     Added list of process attributes that are not preserved on exec().
 .\"
 .TH EXECVE 2 2006-09-04 "Linux 2.6.17" "Linux Programmer's Manual"
 .SH NAME
@@ -48,13 +48,11 @@ starting with a line of the form:
 
 .in +0.5i
 .nf
-\fB#! \fIinterpreter \fR[arg]
+\fB#! \fIinterpreter \fR[optional-arg]
 .fi
 .in
 
-In the latter case, the interpreter must be a valid pathname for an
-executable which is not itself a script, which will be invoked as
-\fBinterpreter\fR [arg] \fIfilename\fR.
+For details of the latter case, see "Interpreter scripts" below.
 
 \fIargv\fP is an array of argument strings passed to the new program.
 \fIenvp\fP is an array of strings, conventionally of the form
@@ -110,10 +108,15 @@ All process attributes are preserved during an
 except the following:
 .IP * 4
 File descriptors that are marked close-on-exec are closed
-(see the description of
+; see the description of
 .BR FD_CLOEXEC
 in
-.BR fcntl (2)).
+.BR fcntl (2).
+(If a file descriptor is closed, this will cause the release
+of all record locks obtained on the underlying file by this process.
+See
+.BR fcntl (2)
+for details.)
 .\" FIXME add some statement about the effect on record locks (fcntl()).
 .IP * 4
 The set of pending signals is cleared
@@ -206,6 +209,45 @@ For the handling of capabilities during
 .BR execve (2),
 see
 .BR capabilities (7).
+.SS Interpreter scripts
+An interpreter script is a text file that has execute 
+permission enabled and whose first line is of the form:
+
+.in +0.5i
+.nf
+\fB#! \fIinterpreter \fR[optional-arg]
+.fi
+.in
+
+The 
+.I interpreter 
+must be a valid pathname for an
+executable which is not itself a script.
+If the 
+.I filename
+argument of
+.BR execve ()
+specifies an interpreter script, then 
+.I interpreter
+will be invoked with the following arguments:
+
+.in +0.5i
+.nf
+\fIinterpreter\fR [optional-arg] \fIfilename\fR arg...
+.fi
+.in
+
+where
+.I arg...
+is the series of words pointed to by the 
+.I argv
+argument of 
+.BR execve ().
+
+For portable use,
+.I optional-arg
+should either be absent, or be specified as a single word (i.e., it
+should not contain white space); see NOTES below.
 .SH "RETURN VALUE"
 On success, \fBexecve\fP() does not return, on error \-1 is returned, and
 .I errno
@@ -325,14 +367,37 @@ successfully.
 A maximum line length of 127 characters is allowed for the first line in
 a #! executable shell script.
 
+The semantics of the
+.I optional-arg
+argument of an interpreter script vary across implementations.
+On Linux, the entire string following the 
+.I interpreter
+name is passed as a single argument to the interpreter,
+and this string can include white space.
+However, behavior differs on some other systems.
+Some systems
+.\" e.g., Solaris 8
+use the first white space to terminate 
+.IR optional-arg .
+On some systems,
+.\" e.g. FreeBSD before 6.0, but not FreeBSD 6.0 onwards
+an interpreter script can have multiple arguments,
+and white spaces in
+.I optional-arg
+are used to delimit the arguments.
+.\" For further info, see
+.\" http://homepages.cwi.nl/~aeb/std/hashexclam-1.html
+.\" http://www.in-ulm.de/~mascheck/various/shebang/
+.\" http://lists.freebsd.org/pipermail/freebsd-arch/2005-February/003525.html
+
 On Linux, 
 .I argv
 and
 .I envp
 can be specified as NULL,
-which has the same effect has specifying these arguments
+which has the same effect as specifying these arguments
 as pointers to lists containing a single NULL pointer.
-.BR "Do not take advantage of this feature!"
+.BR "Do not take advantage of this misfeature!"
 It is non-standard and non-portable:
 on most other Unix systems doing this will result in an error.
 .\" e.g. EFAULT on Solaris 8 and FreeBSD 6.1; but
@@ -359,6 +424,99 @@ argument list was not directly usable in a further
 .BR exec ()
 call.
 Since Unix V7 both are NULL.
+.SH EXAMPLE
+The following program is designed to execed by the second program below.
+It just echoes its command-line one  per line.
+
+.in +0.5i
+.nf
+/* myecho.c */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char *argv[])
+{
+    int j;
+
+    for (j = 0; j < argc; j++)
+        printf("argv[%d]: %s\\n", j, argv[j]);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
+.in
+
+This program can be used to exec the program named in its command-line
+argument:
+.in +0.5i
+.nf
+
+/* execve.c */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <assert.h>
+
+int
+main(int argc, char *argv[])
+{
+    char *newargv[] = { NULL, "hello", "world", NULL };
+    char *newenviron[] = { NULL };
+
+    assert(argc == 2);  /* argv[1] identifies 
+                           program to exec */
+    newargv[0] = argv[1];
+
+    execve(argv[1], newargv, newenviron);
+    perror("execve");   /* execve() only returns on error */
+    exit(EXIT_FAILURE);
+}
+.fi
+.in
+
+We can use the second program to exec the first as follows:
+
+.in +0.5i
+.nf
+$ cc myecho.c -o myecho
+$ cc execve.c -o execve
+$ ./exceve ./myecho
+argv[0]: ./myecho
+argv[1]: hello
+argv[2]: world
+.fi
+.in
+
+We can also use these programs to demonstrate the use of a script
+interpreter.
+To do this we create a script whose "interpreter" is our
+.I myecho
+program:
+
+.in +0.5i
+.nf
+$ cat > script.sh
+#! ./myecho script-arg
+^D
+$ chmod +x script.sh
+.fi
+.in
+
+We can then use our program to exec the script:
+
+.in +0.5i
+.nf
+$ ./execve ./script.sh
+argv[0]: ./myecho
+argv[1]: script-arg
+argv[2]: ./script.sh
+argv[3]: hello
+argv[4]: world
+.fi
+.in
 .SH "SEE ALSO"
 .BR chmod (2),
 .BR fork (2),

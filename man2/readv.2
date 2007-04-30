@@ -1,4 +1,5 @@
-.\" (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" Copyright (C) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" and (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -22,6 +23,8 @@
 .\" License.
 .\" Modified Sat Jul 24 18:34:44 1993 by Rik Faith (faith@cs.unc.edu)
 .\" Merged readv.[23], 2002-10-17, aeb
+.\" 2007-04-30 mtk, A fairly major rewrite to fix errors and
+.\"     add more details.
 .\"
 .TH READV 2  2002-10-17 "" "Linux Programmer's Manual"
 .SH NAME
@@ -30,48 +33,49 @@ readv, writev \- read or write data into multiple buffers
 .nf
 .B #include <sys/uio.h>
 .sp
-.BI "ssize_t readv(int " fd ", const struct iovec *" vector ", int " count );
+.BI "ssize_t readv(int " fd ", const struct iovec *" iov ", int " iovcnt );
 .sp
-.BI "ssize_t writev(int " fd ", const struct iovec *" vector ", int " count );
+.BI "ssize_t writev(int " fd ", const struct iovec *" iov ", int " iovcnt );
 .fi
 .SH DESCRIPTION
 The
 .BR readv ()
 function reads
-.I count
-blocks from the file associated with the file descriptor
+.I iovcnt
+buffers from the file associated with the file descriptor
 .I fd
-into the multiple buffers described by
-.IR vector .
+into the buffers described by
+.IR iov 
+("scatter input").
 .PP
 The
 .BR writev ()
-function writes at most
-.I count
-blocks described by
-.I vector
+function writes
+.I iovcnt
+buffers of data described by
+.I iov
 to the file associated with the file descriptor
-.IR fd .
+.IR fd 
+("gather output").
 .PP
 The pointer
-.I vector
-points to a
-.I struct iovec
+.I iov
+points to an array of 
+.I iovec
+structures,
 defined in
 .I <sys/uio.h>
-as
+as:
 .PP
 .br
 .in +0.25in
 .nf
 struct iovec {
-    void *iov_base;   /* Starting address */
-    size_t iov_len;   /* Number of bytes */
+    void  *iov_base;    /* Starting address */
+    size_t iov_len;     /* Number of bytes to transfer */
 };
 .fi
 .in 0.25in
-.PP
-Buffers are processed in the order specified.
 .PP
 The
 .BR readv ()
@@ -84,6 +88,43 @@ The
 function works just like
 .BR write (2)
 except that multiple buffers are written out.
+.PP
+Buffers are processed in array order.
+This means that
+.BR readv ()
+completely fills
+.IR iov [0]
+before proceeding to 
+.IR iov [1],
+and so on.
+(If there is insufficient data, then not all buffers pointed to by
+.I iov
+may be filled.)
+Similarly,
+.BR writev ()
+writes out the entire contents of
+.IR iov [0]
+before proceeding to 
+.IR iov [1],
+and so on.
+.PP
+The data transfers performed by
+.BR readv ()
+and
+.BR writev ()
+are atomic: the data written by
+.BR writev ()
+is written as a single block that is not intermingled with output
+from writes in other processes (but see
+.BR pipe (7)
+for an exception);
+analogously,
+.BR readv ()
+is guaranteed to read a contiguous block of data from the file,
+regardless of read operations performed in other threads or processes
+that have file descriptors referring to the same open file description
+(see 
+.BR open (2)).
 .SH "RETURN VALUE"
 On success, the
 .BR readv ()
@@ -104,7 +145,7 @@ The sum of the
 values overflows an
 .I ssize_t
 value.
-Or, the vector count \fIcount\fR is less than zero or greater than the
+Or, the vector count \fIiovcnt\fR is less than zero or greater than the
 permitted maximum.
 .SH "CONFORMING TO"
 4.4BSD (the
@@ -112,14 +153,14 @@ permitted maximum.
 and
 .BR writev ()
 functions first appeared in 4.2BSD), POSIX.1-2001.
-Linux libc5 used \fIsize_t\fR as the type of the \fIcount\fR parameter,
+Linux libc5 used \fIsize_t\fR as the type of the \fIiovcnt\fR parameter,
 and \fIint\fP as return type for these functions.
 .\" The readv/writev system calls were buggy before Linux 1.3.40.
 .\" (Says release.libc.)
 .SH "LINUX NOTES"
 POSIX.1-2001 allows an implementation to place a limit on
 the number of items that can be passed in
-.IR vector .
+.IR iov .
 An implementation can advertise its limit by defining
 .B IOV_MAX
 in
@@ -135,13 +176,13 @@ In the case of
 .BR readv ()
 the wrapper function allocates a temporary buffer large enough
 for all of the items specified by
-.IR vector ,
+.IR iov ,
 passes that buffer in a call to
 .BR read (),
 copies data from the buffer to the locations specified by the
 .I iov_base
 fields of the elements of
-.IR vector ,
+.IR iov ,
 and then frees the buffer.
 The wrapper function for
 .BR writev ()
@@ -154,6 +195,25 @@ or
 .BR writev (),
 which operate on file descriptors, with the functions from the stdio
 library; the results will be undefined and probably not what you want.
+.SH EXAMPLE
+The following code sample demonstrates the use of
+.BR writev ():
+
+.in +0.5i
+.nf
+char *str0 = "hello ";
+char *str1 = "world\\n";
+struct iovec iov[2];
+ssize_t nwritten;
+
+iov[0].iov_base = str0;
+iov[0].iov_len = strlen(str0);
+iov[1].iov_base = str1;
+iov[1].iov_len = strlen(str1);
+
+nwritten = writev(STDOUT_FILENO, iov, 2);
+.fi
+.in
 .SH "SEE ALSO"
 .BR read (2),
 .BR write (2)

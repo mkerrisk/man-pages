@@ -75,7 +75,14 @@ If the current program is being ptraced, a \fBSIGTRAP\fP is sent to it
 after a successful \fBexecve\fP().
 
 If the set-user-ID bit is set on the program file pointed to by
-\fIfilename\fP, and the calling process is not being ptraced,
+\fIfilename\fP, 
+and the underlying file system is not mounted 
+.IR nosuid
+(the
+.B MS_NOSUID
+flag for
+.BR mount (2)),
+and the calling process is not being ptraced,
 then the effective user ID of the calling process is changed
 to that of the owner of the program file.
 Similarly, when the set-group-ID
@@ -106,18 +113,6 @@ GNU libc version 2.
 All process attributes are preserved during an
 .BR execve (),
 except the following:
-.IP * 4
-File descriptors that are marked close-on-exec are closed
-; see the description of
-.BR FD_CLOEXEC
-in
-.BR fcntl (2).
-(If a file descriptor is closed, this will cause the release
-of all record locks obtained on the underlying file by this process.
-See
-.BR fcntl (2)
-for details.)
-.\" FIXME add some statement about the effect on record locks (fcntl()).
 .IP * 4
 The set of pending signals is cleared
 .RB ( sigpending (2)).
@@ -209,6 +204,33 @@ For the handling of capabilities during
 .BR execve (2),
 see
 .BR capabilities (7).
+.IP * 4
+By default, file descriptors remain open across an 
+.BR execve ().
+File descriptors that are marked close-on-exec are closed
+; see the description of
+.BR FD_CLOEXEC
+in
+.BR fcntl (2).
+(If a file descriptor is closed, this will cause the release
+of all record locks obtained on the underlying file by this process.
+See
+.BR fcntl (2)
+for details.)
+POSIX.1-2001 says that if file descriptors 0, 1, and 2 would 
+otherwise be closed after a successful
+.BR execve (),
+and the process would gain privilege because the set-user_ID or
+set-group_ID permission bit was set on the executed file,
+then the system may open an unspecified file for each of these
+file descriptors.
+As a general principle, no portable program, whether privileged or not,
+can assume that these three file descriptors will remain 
+closed across an
+.BR execve ().
+.\" On Linux it appears that these file descriptors are
+.\" always open after an execve(), and it looks like
+.\" Solaris 8 and FreeBSD 6.1 are the same. -- mtk, 30 Apr 2007
 .SS Interpreter scripts
 An interpreter script is a text file that has execute 
 permission enabled and whose first line is of the form:
@@ -356,7 +378,7 @@ Linux ignores the set-user-ID and set-group-ID bits on scripts.
 
 The result of mounting a filesystem
 .I nosuid
-vary between Linux kernel versions:
+varies across Linux kernel versions:
 some will refuse execution of set-user-ID and set-group-ID
 executables when this would
 give the user powers she did not have already (and return EPERM),

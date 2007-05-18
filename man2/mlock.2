@@ -116,6 +116,106 @@ signal to the process.
 .BR munlockall ()
 unlocks all pages mapped into the address space of the
 calling process.
+.SH "RETURN VALUE"
+On success these system calls return 0.
+On error, \-1 is returned,
+.I errno
+is set appropriately, and no changes are made to any locks in the
+address space of the process.
+.SH ERRORS
+.TP
+.B ENOMEM
+(Linux 2.6.9 and later) the caller had a non-zero
+.B RLIMIT_MEMLOCK
+soft resource limit, but tried to lock more memory than the limit
+permitted.
+This limit is not enforced if the process is privileged
+.RB ( CAP_IPC_LOCK ).
+.TP
+.B ENOMEM
+(Linux 2.4 and earlier) the calling process tried to lock more than
+half of RAM.
+.\" In the case of mlock(), this check is somewhat buggy: it doesn't
+.\" take into account whether the to-be-locked range overlaps with
+.\" already locked pages.  Thus, suppose we allocate
+.\" (num_physpages / 4 + 1) of memory, and lock those pages once using
+.\" mlock(), and then lock the *same* page range a second time.
+.\" In the case, the second mlock() call will fail, since the check
+.\" calculates that the process is trying to lock (num_physpages / 2 + 2)
+.\" pages, which of course is not true.  (MTK, Nov 04, kernel 2.4.28)
+.TP
+.B EPERM
+(Linux 2.6.9 and later) the caller was not privileged
+.RB ( CAP_IPC_LOCK )
+and its
+.B RLIMIT_MEMLOCK
+soft resource limit was 0.
+.TP
+.B EPERM
+(Linux 2.6.8 and earlier)
+The calling process has insufficient privilege to call
+.BR munlockall ().
+Under Linux the
+.B CAP_IPC_LOCK
+capability is required.
+.\"SVr4 documents an additional EAGAIN error code.
+.LP
+For
+.BR mlock ()
+and
+.BR munlock ():
+.TP
+.B EINVAL
+.I len
+was negative.
+.TP
+.B EINVAL
+(Not on Linux)
+.I addr
+was not a multiple of the page size.
+.TP
+.B ENOMEM
+Some of the specified address range does not correspond to mapped
+pages in the address space of the process.
+.LP
+For
+.BR mlockall ():
+.TP
+.B EINVAL
+Unknown \fIflags\fP were specified.
+.LP
+For
+.BR munlockall ():
+.TP
+.B EPERM
+(Linux 2.6.8 and earlier) The caller was not privileged
+.RB ( CAP_IPC_LOCK ).
+.SH "CONFORMING TO"
+POSIX.1-2001, SVr4
+.SH AVAILABILITY
+On POSIX systems on which
+.BR mlock ()
+and
+.BR munlock ()
+are available,
+.B _POSIX_MEMLOCK_RANGE
+is defined in <unistd.h> and the number of bytes in a page
+can be determined from the constant
+.B PAGESIZE
+(if defined) in <limits.h> or by calling
+.IR sysconf(_SC_PAGESIZE) .
+
+On POSIX systems on which
+.BR mlockall ()
+and
+.BR munlockall ()
+are available,
+.B _POSIX_MEMLOCK
+is defined in <unistd.h> to a value greater than 0. (See also
+.BR sysconf (3).)
+.\" POSIX.1-2001: It shall be defined to -1 or 0 or 200112L.
+.\" -1: unavailable, 0: ask using sysconf().
+.\" glibc defines it to 1.
 .SH "NOTES"
 Memory locking has two main applications: real-time algorithms and
 high-security data processing.
@@ -194,80 +294,6 @@ that a privileged process can lock and the
 .B RLIMIT_MEMLOCK
 soft resource limit instead defines a limit on how much memory an
 unprivileged process may lock.
-.SH "RETURN VALUE"
-On success these system calls return 0.
-On error, \-1 is returned,
-.I errno
-is set appropriately, and no changes are made to any locks in the
-address space of the process.
-.SH ERRORS
-.TP
-.B ENOMEM
-(Linux 2.6.9 and later) the caller had a non-zero
-.B RLIMIT_MEMLOCK
-soft resource limit, but tried to lock more memory than the limit
-permitted.
-This limit is not enforced if the process is privileged
-.RB ( CAP_IPC_LOCK ).
-.TP
-.B ENOMEM
-(Linux 2.4 and earlier) the calling process tried to lock more than
-half of RAM.
-.\" In the case of mlock(), this check is somewhat buggy: it doesn't
-.\" take into account whether the to-be-locked range overlaps with
-.\" already locked pages.  Thus, suppose we allocate
-.\" (num_physpages / 4 + 1) of memory, and lock those pages once using
-.\" mlock(), and then lock the *same* page range a second time.
-.\" In the case, the second mlock() call will fail, since the check
-.\" calculates that the process is trying to lock (num_physpages / 2 + 2)
-.\" pages, which of course is not true.  (MTK, Nov 04, kernel 2.4.28)
-.TP
-.B EPERM
-(Linux 2.6.9 and later) the caller was not privileged
-.RB ( CAP_IPC_LOCK )
-and its
-.B RLIMIT_MEMLOCK
-soft resource limit was 0.
-.TP
-.B EPERM
-(Linux 2.6.8 and earlier)
-The calling process has insufficient privilege to call
-.BR munlockall ().
-Under Linux the
-.B CAP_IPC_LOCK
-capability is required.
-.\"SVr4 documents an additional EAGAIN error code.
-.LP
-For
-.BR mlock ()
-and
-.BR munlock ():
-.TP
-.B EINVAL
-.I len
-was negative.
-.TP
-.B EINVAL
-(Not on Linux)
-.I addr
-was not a multiple of the page size.
-.TP
-.B ENOMEM
-Some of the specified address range does not correspond to mapped
-pages in the address space of the process.
-.LP
-For
-.BR mlockall ():
-.TP
-.B EINVAL
-Unknown \fIflags\fP were specified.
-.LP
-For
-.BR munlockall ():
-.TP
-.B EPERM
-(Linux 2.6.8 and earlier) The caller was not privileged
-.RB ( CAP_IPC_LOCK ).
 .SH "BUGS"
 In the 2.4 series Linux kernels up to and including 2.4.17,
 a bug caused the
@@ -293,32 +319,6 @@ resource limit is encountered.
 .\" http://marc.theaimsgroup.com/?l=linux-kernel&m=113801392825023&w=2
 .\" "Rationale for RLIMIT_MEMLOCK"
 .\" 23 Jan 2006
-.SH AVAILABILITY
-On POSIX systems on which
-.BR mlock ()
-and
-.BR munlock ()
-are available,
-.B _POSIX_MEMLOCK_RANGE
-is defined in <unistd.h> and the number of bytes in a page
-can be determined from the constant
-.B PAGESIZE
-(if defined) in <limits.h> or by calling
-.IR sysconf(_SC_PAGESIZE) .
-
-On POSIX systems on which
-.BR mlockall ()
-and
-.BR munlockall ()
-are available,
-.B _POSIX_MEMLOCK
-is defined in <unistd.h> to a value greater than 0. (See also
-.BR sysconf (3).)
-.\" POSIX.1-2001: It shall be defined to -1 or 0 or 200112L.
-.\" -1: unavailable, 0: ask using sysconf().
-.\" glibc defines it to 1.
-.SH "CONFORMING TO"
-POSIX.1-2001, SVr4
 .SH "SEE ALSO"
 .BR mmap (2),
 .BR shmctl (2),

@@ -756,6 +756,145 @@ A `%' is written.
 No argument is converted.
 The complete conversion
 specification is `%%'.
+.SH "CONFORMING TO"
+The
+.BR fprintf (),
+.BR printf (),
+.BR sprintf (),
+.BR vprintf (),
+.BR vfprintf (),
+and
+.BR vsprintf ()
+functions conform to C89 and C99.
+The
+.BR snprintf ()
+and
+.BR vsnprintf ()
+functions conform to C99.
+.PP
+Concerning the return value of
+.BR snprintf (),
+SUSv2 and C99 contradict each other: when
+.BR snprintf ()
+is called with
+.IR size =0
+then SUSv2 stipulates an unspecified return value less than 1,
+while C99 allows
+.I str
+to be NULL in this case, and gives the return value (as always)
+as the number of characters that would have been written in case
+the output string has been large enough.
+.PP
+Linux libc4 knows about the five C standard flags.
+It knows about the length modifiers h,l,L, and the conversions
+cdeEfFgGinopsuxX, where F is a synonym for f.
+Additionally, it accepts D,O,U as synonyms for ld,lo,lu.
+(This is bad, and caused serious bugs later, when
+support for %D disappeared.)
+No locale-dependent radix character,
+no thousands' separator, no NaN or infinity, no %m$ and *m$.
+.PP
+Linux libc5 knows about the five C standard flags and the ' flag,
+locale, %m$ and *m$.
+It knows about the length modifiers h,l,L,Z,q, but accepts L and q
+both for long doubles and for long long integers (this is a bug).
+It no longer recognizes FDOU, but adds the conversion character
+.BR m ,
+which outputs
+.IR strerror(errno) .
+.PP
+glibc 2.0 adds conversion characters C and S.
+.PP
+glibc 2.1 adds length modifiers hh,j,t,z and conversion characters a,A.
+.PP
+glibc 2.2 adds the conversion character F with C99 semantics, and the
+flag character I.
+.SH NOTES
+The glibc implementation of the functions
+.BR snprintf ()
+and
+.BR vsnprintf ()
+conforms to the C99 standard, i.e., behaves as described above,
+since glibc version 2.1.
+Until glibc 2.0.6 they would return \-1
+when the output was truncated.
+.\" .SH HISTORY
+.\" Unix V7 defines the three routines
+.\" .BR printf (),
+.\" .BR fprintf (),
+.\" .BR sprintf (),
+.\" and has the flag \-, the width or precision *, the length modifier l,
+.\" and the conversions doxfegcsu, and also D,O,U,X as synonyms for ld,lo,lu,lx.
+.\" This is still true for 2.9.1BSD, but 2.10BSD has the flags
+.\" #, + and <space> and no longer mentions D,O,U,X.
+.\" 2.11BSD has
+.\" .BR vprintf (),
+.\" .BR vfprintf (),
+.\" .BR vsprintf (),
+.\" and warns not to use D,O,U,X.
+.\" 4.3BSD Reno has the flag 0, the length modifiers h and L,
+.\" and the conversions n, p, E, G, X (with current meaning)
+.\" and deprecates D,O,U.
+.\" 4.4BSD introduces the functions
+.\" .BR snprintf ()
+.\" and
+.\" .BR vsnprintf (),
+.\" and the length modifier q.
+.\" FreeBSD also has functions
+.\" .BR asprintf ()
+.\" and
+.\" .BR vasprintf (),
+.\" that allocate a buffer large enough for
+.\" .BR sprintf ().
+.\" In glibc there are functions
+.\" .BR dprintf ()
+.\" and
+.\" .BR vdprintf ()
+.\" that print to a file descriptor instead of a stream.
+.SH BUGS
+Because
+.BR sprintf ()
+and
+.BR vsprintf ()
+assume an arbitrarily long string, callers must be careful not to overflow
+the actual space; this is often impossible to assure.
+Note that the length
+of the strings produced is locale-dependent and difficult to predict.
+Use
+.BR snprintf ()
+and
+.BR vsnprintf ()
+instead (or
+.BR asprintf ()
+and
+.BR vasprintf ).
+.PP
+Linux libc4.[45] does not have a
+.BR snprintf (),
+but provides a libbsd that contains an
+.BR snprintf ()
+equivalent to
+.BR sprintf (),
+i.e., one that ignores the
+.I size
+argument.
+Thus, the use of
+.BR snprintf ()
+with early libc4 leads to serious security problems.
+.PP
+Code such as
+.BI printf( foo );
+often indicates a bug, since
+.I foo
+may contain a % character.
+If
+.I foo
+comes from untrusted user input, it may contain %n, causing the
+.BR printf ()
+call to write to memory and creating a security hole.
+.\" .PP
+.\" Some floating point conversions under early libc4
+.\" caused memory leaks.
 .SH EXAMPLE
 .br
 .if \w'\*(Pi'=0 .ds Pi pi
@@ -850,145 +989,6 @@ make_message(const char *fmt, ...)
 }
 .fi
 .RE
-.SH NOTES
-The glibc implementation of the functions
-.BR snprintf ()
-and
-.BR vsnprintf ()
-conforms to the C99 standard, i.e., behaves as described above,
-since glibc version 2.1.
-Until glibc 2.0.6 they would return \-1
-when the output was truncated.
-.SH "CONFORMING TO"
-The
-.BR fprintf (),
-.BR printf (),
-.BR sprintf (),
-.BR vprintf (),
-.BR vfprintf (),
-and
-.BR vsprintf ()
-functions conform to C89 and C99.
-The
-.BR snprintf ()
-and
-.BR vsnprintf ()
-functions conform to C99.
-.PP
-Concerning the return value of
-.BR snprintf (),
-SUSv2 and C99 contradict each other: when
-.BR snprintf ()
-is called with
-.IR size =0
-then SUSv2 stipulates an unspecified return value less than 1,
-while C99 allows
-.I str
-to be NULL in this case, and gives the return value (as always)
-as the number of characters that would have been written in case
-the output string has been large enough.
-.PP
-Linux libc4 knows about the five C standard flags.
-It knows about the length modifiers h,l,L, and the conversions
-cdeEfFgGinopsuxX, where F is a synonym for f.
-Additionally, it accepts D,O,U as synonyms for ld,lo,lu.
-(This is bad, and caused serious bugs later, when
-support for %D disappeared.)
-No locale-dependent radix character,
-no thousands' separator, no NaN or infinity, no %m$ and *m$.
-.PP
-Linux libc5 knows about the five C standard flags and the ' flag,
-locale, %m$ and *m$.
-It knows about the length modifiers h,l,L,Z,q, but accepts L and q
-both for long doubles and for long long integers (this is a bug).
-It no longer recognizes FDOU, but adds the conversion character
-.BR m ,
-which outputs
-.IR strerror(errno) .
-.PP
-glibc 2.0 adds conversion characters C and S.
-.PP
-glibc 2.1 adds length modifiers hh,j,t,z and conversion characters a,A.
-.PP
-glibc 2.2 adds the conversion character F with C99 semantics, and the
-flag character I.
-.\" .SH HISTORY
-.\" Unix V7 defines the three routines
-.\" .BR printf (),
-.\" .BR fprintf (),
-.\" .BR sprintf (),
-.\" and has the flag \-, the width or precision *, the length modifier l,
-.\" and the conversions doxfegcsu, and also D,O,U,X as synonyms for ld,lo,lu,lx.
-.\" This is still true for 2.9.1BSD, but 2.10BSD has the flags
-.\" #, + and <space> and no longer mentions D,O,U,X.
-.\" 2.11BSD has
-.\" .BR vprintf (),
-.\" .BR vfprintf (),
-.\" .BR vsprintf (),
-.\" and warns not to use D,O,U,X.
-.\" 4.3BSD Reno has the flag 0, the length modifiers h and L,
-.\" and the conversions n, p, E, G, X (with current meaning)
-.\" and deprecates D,O,U.
-.\" 4.4BSD introduces the functions
-.\" .BR snprintf ()
-.\" and
-.\" .BR vsnprintf (),
-.\" and the length modifier q.
-.\" FreeBSD also has functions
-.\" .BR asprintf ()
-.\" and
-.\" .BR vasprintf (),
-.\" that allocate a buffer large enough for
-.\" .BR sprintf ().
-.\" In glibc there are functions
-.\" .BR dprintf ()
-.\" and
-.\" .BR vdprintf ()
-.\" that print to a file descriptor instead of a stream.
-.SH BUGS
-Because
-.BR sprintf ()
-and
-.BR vsprintf ()
-assume an arbitrarily long string, callers must be careful not to overflow
-the actual space; this is often impossible to assure.
-Note that the length
-of the strings produced is locale-dependent and difficult to predict.
-Use
-.BR snprintf ()
-and
-.BR vsnprintf ()
-instead (or
-.BR asprintf ()
-and
-.BR vasprintf ).
-.PP
-Linux libc4.[45] does not have a
-.BR snprintf (),
-but provides a libbsd that contains an
-.BR snprintf ()
-equivalent to
-.BR sprintf (),
-i.e., one that ignores the
-.I size
-argument.
-Thus, the use of
-.BR snprintf ()
-with early libc4 leads to serious security problems.
-.PP
-Code such as
-.BI printf( foo );
-often indicates a bug, since
-.I foo
-may contain a % character.
-If
-.I foo
-comes from untrusted user input, it may contain %n, causing the
-.BR printf ()
-call to write to memory and creating a security hole.
-.\" .PP
-.\" Some floating point conversions under early libc4
-.\" caused memory leaks.
 .SH "SEE ALSO"
 .BR printf (1),
 .BR asprintf (3),

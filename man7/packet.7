@@ -4,6 +4,7 @@
 .\" and in case of nontrivial modification author and date
 .\" of the modification is added to the header.
 .\" $Id: packet.7,v 1.13 2000/08/14 08:03:45 ak Exp $
+.\" FIXME Section titles and orderings in this page are very inconsistent
 .TH PACKET  7 1999-04-29 "Linux" "Linux Programmer's Manual"
 .SH NAME
 packet, PF_PACKET \- packet interface on device level.
@@ -102,7 +103,7 @@ flag is passed to
 .BR recvfrom (2)
 the real length of the packet on the wire is always returned,
 even when it is longer than the buffer.
-.SH "ADDRESS TYPES"
+.SS Address Types
 The sockaddr_ll is a device independent physical layer address.
 
 .in +0.25i
@@ -171,7 +172,7 @@ For bind only
 and
 .B sll_ifindex
 are used.
-.SH "SOCKET OPTIONS"
+.SS Socket Options
 Packet sockets can be used to configure physical layer multicasting
 and promiscuous mode.
 It works by calling
@@ -220,7 +221,7 @@ In addition the traditional ioctls
 .BR SIOCADDMULTI ,
 .B SIOCDELMULTI
 can be used for the same purpose.
-.SH IOCTLS
+.SS Ioctls
 .B SIOCGSTAMP
 can be used to receive the time stamp of the last received packet.
 Argument is a
@@ -231,73 +232,10 @@ In addition all standard ioctls defined in
 and
 .BR socket (7)
 are valid on packet sockets.
-.SH "ERROR HANDLING"
+.SS Error Handling
 Packet sockets do no error handling other than errors occurred
 while passing the packet to the device driver.
 They don't have the concept of a pending error.
-.SH COMPATIBILITY
-In Linux 2.0, the only way to get a packet socket was by calling
-.BI "socket(PF_INET, SOCK_PACKET, " protocol )\fR.
-This is still supported but strongly deprecated.
-The main difference between the two methods is that
-.B SOCK_PACKET
-uses the old
-.I struct sockaddr_pkt
-to specify an interface, which doesn't provide physical layer
-independence.
-
-.in +0.25i
-.nf
-struct sockaddr_pkt {
-    unsigned short spkt_family;
-    unsigned char  spkt_device[14];
-    unsigned short spkt_protocol;
-};
-.fi
-.in -0.25i
-
-.B spkt_family
-contains
-the device type,
-.B spkt_protocol
-is the IEEE 802.3 protocol type as defined in
-.I <sys/if_ether.h>
-and
-.B spkt_device
-is the device name as a null terminated string, e.g. eth0.
-
-This structure is obsolete and should not be used in new code.
-.SH NOTES
-For portable programs it is suggested to use
-.B PF_PACKET
-via
-.BR pcap (3);
-although this only covers a subset of the
-.B PF_PACKET
-features.
-
-The
-.B SOCK_DGRAM
-packet sockets make no attempt to create or parse the IEEE 802.2 LLC
-header for a IEEE 802.3 frame.
-When
-.B ETH_P_802_3
-is specified as protocol for sending the kernel creates the
-802.3 frame and fills out the length field; the user has to supply the LLC
-header to get a fully conforming packet.
-Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol
-fields; instead they are supplied to the user as protocol
-.B ETH_P_802_2
-with the LLC header prepended.
-It is thus not possible to bind to
-.BR ETH_P_802_3 ;
-bind to
-.B ETH_P_802_2
-instead and do the protocol multiplex yourself.
-The default for sending is the standard Ethernet DIX
-encapsulation with the protocol filled in.
-
-Packet sockets are not subject to the input or output firewall chains.
 .SH ERRORS
 .TP
 .B ENETDOWN
@@ -352,6 +290,69 @@ Older systems need:
 #include <linux/if_ether.h>  /* The L2 protocols */
 .fi
 .in
+.SH NOTES
+For portable programs it is suggested to use
+.B PF_PACKET
+via
+.BR pcap (3);
+although this only covers a subset of the
+.B PF_PACKET
+features.
+
+The
+.B SOCK_DGRAM
+packet sockets make no attempt to create or parse the IEEE 802.2 LLC
+header for a IEEE 802.3 frame.
+When
+.B ETH_P_802_3
+is specified as protocol for sending the kernel creates the
+802.3 frame and fills out the length field; the user has to supply the LLC
+header to get a fully conforming packet.
+Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol
+fields; instead they are supplied to the user as protocol
+.B ETH_P_802_2
+with the LLC header prepended.
+It is thus not possible to bind to
+.BR ETH_P_802_3 ;
+bind to
+.B ETH_P_802_2
+instead and do the protocol multiplex yourself.
+The default for sending is the standard Ethernet DIX
+encapsulation with the protocol filled in.
+
+Packet sockets are not subject to the input or output firewall chains.
+.SS Compatibility
+In Linux 2.0, the only way to get a packet socket was by calling
+.BI "socket(PF_INET, SOCK_PACKET, " protocol )\fR.
+This is still supported but strongly deprecated.
+The main difference between the two methods is that
+.B SOCK_PACKET
+uses the old
+.I struct sockaddr_pkt
+to specify an interface, which doesn't provide physical layer
+independence.
+
+.in +0.25i
+.nf
+struct sockaddr_pkt {
+    unsigned short spkt_family;
+    unsigned char  spkt_device[14];
+    unsigned short spkt_protocol;
+};
+.fi
+.in -0.25i
+
+.B spkt_family
+contains
+the device type,
+.B spkt_protocol
+is the IEEE 802.3 protocol type as defined in
+.I <sys/if_ether.h>
+and
+.B spkt_device
+is the device name as a null terminated string, e.g. eth0.
+
+This structure is obsolete and should not be used in new code.
 .SH BUGS
 glibc 2.1 does not have a define for
 .BR SOL_PACKET .

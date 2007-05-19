@@ -322,6 +322,55 @@ Although perhaps not intended, under Linux a traced child can be
 detached in this way regardless of which method was used to initiate
 tracing.
 (\fIaddr\fP is ignored.)
+.SH "RETURN VALUE"
+On success, PTRACE_PEEK* requests return the requested data,
+while other requests return zero.
+On error, all requests return \-1, and
+.I errno
+is set appropriately.
+Since the value returned by a successful PTRACE_PEEK*
+request may be \-1, the caller must check
+.I errno
+after such requests to determine whether or not an error occurred.
+.SH ERRORS
+.TP
+.B EBUSY
+(i386 only) There was an error with allocating or freeing a debug
+register.
+.TP
+.B EFAULT
+There was an attempt to read from or write to an invalid area in
+the parent's or child's memory,
+probably because the area wasn't mapped or accessible.
+Unfortunately, under Linux, different variations of this fault
+will return EIO or EFAULT more or less arbitrarily.
+.TP
+.B EINVAL
+An attempt was made to set an invalid option.
+.TP
+.B EIO
+\fIrequest\fP is invalid, or an attempt was made to read from or
+write to an invalid area in the parent's or child's memory,
+or there was a word-alignment violation,
+or an invalid signal was specified during a restart request.
+.TP
+.B EPERM
+The specified process cannot be traced.
+This could be because the
+parent has insufficient privileges (the required capability is
+.BR CAP_SYS_PTRACE );
+non-root processes cannot trace processes that they
+cannot send signals to or those running
+set-user-ID/set-group-ID programs, for obvious reasons.
+Alternatively, the process may already be being traced, or be
+.BR init
+(PID 1).
+.TP
+.B ESRCH
+The specified process does not exist, or is not currently being traced
+by the caller, or is not stopped (for requests that require that).
+.SH "CONFORMING TO"
+SVr4, 4.3BSD
 .SH NOTES
 Although arguments to
 .BR ptrace ()
@@ -376,55 +425,6 @@ The proc-based debugging interface
 present in Solaris 2 implements a superset of
 .BR ptrace ()
 functionality in a more powerful and uniform way.
-.SH "RETURN VALUE"
-On success, PTRACE_PEEK* requests return the requested data,
-while other requests return zero.
-On error, all requests return \-1, and
-.I errno
-is set appropriately.
-Since the value returned by a successful PTRACE_PEEK*
-request may be \-1, the caller must check
-.I errno
-after such requests to determine whether or not an error occurred.
-.SH ERRORS
-.TP
-.B EBUSY
-(i386 only) There was an error with allocating or freeing a debug
-register.
-.TP
-.B EFAULT
-There was an attempt to read from or write to an invalid area in
-the parent's or child's memory,
-probably because the area wasn't mapped or accessible.
-Unfortunately, under Linux, different variations of this fault
-will return EIO or EFAULT more or less arbitrarily.
-.TP
-.B EINVAL
-An attempt was made to set an invalid option.
-.TP
-.B EIO
-\fIrequest\fP is invalid, or an attempt was made to read from or
-write to an invalid area in the parent's or child's memory,
-or there was a word-alignment violation,
-or an invalid signal was specified during a restart request.
-.TP
-.B EPERM
-The specified process cannot be traced.
-This could be because the
-parent has insufficient privileges (the required capability is
-.BR CAP_SYS_PTRACE );
-non-root processes cannot trace processes that they
-cannot send signals to or those running
-set-user-ID/set-group-ID programs, for obvious reasons.
-Alternatively, the process may already be being traced, or be
-.BR init
-(PID 1).
-.TP
-.B ESRCH
-The specified process does not exist, or is not currently being traced
-by the caller, or is not stopped (for requests that require that).
-.SH "CONFORMING TO"
-SVr4, 4.3BSD
 .SH BUGS
 On hosts with 2.6 kernel headers, PTRACE_SETOPTIONS is declared
 with a different value than the one for 2.4.

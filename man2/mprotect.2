@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
-.\"
-.\" Copyright (C) 1995 Michael Shields <shields@tembel.org>.
+.\" Copyright (C) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" and Copyright (C) 1995 Michael Shields <shields@tembel.org>.
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -26,10 +26,12 @@
 .\" Modified 1997-05-31 by Andries Brouwer <aeb@cwi.nl>
 .\" Modified 2003-08-24 by Andries Brouwer <aeb@cwi.nl>
 .\" Modified 2004-08-16 by Andi Kleen <ak@muc.de>
+.\" 2007-06-02, mtk: Fairly substantial rewrites and additions, and
+.\" a much improved example program.
 .\"
-.TH MPROTECT 2 2003-08-24 "Linux 2.4" "Linux Programmer's Manual"
+.TH MPROTECT 2 2007-06-02 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mprotect \- control allowable accesses to a region of memory
+mprotect \- set protection on a region of memory
 .SH SYNOPSIS
 .nf
 .B #include <sys/mman.h>
@@ -37,16 +39,22 @@ mprotect \- control allowable accesses to a region of memory
 \fBint mprotect(const void *\fIaddr\fB, size_t \fIlen\fB, int \fIprot\fB);
 .fi
 .SH DESCRIPTION
-The function
 .BR mprotect ()
-specifies the desired protection for the memory page(s) containing
-part or all of the interval [\fIaddr\fP,\fIaddr\fP+\fIlen\fP\-1].
-If an access is disallowed by the protection given it,
-the program receives a
-.BR SIGSEGV .
+changes protection for the calling process's memory page(s)
+containing any part of the address range in the 
+interval [\fIaddr\fP,\fIaddr\fP+\fIlen\fP\-1].
+.I addr
+must be aligned to a page boundary.
+
+If the calling process tries to access memory in a manner
+that violates the protection, then the kernel generates a 
+.B SIGSEGV
+signal for the process.
 .PP
 .I prot
-is a bitwise-or of the following values:
+is either
+.B PROT_NONE
+or a bitwise-or of the other values in the following list:
 .TP 1.1i
 .B PROT_NONE
 The memory cannot be accessed at all.
@@ -55,19 +63,12 @@ The memory cannot be accessed at all.
 The memory can be read.
 .TP
 .B PROT_WRITE
-The memory can be written to.
+The memory can be modified.
 .TP
 .B PROT_EXEC
-The memory can contain executing code.
+The memory can contain be executed.
 .\" FIXME
 .\" Document MAP_GROWSUP and MAP_GROWSDOWN
-.PP
-The new protection replaces any existing protection.
-For example, if the
-memory had previously been marked \fBPROT_READ\fR, and
-.BR mprotect ()
-is then called with \fIprot\fR \fBPROT_WRITE\fR, it will no longer
-be readable.
 .SH "RETURN VALUE"
 On success,
 .BR mprotect ()
@@ -90,7 +91,8 @@ to mark it
 The memory cannot be accessed.
 .TP
 .B EINVAL
-\fIaddr\fR is not a valid pointer, or not a multiple of PAGESIZE.
+\fIaddr\fR is not a valid pointer,
+or not a multiple of the system page size.
 .TP
 .B ENOMEM
 Internal kernel structures could not be allocated.
@@ -103,9 +105,10 @@ or specify one or more pages that are not mapped.
 SVr4, POSIX.1-2001.
 .\" SVr4 defines an additional error
 .\" code EAGAIN. The SVr4 error conditions don't map neatly onto Linux's.
-POSIX says that
+POSIX says that the behaviour of
 .BR mprotect ()
-can be used only on regions of memory obtained from
+is unspecified if it is applied to a region of memory that
+was not obtained via
 .BR mmap (2).
 .SH NOTES
 On Linux it is always legal to call
@@ -120,9 +123,18 @@ Whether
 has any effect different from
 .B PROT_READ
 is architecture and kernel version dependent.
+
+POSIX.1-2001 says that an implementation may permit access
+other than that specified in
+.IR prot ,
+but at a minimum can only allow write access if
+.B PROT_WRITE
+has been set, and must not allow any access if
+.B PROT_NONE
+has been set.
 .SH EXAMPLE
 .PP
-The program below allocates 4 pages of memory, makes the third
+The program below allocates four pages of memory, makes the third
 of these pages read-only, and then executes a loop that walks upwards
 through the allocated region modifying bytes.
 
@@ -202,4 +214,5 @@ main(int argc, char *argv[])
 }
 .fi
 .SH "SEE ALSO"
-.BR mmap (2)
+.BR mmap (2),
+.BR sysconf (3)

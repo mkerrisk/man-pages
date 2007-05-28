@@ -3,6 +3,7 @@
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
 .\" Parts Copyright (c) 1995 Nicolai Langfeldt (janl@ifi.uio.no), 1/1/95
+.\" and Copyright (c) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -33,8 +34,9 @@
 .\" Modified 1999-07-06 by aeb & Albert Cahalan
 .\" Modified 2000-01-07 by aeb
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
+.\" 2007-06-08 mtk: Added example program
 .\"
-.TH STAT 2 2004-06-23 "Linux 2.6.7" "Linux Programmer's Manual"
+.TH STAT 2 2007-06-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 stat, fstat, lstat \- get file status
 .SH SYNOPSIS
@@ -377,6 +379,70 @@ directory,
 does not return the file size in the
 .I st_size
 field; instead the field is returned with the value 0.
+.SH EXAMPLE
+The following program calls 
+.BR stat (2)
+and displays selected fields in the returned
+.I stat
+structure.
+.nf
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>     
+
+int
+main(int argc, char *argv[])
+{
+    struct stat sb;
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <pathname>\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    if (stat(argv[1], &sb) == -1) {
+        perror("stat");
+        exit(EXIT_SUCCESS);
+    }
+
+    printf("File type:                ");
+    switch (sb.st_mode & S_IFMT) {
+    case S_IFBLK:  printf("block device\\n");            break;
+    case S_IFCHR:  printf("character device\\n");        break;
+    case S_IFDIR:  printf("directory\\n");               break;
+    case S_IFIFO:  printf("FIFO/pipe\\n");               break;
+    case S_IFLNK:  printf("symlink\\n");                 break;
+    case S_IFREG:  printf("regular file\\n");            break;
+    case S_IFSOCK: printf("socket\\n");                  break;
+    default:       printf("unknown?\\n");                break;
+    }
+
+    printf("I-node number:            %ld\\n", (long) sb.st_ino);
+
+    printf("Mode:                     %lo (octal)\\n", 
+            (unsigned long) sb.st_mode);
+
+    printf("Link count:               %ld\\n", (long) sb.st_nlink);
+    printf("Ownership:                UID=%ld   GID=%ld\\n",
+            (long) sb.st_uid, (long) sb.st_gid);
+
+    printf("Preferred I/O block size: %ld bytes\\n", 
+            (long) sb.st_blksize);
+    printf("File size:                %lld bytes\\n", 
+            (long long) sb.st_size);
+    printf("Blocks allocated:         %lld\\n", 
+            (long long) sb.st_blocks);
+
+    printf("Last i-node change:       %s", ctime(&sb.st_ctime));
+    printf("Last file access:         %s", ctime(&sb.st_atime));
+    printf("Last file modification:   %s", ctime(&sb.st_mtime));
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR access (2),
 .BR chmod (2),

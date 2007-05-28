@@ -1,4 +1,5 @@
 .\" Copyright 2000 Sam Varshavchik <mrsam@courier-mta.com>
+.\" and Copyright (c) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -24,8 +25,9 @@
 .\"
 .\" 2005-08-09, mtk, added AI_ALL, AI_ADDRCONFIG, AI_V4MAPPED,
 .\"			and AI_NUMERICSERV.
+.\" 2007-06-08, mtk: added example programs
 .\"
-.TH GETADDRINFO 3 2000-12-18 "Linux" "Linux Programmer's Manual"
+.TH GETADDRINFO 3 2007-06-08 "GNU" "Linux Programmer's Manual"
 .SH NAME
 getaddrinfo, freeaddrinfo, gai_strerror \- network address and service translation
 .SH SYNOPSIS
@@ -54,7 +56,8 @@ and
 functions into a single interface.
 The thread-safe
 .BR getaddrinfo (3)
-function creates one or more socket address structures that can be used by the
+function creates one or more socket address structures
+that can be used by the
 .BR bind (2)
 and
 .BR connect (2)
@@ -434,6 +437,210 @@ and
 are available since glibc 2.3.3.
 .BR AI_NUMERICSERV
 is available since glibc 2.3.4.
+.SH EXAMPLE
+The following programs demonstrate the use of
+.BR getaddrinfo (),
+.BR gai_strerror (),
+.BR freeaddrinfo (),
+and
+.BR getnameinfo (3).
+The programs are an echo server and client for UDP datagrams.
+
+This is the server:
+.in +0.25i
+.nf
+
+#include <sys/types.h>  
+#include <stdio.h>
+#include <stdlib.h>     
+#include <unistd.h>     
+#include <string.h>     
+#include <sys/socket.h> 
+#include <netdb.h>
+
+#define BUF_SIZE 500
+
+int
+main(int argc, char *argv[])
+{
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int sfd, s;
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len;
+    ssize_t nread;
+    char buf[BUF_SIZE];
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s port\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
+    hints.ai_protocol = 0;          /* Any protocol */
+
+    s = getaddrinfo(NULL, argv[1], &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+    }
+
+    /* getaddrinfo() returns a list of address structures.
+       Try each address until we successfully bind(). 
+       If socket() (or bind()) fails, we (close the socket 
+       and) try the next address. */
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype, 
+                rp->ai_protocol);
+        if (sfd == -1)
+            continue;
+
+        if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;                  /* Success */
+
+        close(sfd);
+    }
+
+    if (rp == NULL) {               /* No address succeeded */
+        fprintf(stderr, "Could not bind\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    freeaddrinfo(result);           /* No longer needed */
+
+    /* Read datagrams and echo them back to sender */
+
+    for (;;) {
+        peer_addr_len = sizeof(struct sockaddr_storage);
+        nread = recvfrom(sfd, buf, BUF_SIZE, 0, 
+                (struct sockaddr *) &peer_addr, &peer_addr_len);
+        if (nread == -1)
+            continue;               /* Ignore failed request */
+
+        char host[NI_MAXHOST], service[NI_MAXSERV];
+    
+        s = getnameinfo((struct sockaddr *) &peer_addr, 
+                        peer_addr_len, host, NI_MAXHOST,
+                        service, NI_MAXSERV, NI_NUMERICSERV);
+       if (s == 0) 
+            printf("Received %ld bytes from %s:%s\\n",
+                    (long) nread, host, service);
+        else
+            fprintf(stderr, "getnameinfo: %s\\n", gai_strerror(s));
+
+
+        if (sendto(sfd, buf, nread, 0, 
+                    (struct sockaddr *) &peer_addr,
+                    peer_addr_len) != nread) 
+            fprintf(stderr, "Error sending response\\n");
+    }
+}
+.fi
+.in
+
+This is the client:
+.in +0.25i
+.nf
+
+#include <sys/types.h>  
+#include <sys/socket.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>     
+#include <unistd.h>     
+#include <string.h>     
+
+#define BUF_SIZE 500
+
+int
+main(int argc, char *argv[])
+{
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int sfd, s, j;
+    size_t len;
+    ssize_t nread;
+    char buf[BUF_SIZE];
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s host port msg...\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Obtain address(es) matching host/port */
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;          /* Any protocol */
+
+    s = getaddrinfo(argv[1], argv[2], &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+    }
+
+    /* getaddrinfo() returns a list of address structures.
+       Try each address until we successfully connect().
+       If socket() (or connect()) fails, we (close the socket 
+       and) try the next address. */
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype, 
+                     rp->ai_protocol);
+        if (sfd == -1)
+            continue;
+        
+        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break;                  /* Success */
+
+        close(sfd);
+    }
+
+    if (rp == NULL) {               /* No address succeeded */
+        fprintf(stderr, "Could not connect\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    freeaddrinfo(result);           /* No longer needed */
+
+    /* Send remaining command-line arguments as separate 
+       datagrams, and read responses from server */
+
+    for (j = 3; j < argc; j++) {
+        len = strlen(argv[j]) + 1;  
+                /* +1 for terminating null byte */
+
+        if (len + 1 > BUF_SIZE) {
+            fprintf(stderr, 
+                    "Ignoring long message in argument %d\\n", j);
+            continue;
+        }
+
+        if (write(sfd, argv[j], len) != len) {
+            fprintf(stderr, "partial/failed write\\n");
+            exit(EXIT_FAILURE);
+        }
+        
+        nread = read(sfd, buf, BUF_SIZE);
+        if (nread == -1) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Received %ld bytes: %s\\n", (long) nread, buf);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.fi
+.in
 .SH "SEE ALSO"
 .BR getipnodebyaddr (3),
 .BR getipnodebyname (3)
+.BR getnameinfo (3),

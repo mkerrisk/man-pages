@@ -27,8 +27,10 @@
 .\" Modified Sat Jul 24 18:06:49 1993 by Rik Faith (faith@cs.unc.edu)
 .\" Modified Fri Aug 25 23:17:51 1995 by Andries Brouwer (aeb@cwi.nl)
 .\" Modified Wed Dec 18 00:47:18 1996 by Andries Brouwer (aeb@cwi.nl)
+.\" 2007-06-15, Marc Boyer <marc.boyer@enseeiht.fr> + mtk
+.\"     Improve discussion of strncpy().
 .\"
-.TH STRCPY 3  1993-04-11 "GNU" "Linux Programmer's Manual"
+.TH STRCPY 3  2007-06-15 "GNU" "Linux Programmer's Manual"
 .SH NAME
 strcpy, strncpy \- copy a string
 .SH SYNOPSIS
@@ -42,27 +44,49 @@ strcpy, strncpy \- copy a string
 .SH DESCRIPTION
 The
 .BR strcpy ()
-function copies the string pointed to by \fIsrc\fP
-(including the terminating `\\0' character) to the array pointed to by
-\fIdest\fP.
+function copies the string pointed to by \fIsrc\fP,
+including the terminating null byte ('\\0'),
+to the buffer pointed to by \fIdest\fP.
 The strings may not overlap, and the destination string
 \fIdest\fP must be large enough to receive the copy.
 .PP
 The
 .BR strncpy ()
-function is similar, except that not more than
+function is similar, except that at most
 \fIn\fP bytes of \fIsrc\fP are copied.
-Thus, if there is no null byte
-among the first \fIn\fP bytes of \fIsrc\fP, the result will not be
-null-terminated.
+.BR Warning :
+If there is no null byte
+among the first \fIn\fP bytes of \fIsrc\fP,
+the string placed in \fIdest\fP will not be null terminated.
 .PP
-In the case where the length of
+If the length of
 .I src
-is less than that of
+is less than
 .IR n ,
-the remainder of
+.BR strncat ()
+pads the remainder of
 .I dest
-will be padded with null bytes.
+with null bytes.
+.PP
+A simple implementation of
+.BR strncpy ()
+might be:
+.in +0.25i
+.nf
+
+char*
+strncpy(char *dest, const char *src, size_t n){
+    size_t i;
+
+    for(i = 0 ; i < n && src[i] != '\\0' ; i++)
+        dest[i] = src[i];
+    for( ; i < n ; i++)
+        dest[i] = '\\0';
+
+    return dest;
+}
+.fi
+.in
 .SH "RETURN VALUE"
 The
 .BR strcpy ()
@@ -72,11 +96,35 @@ functions return a pointer to
 the destination string \fIdest\fP.
 .SH "CONFORMING TO"
 SVr4, 4.3BSD, C89, C99.
+.SH NOTES
+Some programmers consider
+.BR strncpy ()
+to be inefficient and error prone.
+If the programmer knows (i.e., includes code to test!)
+that the size of \fIdest\fP is greater than
+the length of \fIsrc\fP, then
+.BR strcpy ()
+can be used.
+
+If there is no terminating null byte in the first \fIn\fP
+characters of \fIsrc\fP,
+.BR strncpy ()
+produces an unterminated string in \fIdest\fP.
+Programmers often prevent this mistake by forcing termination
+as follows:
+.in +0.25i
+.nf
+
+strncpy(buf, str, n);
+if (n > 0) 
+    buf[n - 1]= '\0';
+.fi
+.in
 .SH BUGS
 If the destination string of a
 .BR strcpy ()
 is not large enough
-(that is, if the programmer was stupid/lazy, and failed to check
+(that is, if the programmer was stupid or lazy, and failed to check
 the size before copying) then anything might happen.
 Overflowing fixed length strings is a favourite cracker technique.
 .SH "SEE ALSO"

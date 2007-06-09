@@ -19,7 +19,7 @@
 #               Try to substitute instances of that name on the page.
 #                   (instances are considered to be words formatted
 #		    using ^.[BI] or \f[BI]...\f[PR] -- this script
-#		    ignores unformatted instances on function names.)
+#		    ignores unformatted instances of function names.)
 #           fi
 #       done
 #   done
@@ -81,11 +81,11 @@ while getopts "n" optname; do
     esac
 done
 
-shift $(( OPTIND - 1 ))
+shift $(( $OPTIND - 1 ))
 
 # Only process files with > 1 line -- single-line files are link files 
 
-for page in $(wc $* 2> /dev/null | awk '$1 > 1 {print $4}'| \
+for page in $(wc "$@" 2> /dev/null | awk '$1 > 1 {print $4}'| \
     grep -v '^total'); do
 
     echo ">>>>>>>>>>>>>>>>>>>>>>>>>" $page "<<<<<<<<<<<<<<<<<<<<<<<<<"
@@ -96,10 +96,10 @@ for page in $(wc $* 2> /dev/null | awk '$1 > 1 {print $4}'| \
 
     sh_nlist=$(cat $page | \
         awk 'BEGIN { p = 0 } 
-             /^\.SH NAME/ { p = NR } 
-	     /^.SH/ && NR > p { p = 0 }	  # Stop at the next .SH directive
-	     p > 0 && NR > p {print $0}	  # These are the lines between
-					  # the two .SH directives
+             /^\.SH NAME/     { p = NR } 
+	     /^.SH/ && NR > p { p = 0 }	    # Stop at the next .SH directive
+	     p > 0 && NR > p  { print $0 }  # These are the lines between
+					    # the two .SH directives
 	    ')
     sh_nlist=$(echo $sh_nlist | sed -e 's/ *\\-.*//' -e 's/, */ /g')
     echo "### .SH name list:" $sh_nlist

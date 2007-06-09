@@ -40,6 +40,7 @@ rm -f $awk_script_file
 
 # We grep out a few page names that are likely to generate false 
 # positives...
+
 echo '{' >> $awk_script_file
 echo '    myvar = $2;' >> $awk_script_file
 echo '    gsub("[^a-z_0-9]*$", "", myvar);' >> $awk_script_file

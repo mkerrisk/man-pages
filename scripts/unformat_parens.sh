@@ -41,11 +41,11 @@ while getopts "n" optname; do
     esac
 done
 
-shift $(( OPTIND - 1 ))
+shift $(( $OPTIND - 1 ))
 
 # Only process files with > 1 line -- single-line files are link files 
 
-for page in $(wc $* 2> /dev/null | awk '$1 > 1 {print $4}'| \
+for page in $(wc "$@" 2> /dev/null | awk '$1 > 1 {print $4}'| \
     grep -v '^total'); do
 
     cp $page $work_dst_file

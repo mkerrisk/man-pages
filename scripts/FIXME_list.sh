@@ -23,14 +23,14 @@ while getopts "a" optname; do
     esac
 done
 
-shift $(( OPTIND - 1 ))
+shift $(( $OPTIND - 1 ))
 
 if test $# -eq 0; then
     echo "Usage: $0 [-a] pathname" 1>&2
     exit 1;
 fi
-for dir in "$@"; 
-do
+
+for dir in "$@"; do
     for page in $(find "$dir" -type f -name '*.[1-9]' \
 			-exec grep -l FIXME {} \; | sort)
     do

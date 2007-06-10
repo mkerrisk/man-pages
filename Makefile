@@ -3,7 +3,8 @@
 # Do "make install" to copy the pages to their destination.
 # Do "make gz" or "make bz2" first if you use compressed source pages.
 
-MANDIR=$(prefix)/usr/share/man
+prefix?=/usr
+MANDIR=$(prefix)/share/man
 
 GZIP=gzip -9
 BZIP2=bzip2 -9

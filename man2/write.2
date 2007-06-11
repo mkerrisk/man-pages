@@ -2,6 +2,7 @@
 .\"
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"                               1993 Michael Haardt, Ian Jackson.
+.\" and Copyright (C) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -29,8 +30,13 @@
 .\"   <michael@cantor.informatik.rwth-aachen.de>
 .\" Modified Sun Jul 21 18:59:33 1996 by Andries Brouwer <aeb@cwi.nl>
 .\" 2001-12-13 added remark by Zack Weinberg
+.\" 2007-06-18 mtk:
+.\"    	Added details about seekable files and file offset.
+.\"	Noted that write() may write less than 'count' bytes, and
+.\"	gave some examples of why this might occur.
+.\"	Noted what happens if write() is interrupted by a signal.
 .\"
-.TH WRITE 2 2001-12-13 "Linux" "Linux Programmer's Manual"
+.TH WRITE 2 2007-06-18 "Linux" "Linux Programmer's Manual"
 .SH NAME
 write \- write to a file descriptor
 .SH SYNOPSIS
@@ -41,19 +47,47 @@ write \- write to a file descriptor
 .BR write ()
 writes up to
 .I count
-bytes to the file referenced by the file descriptor
-.I fd
-from the buffer starting at
-.IR buf .
+bytes from the buffer pointed 
+.IR buf
+to the file referred to by the file descriptor
+.IR fd.
+
+The number of bytes written may be less than
+.I count
+if, for example,
+there is insufficient space on the underlying physical medium, or the
+.B RLIMIT_FSIZE
+resource limit is encountered (see
+.BR setrlimit (2)),
+or the call was interrupted by a signal
+handler after having written less than
+.I count
+bytes.
+(See also
+.BR pipe (7).)
+
+For a seekable file (i.e., one to which
+.BR lseek (2)
+may be applied, for example, a regular file)
+writing takes place at the current file offset,
+and the file offset is incremented by
+the number of bytes actually written.
+If the file was
+.BR open (2)ed
+with
+.BR O_APPEND ,
+the file offset is first set to the end of the file before writing.
+The adjustment of the file offset and the write operation
+are performed as an atomic step.
+
 POSIX requires that a
 .BR read (2)
 which can be proved to occur after a
 .BR write ()
 has returned returns the new data.
-Note that not all file
-systems are POSIX conforming.
+Note that not all file systems are POSIX conforming.
 .SH "RETURN VALUE"
-On success, the number of bytes written are returned (zero indicates
+On success, the number of bytes written is returned (zero indicates
 nothing was written).
 On error, \-1 is returned, and \fIerrno\fP is set
 appropriately.
@@ -61,7 +95,7 @@ appropriately.
 If \fIcount\fP is zero and
 .I fd
 refers to a regular file, then
-.B write ()
+.BR write ()
 may return a failure status if one of the errors below is detected.
 If no errors are detected,
 0 will be returned without causing any other effect.
@@ -73,8 +107,10 @@ the results are not specified.
 .SH ERRORS
 .TP
 .B EAGAIN
-Non-blocking I/O has been selected using
-.B O_NONBLOCK
+The file descriptor
+.I fd
+has been marked non-blocking
+.RB ( O_NONBLOCK )
 and the write would block.
 .TP
 .B EBADF
@@ -87,8 +123,8 @@ is outside your accessible address space.
 .TP
 .B EFBIG
 An attempt was made to write a file that exceeds the implementation-defined
-maximum file size or the process' file size limit, or to write at a position
-past the maximum allowed offset.
+maximum file size or the process's file size limit,
+or to write at a position past the maximum allowed offset.
 .TP
 .B EINTR
 The call was interrupted by a signal before any data was written.
@@ -139,6 +175,14 @@ that space has successfully been reserved for the data.
 The only way to be sure is to call
 .BR fsync (2)
 after you are done writing all your data.
+
+If a
+.BR write ()
+is interrupted by a signal handler before any bytes are written,
+then the call fails with the error
+.BR EINTR ;
+if it is interrupted after at least one byte has been written,
+the call succeeds, and returns the number of bytes written.
 .SH "SEE ALSO"
 .BR close (2),
 .BR fcntl (2),

@@ -45,7 +45,13 @@ for dir in "$@"; do
                 # /.\" FIXME . / ==> do not display this FIXME, unless
                 # -a command-line option was supplied
 	        
-	        if (!($0 ~ /^\.\\\" FIXME \./ ) || SHOW_ALL == "y") {
+		if ($0 ~ /^\.\\\" FIXME \./ )
+		    FIXME_type = "hidden"
+		else if ($0 ~ /^\.\\\" FIXME *\?/ )
+		    FIXME_type = "question"
+		else
+		    FIXME_type = "normal";
+	        if (FIXME_type == "normal" || SHOW_ALL == "y") {
 	            if (page_FIXME_cnt == 0) {
 		        print "==========";
 		        print PAGE_NAME;

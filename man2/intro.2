@@ -37,18 +37,15 @@
 intro, _syscall \- Introduction to system calls
 .SH DESCRIPTION
 This chapter describes the Linux system calls.
-For a list of the 164 syscalls present in Linux 2.0, see syscalls(2).
+For a list of the Linux system calls, see syscalls(2).
 .SS "Calling Directly"
 In most cases, it is unnecessary to invoke a system call directly, but there
 are times when the Standard C library does not implement a nice function call
 for you.
 In this case, the programmer must manually invoke the system call using
-either one of the _syscall macros, or
-.BR syscall ().
-The latter technique is described in
 .BR syscall (2).
-This page describes the _syscall macros, and includes some notes
-on when to use one or other mechanism.
+Historically, this was also possible using one of the _syscall macros
+described below.
 .SS "Synopsis"
 .B #include <linux/unistd.h>
 
@@ -91,7 +88,17 @@ which calls in the section conform.
 See
 .BR standards (7).
 .SH NOTES
-The _syscall() macros DO NOT produce a prototype.
+Starting around kernel 2.6.18, the _syscall macros were removed
+from header files supplied to user space.
+Use
+.BR syscall (2)
+instead.
+(Some architectures, notably ia64, never provided the _syscall macros;
+on those architectures,
+.BR syscall (2)
+was always required.)
+
+The _syscall() macros \fI do not\fP produce a prototype.
 You may have to
 create one, especially for C++ users.
 .sp
@@ -106,31 +113,26 @@ when \fIr\fP is non-negative, but will return \-1 and set the variable
 to \-\fIr\fP when \fIr\fP is negative.
 For the error codes, see
 .BR errno (3).
-.sp
+
 Some system calls, such as
 .BR mmap (2),
 require more than five arguments.
 These are handled by pushing the
 arguments on the stack and passing a pointer to the block of arguments.
-.sp
-When defining a system call, the argument types MUST be passed by-value
-or by-pointer (for aggregates like structs).
-.sp
-The preferred way to invoke system calls that glibc does not know
-about yet is via
-.BR syscall (2).
-However, this mechanism can only be used if using a libc
-(such as glibc) that supports
-.BR syscall (2),
-and if the
-.I <sys/syscall.h>
-header file contains the required SYS_foo definition.
-Otherwise, the use of a _syscall macro is required.
 
-Some architectures, notably ia64, do not provide the _syscall macros.
-On these architectures,
-.BR syscall (2)
-must be used.
+When defining a system call, the argument types \fImust\fP be
+passed by-value or by-pointer (for aggregates like structs).
+.\" The preferred way to invoke system calls that glibc does not know
+.\" about yet is via
+.\" .BR syscall (2).
+.\" However, this mechanism can only be used if using a libc
+.\" (such as glibc) that supports
+.\" .BR syscall (2),
+.\" and if the
+.\" .I <sys/syscall.h>
+.\" header file contains the required SYS_foo definition.
+.\" Otherwise, the use of a _syscall macro is required.
+.\" 
 .SH EXAMPLE
 .sp
 .nf

@@ -97,7 +97,11 @@ A signal may be generated (and thus pending)
 for a process as a whole (e.g., when sent using
 .BR kill (2))
 or for a specific thread (e.g., certain signals,
-such as SIGSEGV and SIGFPE, generated as a
+such as
+.B SIGSEGV
+and
+.BR SIGFPE ,
+generated as a
 consequence of executing a specific machine-language instruction
 are thread directed, as are signals targeted at a specific thread using
 .BR pthread_kill (3)).
@@ -163,7 +167,7 @@ ____
 lB c c l.
 Signal	Value	Action	Comment
 SIGBUS	10,7,10	Core	Bus error (bad memory access)
-SIGPOLL		Term	Pollable event (Sys V). Synonym of SIGIO
+SIGPOLL		Term	Pollable event (Sys V). Synonym of \fISIGIO\fP
 SIGPROF	27,27,29	Term	Profiling timer expired
 SIGSYS	12,\-,12	Core	Bad argument to routine (SVr4)
 SIGTRAP	5	Core	Trace/breakpoint trap
@@ -190,16 +194,16 @@ l c c l
 ____
 lB c c l.
 Signal	Value	Action	Comment
-SIGIOT	6	Core	IOT trap. A synonym for SIGABRT
+SIGIOT	6	Core	IOT trap. A synonym for \fBSIGABRT\fP
 SIGEMT	7,\-,7	Term
 SIGSTKFLT	\-,16,\-	Term	Stack fault on coprocessor (unused)
 SIGIO	23,29,22	Term	I/O now possible (4.2BSD)
-SIGCLD	\-,\-,18	Ign	A synonym for SIGCHLD
+SIGCLD	\-,\-,18	Ign	A synonym for \fBSIGCHLD\fP
 SIGPWR	29,30,19	Term	Power failure (System V)
-SIGINFO	29,\-,\-		A synonym for SIGPWR
+SIGINFO	29,\-,\-		A synonym for \fBSIGPWR\fP
 SIGLOST	\-,\-,\-	Term	File lock lost
 SIGWINCH	28,28,20	Ign	Window resize signal (4.3BSD, Sun)
-SIGUNUSED	\-,31,\-	Term	Unused signal (will be SIGSYS)
+SIGUNUSED	\-,31,\-	Term	Unused signal (will be \fBSIGSYS\fP)
 .TE
 
 (Signal 29 is
@@ -226,13 +230,35 @@ on several other Unix systems.
 .SS "Real-time Signals"
 Linux supports real-time signals as originally defined in the POSIX.1b
 real-time extensions (and now included in POSIX.1-2001).
-Linux supports 32 real-time signals, numbered from 32
-.RB ( SIGRTMIN )
-to 63
-.RB ( SIGRTMAX ).
-(Programs should always refer to real-time signals using notation
+The range of supported real-time signals is defined by the macros
+.B SIGRTMIN
+and
+.BR SIGRTMAX .
+POSIX.1-2001 requires that an implementation support at least
+.B _POSIX_RTSIG_MAX
+(8) real-time signals.
+.PP
+The Linux kernel supports a range of 32 different real-time
+signals, numbered 33 to 64.
+However, the glibc POSIX threads implementation internally uses
+two (for NPTL) or three (for LinuxThreads) real-time signals 
+(see
+.BR pthreads (7)),
+and adjusts the value of
+.B SIGRTMIN
+suitably (to 34 or 35).
+Because the range of available real-time signals varies according
+to the glibc threading implementation (and this variation can occur
+at run-time according to the available kernel and glibc),
+and indeed the range of real-time signals varies across Unix systems,
+programs should
+.IR "never refer to real-time signals using hard-coded numbers" ,
+but instead should always refer to real-time signals using the notation
 .BR SIGRTMIN +n,
-since the range of real-time signal numbers varies across Unix systems.)
+and include suitable (run-time) checks that 
+.BR SIGRTMIN +n
+does not exceed
+.BR SIGRTMAX .
 .PP
 Unlike standard signals, real-time signals have no predefined meanings:
 the entire set of real-time signals can be used for application-defined
@@ -282,7 +308,8 @@ Linux, like many other implementations, gives priority
 to standard signals in this case.
 .PP
 According to POSIX, an implementation should permit at least
-_POSIX_SIGQUEUE_MAX (32) real-time signals to be queued to
+.B _POSIX_SIGQUEUE_MAX
+(32) real-time signals to be queued to
 a process.
 However, Linux does things differently.
 In kernels up to and including 2.6.7, Linux imposes

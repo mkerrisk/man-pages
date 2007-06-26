@@ -22,7 +22,7 @@
 .\"
 .TH SIGQUEUE 2 2004-06-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
-sigqueue \- queue a signal and data to a process
+sigqueue, rt_sigqueueinfo \- queue a signal and data to a process
 .SH SYNOPSIS
 .B #include <signal.h>
 .sp
@@ -96,6 +96,8 @@ For the required permissions, see
 .B ESRCH
 No process has a PID matching
 .IR pid .
+.SH VERSIONS
+This system call first appeared in Linux 2.2.
 .SH "CONFORMING TO"
 POSIX.1-2001
 .SH NOTES
@@ -106,6 +108,30 @@ having it unblocked, or by waiting for it using
 .BR sigwait (3)),
 then at least some signal must be delivered to this thread before this
 function returns.
+
+On Linux, the underlying system call is actually named
+.BR rt_sigqueueinfo (),
+and differs in its third argument, which is the
+.I siginfo_t
+structure that will be supplied to the receiving process's
+signal handler or returned by the receiving process's
+.BR sigtimedwait (2)
+call.
+Inside the glibc 
+.BR sigqueue ()
+wrapper, this argument,
+.IR info ,
+is initialized as follows:
+.in +0.5i
+.nf
+
+info.si_signo = sig;      // argument supplied to sigqueue()
+info.si_code = SI_QUEUE;
+info.si_pid = getpid();
+info.si_uid = getuid();
+info.si_value = val;      // argument supplied to sigqueue()
+.fi
+.in
 .SH "SEE ALSO"
 .BR kill (2),
 .BR sigaction (2),

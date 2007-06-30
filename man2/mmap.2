@@ -1,7 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (C) 1996 Andries Brouwer <aeb@cwi.nl>
-.\" and Copyright (C) 2006 Michael Kerrisk <mtk-manpages@gmx.net>
+.\" and Copyright (C) 2006, 2007 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -34,8 +34,9 @@
 .\" Modified 2004-12-08, from Eric Estievenart <eric.estievenart@free.fr>
 .\" Modified 2004-12-08, mtk, formatting tidy-ups
 .\" Modified 2006-12-04, mtk, various parts rewritten
+.\" 2007-07-10, mtk, Added an example program.
 .\"
-.TH MMAP 2 2006-12-04 "Linux" "Linux Programmer's Manual"
+.TH MMAP 2 2007-07-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
 mmap, munmap \- map or unmap files or devices into memory
 .SH SYNOPSIS
@@ -489,6 +490,88 @@ Since kernel 2.6.12,
 fails with the error
 .B EINVAL
 for this case.
+.SH EXAMPLE
+.PP
+The following program prints part of the file specified in
+its first command-line argument to standard output.
+The range of bytes to be printed is specified via offset and length
+values in the second and third command-line arguments.
+The program creates a memory mapping of the required
+pages of the file and then uses
+.BR write (2)
+to output the desired bytes.
+.nf
+
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int
+main(int argc, char *argv[])
+{
+    char *addr;
+    int fd;
+    struct stat sb;
+    off_t offset, pa_offset;
+    size_t length;
+    ssize_t s;
+
+    if (argc < 3 || argc > 4) == 0) {
+        fprintf(stderr, "%s file offset [length]\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    if (fd == \-1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fstat(fd, &sb) == \-1) {         /* To obtain file size */
+        perror("fstat");
+        exit(EXIT_FAILURE);
+    }
+
+    offset = atoi(argv[2]);
+    pa_offset = offset & ~(sysconf(_SC_PAGE_SIZE) \- 1);
+        /* offset for mmap() must be page aligned */
+
+    if (offset >= sb.st_size) {
+        fprintf(stderr, "offset is past end of file\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (argc == 4) {
+        length = atoi(argv[3]);
+        if (offset + length > sb.st_size)
+            length = sb.st_size \- offset;
+                /* Can't display bytes past end of file */
+    } else {    /* No length arg ==> display to end of file */
+        length = sb.st_size \- offset;
+    }
+
+    addr = mmap(NULL, length + offset \- pa_offset, PROT_READ,
+                MAP_PRIVATE, fd, pa_offset);
+    if (addr == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    s = write(STDOUT_FILENO, addr + offset \- pa_offset, length);
+    if (s != length) {
+        if (s == \-1)
+            perror("write");
+        else
+            fprintf(stderr, "partial write");
+        exit(EXIT_FAILURE);
+    }
+
+    exit(EXIT_SUCCESS);
+} /* main */
+.fi
 .SH "SEE ALSO"
 .BR getpagesize (2),
 .BR mincore (2),

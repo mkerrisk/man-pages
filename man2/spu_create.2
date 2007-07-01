@@ -1,0 +1,174 @@
+.\" This is _*_ nroff _*_ source. Emacs, gimme all those colors :)
+.\"
+.\" Copyright (c) International Business Machines  Corp., 2006
+.\"
+.\" This program is free software;  you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY;  without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+.\" the GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program;  if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+.\" MA 02111-1307 USA
+.\"
+.\" HISTORY:
+.\" 2005-09-28, created by Arnd Bergmann <arndb@de.ibm.com>
+.\" 2006-06-16, revised by Eduardo M. Fleury <efleury@br.ibm.com>
+.\" 2007-07-10, some polishing by mtk
+.\"
+.TH SPU_CREATE 2 2007-07-10 "Linux" "Linux Programmer's Manual"
+.SH NAME
+spu_create \- create a new spu context
+.SH SYNOPSIS
+.nf
+.B #include <sys/types.h>
+.B #include <sys/spu.h>
+
+.BI "int spu_create(const char *" pathname ", int " flags ", mode_t " mode ");"
+.fi
+.SH DESCRIPTION
+The
+.BR spu_create ()
+system call is used on PowerPC machines that implement the
+Cell Broadband Engine Architecture in order to access Synergistic
+Processor Units (SPUs).
+It creates a new logical context for an
+SPU in
+.I pathname
+and returns a file descriptor associated with it.
+.I pathname
+must point to a non-existing directory in the mount point of the
+SPU file system (SPUFS).
+If
+.BR spu_create ()
+is successful, a directory is created in
+.I pathname
+and it is populated with the files described in
+.BR spufs (7).
+
+The returned file handler can only be passed to
+.BR spu_run (2)
+or closed;
+other operations are not defined on it.
+A logical SPU
+context is destroyed when its file descriptor is closed as well as
+all the file descriptors pointing to files inside it.
+When an SPU context is destroyed all its directory entries in the
+SPUFS are removed.
+
+The argument
+.I flags
+can be zero or the following
+constant:
+.TP
+.B SPU_RAWIO
+Allow mapping of some of the hardware registers of the SPU into user
+space.
+This flag requires the 
+.B CAP_SYS_RAWIO
+capability.
+.PP
+The new directory and files are created in the SPUFS with the
+permissions set by the 
+.I mode
+argument minus those set in the process's
+.BR umask (2).
+The actual permissions set for each file also depend on whether the
+file supports read and/or write accesses.
+.SH RETURN VALUE
+On success,
+.BR spu_create (2)
+returns a new file descriptor.
+On error, \-1 is returned and
+.I errno
+is set to one of the error codes listed below.
+.SH ERRORS
+.TP
+.B EACCESS
+The current user does not have write access to the SPUFS mount point.
+.TP
+.B EEXIST
+An SPU context already exists in the given path name.
+.TP
+.B EFAULT
+.I pathname
+is not a valid string pointer in the current address space.
+.TP
+.B EINVAL
+.I pathname
+is not a directory in the SPUFS mount point.
+.TP
+.B ELOOP
+Too many symlinks were found while resolving
+.IR pathname .
+.TP
+.B EMFILE
+The process has reached its maximum open files limit.
+.TP
+.B ENAMETOOLONG
+.I pathname
+is too long.
+.TP
+.B ENFILE
+The system has reached the global open files limit.
+.TP
+.B ENOENT
+Part of
+.I pathname
+could not be resolved.
+.TP
+.B ENOMEM
+The kernel could not allocate all resources required.
+.TP
+.B ENOSPC
+There are not enough SPU resources available to create
+a new context or the user specific limit for the number
+of SPU contexts has been reached.
+.TP
+.B ENOSYS
+The functionality is not provided by the current system, because
+either the hardware does not provide SPUs or the spufs module is not
+loaded.
+.TP
+.B ENOTDIR
+A part of
+.I pathname
+is not a directory.
+.SH FILES
+.I pathname
+must point to a location beneath the mount point of the SPUFS.
+By convention, it gets mounted in
+.IR /spu .
+.SH VERSIONS
+The
+.BR spu_create (2)
+system call was added to Linux in kernel 2.6.16.
+.SH CONFORMING TO
+This call is Linux specific and only implemented by the ppc64
+architecture.
+Programs using this system call are not portable.
+.SH NOTES
+Glibc does not provide a wrapper for this system call; call it using
+.BR syscall (2).
+Note however, that
+.BR spu_create ()
+is meant to be used from libraries that implement a more abstract
+interface to SPUs, not to be used from regular applications.
+See 
+.I http://www.bsc.es/projects/deepcomputing/linuxoncell/
+for the recommended libraries.
+.SH BUGS
+The code does not yet fully implement all features outlined here.
+.\" .SH AUTHOR
+.\" Arnd Bergmann <arndb@de.ibm.com>
+.SH SEE ALSO
+.BR close (2),
+.BR spu_run (2),
+.BR capabilities (7),
+.BR spufs (7)

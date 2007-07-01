@@ -2,6 +2,7 @@
 .\"
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"                               1993 Michael Haardt, Ian Jackson.
+.\" and Copyright (C) 2007 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -37,10 +38,11 @@
 .\" Modified 2001-10-16 by aeb
 .\" Modified 2002-04-23 by Roger Luethi <rl@hellgate.ch>
 .\" Modified 2004-06-23 by Michael Kerrisk
+.\" 2007-06-10, mtk, various parts rewritten, and added BUGS section.
 .\"
-.TH ACCESS 2 2004-06-23 "Linux" "Linux Programmer's Manual"
+.TH ACCESS 2 2007-07-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
-access \- check user's permissions for a file
+access \- check real user's permissions for a file
 .SH SYNOPSIS
 .nf
 .B #include <unistd.h>
@@ -49,53 +51,43 @@ access \- check user's permissions for a file
 .fi
 .SH DESCRIPTION
 .BR access ()
-checks whether the calling process would be allowed to read,
-write or test for existence of the file (or other file system
-object) whose name is
+checks whether the calling process can access the file
 .IR pathname .
 If
 .I pathname
-is a symbolic link permissions of the file referred to by this
-symbolic link are tested.
+is a symbolic link, it is dereferenced.
 
+The
 .I mode
-is either the value
-.BR F_OK
+specifies the accessibility check(s) to be performed,
+and is either the value
+.BR F_OK ,
 or a mask consisting of the bitwise OR of one or more of
-.BR R_OK ", " W_OK " and " X_OK .
-
-.BR R_OK ", " W_OK " and " X_OK
-request checking whether the file exists and has read, write and
-execute permissions, respectively.
+.BR R_OK ", " W_OK ", and " X_OK .
+.\" FIXME . the kernel currently allows F_OK to be specified
+.\" in conjunction with any of the other flags.
+.\" Test whether other implementations permit this and if not
+.\" file a bug report.
 .B F_OK
-just requests checking for the existence of the file.
+tests for the existence of the file.
+.BR R_OK ", " W_OK ", and " X_OK
+test whether the file exists and grants read, write, and
+execute permissions, respectively.
 
-The tests depend on the permissions of the directories
-occurring in the path to the file, as given in
-.IR pathname ,
-and on the permissions of directories and files referred to by symbolic
-links encountered on the way.
-
-The check is done with the calling process's
+The check is done using the calling process's
 .I real
-UID and GID, rather than with the effective IDs as is done when
-actually attempting an operation.
-This is to allow set-user-ID programs to
+UID and GID, rather than the effective IDs as is done when
+actually attempting an operation (e.g.,
+.BR open (2))
+on the file.
+This allows set-user-ID programs to
 easily determine the invoking user's authority.
 
-Only access bits are checked, not the file type or contents.
-Therefore, if
-a directory is found to be "writable," it probably means that files can be
-created in the directory, and not that the directory can be written as a
-file.
-Similarly, a DOS file may be found to be "executable," but the
-.BR execve (2)
-call will still fail.
-
-If the calling process has appropriate privileges, an implementation may
-indicate success for
+If the calling process is privileged (i.e., its real UID is zero),
+then an
 .B X_OK
-even if none of the execute file permission bits are set.
+check is successful for a regular file if execute permission
+is enabled for any of the file owner, group, or other.
 .SH "RETURN VALUE"
 On success (all requested permissions granted), zero is returned.
 On error (at least one bit in
@@ -159,14 +151,6 @@ executed.
 .SH "CONFORMING TO"
 SVr4, 4.3BSD, POSIX.1-2001.
 .SH NOTES
-.BR access ()
-returns an error if any of the access types in the requested call
-fails, even if other types might be successful.
-.PP
-.BR access ()
-may not work correctly on NFS file systems with UID mapping enabled,
-because UID mapping is done on the server and hidden from the client,
-which checks permissions.
 .PP
 .BR Warning:
 Using
@@ -176,7 +160,65 @@ open a file before actually doing so using
 .BR open (2)
 creates a security hole, because the user might exploit the short time
 interval between checking and opening the file to manipulate it.
-.SS Linux Notes
+.BR "For this reason, the use of this system call should be avoided" .
+.PP
+.BR access ()
+returns an error if any of the access types in
+.I mode
+is denied, even if some of the other access types in
+.I mode
+are permitted.
+.PP
+If the calling process has appropriate privileges (i.e., is superuser),
+POSIX.1-2001 permits implementation to indicate success for an
+.B X_OK
+check even if none of the execute file permission bits are set.
+Linux does not do this.
+.PP
+A file is only accessible if the permissions on each of the
+directories in the path prefix of
+.I pathname
+grant search (i.e., execute) access.
+If any directory is inaccessible, then the
+.BR access ()
+call will fail, regardless of the permissions on the file itself.
+.PP
+Only access bits are checked, not the file type or contents.
+Therefore, if a directory is found to be writable,
+it probably means that files can be created in the directory,
+and not that the directory can be written as a file.
+Similarly, a DOS file may be found to be "executable," but the
+.BR execve (2)
+call will still fail.
+.PP
+.BR access ()
+may not work correctly on NFS file systems with UID mapping enabled,
+because UID mapping is done on the server and hidden from the client,
+which checks permissions.
+.SH BUGS
+In kernel 2.4 (and earlier) there is some strangeness in the handling of
+.B X_OK
+tests for superuser.
+If all categories of execute permission are disabled
+for a non-directory file, then the only
+.BR access ()
+test that returns \-1 is when
+.I mode
+is specified as just
+.BR X_OK ;
+if
+.B R_OK
+or
+.B W_OK
+is also specified in
+.IR mode ,
+then
+.BR access ()
+returns 0 for such files.
+.\" This behavior appears to have been an implementation accident.
+Early 2.6 kernels (up to and including 2.6.3)
+also behaved in the same way as kernel 2.4.
+
 In kernels before 2.6.20,
 .BR access ()
 ignored the effect of the

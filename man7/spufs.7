@@ -1,0 +1,489 @@
+.\" This is _*_ nroff _*_ source. Emacs, gimme all those colors :)
+.\"
+.\" Copyright (c) International Business Machines  Corp., 2006
+.\"
+.\" This program is free software;  you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY;  without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+.\" the GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program;  if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+.\" MA 02111-1307 USA
+.\"
+.\" HISTORY:
+.\" 2005-09-28, created by Arnd Bergmann <arndb@de.ibm.com>,
+.\"   Mark Nutter <mnutter@us.ibm.com> and
+.\"   Ulrich Weigand <Ulrich.Weigand@de.ibm.com>
+.\" 2006-06-16, revised by Eduardo M. Fleury <efleury@br.ibm.com>
+.\" 2007-07-10, quite a lot of polishing by mtk
+.\"
+.TH SPUFS 7 2007-07-10 "Linux" "Linux Programmer's Manual"
+.SH NAME
+spufs \- the SPU file system
+.SH DESCRIPTION
+The SPU file system is used on PowerPC machines that implement the
+Cell Broadband Engine Architecture in order to access Synergistic
+Processor Units (SPUs).
+
+The file system provides a name space similar to POSIX shared
+memory or message queues.
+Users that have write permissions
+on the file system can use 
+.BR spu_create (2)
+to establish SPU contexts under the spufs root directory.
+
+Every SPU context is represented by a directory containing
+a predefined set of files.
+These files can be
+used for manipulating the state of the logical SPU.
+Users can change permissions on those files, but can't
+add or remove files.
+.SS Mount Options
+.TP
+.B uid=<uid>
+set the user owning the mount point; the default is 0 (root).
+.TP
+.B gid=<gid>
+set the group owning the mount point; the default is 0 (root).
+.SS Files
+The files in
+.I spufs
+mostly follow the standard behavior for regular system calls like
+.BR read (2)
+or
+.BR write (2),
+but often support only a subset of the operations
+supported on regular file systems.
+This list details the supported
+operations and the deviations from the standard behavior described
+in the respective man pages.
+
+All files that support the
+.BR read (2)
+operation also support
+.BR readv (2)
+and all files that support the
+.BR write (2)
+operation also support
+.BR writev (2).
+
+All files support the
+.BR access (2)
+and
+.BR stat (2)
+family of operations, but for the latter call,
+the only fields of the returned 
+.I stat
+structure that contain reliable information are
+.IR st_mode ,
+.IR st_nlink ,
+.IR st_uid ,
+and
+.IR st_gid .
+
+All files support the
+.BR chmod (2)/ fchmod (2)
+and
+.BR chown (2)/ fchown (2)
+operations, but will not be able to grant permissions that contradict
+the possible operations (e.g., read access on the
+.I wbox
+file).
+
+The current set of files is:
+.TP
+.B /mem
+the contents of the local storage memory of the SPU.
+This can be accessed like a regular shared memory
+file and contains both code and data in the address
+space of the SPU.
+The possible operations on an open
+.I mem
+file are:
+.RS
+.TP
+.BR read "(2), " pread "(2), " write "(2), " pwrite "(2), " lseek (2)
+These operate as usual, with the exception that 
+.BR seek "(2), " write (2)
+and 
+.BR pwrite (2)
+are not supported beyond the end of the file.
+The file size
+is the size of the local storage of the SPU,
+which is normally 256 kilobytes.
+.TP
+.BR mmap (2)
+Mapping
+.I mem
+into the process address space provides access to the SPU local
+storage within the process address space.
+Only
+.B MAP_SHARED
+mappings are allowed.
+.RE
+.TP
+.B /mbox
+The first SPU-to-CPU communication mailbox.
+This file
+is read-only and can be read in units of 32 bits.
+The file can only be used in non-blocking mode and not
+even 
+.BR poll (2)
+will block on it.
+The only possible operation on an open 
+.I mbox
+file is:
+.RS
+.TP
+.BR read (2)
+If
+.I count
+is smaller than four,
+.BR read (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+If there is no data available in the mailbox, the return
+value is set to \-1 and
+.I errno
+is set to
+.BR EAGAIN .
+When data
+has been read successfully, four bytes are placed in
+the data buffer and the value four is returned.
+.RE
+.TP
+.B /ibox
+The second SPU-to-CPU communication mailbox.
+This file is similar to the first mailbox file, but can be read
+in blocking I/O mode, thus
+.BR poll (2)
+and similar system calls can be used to monitor this file.
+The possible operations on an open 
+.I ibox
+file are:
+.RS
+.TP
+.BR read (2)
+If
+.I count
+is smaller than four,
+.BR read (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+If there is no data available in the mailbox and the file
+descriptor has been opened with
+.BR O_NONBLOCK ,
+the return value is set to \-1 and
+.I errno
+is set to
+.BR EAGAIN .
+
+If there is no data available in the mailbox and the file
+descriptor has been opened without
+.BR O_NONBLOCK ,
+the call will
+block until the SPU writes to its interrupt mailbox channel.
+When data has been read successfully, four bytes are placed in
+the data buffer and the value four is returned.
+.TP
+.BR poll (2)
+Poll on the 
+.I ibox
+file returns
+.I "(POLLIN | POLLRDNORM)"
+whenever data is available for reading.
+.RE
+.TP
+.B /wbox
+The CPU-to-SPU communication mailbox.
+It is write-only and can be written in units of 32 bits.
+If the mailbox is full,
+.BR write (2)
+will block and
+.BR poll (2)
+can be used to wait for it to become empty again.
+The possible operations on an open 
+.I wbox
+file are:
+.RS
+.TP
+.BR write (2)
+If
+.I count
+is smaller than four,
+.BR write (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+If there is no space available in the mailbox and the file
+descriptor has been opened with
+.BR O_NONBLOCK ,
+the return
+value is set to \-1 and
+.I errno
+is set to
+.BR EAGAIN .
+
+If there is no space available in the mailbox and the file
+descriptor has been opened without
+.BR O_NONBLOCK ,
+the call will
+block until the SPU reads from its PPE mailbox channel.
+When data has been written successfully, 
+the system call returns four as its function result.
+.TP
+.BR poll (2)
+A poll on the 
+.I wbox
+file returns
+.I "(POLLOUT | POLLWRNORM)"
+whenever space is available for writing.
+.RE
+.TP
+.BR /mbox_stat ", " /ibox_stat ", " /wbox_stat
+These are read-only files that contain the length of the current
+queue of each mailbox, i.e., how many words can be read from 
+.IR mbox " or " ibox
+or how many words can be written to
+.I wbox 
+without blocking.
+The files can be read only in four-byte units and return
+a big-endian binary integer number.
+The possible operations on an open 
+.I *box_stat
+file are:
+.RS
+.TP
+.BR read (2)
+If
+.I count
+is smaller than four,
+.BR read (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL.
+Otherwise, a four-byte value is placed in the data buffer.
+This value is the number of elements that can be read from (for
+.I mbox_stat
+and
+.IR ibox_stat )
+or written to (for
+.IR wbox_stat )
+the respective mailbox without blocking or getting an
+.BR EAGAIN 
+error.
+.RE
+.TP
+.BR /npc ", " /decr ", " /decr_status ", " /spu_tag_mask ", " \
+/event_mask ", " /srr0
+These files expose internal registers of the SPU.
+The values are represented
+as ASCII strings containing the numeric value of each register.
+These can be used in read/write mode for debugging, but normal
+operation of programs should not rely on these files because
+accesses to any of them except
+.I npc
+require an SPU context save, which is very inefficient.
+.IP
+The contents of these files are:
+.RS
+.TP 16
+.I npc
+Next Program Counter
+.TP
+.I decr
+SPU Decrementer
+.TP
+.I decr_status
+Decrementer Status
+.TP
+.I spu_tag_mask
+MFC tag mask for SPU DMA
+.TP
+.I event_mask
+Event mask for SPU interrupts
+.TP
+.I srr0
+Interrupt Return address register
+.RE
+.IP
+The possible operations on one of these files are:
+.RS
+.TP
+.BR read (2)
+When the
+.I count
+supplied to the 
+.BR read (2)
+call is shorter than the required length for the register
+value plus a newline character, subsequent reads from the same
+file descriptor will complete the string, regardless
+of changes to the register by a running SPU task.
+When a complete string has been read, all subsequent read operations
+will return zero bytes and a new file descriptor needs to be opened 
+to read a new value.
+.TP
+.BR write (2)
+A 
+.BR write (2)
+operation on the file sets the register to the 
+value given in the string.
+The string is parsed from the beginning 
+until the first non-numeric character or the end of the buffer.
+Subsequent writes to the same file descriptor overwrite the 
+previous setting.
+.RE
+.TP
+.B /fpcr
+This file provides access to the Floating Point Status and 
+Control Register as a four-byte file.
+The operations on the
+.I fpcr
+file are:
+.RS
+.TP
+.BR read (2)
+If
+.I count
+is smaller than four,
+.BR read (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+Otherwise, a four-byte value is placed in the data buffer;
+this is the current value of the
+.I fpcr
+register.
+.TP
+.BR write (2)
+If
+.I count
+is smaller than four,
+.BR write (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+Otherwise, a four-byte value is copied from the data buffer,
+updating the value of the
+.I fpcr
+register.
+.RE
+.TP
+.BR /signal1 ", " /signal2
+The files provide access to the two signal notification channels
+of an SPU.
+These are read-write files that operate on 32-bit words.
+Writing to one of these files triggers an interrupt on the SPU.
+The value written to the signal files can
+be read from the SPU through a channel read or from
+host user space through the file.
+After the value has been read by the SPU, it is reset to zero.
+The possible operations on an open 
+.I signal1
+or
+.I signal2
+file are:
+.RS
+.TP
+.BR read (2)
+If
+.I count
+is smaller than four,
+.BR read (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+Otherwise, a four-byte value is placed in the data buffer;
+this is the current value of the specified signal notification
+register.
+.TP
+.BR write (2)
+If
+.I count
+is smaller than four,
+.BR write (2)
+returns \-1 and sets
+.I errno
+to
+.BR EINVAL .
+Otherwise, a four-byte value is copied from the data buffer,
+updating the value of the specified signal notification 
+register.
+The signal notification register will either be replaced with 
+the input data or will be updated to the bitwise OR operation 
+of the old value and the input data, depending on the contents
+of the
+.IR signal1_type
+or
+.IR signal2_type
+files respectively.
+.RE
+.TP
+.BR /signal1_type ", " /signal2_type
+These two files change the behavior of the
+.IR signal1
+and
+.I signal2
+notification files.
+They contain a numerical
+ASCII string which is read as either "1" or "0".
+In mode 0 (overwrite), the hardware replaces the contents
+of the signal channel with the data that is written to it.
+In mode 1 (logical OR), the hardware accumulates the bits
+that are subsequently written to it.
+The possible operations on an open 
+.I signal1_type
+or
+.I signal2_type
+file are:
+.RS
+.TP
+.BR read (2)
+When the count supplied to the
+.BR read (2)
+call is shorter than the required length for the digit
+plus a newline character, subsequent reads from the same
+file descriptor will complete the string.
+When a complete string has been read, all subsequent read operations
+will return zero bytes and a new file descriptor needs to be opened
+to read the value again.
+.TP
+.BR write (2)
+A 
+.BR write (2)
+operation on the file sets the register to the
+value given in the string.
+The string is parsed from the beginning
+until the first non-numeric character or the end of the buffer.
+Subsequent writes to the same file descriptor overwrite the
+previous setting.
+.RE
+.SH EXAMPLE
+.TP
+.IR /etc/fstab "  entry"
+none  	/spu  	spufs  	gid=spu  	0	0
+.\" .SH AUTHORS
+.\" Arnd Bergmann <arndb@de.ibm.com>,
+.\" Mark Nutter <mnutter@us.ibm.com> and
+.\" Ulrich Weigand <Ulrich.Weigand@de.ibm.com>
+.SH SEE ALSO
+.BR close (2),
+.BR spu_create (2),
+.BR spu_run (2),
+.BR capabilities (7)

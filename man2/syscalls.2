@@ -34,8 +34,33 @@ Linux system calls.
 .SH DESCRIPTION
 The system call is the fundamental interface between an application
 and the Linux kernel.
+.SS System calls and library wrapper functions
+System calls are generally not invoked directly,
+but rather via wrapper functions in glibc (or perhaps some other libc).
+Often, but not always, the name of the wrapper function is the same
+as the name of the system call that it invokes.
+For example, glibc contains a function
+.BR truncate ()
+which invokes the underlying "truncate" system call.
 
-This man page lists those system calls that are common to most platforms.
+Often the glibc wrapper function is quite thin, doing little work
+before invoking the system call.
+
+Sometimes, however, the wrapper function does some extra work
+before invoking the system call.
+For example, nowadays there are (for reasons described below) two
+related system calls,
+.BR truncate (2)
+and
+.BR truncate64 (2),
+and the glibc
+.BR truncate ()
+wrapper function determines which system call should be employed.
+(This "impedance layer" for programs linked against glibc
+allows new programs to use the more modern version of the underlying
+system calls while preserving the semantics of old binaries.)
+.SS System call list
+Below is a list of those system calls that are common to most platforms.
 In the list, the
 .I Kernel
 column indicates the kernel version
@@ -45,6 +70,8 @@ Note the following points:
 .IP * 3
 Where no kernel version is indicated,
 the system call appeared in kernel 2.0 or earlier.
+.\" kernel 1.2 was started from a branch of 1.0.6
+.\" kernel 2.0 was started from a branch of 1.2.?? (to determine)
 .IP *
 Where a system call is marked "2.2"
 this means the system call probably appeared in a 2.1.x kernel version,
@@ -84,6 +111,8 @@ The list of system calls that are available as at kernel 2.6.22
 .\" instructive about i386 specifics.
 .\"
 .TS
+l l l
+---
 l l l.
 \fBSystem call	Kernel	Notes\fP
 
@@ -102,8 +131,7 @@ l l l.
 \fBbind\fP(2)
 \fBbreak\fP(2)
 \fBbrk\fP(2)
-\fBcacheflush\fP(2)		Various architectures;
-		but not on i386
+\fBcacheflush\fP(2)		Not on i386
 \fBcapget\fP(2)	2.2
 \fBcapset\fP(2)	2.2
 \fBchdir\fP(2)
@@ -132,8 +160,9 @@ l l l.
 \fBexit\fP(2)
 \fBexit_group\fP(2)	2.6; 2.4.20
 \fBfaccessat\fP(2)	2.6.16
-\fBfadvise64\fP(2)	2.6	Implements \fBposix_fadvise\fP(2)
-\fBfadvise64_64\fP(2)	2.6	Implements \fBposix_fadvise\fP(2)
+\fBfadvise64\fP(2)	2.6
+.\" Implements \fBposix_fadvise\fP(2)
+\fBfadvise64_64\fP(2)	2.6
 \fBfchdir\fP(2)
 \fBfchmod\fP(2)
 \fBfchmodat\fP(2)	2.6.16
@@ -156,8 +185,8 @@ l l l.
 \fBfstatfs\fP(2)
 \fBfstatfs64\fP(2)	2.6
 \fBfsync\fP(2)
-\fBftime\fP(2)		Implemented in glibc;
-		see \fBftime\fP(3)
+\fBftime\fP(2)
+.\" Implemented in glibc; see \fBftime\fP(3)
 \fBftruncate\fP(2)
 \fBftruncate64\fP(2)	2.4
 \fBfutex\fP(2)	2.6; 2.4.19
@@ -180,12 +209,12 @@ l l l.
 \fBgetgroups32\fP(2)	2.4
 \fBgetitimer\fP(2)
 \fBgetpeername\fP(2)
-\fBgetpagesize\fP(2)		Various architectures;
-		but not on i386
+\fBgetpagesize\fP(2)		Not on i386
 \fBgetpgid\fP(2)
 \fBgetpgrp\fP(2)
 \fBgetpid\fP(2)
-\fBgetpmsg\fP(2)	2.2	Reserved for STREAMS support
+\fBgetpmsg\fP(2)	2.2
+.\" Reserved for STREAMS support
 \fBgetppid\fP(2)
 \fBgetpriority\fP(2)
 \fBgetresgid\fP(2)	2.2
@@ -219,9 +248,10 @@ l l l.
 \fBiopl\fP(2)
 \fBioprio_get\fP(2)	2.6.13
 \fBioprio_set\fP(2)	2.6.13
-\fBipc\fP(2)		Implements System V IPC calls
-\fBkexec_load\fP(2)	2.6.7	Was named sys_kexec_load()
-		from 2.6.7 to 2.6.16
+\fBipc\fP(2)
+.\" Implements System V IPC calls
+\fBkexec_load\fP(2)	2.6.7
+.\" Was named sys_kexec_load() from 2.6.7 to 2.6.16
 \fBkeyctl\fP(2)	2.6.11
 \fBkill\fP(2)
 \fBlchown\fP(2)	2.2
@@ -258,8 +288,8 @@ l l l.
 \fBmove_pages\fP(2)	2.6.18
 \fBmprotect\fP(2)
 \fBmpx\fP(2)
-\fBmq_getsetattr\fP(2)	2.6.6	Implements \fBmq_getattr\fP(3)
-		and \fBmq_setattr\fP(3)
+\fBmq_getsetattr\fP(2)	2.6.6
+.\" Implements \fBmq_getattr\fP(3) and \fBmq_setattr\fP(3)
 \fBmq_notify\fP(2)	2.6.6
 \fBmq_open\fP(2)	2.6.6
 \fBmq_timedreceive\fP(2)	2.6.6
@@ -287,14 +317,17 @@ l l l.
 \fBopen\fP(2)
 \fBopenat\fP(2)	2.6.16
 \fBpause\fP(2)
-\fBpciconfig_iobase\fP(2)	2.2.15; 2.4	Alpha, PowerPC, ARM; not i386
-\fBpciconfig_read\fP(2)	2.0.26; 2.2	Alpha, PowerPC, ARM; not i386
-\fBpciconfig_write\fP(2)	2.0.26; 2.2	Alpha, PowerPC, ARM; not i386
+\fBpciconfig_iobase\fP(2)	2.2.15; 2.4	Not on i386
+.\" Alpha, PowerPC, ARM; not i386
+\fBpciconfig_read\fP(2)	2.0.26; 2.2	Not on i386
+.\" , PowerPC, ARM; not i386
+\fBpciconfig_write\fP(2)	2.0.26; 2.2	Not on i386
+    .\" , PowerPC, ARM; not i386
 \fBpersonality\fP(2)
 .\" \fBperfctr\fP(2)	???	Sparc32, Sparc64
 .\" \fBperfmonctl\fP(2)	???	IA-64
-\fBphys\fP(2)		Unimplemented (no slot
-		since 2.1.116)
+\fBphys\fP(2)
+.\" Unimplemented (no slot since 2.1.116)
 \fBpipe\fP(2)
 \fBpivot_root\fP(2)	2.5
 \fBpoll\fP(2)	2.2
@@ -303,18 +336,21 @@ l l l.
 \fBpread64\fP(2)		Added as "pread" in 2.2;
 		renamed "pread64" in 2.6
 \fBprof\fP(2)
-\fBprofil\fP(2)		Implemented in glibc;
-		see \fBprofil\fP(3)
-\fBpselect6\fP(2)	2.6.16	Implements \fBpselect\fP(2)
+\fBprofil\fP(2)
+.\" Implemented in glibc; see \fBprofil\fP(3)
+\fBpselect6\fP(2)	2.6.16
+.\" Implements \fBpselect\fP(2)
 \fBptrace\fP(2)
-\fBputpmsg\fP(2)	2.2	Reserved for STREAMS support
+\fBputpmsg\fP(2)	2.2
+.\" Reserved for STREAMS support
 \fBpwrite64\fP(2)		Added as "pwrite" in 2.2;
 		renamed "pwrite64" in 2.6
 \fBquery_module\fP(2)	2.2
 \fBquotactl\fP(2)
 \fBread\fP(2)
 \fBreadahead\fP(2)	2.4.13
-\fBreaddir\fP(2)		Superseded by \fBgetdents\fP(2)
+\fBreaddir\fP(2)
+.\" Supersedes \fBgetdents\fP(2)
 \fBreadlink\fP(2)
 \fBreadlinkat\fP(2)	2.6.16
 \fBreadv\fP(2)
@@ -332,7 +368,8 @@ l l l.
 \fBrt_sigaction\fP(2)	2.2
 \fBrt_sigpending\fP(2)	2.2
 \fBrt_sigprocmask\fP(2)	2.2
-\fBrt_sigqueueinfo\fP(2)	2.2	Implements \fBsigqueue\fP(2)
+\fBrt_sigqueueinfo\fP(2)	2.2
+.\" Implements \fBsigqueue\fP(2)
 \fBrt_sigreturn\fP(2)	2.2
 \fBrt_sigsuspend\fP(2)	2.2
 \fBrt_sigtimedwait\fP(2)	2.2
@@ -408,7 +445,8 @@ l l l.
 \fBsigreturn\fP(2)
 \fBsigsuspend\fP(2)
 \fBsocket\fP(2)
-\fBsocketcall\fP(2)		Implements BSD socket calls
+\fBsocketcall\fP(2)
+.\" Implements BSD socket calls
 \fBsocketpair\fP(2)
 \fBsplice\fP(2)	2.6.17
 \fBspu_create\fP(2)	2.6.16	PowerPC only
@@ -429,7 +467,8 @@ l l l.
 .\" \fBsys_debug_setcontext\fP(2)	???	PowerPC if CONFIG_PPC32
 \fBsysfs\fP(2)
 \fBsysinfo\fP(2)
-\fBsyslog\fP(2)		glibc interface is \fBklogctl\fP(3)
+\fBsyslog\fP(2)
+.\" glibc interface is \fBklogctl\fP(3)
 \fBtee\fP(2)	2.6.17
 \fBtgkill\fP(2)	2.6
 \fBtime\fP(2)
@@ -443,11 +482,12 @@ l l l.
 \fBtkill\fP(2)	2.6; 2.4.22
 \fBtruncate\fP(2)
 \fBtruncate64\fP(2)	2.4
-\fBtuxcall\fP(2)		Unimplemented; no slot on i386
+\fBtuxcall\fP(2)
+.\" Unimplemented; no slot on i386
 .\" As at 2.6.22, tuxcall has a slot on PowerPC, x86_64, and alpha
 \fBugetrlimit\fP(2)	2.4
-\fBulimit\fP(2)		Implemented in glibc;
-		see \fBulimit\fP(3)
+\fBulimit\fP(2)
+.\" Implemented in glibc; see \fBulimit\fP(3)
 \fBumask\fP(2)
 \fBumount\fP(2)
 .\" sys_oldumount() -- __NR_umount
@@ -464,7 +504,8 @@ l l l.
 \fButimes\fP(2)	2.6
 \fBvfork\fP(2)
 \fBvhangup\fP(2)
-\fBvm86old\fP(2)		Superseded by \fBvm86\fP(2)
+\fBvm86old\fP(2)
+.\" Superseded by \fBvm86\fP(2)
 \fBvmsplice\fP(2)	2.6.17
 \fBvserver\fP(2)	2.6
 \fBwait4\fP(2)
@@ -474,6 +515,12 @@ l l l.
 \fBwritev\fP(2)
 .TE
 .PP
+On many platforms, including i386, socket calls are all multiplexed
+(via glibc wrapper functions) through
+.BR socketcall (2)
+and similarly System V IPC calls are multiplexed through
+.BR ipc (2).
+.SH NOTES
 Note the following points:
 .IP * 3
 Although slots are reserved for them in the system call table,
@@ -541,17 +588,22 @@ Over time, changes to the interfaces of some system calls have been
 necessary.
 One reason for such changes was the need to increase the size of
 structures or scalar values passed to the system call.
-Because of these changes, there are now multiple implementations
-of certain system calls.
-These different versions are incompatible at the binary level,
-but applications are generally unaware of this: glibc does some magic
-to ensure that existing binaries use the version of the system
-call that was current when the binary was created,
-so that ABI compatibility is preserved.
+Because of these changes, there are now various groups
+of related system calls
+(e.g.,
+.BR truncate (2)
+and
+.BR ftruncate64 (2))
+which perform similar tasks, but which vary in
+details such as the size of their arguments.
+(As noted earlier, applications are generally unaware of this:
+the glibc wrapper functions do some work to ensure that the right
+system call is invoked, and that ABI compatibility is
+preserved for old binaries.)
 Examples of systems calls that exist in multiple versions are
 the following:
 .IP * 3
-By now there are three different implementations of
+By now there are three different versions of
 .BR stat (2):
 .IR sys_stat ()
 (slot
@@ -583,16 +635,14 @@ refer to the routines
 and
 .IR sys_newuname ().
 .IP *
-In Linux 2.0,
-a new version of
+In Linux 2.0, a new version of
 .BR vm86 (2)
 appeared, with the old and the new kernel routines being named
 .IR sys_vm86old ()
 and
 .IR sys_vm86 ().
 .IP *
-In Linux 2.4,
-a new version of
+In Linux 2.4, a new version of
 .BR getrlimit (2)
 appeared, with the old and the new kernel routines being named
 .IR sys_old_getrlimit ()
@@ -644,14 +694,14 @@ of real-time signals (see
 These system calls supersede the older system calls of the same
 name without the "rt_" prefix.
 .IP *
-It is different with
-.B select (2)
+The
+.BR select (2)
 and
-.BR mmap (2).
-These use five or more parameters, and caused problems the way
+.BR mmap (2)
+system calls use five or more parameters,
+which caused problems the way
 parameter passing on the i386 used to be set up.
-Thus, while
-other architectures have
+Thus, while other architectures have
 .IR sys_select ()
 and
 .IR sys_mmap ()
@@ -668,37 +718,31 @@ parameter block) instead.
 These days passing five parameters
 is not a problem any more, and there is a
 .IR __NR__newselect
-(used by
-libc 6) that corresponds directly to
+.\" (used by libc 6)
+that corresponds directly to
 .IR sys_select ()
 and similarly
-.IR __NR_mmap2.
-.PP
-Two system call numbers,
-.IR __NR__llseek
-and
-.IR __NR__sysctl
-have an additional underscore absent in
-.IR sys_llseek ()
-and
-.IR sys_sysctl ().
-
-On many platforms, including i386, socket calls are all multiplexed
-through
-.BR socketcall (2)
-and System V IPC calls are multiplexed through
-.BR ipc (2).
-
-In kernel 2.1.81,
-.BR lchown (2)
-and 
-.BR chown (2)
-were swapped; that is,
-.BR lchown (2)
-was added with the semantics that were then current for
-.BR chown (2),
-and the semantics of the latter call were changed to what
-they are today.
+.IR __NR_mmap2 .
+.\" .PP
+.\" Two system call numbers,
+.\" .IR __NR__llseek
+.\" and
+.\" .IR __NR__sysctl
+.\" have an additional underscore absent in
+.\" .IR sys_llseek ()
+.\" and
+.\" .IR sys_sysctl ().
+.\" 
+.\" In kernel 2.1.81,
+.\" .BR lchown (2)
+.\" and 
+.\" .BR chown (2)
+.\" were swapped; that is,
+.\" .BR lchown (2)
+.\" was added with the semantics that were then current for
+.\" .BR chown (2),
+.\" and the semantics of the latter call were changed to what
+.\" they are today.
 .SH SEE ALSO
 .BR syscall (2),
 .BR unimplemented (2)

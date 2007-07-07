@@ -52,6 +52,14 @@ stat, fstat, lstat \- get file status
 .BI "int fstat(int " filedes ", struct stat *" buf );
 .br
 .BI "int lstat(const char *" path ", struct stat *" buf );
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR lstat ():
+_BSD_SOURCE || _XOPEN_SOURCE >= 500
 .SH DESCRIPTION
 .PP
 These functions return information about a file.
@@ -445,6 +453,34 @@ Similar remarks apply for
 .BR fstat (2)
 and
 .BR lstat (2).
+.\"
+.\" A note from Andries Brouwer, July 2007
+.\" 
+.\" > Is the story not rather more complicated for some calls like 
+.\" > stat(2)?
+.\" 
+.\" Yes and no, mostly no. See /usr/include/sys/stat.h .
+.\" 
+.\" The idea is here not so much that syscalls change, but that
+.\" the definitions of struct stat and of the types dev_t and mode_t change.
+.\" This means that libc (even if it does not call the kernel
+.\" but only calls some internal function) must know what the
+.\" format of dev_t or of struct stat is.
+.\" The communication between the application and libc goes via
+.\" the include file <sys/stat.h> that defines a _STAT_VER and
+.\" _MKNOD_VER describing the layout of the data that user space
+.\" uses. Each (almost each) occurrence of stat() is replaced by
+.\" an occurrence of xstat() where the first parameter of xstat()
+.\" is this version number _STAT_VER.
+.\" 
+.\" Now, also the definitions used by the kernel change.
+.\" But glibc copes with this in the standard way, and the
+.\" struct stat as returned by the kernel is repacked into
+.\" the struct stat as expected by the application.
+.\" Thus, _STAT_VER and this setup cater for the application-libc
+.\" interface, rather than the libc-kernel interface.
+.\" 
+.\" (Note that the details depend on gcc being used as c compiler.)
 .SH EXAMPLE
 The following program calls
 .BR stat (2)

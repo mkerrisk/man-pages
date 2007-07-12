@@ -3,6 +3,7 @@
 # Do "make install" to copy the pages to their destination.
 # Do "make gz" or "make bz2" first if you use compressed source pages.
 
+DESTDIR=
 prefix?=/usr
 MANDIR=$(prefix)/share/man
 
@@ -48,11 +49,11 @@ html:
 		done; \
 	done; fi
 
-README=$(MANDIR)/man1/README
+README=$(DESTDIR)$(MANDIR)/man1/README
 install:
 	for i in man? man??; do \
-		install -d -m 755 $(MANDIR)/"$$i"; \
-		install -m 644 "$$i"/* $(MANDIR)/"$$i"; \
+		install -d -m 755 $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
+		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 	done; \
 	rm -f $(README) $(README).gz $(README).bz2
 

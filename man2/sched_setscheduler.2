@@ -1,6 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (C) Tom Bjorkholm, Markus Kuhn & David A. Wheeler 1996-1999
+.\" and Copyright (C) 2007 Carsten Emde <Carsten.Emde@osadl.org>
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -33,6 +34,9 @@
 .\"	A couple of grammar clean-ups
 .\" Modified 2004-05-27 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" 2005-03-23, mtk, Added description of SCHED_BATCH.
+.\" 2007-07-10, Carsten Emde <Carsten.Emde@osadl.org>
+.\"     Add text on real-time features that are currently being
+.\"     added to the mainline kernel.
 .\"
 .TH SCHED_SETSCHEDULER 2 2006-03-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -326,33 +330,59 @@ and details vary across systems.
 For example, the Solaris 7 manual page says that
 the real of effective user ID of the calling process
 match the real user ID or the save set-user-ID of the target process.
-
-Standard Linux is a general-purpose operating system
-and can handle background processes,
-interactive applications, and soft real-time applications
-(applications that need to usually meet timing deadlines).
-This man page is directed at these kinds of applications.
 .PP
-Standard Linux is
-.I not
-designed to support
-hard real-time applications, that is, applications in which deadlines
-(often much shorter than a second) must be guaranteed or the system
-will fail catastrophically.
-Like all general-purpose operating systems, Linux
-is designed to maximize average case performance
-instead of worst case performance.
-Linux's worst case performance for
-interrupt handling is much poorer than its average case, its various
-kernel locks (such as for SMP) produce long maximum wait times, and
-many of its performance improvement techniques decrease average time by
-increasing worst-case time.
-For most situations, that's what you want, but
-if you truly are developing a hard real-time application,
-consider using hard real-time extensions to Linux such as
-RTLinux (http://www.rtlinux.org) or RTAI (http://www.rtai.org)
-or use a different operating system
-designed specifically for hard real-time applications.
+Originally, Standard Linux was intended as a general-purpose operating
+system being able to handle background processes, interactive
+applications, and less demanding real-time applications (applications that
+need to usually meet timing deadlines).
+Although the Linux kernel 2.6
+allowed for kernel preemption and the newly introduced O(1) scheduler
+ensures that the time needed to schedule is fixed and deterministic
+irrespective of the number of active tasks, true real-time computing
+was not possible up to kernel version 2.6.17.
+.SS Real-time features in the mainline Linux kernel
+.\" FIXME . Probably this text will need tome minor tweaking
+.\" by about the time of 2.6.25; ask Carsten Emde about this then.
+From kernel version 2.6.18 onwards, however, Linux is gradually
+becoming equipped with real-time capabilities,
+most of which are derived from the former
+realtime-preempt patches developed by Ingo Molnar, Thomas Gleixner and
+others.
+Until the patches have been completely merged into the 
+mainline kernel
+(this is expected to be around kernel version 2.6.24 or 2.6.25),
+the realtime-preempt patches must be installed to achieve the best
+realtime performance.
+These patches are named:
+.in +0.5i
+.nf
+
+patch-\fIkernelversion\fP-rt\fIpatchversion\fP
+.fi
+.in
+.PP
+and can be downloaded from
+.IR http://people.redhat.com/mingo/realtime-preempt/ .
+
+Without the patches and prior to their full inclusion into the mainline
+kernel, the kernel configuration offers only the three preemption classes
+.BR CONFIG_PREEMPT_NONE ,
+.BR CONFIG_PREEMPT_VOLUNTARY ,
+and
+.BR CONFIG_PREEMPT_DESKTOP
+which respectively provide no, some, and considerable
+reduction of the worst-case scheduling latency.
+
+With the patches applied or after their full inclusion into the mainline
+kernel, the additional configuration item
+.BR CONFIG_PREEMPT_RT
+becomes available.
+If this is selected, Linux is transformed into a regular
+real-time operating system.
+The FIFO and RR scheduling policies that can be selected using
+.BR sched_setscheduler ()
+are then used to run a process
+with true real-time priority and a minimum worst-case scheduling latency.
 .SH "SEE ALSO"
 .BR getpriority (2),
 .BR mlock (2),

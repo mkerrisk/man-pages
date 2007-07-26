@@ -31,7 +31,7 @@
 .\" 	reorganized and rewrote much of the page
 .\" 2006-05-24, Michael Kerrisk <mtk-manpages@gmx.net>
 .\"	Added an example program.
-.TH FTW 3 2006-05-24 "Linux" "Linux Programmer's Manual"
+.TH FTW 3 2007-07-26 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ftw, nftw \- file tree walk
 .SH SYNOPSIS
@@ -348,17 +348,18 @@ argument when calling
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 static int
 display_info(const char *fpath, const struct stat *sb,
              int tflag, struct FTW *ftwbuf)
 {
-    printf("%\-3s %2d %7lld   %\-40s %d %s\\n",
+    printf("%\-3s %2d %7jd   %\-40s %d %s\\n",
         (tflag == FTW_D) ?   "d"   : (tflag == FTW_DNR) ? "dnr" :
         (tflag == FTW_DP) ?  "dp"  : (tflag == FTW_F) ?   "f" :
         (tflag == FTW_NS) ?  "ns"  : (tflag == FTW_SL) ?  "sl" :
         (tflag == FTW_SLN) ? "sln" : "???",
-        ftwbuf\->level, (long long) sb\->st_size,
+        ftwbuf\->level, (intmax_t) sb\->st_size,
         fpath, ftwbuf\->base, fpath + ftwbuf\->base);
     return 0;           /* To tell nftw() to continue */
 }
@@ -373,7 +374,10 @@ main(int argc, char *argv[])
     if (argc > 2 && strchr(argv[2], 'p') != NULL)
         flags |= FTW_PHYS;
 
-    nftw((argc < 2) ? "." : argv[1], display_info, 20, flags);
+    if (nftw((argc < 2) ? "." : argv[1], display_info, 20, flags) == \-1) {
+	perror("nftw");
+        exit(EXIT_FAILURE);
+    }
     exit(EXIT_SUCCESS);
 }
 .fi

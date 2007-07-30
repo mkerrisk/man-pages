@@ -74,12 +74,12 @@ characters preceding the terminating null byte.
 POSIX.1-2001 also documents the field
 .I "ino_t d_ino"
 as an XSI extension.
-.IR "Use of other fields will harm the portability of your programs" .
+The other fields are unstandardized, and not present on all systems;
+see NOTES below for some further details.
 .PP
 The data returned by
 .BR readdir ()
-may be overwritten by subsequent
-calls to
+may be overwritten by subsequent calls to
 .BR readdir ()
 for the same directory stream.
 .SH "RETURN VALUE"
@@ -99,12 +99,35 @@ Invalid directory stream descriptor \fIdir\fP.
 .SH "CONFORMING TO"
 SVr4, 4.3BSD, POSIX.1-2001
 .SH NOTES
+Only the fields
+.I d_name
+and
+.I d_ino
+are specified in POSIX.1-2001.
+The remaining fields are available on many, but not all systems.
+Under glibc,
+programs can check for the availability of the fields not defined
+in POSIX.1 by testing whether the macros 
+.BR _DIRENT_HAVE_D_NAMLEN ,
+.BR _DIRENT_HAVE_D_RECLEN ,
+.BR _DIRENT_HAVE_D_OFF ,
+or
+.BR _DIRENT_HAVE_D_TYPE
+are defined.
+
+Other than Linux, the
+.I d_type
+field is available mainly only on BSD systems.
+This field makes it possible to to avoid the expense of calling
+.BR stat ()
+if further
+actions depend on the type of the file.
 If the
 .B _BSD_SOURCE
 feature test macro is defined,
 then glibc defines the following macro constants
 for the value returned in
-.IR d_type:
+.IR d_type :
 .TP 12
 .B DT_UNKNOWN
 The file type is unknown.
@@ -121,13 +144,18 @@ This is a directory.
 This is a named pipe, or FIFO.
 .TP
 .B DT_SOCK
-This is a  Unix domain socket.
+This is a Unix domain socket.
 .TP
 .B DT_CHR
 This is a character device.
 .TP
 .B DT_BLK
 This is a block device.
+.PP
+If the file type could not be determined, the value
+.BR DT_UNKNOWN
+is returned in
+.IR d_type .
 .SH "SEE ALSO"
 .BR read (2),
 .BR closedir (3),

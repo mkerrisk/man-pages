@@ -31,8 +31,10 @@
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" 2006-09-04 Michael Kerrisk <mtk-manpages@gmx.net>
 .\"     Added list of process attributes that are not preserved on exec().
+.\" 2007-09-14 Ollie Wild <aaw@google.com>, mtk
+.\"     Add text describing limits on command-line arguments + environment
 .\"
-.TH EXECVE 2 2006-09-04 "Linux" "Linux Programmer's Manual"
+.TH EXECVE 2 2007-09-14 "Linux" "Linux Programmer's Manual"
 .SH NAME
 execve \- execute program
 .SH SYNOPSIS
@@ -276,6 +278,45 @@ For portable use,
 .I optional-arg
 should either be absent, or be specified as a single word (i.e., it
 should not contain white space); see NOTES below.
+.SS "Limits on size of arguments + environment"
+Most Unix implementations impose some limit on the total size
+of the command-line argument
+.RI ( argv )
+and environment
+.RI ( envp )
+strings that may be passed to a new program.
+POSIX.1 allows an implementation to advertise this limit using the
+.BR ARG_MAX
+constant (either defined in
+.I <limits.h>
+or available at run time using the call
+.IR "sysconf(_SC_ARG_MAX)" ).
+
+On Linux prior to kernel 2.6.23, the memory used to store the
+environment and argument strings was limited to 32 pages
+(defined by the kernel constant
+.BR MAX_ARG_PAGES ).
+On architectures with a 4-kB page size,
+this yields a maximum size of 128 kB.
+
+On kernel 2.6.23 and later, most architectures support a size limit
+derived from the soft
+.B RLIMIT_STACK
+resource limit (see
+.BR getrlimit (2)).
+For
+these architectures, the total size is limited to 1/4 of the allowed
+stack size, the limit per string is 32 pages (the kernel constant
+.BR MAX_ARG_STRLEN),
+and the maximum number of strings is 0x7FFFFFFF.
+(This change allows programs to have a much larger
+argument and/or environment list.
+Imposing the 1/4-limit
+ensures that the new program always has some stack space.)
+Architectures with no memory management unit are excepted:
+they maintain the pre-2.6.23 limit.
+.\" Ollie: That doesn't include the lists of pointers, though,
+.\" so the actual usage is a bit higher (1 pointer per argument).
 .SH "RETURN VALUE"
 On success,
 .BR execve ()
@@ -552,6 +593,7 @@ argv[4]: world
 .BR ptrace (2),
 .BR execl (3),
 .BR fexecve (3),
+.BR getopt (3),
 .BR environ (7),
 .BR credentials (7),
 .BR path_resolution (7),

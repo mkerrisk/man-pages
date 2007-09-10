@@ -1,0 +1,139 @@
+.\" Copyright (c) 2007 Silicon Graphics, Inc. All Rights Reserved
+.\" Written by Dave Chinner <dgc@sgi.com>
+.\" May be distributed as per GNU General Public License version 2.
+.\"
+.TH FALLOCATE 2 2007-07-20 "Linux" "Linux Programmer's Manual"
+.SH NAME
+fallocate \- manipulate file space
+.SH SYNOPSIS
+.nf
+.\" FIXME . eventually this #include will probably be something
+.\" different when support is added in glibc.
+.B #include <linux/falloc.h>
+.PP
+.BI "long fallocate(int " fd ", int " mode ", loff_t " offset \
+", loff_t " len ");
+.\" FIXME . check later what feature text macros are required in glibc
+.SH DESCRIPTION
+.BR fallocate ()
+allows the caller to directly manipulate the allocated disk space
+for the file referred to by
+.I fd
+for the byte range starting at
+.I offset
+and continuing for
+.I len
+bytes.
+
+The
+.I mode
+argument determines the operation to be performed on the given range.
+Currently only one flag is supported for
+.IR mode :
+.TP
+.B FALLOC_FL_KEEP_SIZE
+This flag allocates and initializes to zero the disk space
+within the range specified by
+.I offset
+and
+.IR len .
+After a successful call, subsequent writes into this range
+are guaranteed not to fail because of lack of disk space.
+Preallocating zeroed blocks beyond the end of the file
+is useful for optimizing append workloads.
+Preallocating blocks does not change
+the file size (as reported by
+.BR stat (2))
+even if it is less than
+.IR offset + len .
+.\"
+.\" Note from Amit Arora:
+.\" There were few more flags which were discussed, but none of
+.\" them have been finalized upon. Here are these flags:
+.\" FA_FL_DEALLOC, FA_FL_DEL_DATA, FA_FL_ERR_FREE, FA_FL_NO_MTIME,
+.\" FA_FL_NO_CTIME
+.\" All of the above flags were debated upon and we can not say
+.\" if any/which one of these flags will make it to the later kernels.
+.PP
+If
+.B FALLOC_FL_KEEP_SIZE
+flag is not specified in
+.IR mode ,
+the default behavior is almost same as when this flag is specified.
+The only difference is that on success,
+the file size will be changed if
+.IR offset + len
+is greater than the file size.
+This default behavior closely resembles the behavior of the
+.BR posix_fallocate (3)
+library function,
+and is intended as a method of optimally implementing that function.
+.PP
+Because allocation is done in block size chunks,
+.BR fallocate ()
+may allocate a larger range than that which was specified.
+.SH RETURN VALUE
+.BR fallocate ()
+returns zero on success, or an error number on failure.
+Note that
+.\" FIXME . the library wrapper function will do the right
+.\" thing, returning -1 on error and setting errno.
+.I errno
+is not set.
+.SH ERRORS
+.TP
+.B EBADF
+.I fd
+is not a valid file descriptor, or is not opened for writing.
+.TP
+.B EFBIG
+.IR offset + len
+exceeds the maximum file size.
+.TP
+.B EINTR
+A signal was caught during execution.
+.TP
+.B EINVAL
+.I offset
+was less than 0, or
+.I len
+was less than or equal to 0.
+.TP
+.B EIO
+An I/O error occurred while reading from or writing to a file system.
+.TP
+.B ENODEV
+.I fd
+does not refer to a regular file or a directory.
+(If
+.I fd
+is a pipe or FIFO, a different error results.)
+.TP
+.B ENOSPC
+There is not enough space left on the device containing the file
+referred to by
+.IR fd .
+.TP
+.B ENOSYS
+The file system containing the file referred to by
+.I fd
+does not support this operation.
+.TP
+.B EOPNOTSUPP
+The
+.I mode
+is not supported by the file system containing the file referred to by
+.IR fd .
+.SH VERSIONS
+.BR fallocate ()
+.\" FIXME . To confirm that this syscall does actually get released
+.\" with 2.6.23.
+is available on Linux since kernel 2.6.23.
+.SH CONFORMING
+.BR fallocate ()
+is Linux specific.
+.SH SEE ALSO
+.BR ftruncate (2),
+.BR posix_fallocate (3),
+.BR posix_fadvise (3)
+.\" FIXME in posix_fallocate.3 add SEE ALSO entry referring to fallocate.2

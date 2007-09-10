@@ -35,8 +35,9 @@
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk-manpages@gmx.net>
 .\" 2004-12-08, mtk, reordered flags list alphabetically
 .\" 2004-12-08, Martin Pool <mbp@sourcefrog.net> (& mtk), added O_NOATIME
+.\" 2007-09-18, mtk, Added description of O_CLOEXEC + other minor edits
 .\"
-.TH OPEN 2 2005-06-22 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2007-09-18 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -60,13 +61,15 @@ for use in subsequent system calls
 The file descriptor returned by a successful call will be
 the lowest-numbered file descriptor not currently open for the process.
 .PP
-The new file descriptor is set to remain open across an
+By default, the new file descriptor is set to remain open across an
 .BR execve (2)
 (i.e., the
 .B FD_CLOEXEC
 file descriptor flag described in
 .BR fcntl (2)
-is initially disabled).
+is initially disabled; the Linux-specific
+.B O_CLOEXEC
+flag, described below, can be used to change this default).
 The file offset is set to the beginning of the file (see
 .BR lseek (2)).
 .PP
@@ -141,7 +144,31 @@ sockets, and (since Linux 2.6) pipes and FIFOs.
 See
 .BR fcntl (2)
 for further details.
-.\" FIXME 2.6.23 adds O_CLOEXEC -- this needs to be documented
+.TP
+.BR O_CLOEXEC " (Since Linux 2.6.23)"
+Enable the close-on-exec flag for the new file descriptor.
+Specifying this flag permits a program to avoid an additional 
+.BR fcntl (2)
+.B F_SETFD
+operation to set the
+.BR FD_CLOEXEC
+flag.
+Additionally,
+use of this flag is essential in some multithreaded programs
+since using a separate
+.BR fcntl (2)
+.B F_SETFD
+operation to set the
+.BR FD_CLOEXEC
+flag does not suffice to avoid race conditions
+where one thread opens a file descriptor at the same
+time as another thread does a
+.BR fork (2)
+plus
+.BR execve (2).
+.\" This flag fixes only one form of the race condition;
+.\" The race can also occur with, for example, descriptors
+.\" returned by accept(), pipe(), etc.
 .TP
 .B O_CREAT
 If the file does not exist it will be created.
@@ -157,7 +184,7 @@ and
 of the ext2 filesystem, as described in
 .BR mount (8)).
 .TP
-.B O_DIRECT
+.BR O_DIRECT " (Since Linux 2.6.10)"
 Try to minimize cache effects of the I/O to and from this file.
 In general this will degrade performance, but it is useful in
 special situations, such as when applications do their own caching.
@@ -236,8 +263,7 @@ is the preferred method of obtaining
 method of accessing large files on 32-bit systems (see
 .BR feature_test_macros (7)).
 .TP
-.B O_NOATIME
-(Since Linux 2.6.8)
+.BR O_NOATIME " (Since Linux 2.6.8)"
 Do not update the file last access time (st_atime in the inode)
 when the file is
 .BR read (2).
@@ -502,14 +528,19 @@ flag was specified, and an incompatible lease was held on the file
 .SH "CONFORMING TO"
 SVr4, 4.3BSD, POSIX.1-2001.
 The
+.BR O_CLOEXEC ,
+.BR O_DIRECTORY ,
 .BR O_NOATIME ,
-.BR O_NOFOLLOW ,
 and
-.B O_DIRECTORY
+.BR O_NOFOLLOW
 flags are Linux specific.
 One may have to define the
 .B _GNU_SOURCE
 macro to get their definitions.
+.BR O_DIRECT
+is not specified in POSIX; one has to define 
+.B _GNU_SOURCE
+to get its definition.
 .SH NOTES
 Under Linux, the
 .B O_NONBLOCK

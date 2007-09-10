@@ -6,12 +6,15 @@
 #
 # Usage: sh find_repeated_words.sh [file...]
 #
+
+MANWIDTH=2000
+
 for file in "$@" ; do 
     words=$(man -l "$file" 2> /dev/null | col -b | \
 	tr ' \008' '\012' | sed -e '/^$/d' | \
 	awk 'BEGIN {p=""} {if (p==$0) print p; p=$0 }' | \
 	grep '[a-zA-Z]' | tr '\012' ' ')
-    if test "X$words" != "X"; then
+    if test -n "X$words"; then
         echo "$file: $words"
     fi
 done

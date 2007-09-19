@@ -14,7 +14,7 @@ for file in "$@" ; do
 	tr ' \008' '\012' | sed -e '/^$/d' | \
 	awk 'BEGIN {p=""} {if (p==$0) print p; p=$0 }' | \
 	grep '[a-zA-Z]' | tr '\012' ' ')
-    if test -n "X$words"; then
+    if test -n "$words"; then
         echo "$file: $words"
     fi
 done

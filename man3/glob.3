@@ -24,8 +24,12 @@
 .\" Modified Mon May 13 23:08:50 1996 by Martin Schulze (joey@linux.de)
 .\" Modified 11 May 1998 by Joseph S. Myers (jsm28@cam.ac.uk)
 .\" Modified 990912 by aeb
+.\" 2007-10-10 mtk
+.\"     Added description of GLOB_TILDE_NOMATCH
+.\"     Expanded the description of various flags
+.\"     Various wording fixes.
 .\"
-.TH GLOB 3  1999-09-12 "GNU" "Linux Programmer's Manual"
+.TH GLOB 3  2007-10-10 "GNU" "Linux Programmer's Manual"
 .SH NAME
 glob, globfree \- find pathnames matching a pattern, free memory from glob()
 .SH SYNOPSIS
@@ -60,11 +64,11 @@ to
 The results of a
 .BR glob ()
 call are stored in the structure pointed to by
-.IR pglob ,
-which is a
+.IR pglob .
+This structure is of type
 .I glob_t
-which is declared in
-.I <glob.h>
+(declared in
+.IR <glob.h> )
 and includes the following elements defined by POSIX.2 (more may be
 present as an extension):
 .PP
@@ -82,66 +86,128 @@ Results are stored in dynamically allocated storage.
 .PP
 The parameter
 .I flags
-is made up of bitwise OR of zero or more the following symbolic
-constants, which modify the of behavior of
+is made up of the bitwise OR of zero or more the following symbolic
+constants, which modify the behavior of
 .BR glob ():
 .TP
 .B GLOB_ERR
-which means to return upon read error (because a directory does not
-have read permission, for example),
+Return upon a read error (because a directory does not
+have read permission, for example).
+By default,
+.BR glob ()
+attempts carry on despite errors, 
+reading all of the directories that it can.
 .TP
 .B GLOB_MARK
-which means to append a slash to each path which corresponds to a directory,
+Append a slash to each path which corresponds to a directory.
 .TP
 .B GLOB_NOSORT
-which means don't sort the returned pathnames (they are by default),
+Don't sort the returned pathnames.
+The only reason to do this is to save processing time.
+By default, the returned pathnames are sorted.
 .TP
 .B GLOB_DOOFFS
-which means that
+Reserve
 .I pglob->gl_offs
-slots will be reserved at the beginning of the list of strings in
-.IR pglob->pathv ,
+slots at the beginning of the list of strings in
+.IR pglob->pathv .
+The reserved slots contain NULL pointers.
 .TP
 .B GLOB_NOCHECK
-which means that, if no pattern matches, to return the original pattern,
+If no pattern matches, return the original pattern.
+By default,
+.BR glob ()
+returns
+.B GLOB_NOMATCH
+if there are no matches.
 .TP
 .B GLOB_APPEND
-which means to append to the results of a previous call.
+Append the results of this call to the vector of results
+returned by a previous call to
+.BR glob ().
 Do not set this flag on the first invocation of
 .BR glob ().
 .TP
 .B GLOB_NOESCAPE
-which means that meta characters cannot be quoted by backslashes.
+Don't allow backslash ('\') to be used as an escape
+character.
+Normally, a backslash can be used to quote the following character,
+providing a mechanism to turn off the special meaning
+metacharacters.
 .PP
-The flags may also include some of the following, which are GNU
+.I flags
+may also include any of the following, which are GNU
 extensions and not defined by POSIX.2:
 .TP
 .B GLOB_PERIOD
-which means that a leading period can be matched by meta characters,
+Allow a leading period to be matched by metacharacters.
+By default, metacharacters can't match a leading period.
 .TP
 .B GLOB_ALTDIRFUNC
-which means that alternative functions
+Use alternative functions
 .IR pglob->gl_closedir ,
 .IR pglob->gl_readdir ,
 .IR pglob->gl_opendir ,
 .IR pglob->gl_lstat ", and"
 .I pglob->gl_stat
-are used for file system access instead of the normal library
-functions,
+for file system access instead of the normal library
+functions.
 .TP
 .B GLOB_BRACE
-which means that
+Expand
 .BR csh (1)
-style brace expressions \fB{a,b}\fR are expanded,
+style brace expressions of the form \fB{a,b}\fR.
+Brace expressions can be nested.
+Thus, for example, specifying the pattern
+"{foo/{,cat,dog},bar}" would return the same results as four separate
+.BR glob ()
+calls using the strings:
+"foo/",
+"foo/cat",
+"foo/dog",
+and
+"bar".
 .TP
 .B GLOB_NOMAGIC
-which means that the pattern is returned if it contains no metacharacters,
+If the pattern contains no metacharacters
+then it should be returned as the sole matching word,
+even if there is no file with that name.
 .TP
 .B GLOB_TILDE
-which means that tilde expansion is carried out, and
+Carry out tilde expansion.
+If a tilde ('~') is the only character in the pattern,
+or an initial tilde is followed immediately by a slash ('/'),
+then the home directory of the caller is substituted for
+the tilde.
+If an initial tilde is followed by a username (e.g., "~andrea/bin"),
+then the tilde and username are substituted by the home directory
+of that user.
+If the username is invalid, or the home directory cannot be
+determined, then no substitution is performed.
+.TP
+.B GLOB_TILDE_CHECK
+This provides behavior similar to that of
+.BR GLOB_TILDE .
+The difference is that if the username is invalid, or the
+home directory cannot be determined, then
+instead of using the pattern itself as the name,
+.BR glob ()
+returns
+.BR GLOB_NOMATCH
+to indicate an error.
 .TP
 .B GLOB_ONLYDIR
-which means that only directories are matched.
+This is a 
+.I hint
+to
+.BR glob ()
+that the caller is interested only in directories that match the pattern.
+If the implementation can easily determine file-type information,
+then non-directory files are not returned to the caller.
+However, the caller must still check that returned files
+are directories.
+(The purpose of this flag is merely to optimize performance when
+the caller is interested only interested in directories.)
 .PP
 If
 .I errfunc
@@ -170,8 +236,8 @@ Upon successful return,
 .I pglob->gl_pathc
 contains the number of matched pathnames and
 .I pglob->gl_pathv
-a pointer to the list of matched pathnames.
-The first pointer after the last pathname is NULL.
+contains a pointer to the list of pointers to matched pathnames.
+The list of pointers is terminated by a NULL pointer.
 .PP
 It is possible to call
 .BR glob ()
@@ -210,7 +276,7 @@ and
 .I gl_offs
 are declared as
 .I size_t
-in glibc 2.1, as they should according to POSIX.2,
+in glibc 2.1, as they should be according to POSIX.2,
 but are declared as
 .I int
 in libc4, libc5 and glibc 2.0.

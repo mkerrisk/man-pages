@@ -371,6 +371,10 @@ permission bit (see
 .BR chmod (1)
 and
 .BR chmod (2)).
+
+The Linux implementation of mandatory locking is unreliable.  See BUGS
+below.
+
 .SS "Managing signals"
 .BR F_GETOWN ", " F_SETOWN ", " F_GETSIG " and " F_SETSIG
 are used to manage I/O availability signals:
@@ -1010,6 +1014,20 @@ even when the owner process (group) is one that the caller
 has permission to send signals to.
 Despite this error return, the file descriptor owner is set,
 and signals will be sent to the owner.
+
+The implementation of mandatory locking in all known versions of Linux
+is subject to races which render it unreliable: a
+.BR write (2)
+call that overlaps with a lock may modify data after the mandatory lock is
+acquired,
+a
+.BR read (2)
+call that overlaps with a lock may detect changes to data that were made
+only after a write lock was acquired.  Similar races exist between lock
+and
+.BR mmap (2)
+.  It is therefore inadvisable to rely on mandatory locking.
+
 .SH "SEE ALSO"
 .BR dup2 (2),
 .BR flock (2),

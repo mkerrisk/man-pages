@@ -1,19 +1,17 @@
-.\" This is _*_ nroff _*_ source. Emacs, gimme all those colors :)
+.\" Copyright (c) International Business Machines Corp., 2006
 .\"
-.\" Copyright (c) International Business Machines  Corp., 2006
-.\"
-.\" This program is free software;  you can redistribute it and/or
+.\" This program is free software; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
 .\" published by the Free Software Foundation; either version 2 of
 .\" the License, or (at your option) any later version.
 .\"
 .\" This program is distributed in the hope that it will be useful,
-.\" but WITHOUT ANY WARRANTY;  without even the implied warranty of
-.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
 .\" the GNU General Public License for more details.
 .\"
 .\" You should have received a copy of the GNU General Public License
-.\" along with this program;  if not, write to the Free Software
+.\" along with this program; if not, write to the Free Software
 .\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 .\" MA 02111-1307 USA
 .\"
@@ -23,8 +21,9 @@
 .\"   Ulrich Weigand <Ulrich.Weigand@de.ibm.com>
 .\" 2006-06-16, revised by Eduardo M. Fleury <efleury@br.ibm.com>
 .\" 2007-07-10, quite a lot of polishing by mtk
+.\" 2007-09-28, updates for newer kernels by Jeremy Kerr <jk@ozlabs.org>
 .\"
-.TH SPUFS 7 2007-07-10 "Linux" "Linux Programmer's Manual"
+.TH SPUFS 7 2007-11-25 Linux "Linux Programmer's Manual"
 .SH NAME
 spufs \- the SPU file system
 .SH DESCRIPTION
@@ -43,15 +42,20 @@ Every SPU context is represented by a directory containing
 a predefined set of files.
 These files can be
 used for manipulating the state of the logical SPU.
-Users can change permissions on those files, but can't
+Users can change permissions on the files, but can't
 add or remove files.
 .SS Mount Options
 .TP
 .B uid=<uid>
-set the user owning the mount point; the default is 0 (root).
+Set the user owning the mount point; the default is 0 (root).
 .TP
 .B gid=<gid>
-set the group owning the mount point; the default is 0 (root).
+Set the group owning the mount point; the default is 0 (root).
+.TP
+.B mode=<mode>
+Set the mode of the top-level directory in spufs,
+as an octal mode string.
+The default is 0775.
 .SS Files
 The files in
 .I spufs
@@ -73,7 +77,6 @@ and all files that support the
 .BR write (2)
 operation also support
 .BR writev (2).
-
 All files support the
 .BR access (2)
 and
@@ -99,7 +102,22 @@ file).
 
 The current set of files is:
 .TP
-.B /mem
+.I /capabilities
+Contains a comma-delimited string representing the capabilities of this
+SPU context.
+Possible capabilities are:
+.RS
+.TP
+.B sched
+This context may be scheduled.
+.TP
+.B step
+This context can be run in single-step mode, for debugging.
+.PP
+New capabilities flags may be added in the future.
+.RE
+.TP
+.I /mem
 the contents of the local storage memory of the SPU.
 This can be accessed like a regular shared memory
 file and contains both code and data in the address
@@ -111,7 +129,8 @@ file are:
 .TP
 .BR read "(2), " pread "(2), " write "(2), " pwrite "(2), " lseek (2)
 These operate as usual, with the exception that
-.BR lseek "(2), " write (2)
+.BR lseek (2),
+.BR write (2),
 and
 .BR pwrite (2)
 are not supported beyond the end of the file.
@@ -129,14 +148,30 @@ Only
 mappings are allowed.
 .RE
 .TP
-.B /mbox
+.I /regs
+Contains the saved general-purpose registers of the SPU context.
+This file contains the 128-bit values of each register,
+from register 0 to register 127, in order.
+This allows the general-purpose registers to be
+inspected for debugging.
+
+Reading to or writing from this file requires that the context is
+scheduled out, so use of this file is not recommended in normal
+program operation.
+
+The
+.I regs
+file is not present on contexts that have been created with the
+.B SPU_CREATE_NOSCHED
+flag.
+.RE
+.TP
+.I /mbox
 The first SPU-to-CPU communication mailbox.
-This file
-is read-only and can be read in units of 32 bits.
-The file can only be used in non-blocking mode and not
-even
+This file is read-only and can be read in units of 4 bytes.
+The file can only be used in non-blocking mode \- even
 .BR poll (2)
-will block on it.
+cannot be used to block on this file.
 The only possible operation on an open
 .I mbox
 file is:
@@ -151,8 +186,8 @@ returns \-1 and sets
 .I errno
 to
 .BR EINVAL .
-If there is no data available in the mailbox, the return
-value is set to \-1 and
+If there is no data available in the mailbox (i.e., the SPU has not
+sent a mailbox message), the return value is set to \-1 and
 .I errno
 is set to
 .BR EAGAIN .
@@ -161,7 +196,7 @@ has been read successfully, four bytes are placed in
 the data buffer and the value four is returned.
 .RE
 .TP
-.B /ibox
+.I /ibox
 The second SPU-to-CPU communication mailbox.
 This file is similar to the first mailbox file, but can be read
 in blocking I/O mode, thus
@@ -205,14 +240,14 @@ file returns
 whenever data is available for reading.
 .RE
 .TP
-.B /wbox
+.I /wbox
 The CPU-to-SPU communication mailbox.
-It is write-only and can be written in units of 32 bits.
+It is write-only and can be written in units of four bytes.
 If the mailbox is full,
 .BR write (2)
-will block and
+will block, and
 .BR poll (2)
-can be used to wait for it to become empty again.
+can be used to block until the mailbox is available for writing again.
 The possible operations on an open
 .I wbox
 file are:
@@ -239,8 +274,9 @@ is set to
 If there is no space available in the mailbox and the file
 descriptor has been opened without
 .BR O_NONBLOCK ,
-the call will
-block until the SPU reads from its PPE mailbox channel.
+the call will block until the SPU reads from its 
+PPE (PowerPC Processing Element)
+mailbox channel.
 When data has been written successfully,
 the system call returns four as its function result.
 .TP
@@ -252,7 +288,7 @@ file returns
 whenever space is available for writing.
 .RE
 .TP
-.BR /mbox_stat ", " /ibox_stat ", " /wbox_stat
+.IR /mbox_stat ", " /ibox_stat ", " /wbox_stat
 These are read-only files that contain the length of the current
 queue of each mailbox, i.e., how many words can be read from
 .IR mbox " or " ibox
@@ -261,9 +297,9 @@ or how many words can be written to
 without blocking.
 The files can be read only in four-byte units and return
 a big-endian binary integer number.
-The possible operations on an open
+The only possible operation on an open
 .I *box_stat
-file are:
+file is:
 .RS
 .TP
 .BR read (2)
@@ -274,35 +310,36 @@ is smaller than four,
 returns \-1 and sets
 .I errno
 to
-.BR EINVAL .
+.BR EINVAL.
 Otherwise, a four-byte value is placed in the data buffer.
 This value is the number of elements that can be read from (for
-.I mbox_stat
+.IR mbox_stat
 and
 .IR ibox_stat )
 or written to (for
 .IR wbox_stat )
-the respective mailbox without blocking or getting an
-.B EAGAIN
+the respective mailbox without blocking or returning an
+.BR EAGAIN
 error.
 .RE
 .TP
-.BR /npc ", " /decr ", " /decr_status ", " /spu_tag_mask ", " \
-/event_mask ", " /srr0
-These files expose internal registers of the SPU.
-The values are represented
-as ASCII strings containing the numeric value of each register.
-These can be used in read/write mode for debugging, but normal
-operation of programs should not rely on these files because
-accesses to any of them except
-.I npc
-require an SPU context save, which is very inefficient.
+.IR /npc ", " /decr ", " /decr_status ", " /spu_tag_mask ", " \
+/event_mask ", " /event_status ", " /srr0 ", " /lslr
+Internal registers of the SPU.
+These files contain an ASCII string
+representing the hex value of the specified register.
+Reads and writes on these
+files (except for
+.IR npc ,
+see below) require that the SPU context be scheduled out,
+so frequent access to
+these files is not recommended for normal program operation.
 .IP
 The contents of these files are:
 .RS
 .TP 16
 .I npc
-Next Program Counter
+Next Program Counter \- only valid when the SPU is in a stopped state.
 .TP
 .I decr
 SPU Decrementer
@@ -316,22 +353,26 @@ MFC tag mask for SPU DMA
 .I event_mask
 Event mask for SPU interrupts
 .TP
+.I event_status
+Number of SPU events pending (read-only)
+.TP
 .I srr0
 Interrupt Return address register
+.TP
+.I lslr
+Local Store Limit Register
 .RE
 .IP
-The possible operations on one of these files are:
+The possible operations on these files are:
 .RS
 .TP
 .BR read (2)
-When the
-.I count
-supplied to the
+Reads the current register value.
+If the register value is larger than the buffer passed to the
 .BR read (2)
-call is shorter than the required length for the register
-value plus a newline character, subsequent reads from the same
-file descriptor will complete the string, regardless
-of changes to the register by a running SPU task.
+system call, subsequent reads will continue reading from the same
+buffer, until the end of the buffer is reached.
+
 When a complete string has been read, all subsequent read operations
 will return zero bytes and a new file descriptor needs to be opened
 to read a new value.
@@ -345,12 +386,19 @@ The string is parsed from the beginning
 until the first non-numeric character or the end of the buffer.
 Subsequent writes to the same file descriptor overwrite the
 previous setting.
+
+Except for the
+.I npc
+file, these files are not present on contexts that have been created with
+the
+.B SPU_CREATE_NOSCHED
+flag.
 .RE
 .TP
-.B /fpcr
+.IR /fpcr
 This file provides access to the Floating Point Status and
-Control Register as a four-byte file.
-The possible operations on the
+Control Register (fcpr) as a binary, four-byte file.
+The operations on the
 .I fpcr
 file are:
 .RS
@@ -384,10 +432,10 @@ updating the value of the
 register.
 .RE
 .TP
-.BR /signal1 ", " /signal2
+.IR /signal1 ", " /signal2
 The files provide access to the two signal notification channels
 of an SPU.
-These are read-write files that operate on 32-bit words.
+These are read-write files that operate on four-byte words.
 Writing to one of these files triggers an interrupt on the SPU.
 The value written to the signal files can
 be read from the SPU through a channel read or from
@@ -429,20 +477,20 @@ The signal notification register will either be replaced with
 the input data or will be updated to the bitwise OR operation
 of the old value and the input data, depending on the contents
 of the
-.I signal1_type
+.IR signal1_type
 or
-.I signal2_type
+.IR signal2_type
 files respectively.
 .RE
 .TP
-.BR /signal1_type ", " /signal2_type
+.IR /signal1_type ", " /signal2_type
 These two files change the behavior of the
-.I signal1
+.IR signal1
 and
-.I signal2
+.IR signal2
 notification files.
-They contain a numerical
-ASCII string which is read as either "1" or "0".
+They contain a numeric ASCII string which is read
+as either "1" or "0".
 In mode 0 (overwrite), the hardware replaces the contents
 of the signal channel with the data that is written to it.
 In mode 1 (logical OR), the hardware accumulates the bits
@@ -457,9 +505,9 @@ file are:
 .BR read (2)
 When the count supplied to the
 .BR read (2)
-call is shorter than the required length for the digit
-plus a newline character, subsequent reads from the same
-file descriptor will complete the string.
+call is shorter than the required length for the digit (plus a newline
+character), subsequent reads from the same file descriptor will
+complete the string.
 When a complete string has been read, all subsequent read operations
 will return zero bytes and a new file descriptor needs to be opened
 to read the value again.
@@ -474,15 +522,237 @@ until the first non-numeric character or the end of the buffer.
 Subsequent writes to the same file descriptor overwrite the
 previous setting.
 .RE
+.TP
+.IR /mbox_info ", " /ibox_info ", " /wbox_info ", " /dma_into ", " /proxydma_info
+Read-only files that contain the saved state of the SPU mailboxes and
+DMA queues.
+This allows the SPU status to be inspected, mainly for debugging.
+The
+.I mbox_info
+and
+.I ibox_info
+files each contain the four-byte mailbox message that has been written
+by the SPU.
+If no message has been written to these mailboxes, then
+contents of these files is undefined.
+The
+.IR mbox_stat ,
+.I ibox_stat
+and
+.I wbox_stat
+files contain the available message count.
+
+The
+.I wbox_info
+file contains an array of four-byte mailbox messages, which have been
+sent to the SPU.
+With current CBEA machines, the array is four items in
+length, so up to 4 * 4 = 16 bytes can be read from this file.
+If any mailbox queue entry is empty,
+then the bytes read at the corresponding location are undefined.
+
+The
+.I dma_info
+file contains the contents of the SPU MFC DMA queue, represented as the
+following structure:
+
+.in +0.25i
+.nf
+struct spu_dma_info {
+    uint64_t         dma_info_type;
+    uint64_t         dma_info_mask;
+    uint64_t         dma_info_status;
+    uint64_t         dma_info_stall_and_notify;
+    uint64_t         dma_info_atomic_command_status;
+    struct mfc_cq_sr dma_info_command_data[16];
+};
+.fi
+.in
+
+The last member of this data structure is the actual DMA queue,
+containing 16 entries.
+The
+.I mfc_cq_sr
+structure is defined as:
+
+.in +0.25i
+.nf
+struct mfc_cq_sr {
+    uint64_t mfc_cq_data0_RW;
+    uint64_t mfc_cq_data1_RW;
+    uint64_t mfc_cq_data2_RW;
+    uint64_t mfc_cq_data3_RW;
+};
+.fi
+.in
+
+The
+.I proxydma_info
+file contains similar information, but describes the proxy DMA queue
+(i.e., DMAs initiated by entities outside the SPU) instead.
+The file is in the following format:
+
+.in +0.25i
+.nf
+struct spu_proxydma_info {
+    uint64_t         proxydma_info_type;
+    uint64_t         proxydma_info_mask;
+    uint64_t         proxydma_info_status;
+    struct mfc_cq_sr proxydma_info_command_data[8];
+};
+.fi
+.in
+
+Accessing these files requires that the SPU context is scheduled out -
+frequent use can be inefficient.
+These files should not be used for normal program operation.
+
+These files are not present on contexts that have been created with the
+.B SPU_CREATE_NOSCHED
+flag.
+.RE
+.TP
+.IR /cntl
+This file provides access to the SPU Run Control and SPU status
+registers, as an ASCII string.
+The following operations are supported:
+.RS
+.TP
+.BR read (2)
+Reads from the
+.I cntl
+file will return an ASCII string with the hex
+value of the SPU Status register.
+.TP
+.BR write (2)
+Writes to the
+.I cntl
+file will set the context's SPU Run Control register.
+.RE
+.TP
+.I /mfc
+Provides access to the Memory Flow Controller of the SPU.
+Reading from the file returns the contents of the
+SPU's MFC Tag Status register, and
+writing to the file initiates a DMA from the MFC.
+The following operations are supported:
+.RS
+.TP
+.BR write (2)
+Writes to this file need to be in the format of a MFC DMA command,
+defined as follows:
+
+.in +0.25i
+.nf
+struct mfc_dma_command {
+    int32_t  pad;    /* reserved */
+    uint32_t lsa;    /* local storage address */
+    uint64_t ea;     /* effective address */
+    uint16_t size;   /* transfer size */
+    uint16_t tag;    /* command tag */
+    uint16_t class;  /* class ID */
+    uint16_t cmd;    /* command opcode */
+};
+.fi
+.in
+
+Writes are required to be exactly
+.I sizeof(struct mfc_dma_command)
+bytes in size.
+The command will be sent to the SPU's MFC proxy queue, and the
+tag stored in the kernel (see below).
+.TP
+.BR read (2)
+Reads the contents of the tag status register.
+If the file is opened in blocking mode (i.e., without
+.BR O_NONBLOCK ),
+then the read will block until a
+DMA tag (as performed by a previous write) is complete.
+In non-blocking mode,
+the MFC tag status register will be returned without waiting.
+.TP
+.BR poll (2)
+Calling
+.BR poll (2)
+on the
+.I mfc
+file will block until a new DMA can be
+started (by checking for
+.BR POLLOUT )
+or until a previously started DMA
+(by checking for
+.BR POLLIN )
+has been completed.
+
+.I /mss
+Provides access to the MFC MultiSource Synchronization facility.
+By
+.BR mmap (2)-ing
+this file, processes can access the MSS area of the SPE.
+
+The following operations are supported:
+.TP
+.BR mmap (2)
+Mapping
+.B mss
+into the process address space gives access to the SPU MSS area
+within the process address space.
+Only
+.B MAP_SHARED
+mappings are allowed.
+.RE
+.TP
+.I /psmap
+Provides access to the whole problem-state mapping of the SPU.
+Applications can use this area to interface to the SPU, rather than
+writing to individual register files in spufs.
+
+The following operations are supported:
+.RS
+.TP
+.BR mmap (2)
+Mapping
+.b psmap
+gives a process a direct map of the SPU problem state area.
+Only
+.B MAP_SHARED
+mappings are supported.
+.RE
+.TP
+.I /phys-id
+Read-only file containing the physical SPU number that the SPU context
+is running on.
+When the context is not running, this file contains the
+string "-1".
+
+The physical SPU number is given by an ASCII hex string.
+.RE
+.TP
+.I /object-id
+Allows applications to store (or retrieve) a single 64-bit ID into the
+context.
+This ID is later used by profiling tools to uniquely identify
+the context.
+.RS
+.TP
+.BR write (2)
+By writing an ASCII hex value into this file, applications can set the
+object ID of the SPU context.
+Any previous value of the object ID is overwritten.
+.TP
+.BR read (2)
+Reading this file gives an ASCII hex string representing the object ID
+for this SPU context.
 .SH EXAMPLE
 .TP
 .IR /etc/fstab "  entry"
 none  	/spu  	spufs  	gid=spu  	0	0
 .\" .SH AUTHORS
-.\" Arnd Bergmann <arndb@de.ibm.com>,
-.\" Mark Nutter <mnutter@us.ibm.com> and
-.\" Ulrich Weigand <Ulrich.Weigand@de.ibm.com>
+.\" Arnd Bergmann <arndb@de.ibm.com>, Mark Nutter <mnutter@us.ibm.com>,
+.\" Ulrich Weigand <Ulrich.Weigand@de.ibm.com>, Jeremy Kerr <jk@ozlabs.org>
 .SH SEE ALSO
 .BR close (2),
 .BR spu_create (2),
-.BR spu_run (2)
+.BR spu_run (2),
+.BR capabilities (7),
+.I The Cell Broadband Engine Architecture (CBEA) specification

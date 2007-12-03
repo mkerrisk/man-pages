@@ -35,179 +35,180 @@
 .\"
 .\" Contributed as Linux man page by David A. Holland, 970908
 .\" I have not checked whether the Linux situation is exactly the same.
-.Dd June 4, 1993
-.Dt RCMD 3
-.Os 4.2BSD
-.Sh NAME
-.Nm rcmd ,
-.Nm rresvport ,
-.Nm iruserok ,
-.Nm ruserok
-.Nd routines for returning a stream to a remote command
-.Sh SYNOPSIS
-.Fd #include <netdb.h> \ \ \fP/* Or <unistd.h> on some systems */
-.Ft int
-.Fn rcmd "char **ahost" "int inport" "const char *locuser" "const char *remuser" "const char *cmd" "int *fd2p"
-.Ft int
-.Fn rresvport "int *port"
-.Ft int
-.Fn iruserok "u_int32_t raddr" "int superuser" "const char *ruser" "const char *luser"
-.Ft int
-.Fn ruserok "const char *rhost" "int superuser" "const char *ruser" "const char *luser"
+.\"
+.\" 2007-12-02, mtk, Converted from mdoc to man macros
+.\"
+.TH RCMD 3 2007-12-02 "Linux" "Linux Programmer's Manual"
+.SH NAME
+rcmd, rresvport, iruserok, ruserok \- routines for returning a
+stream to a remote command
+.SH SYNOPSIS
+.nf
+.B #include <netdb.h> \ \ \fP/* Or <unistd.h> on some systems */
+.sp
+.BI "int rcmd(char **" ahost ", int " inport ", const char *" locuser ", "
+.BI "         const char *" remuser ", const char *" cmd ", int *" fd2p )
+.sp
+.BI "int rresvport(int *" port );
+.sp
+.BI "int iruserok(u_int32_t " raddr ", int " superuser ", "
+.BI "             const char *" ruser ", const char *" luser );
+.sp
+.BI "int ruserok(const char *" rhost ", int " superuser ", "
+.BI "            const char *" ruser ", const char *" luser );
 .\" These functions require _BSD_SOURCE on Linux
 .\" FIXME . does iruserok() really exist on Linux?
 .\" It seems to be present in glibc, but isn't declared in glibc headers.
 .\" Bug filed 25 Nov 2007:
 .\" http://sources.redhat.com/bugzilla/show_bug.cgi?id=5399
-.Sh DESCRIPTION
+.fi
+.SH DESCRIPTION
 The
-.Fn rcmd
+.BR rcmd ()
 function
 is used by the superuser to execute a command on
 a remote machine using an authentication scheme based
 on reserved port numbers.
 The
-.Fn rresvport
+.BR rresvport ()
 function
 returns a descriptor to a socket
 with an address in the privileged port space.
 The
-.Fn iruserok
+.BR iruserok ()
 and
-.Fn ruserok
+.BR ruserok ()
 functions are used by servers
 to authenticate clients requesting service with
-.Fn rcmd .
+.BR rcmd ().
 All four functions are present in the same file and are used
 by the
-.Xr rshd 8
+.BR rshd (8)
 server (among others).
-.Pp
+.sp
 The
-.Fn rcmd
+.BR rcmd ()
 function
 looks up the host
-.Fa *ahost
+.I *ahost
 using
-.Xr gethostbyname 3 ,
+.BR gethostbyname (3),
 returning \-1 if the host does not exist.
 Otherwise
-.Fa *ahost
+.I *ahost
 is set to the standard name of the host
 and a connection is established to a server
 residing at the well-known Internet port
-.Fa inport .
-.Pp
+.IR inport .
+.sp
 If the connection succeeds,
 a socket in the Internet domain of type
-.Dv SOCK_STREAM
+.BR SOCK_STREAM
 is returned to the caller, and given to the remote
 command as
-.Em stdin
+.IR stdin
 and
-.Em stdout .
+.IR stdout .
 If
-.Fa fd2p
+.I fd2p
 is non-zero, then an auxiliary channel to a control
 process will be set up, and a descriptor for it will be placed
 in
-.Fa *fd2p .
+.IR *fd2p .
 The control process will return diagnostic
 output from the command (unit 2) on this channel, and will also
-accept bytes on this channel as being
-.Tn UNIX
-signal numbers, to be
+accept bytes on this channel as being Unix signal numbers, to be
 forwarded to the process group of the command.
 If
-.Fa fd2p
+.I fd2p
 is 0, then the
-.Em stderr
+.IR stderr
 (unit 2 of the remote
 command) will be made the same as the
-.Em stdout
+.IR stdout
 and no
 provision is made for sending arbitrary signals to the remote process,
 although you may be able to get its attention by using out-of-band data.
-.Pp
+.sp
 The protocol is described in detail in
-.Xr rshd 8 .
-.Pp
+.BR rshd (8).
+.sp
 The
-.Fn rresvport
+.BR rresvport ()
 function is used to obtain a socket with a privileged
 address bound to it.
 This socket is suitable for use by
-.Fn rcmd
+.BR rcmd ()
 and several other functions.
 Privileged Internet ports are those in the range 0 to 1023.
 Only the superuser is allowed to bind an address of this sort to a socket.
-.Pp
+.sp
 The
-.Fn iruserok
+.BR iruserok ()
 and
-.Fn ruserok
+.BR ruserok ()
 functions take a remote host's IP address or name, respectively,
 two user names and a flag indicating whether the local user's
 name is that of the superuser.
 Then, if the user is
-.Em NOT
+.I not
 the superuser, it checks the
-.Pa /etc/hosts.equiv
+.IR /etc/hosts.equiv
 file.
 If that lookup is not done, or is unsuccessful, the
-.Pa .rhosts
+.IR .rhosts
 in the local user's home directory is checked to see if the request for
 service is allowed.
-.Pp
+.sp
 If this file does not exist, is not a regular file, is owned by anyone
 other than the user or the superuser, or is writable by anyone other
 than the owner, the check automatically fails.
 Zero is returned if the machine name is listed in the
-.Dq Pa hosts.equiv
+.IR hosts.equiv
 file, or the host and remote user name are found in the
-.Dq Pa .rhosts
+.IR .rhosts
 file; otherwise
-.Fn iruserok
+.BR iruserok ()
 and
-.Fn ruserok
+.BR ruserok ()
 return \-1.
 If the local domain (as obtained from
-.Xr gethostname 2 )
+.BR gethostname (2)
 is the same as the remote domain, only the machine name need be specified.
-.Pp
+.sp
 If the IP address of the remote host is known,
-.Fn iruserok
+.BR iruserok ()
 should be used in preference to
-.Fn ruserok ,
+.BR ruserok (),
 as it does not require trusting the DNS server for the remote host's domain.
-.Sh RETURN VALUE
+.SH RETURN VALUE
 The
-.Fn rcmd
+.BR rcmd ()
 function
 returns a valid socket descriptor on success.
 It returns \-1 on error and prints a diagnostic message on the standard error.
-.Pp
+.sp
 The
-.Fn rresvport
+.BR rresvport ()
 function
 returns a valid, bound socket descriptor on success.
 It returns \-1 on error with the global value
-.Va errno
+.I errno
 set according to the reason for failure.
 The error code
-.Dv EAGAIN
-is overloaded to mean ``All network ports in use.''
-.Sh "CONFORMING TO"
+.BR EAGAIN
+is overloaded to mean "All network ports in use."
+.SH "CONFORMING TO"
 Not in POSIX.1-2001.
 Present on the BSDs, Solaris, and many other systems.
 These
 functions appeared in
-.Bx 4.2 .
-.Sh SEE ALSO
-.Xr rlogin 1 ,
-.Xr rsh 1 ,
-.Xr intro 2 ,
-.Xr rexec 3 ,
-.Xr rexecd 8 ,
-.Xr rlogind 8 ,
-.Xr rshd 8
+4.2BSD.
+.SH SEE ALSO
+.BR rlogin (1),
+.BR rsh (1),
+.BR intro (2),
+.BR rexec (3),
+.BR rexecd (8),
+.BR rlogind (8),
+.BR rshd (8)

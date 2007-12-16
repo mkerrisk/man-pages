@@ -20,7 +20,7 @@
 .\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
-.TH ST 4  2007-10-15 "Linux" "Linux Programmer's Manual"
+.TH ST 4  2007-12-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
 st \- SCSI tape device
 .SH SYNOPSIS
@@ -28,9 +28,9 @@ st \- SCSI tape device
 .B #include <sys/mtio.h>
 .sp
 .BI "int ioctl(int " fd ", int " request " [, (void *)" arg3 "]);"
-.BI "int ioctl(int " fd ", \s-1MTIOCTOP\s+1, (struct mtop *)" mt_cmd );
-.BI "int ioctl(int " fd ", \s-1MTIOCGET\s+1, (struct mtget *)" mt_status );
-.BI "int ioctl(int " fd ", \s-1MTIOCPOS\s+1, (struct mtpos *)" mt_pos );
+.BI "int ioctl(int " fd ", MTIOCTOP, (struct mtop *)" mt_cmd );
+.BI "int ioctl(int " fd ", MTIOCGET, (struct mtget *)" mt_status );
+.BI "int ioctl(int " fd ", MTIOCPOS, (struct mtpos *)" mt_pos );
 .fi
 .SH DESCRIPTION
 The
@@ -54,7 +54,8 @@ two sets of four numbers: the principal (auto-rewind) minor device numbers,
 and the \(lqno-rewind\(rq device numbers,
 .RI ( n " + 128)."
 Devices opened using the principal device number will be sent a
-\s-1REWIND\s+1 command when they are closed.
+.BR REWIND
+command when they are closed.
 Devices opened using the \(lqno-rewind\(rq device number will not.
 (Note that using an auto-rewind device for positioning the tape with,
 for instance, mt does not lead to the desired result: the tape is
@@ -234,7 +235,7 @@ driver are passed to the
 driver.
 The definitions below are from
 .IR /usr/include/linux/mtio.h :
-.SS "\s-1MTIOCTOP\s+1 \(em Perform a tape operation"
+.SS "MTIOCTOP \(em Perform a tape operation"
 .PP
 This request takes an argument of type
 .IR "(struct mtop *)" .
@@ -243,65 +244,79 @@ The driver returns an
 .B EIO
 error if the drive rejects an operation.
 .PP
+.in +0.5i
 .nf
-/* Structure for \s-1MTIOCTOP\s+1 \- mag tape op command: */
+/* Structure for MTIOCTOP \- mag tape op command: */
 struct mtop {
     short   mt_op;       /* operations defined below */
     int     mt_count;    /* how many of them */
 };
 .fi
+.in
 .PP
 Magnetic Tape operations for normal tape use:
-.PD 0
-.IP MTBSF 14
+.TP 14
+.TP
+.B MTBSF
 Backward space over
 .I mt_count
 filemarks.
-.IP MTBSFM
+.TP
+.B MTBSFM
 Backward space over
 .I mt_count
 filemarks.
 Reposition the tape to the EOT side of the last filemark.
-.IP MTBSR
+.TP
+.B MTBSR
 Backward space over
 .I mt_count
 records (tape blocks).
-.IP MTBSS
+.TP
+.B MTBSS
 Backward space over
 .I mt_count
 setmarks.
-.IP MTCOMPRESSION
+.TP
+.B MTCOMPRESSION
 Enable compression of tape data within the drive if
 .I mt_count
 is non-zero and disable compression if
 .I mt_count
 is zero.
 This command uses the MODE page 15 supported by most DATs.
-.IP MTEOM
+.TP
+.B MTEOM
 Go to the end of the recorded media (for appending files).
-.IP MTERASE
+.TP
+.B MTERASE
 Erase tape.
 With 2.6 kernel, short erase (mark tape empty) is performed if the
 argument is zero.
 Otherwise long erase (erase all) is done.
-.IP MTFSF
+.TP
+.B MTFSF
 Forward space over
 .I mt_count
 filemarks.
-.IP MTFSFM
+.TP
+.B MTFSFM
 Forward space over
 .I mt_count
 filemarks.
 Reposition the tape to the BOT side of the last filemark.
-.IP MTFSR
+.TP
+.B MTFSR
 Forward space over
 .I mt_count
 records (tape blocks).
-.IP MTFSS
+.TP
+.B MTFSS
 Forward space over
 .I mt_count
 setmarks.
-.IP MTLOAD
+.TP
+.B MTLOAD
 Execute the SCSI load command.
 A special case is available for some HP
 autoloaders.
@@ -311,9 +326,11 @@ is the constant
 .B MT_ST_HPLOADER_OFFSET
 plus a number, the number is
 sent to the drive to control the autoloader.
-.IP MTLOCK
+.TP
+.B MTLOCK
 Lock the tape drive door.
-.IP MTMKPART
+.TP
+.B MTMKPART
 Format the tape into one or two partitions.
 If
 .I mt_count
@@ -323,60 +340,78 @@ If
 .I mt_count
 is zero, the tape is formatted into one partition.
 This command is not allowed for a drive unless the partition support
-is enabled for the drive (see MT_ST_CAN_PARTITIONS below).
-.IP MTNOP
+is enabled for the drive (see
+.BR MT_ST_CAN_PARTITIONS
+below).
+.TP
+.B MTNOP
 No op \(em flushes the driver's buffer as a side effect.
-Should be used before reading status with \s-1MTIOCGET\s+1.
-.IP MTOFFL
+Should be used before reading status with 
+.BR MTIOCGET .
+.TP
+.B MTOFFL
 Rewind and put the drive off line.
-.IP MTRESET
+.TP
+.B MTRESET
 Reset drive.
-.IP MTRETEN
+.TP
+.B MTRETEN
 Re-tension tape.
-.IP MTREW
+.TP
+.B MTREW
 Rewind.
-.IP MTSEEK
+.TP
+.B MTSEEK
 Seek to the tape block number specified in
 .IR mt_count .
-This operation requires either a SCSI-2 drive that supports the \s-1LOCATE\s+1
+This operation requires either a SCSI-2 drive that supports the
+.B LOCATE
 command (device-specific address)
 or a Tandberg-compatible SCSI-1 drive (Tandberg, Archive
-Viper, Wangtek, ... ).
+Viper, Wangtek, ...).
 The block number should be one that was previously returned by
-\s-1MTIOCPOS\s+1 if device-specific addresses are used.
-.IP MTSETBLK
+.BR MTIOCPOS
+if device-specific addresses are used.
+.TP
+.B MTSETBLK
 Set the drive's block length to the value specified in
 .IR mt_count .
 A block length of zero sets the drive to variable block size mode.
-.IP MTSETDENSITY
+.TP
+.B MTSETDENSITY
 Set the tape density to the code in
 .IR mt_count .
 The density codes supported by a drive can be found from the drive
 documentation.
-.IP MTSETPART
+.TP
+.B MTSETPART
 The active partition is switched to
 .IR mt_count .
 The partitions are numbered from zero.
 This command is not allowed for
 a drive unless the partition support is enabled for the drive (see
-MT_ST_CAN_PARTITIONS below).
-.IP MTUNLOAD
+.B MT_ST_CAN_PARTITIONS
+below).
+.TP
+.B MTUNLOAD
 Execute the SCSI unload command (does not eject the tape).
-.IP MTUNLOCK
+.TP
+.B MTUNLOCK
 Unlock the tape drive door.
-.IP MTWEOF
+.TP
+.B MTWEOF
 Write
 .I mt_count
 filemarks.
-.IP MTWSM
+.TP
+.B MTWSM
 Write
 .I mt_count
 setmarks.
-.PD
 .PP
 Magnetic Tape operations for setting of device options (by the superuser):
-.PD 0
-.IP MTSETDRVBUFFER 8
+.TP 8
+.B MTSETDRVBUFFER
 Set various drive and driver options according to bits encoded in
 .IR mt_count .
 These consist of the drive's buffering mode, a set of Boolean driver
@@ -384,53 +419,63 @@ options, the buffer write threshold, defaults for the block size and
 density, and timeouts (only in kernels >= 2.1).
 A single operation can affect only one item in the list above (the
 Booleans counted as one item.)
-.PD
 .IP
 A value having zeros in the high-order 4 bits will be used to set the
 drive's buffering mode.
 The buffering modes are:
 .RS 12
 .IP 0 4
-The drive will not report \s-1GOOD\s+1 status on write commands until the data
+The drive will not report 
+.BR GOOD
+status on write commands until the data
 blocks are actually written to the medium.
-.PD 0
 .IP 1
-The drive may report \s-1GOOD\s+1 status on write commands as soon as all the
+The drive may report 
+.BR GOOD
+status on write commands as soon as all the
 data has been transferred to the drive's internal buffer.
 .IP 2
-The drive may report \s-1GOOD\s+1 status on write commands as soon as (a) all
+The drive may report 
+.BR GOOD
+status on write commands as soon as (a) all
 the data has been transferred to the drive's internal buffer, and
 (b) all buffered data from different initiators has been successfully
 written to the medium.
-.PD
 .RE
-.IP ""
+.IP
 To control the write threshold the value in
 .I mt_count
 must include the constant
-\s-1MT_ST_WRITE_THRESHOLD\s+1 logically ORed with a block count in the low 28
-bits.
+.BR MT_ST_WRITE_THRESHOLD
+logically ORed with a block count in the low 28 bits.
 The block count refers to 1024-byte blocks, not the physical block
 size on the tape.
 The threshold cannot exceed the driver's internal buffer size (see
-.BR \s-1DESCRIPTION\s+1 ,
-above).
+DESCRIPTION, above).
 .IP
 To set and clear the Boolean options
 the value in
 .I mt_count
-must include one of the constants \s-1MT_ST_BOOLEANS\s+1,
-\s-1MT_ST_SETBOOLEANS\s+1, \s-1MT_ST_CLEARBOOLEANS\s+1, or
-\s-1MT_ST_DEFBOOLEANS\s+1 logically or'ed with
+must include one of the constants
+.BR MT_ST_BOOLEANS ,
+.BR MT_ST_SETBOOLEANS , 
+.BR MT_ST_CLEARBOOLEANS ,
+or
+.BR MT_ST_DEFBOOLEANS
+logically or'ed with
 whatever combination of the following options is desired.
-Using \s-1MT_ST_BOOLEANS\s+1 the options can be set to the values
+Using
+.BR MT_ST_BOOLEANS
+the options can be set to the values
 defined in the corresponding bits.
-With \s-1MT_ST_SETBOOLEANS\s+1 the
-options can be selectively set and with \s-1MT_ST_DEFBOOLEANS\s+1
+With
+.BR MT_ST_SETBOOLEANS
+the options can be selectively set and with 
+.BR MT_ST_DEFBOOLEANS
 selectively cleared.
 .IP ""
 The default options for a tape device are set with
-\s-1MT_ST_DEFBOOLEANS\s+1.
+.BR MT_ST_DEFBOOLEANS .
 A non-active tape device (e.g., device with
 minor 32 or 160) is activated when the default options for it are
 defined the first time.
@@ -438,15 +483,14 @@ An activated device inherits from the device
 activated at start-up the options not set explicitly.
 .IP ""
 The Boolean options are:
-.IP
-.PD 0
 .RS
-.IP "\s-1MT_ST_BUFFER_WRITES\s+1  (Default: true)"
+.TP 
+.BR MT_ST_BUFFER_WRITES " (Default: true)"
 Buffer all write operations in fixed-block mode.
 If this option is false and the drive uses a fixed block size, then
 all write operations must be for a multiple of the block size.
 This option must be set false to write reliable multi-volume archives.
-.IP "\s-1MT_ST_ASYNC_WRITES\s+1  (Default: true)"
+.BR MT_ST_ASYNC_WRITES " (Default: true)"
 When this option is true, write operations return immediately without
 waiting for the data to be transferred to the drive if the data fits
 into the driver's buffer.
@@ -455,17 +499,18 @@ new SCSI write command is issued.
 Any errors reported by the drive will be held until the next
 operation.
 This option must be set false to write reliable multi-volume archives.
-.IP "\s-1MT_ST_READ_AHEAD\s+1  (Default: true)"
+.TP
+.BR MT_ST_READ_AHEAD " (Default: true)"
 This option causes the driver to provide read buffering and
 read-ahead in fixed-block mode.
 If this option is false and the drive uses a fixed block size, then
 all read operations must be for a multiple of the block size.
-.IP "\s-1MT_ST_TWO_FM\s+1  (Default: false)"
+.TP
+.BR MT_ST_TWO_FM " (Default: false)"
 This option modifies the driver behavior when a file is closed.
 The normal action is to write a single filemark.
 If the option is true the driver will write two filemarks and
 backspace over the second one.
-.PD
 .IP
 Note:
 This option should not be set true for QIC tape drives since they are
@@ -475,23 +520,32 @@ rather than two consecutive filemarks.
 Most other current drives also
 detect the end of recorded data and using two filemarks is usually
 necessary only when interchanging tapes with some other systems.
-.PP
-.PD 0
-.IP "\s-1MT_ST_DEBUGGING\s+1  (Default: false)"
+.TP
+.BR MT_ST_DEBUGGING " (Default: false)"
 This option turns on various debugging messages from the driver
-(effective only if the driver was compiled with \s-1DEBUG\s+1 defined
-non-zero).
-.IP "\s-1MT_ST_FAST_EOM\s+1  (Default: false)"
-This option causes the \s-1MTEOM\s+1 operation to be sent directly to the
+(effective only if the driver was compiled with
+.B DEBUG
+defined non-zero).
+.TP
+.BR MT_ST_FAST_EOM " (Default: false)"
+This option causes the 
+.B MTEOM
+operation to be sent directly to the
 drive, potentially speeding up the operation but causing the driver to
 lose track of the current file number normally returned by the
-\s-1MTIOCGET\s+1 request.
-If \s-1MT_ST_FAST_EOM\s+1 is false the driver will respond to an
-\s-1MTEOM\s+1 request by forward spacing over files.
-.IP "\s-1MT_ST_AUTO_LOCK\s+1 (Default: false)"
+.B MTIOCGET
+request.
+If
+.B MT_ST_FAST_EOM
+is false the driver will respond to an
+.B MTEOM
+request by forward spacing over files.
+.TP 
+.BR MT_ST_AUTO_LOCK " (Default: false)"
 When this option is true, the drive door is locked when the device is
 opened and unlocked when it is closed.
-.IP "\s-1MT_ST_DEF_WRITES\s+1 (Default: false)"
+.TP 
+.BR MT_ST_DEF_WRITES " (Default: false)"
 The tape options (block size, mode, compression, etc.) may change
 when changing from one device linked to a drive to another device
 linked to the same drive depending on how the devices are
@@ -507,7 +561,8 @@ requested.
 In this case the drive firmware is allowed to detect the
 tape structure when reading and the SCSI-commands are used only to
 make sure that a tape is written according to the correct specification.
-.IP "\s-1MT_ST_CAN_BSR\s+1 (Default: false)"
+.TP 
+.BR MT_ST_CAN_BSR " (Default: false)"
 When read-ahead is used, the tape must sometimes be spaced backward to the
 correct position when the device is closed and the SCSI command to
 space backwards over records is used for this purpose.
@@ -519,28 +574,37 @@ with read-ahead and fixed-block mode, the tape may not be correctly
 positioned within a file when the device is closed.
 With 2.6 kernel, the
 default is true for drives supporting SCSI-3.
-.IP "\s-1MT_ST_NO_BLKLIMS\s+1 (Default: false)"
-Some drives don't accept the READ BLOCK LIMITS SCSI command.
-If
-this is used, the driver does not use the command.
+.TP
+.BR MT_ST_NO_BLKLIMS " (Default: false)"
+Some drives don't accept the
+.B "READ BLOCK LIMITS"
+SCSI command.
+If this is used, the driver does not use the command.
 The drawback is
 that the driver can't check before sending commands if the selected
 block size is acceptable to the drive.
-.IP "\s-1MT_ST_CAN_PARTITIONS\s+1 (Default: false)"
+.TP
+.BR MT_ST_CAN_PARTITIONS " (Default: false)"
 This option enables support for several partitions within a
 tape.
 The option applies to all devices linked to a drive.
-.IP "\s-1MT_ST_SCSI2LOGICAL\s+1 (Default: false)"
+.TP
+.BR MT_ST_SCSI2LOGICAL " (Default: false)"
 This option instructs the driver to use the logical block addresses
 defined in the SCSI-2 standard when performing the seek and tell
-operations (both with MTSEEK and MTIOCPOS commands and when changing tape
+operations (both with
+.B MTSEEK
+and
+.B MTIOCPOS
+commands and when changing tape
 partition).
 Otherwise the device-specific addresses are used.
 It is highly advisable to set this option if the drive supports the
 logical addresses because they count also filemarks.
 There are some
 drives that only support the logical block addresses.
-.IP "\s-1MT_ST_SYSV\s+1 (Default: false)"
+.TP 
+.BR MT_ST_SYSV " (Default: false)"
 When this option is enabled, the tape devices use the SystemV
 semantics.
 Otherwise the BSD semantics are used.
@@ -550,33 +614,38 @@ for reading is closed: in System V semantics the tape is spaced forward
 past the next filemark if this has not happened while using the
 device.
 In BSD semantics the tape position is not changed.
-.IP "\s-1MT_NO_WAIT\s+1 (Default: false)"
+.TP 
+.BR MT_NO_WAIT " (Default: false)"
 Enables immediate mode (i.e., don't wait for the command to finish) for some
 commands (e.g., rewind).
-.IP \s-1EXAMPLE\s+1
+.PP
+An example:
+.in +0.5i
 .nf
-.ta +.4i +.7i +1i
-.BI "struct mtop " mt_cmd ;
-.IB "mt_cmd.mt_op" " = \s-1MTSETDRVBUFFER\s+1;"
-.IB "mt_cmd.mt_count" " = \s-1MT_ST_BOOLEANS\s+1 |"
-.B "        \s-1MT_ST_BUFFER_WRITES\s+1 |"
-.B "        \s-1MT_ST_ASYNC_WRITES\s+1;"
-.BI "ioctl(" fd ", \s-1MTIOCTOP\s+1, &" mt_cmd ");"
+
+struct mtop mt_cmd;
+mt_cmd.mt_op = MTSETDRVBUFFER;
+mt_cmd.mt_count = MT_ST_BOOLEANS |
+        MT_ST_BUFFER_WRITES | MT_ST_ASYNC_WRITES;
+ioctl(fd, MTIOCTOP, mt_cmd);
 .fi
+.in
 .RE
-.PD
 .IP ""
 The default block size for a device can be set with
-\s-1MT_ST_DEF_BLKSIZE\s+1 and the default density code can be set with
-\s-1MT_ST_DEFDENSITY\s+1.
+.B MT_ST_DEF_BLKSIZE
+and the default density code can be set with
+.BR MT_ST_DEFDENSITY .
 The values for the parameters are or'ed
 with the operation code.
 .IP ""
 With kernels 2.1.x and later, the timeout values can be set with the
-subcommand \s-1MT_ST_SET_TIMEOUT\s+1 ORed with the timeout in seconds.
+subcommand
+.B MT_ST_SET_TIMEOUT
+ORed with the timeout in seconds.
 The long timeout (used for rewinds and other commands
 that may take a long time) can be set with
-\s-1MT_ST_SET_LONG_TIMEOUT\s+1.
+.BR MT_ST_SET_LONG_TIMEOUT .
 The kernel defaults are very long to
 make sure that a successful command is not timed out with any
 drive.
@@ -591,7 +660,8 @@ Starting from kernels 2.4.19 and 2.5.43, the driver supports a status
 bit which indicates whether the drive requests cleaning.
 The method used by the
 drive to return cleaning information is set using the
-\s-1MT_ST_SEL_CLN\s+1 subcommand.
+.B MT_ST_SEL_CLN
+subcommand.
 If the value is zero, the cleaning
 bit is always zero.
 If the value is one, the TapeAlert data defined
@@ -606,13 +676,14 @@ If the bit pattern is zero, one or more bits under the mask indicate
 the cleaning request.
 If the pattern is non-zero, the pattern must match
 the masked sense data byte.
-.SS "\s-1MTIOCGET\s+1 \(em Get status"
+.SS "MTIOCGET \(em Get status"
 .PP
 This request takes an argument of type
 .IR "(struct mtget *)" .
 .PP
+.in +0.5i
 .nf
-/* structure for \s-1MTIOCGET\s+1 \- mag tape get status command */
+/* structure for MTIOCGET \- mag tape get status command */
 struct mtget {
     long     mt_type;
     long     mt_resid;
@@ -625,62 +696,74 @@ struct mtget {
     daddr_t  mt_blkno;
 };
 .fi
+.in
 .IP \fImt_type\fP 11
 The header file defines many values for
 .IR mt_type ,
 but the current driver reports only the generic types
-\s-1MT_ISSCSI1\s+1 (Generic SCSI-1 tape)
-and \s-1MT_ISSCSI2\s+1 (Generic SCSI-2 tape).
-.PD 0
+.B MT_ISSCSI1
+(Generic SCSI-1 tape)
+and
+.B MT_ISSCSI2
+(Generic SCSI-2 tape).
 .IP \fImt_resid\fP
 contains the current tape partition number.
 .IP \fImt_dsreg\fP
 reports the drive's current settings for block size (in the low 24
 bits) and density (in the high 8 bits).
-These fields are defined
-by \s-1MT_ST_BLKSIZE_SHIFT\s+1, \s-1MT_ST_BLKSIZE_MASK\s+1,
-\s-1MT_ST_DENSITY_SHIFT\s+1, and \s-1MT_ST_DENSITY_MASK\s+1.
+These fields are defined by
+.BR MT_ST_BLKSIZE_SHIFT , 
+.BR MT_ST_BLKSIZE_MASK ,
+.BR MT_ST_DENSITY_SHIFT ,
+and
+.BR MT_ST_DENSITY_MASK .
 .IP \fImt_gstat\fP
 reports generic (device independent) status information.
 The header file defines macros for testing these status bits:
 .RS
 .HP 4
-\s-1GMT_EOF(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_EOF\fP(\fIx\fP):
 The tape is positioned just after a filemark
-(always false after an \s-1MTSEEK\s+1 operation).
+(always false after an 
+.B MTSEEK
+operation).
 .HP
-\s-1GMT_BOT(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_BOT\fP(\fIx\fP):
 The tape is positioned at the beginning of the first file (always false
-after an \s-1MTSEEK\s+1 operation).
+after an
+.B MTSEEK
+operation).
 .HP
-\s-1GMT_EOT(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_EOT\fP(\fIx\fP):
 A tape operation has reached the physical End Of Tape.
 .HP
-\s-1GMT_SM(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_SM\fP(\fIx\fP):
 The tape is currently positioned at a setmark
-(always false after an \s-1MTSEEK\s+1 operation).
+(always false after an
+.B MTSEEK
+operation).
 .HP
-\s-1GMT_EOD(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_EOD\fP(\fIx\fP):
 The tape is positioned at the end of recorded data.
 .HP
-\s-1GMT_WR_PROT(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_WR_PROT\fP(\fIx\fP):
 The drive is write-protected.
 For some drives this can also mean that the drive does not support
 writing on the current medium type.
 .HP
-\s-1GMT_ONLINE(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_ONLINE\fP(\fIx\fP):
 The last
 .BR open (2)
 found the drive with a tape in place and ready for operation.
 .HP
-\s-1GMT_D_6250(\s+1\fIx\fP\s-1)\s+1, \s-1GMT_D_1600(\s+1\fIx\fP\s-1)\s+1, \s-1GMT_D_800(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_D_6250\fP(\fIx\fP), \fBGMT_D_1600\fP(\fIx\fP), \fBGMT_D_800\fP(\fIx\fP):
 This \(lqgeneric\(rq status information reports the current
 density setting for 9-track \(12" tape drives only.
 .HP
-\s-1GMT_DR_OPEN(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_DR_OPEN\fP(\fIx\fP):
 The drive does not have a tape in place.
 .HP
-\s-1GMT_IM_REP_EN(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_IM_REP_EN\fP(\fIx\fP):
 Immediate report mode.
 This bit is set if there are no guarantees that
 the data has been physically written to the tape when the write call
@@ -688,7 +771,7 @@ returns.
 It is set zero only when the driver does not buffer data and
 the drive is set not to buffer data.
 .HP
-\s-1GMT_CLN(\s+1\fIx\fP\s-1)\s+1:
+\fBGMT_CLN\fP(\fIx\fP):
 The drive has requested cleaning.
 Implemented in kernels >= 2.4.19 and 2.5.43.
 .RE
@@ -696,93 +779,115 @@ Implemented in kernels >= 2.4.19 and 2.5.43.
 The only field defined in
 .I mt_erreg
 is the recovered error count in the low 16 bits (as defined by
-\s-1MT_ST_SOFTERR_SHIFT\s+1 and \s-1MT_ST_SOFTERR_MASK\s+1).
+.BR MT_ST_SOFTERR_SHIFT
+and
+.BR MT_ST_SOFTERR_MASK .
 Due to inconsistencies in the way drives report recovered errors, this
 count is often not maintained (most drives do not by default report
 soft errors but this can be changed with a SCSI MODE SELECT command).
 .IP \fImt_fileno\fP
 reports the current file number (zero-based).
 This value is set to \-1 when the file number is unknown (e.g., after
-\s-1MTBSS\s+1
-or \s-1MTSEEK\s+1).
+.BR MTBSS
+or
+.BR MTSEEK ).
 .IP \fImt_blkno\fP
 reports the block number (zero-based) within the current file.
 This value is set to \-1 when the block number is unknown (e.g., after
-\s-1MTBSF\s+1,
-\s-1MTBSS\s+1, or \s-1MTSEEK\s+1).
-.PD
-.SS "\s-1MTIOCPOS\s+1 \(em Get tape position"
+.BR MTBSF ,
+.BR MTBSS ,
+or
+.BR MTSEEK ).
+.SS "MTIOCPOS \(em Get tape position"
 .PP
 This request takes an argument of type
 .I "(struct mtpos *)"
 and reports the drive's notion of the current tape block number,
 which is not the same as
 .I mt_blkno
-returned by \s-1MTIOCGET\s+1.
-This drive must be a SCSI-2 drive that supports the \s-1READ POSITION\s+1
+returned by
+.BR MTIOCGET .
+This drive must be a SCSI-2 drive that supports the 
+.B "READ POSITION"
 command (device-specific address)
 or a Tandberg-compatible SCSI-1 drive (Tandberg, Archive
 Viper, Wangtek, ... ).
 .PP
+.in +0.5i
 .nf
-/* structure for \s-1MTIOCPOS\s+1 \- mag tape get position command */
+/* structure for MTIOCPOS \- mag tape get position command */
 struct mtpos {
     long mt_blkno;    /* current block number */
 };
 .fi
+.in
 .SH "RETURN VALUE"
-.IP EIO 14
+.TP 14
+.TP
+.B EACCES
+An attempt was made to write or erase a write-protected tape.
+(This error is not detected during
+.BR open (2).)
+.TP
+.B EBUSY
+The device is already in use or the driver was unable to allocate a
+buffer.
+.TP
+.B EFAULT
+The command parameters point to memory not belonging to the calling
+process.
+.TP
+.B EINVAL
+An
+.BR ioctl (2)
+had an illegal argument, or a requested block size was illegal.
+.TP
+.B EIO
 The requested operation could not be completed.
-.IP ENOSPC
-A write operation could not be completed because the tape reached
-end-of-medium.
-.IP ENOMEM
+.TP
+.B ENOMEM
 The byte count in
 .BR read (2)
 is smaller than the next physical block on the tape.
 (Before 2.2.18 and 2.4.0-test6 the extra bytes have been
 silently ignored.)
-.IP EACCES
-An attempt was made to write or erase a write-protected tape.
-(This error is not detected during
-.BR open (2).)
-.IP EFAULT
-The command parameters point to memory not belonging to the calling
-process.
-.IP ENXIO
-During opening, the tape device does not exist.
-.IP EBUSY
-The device is already in use or the driver was unable to allocate a
-buffer.
-.IP EOVERFLOW
-An attempt was made to read or write a variable-length block that is
-larger than the driver's internal buffer.
-.IP EINVAL
-An
-.BR ioctl (2)
-had an illegal argument, or a requested block size was illegal.
-.IP ENOSYS
+.TP
+.B ENOSPC
+A write operation could not be completed because the tape reached
+end-of-medium.
+.TP
+.B ENOSYS
 Unknown
 .BR ioctl (2).
-.IP EROFS
-Open is attempted with O_WRONLY or O_RDWR when the tape in the drive is
-write-protected.
+.TP
+.B ENXIO
+During opening, the tape device does not exist.
+.TP
+.B EOVERFLOW
+An attempt was made to read or write a variable-length block that is
+larger than the driver's internal buffer.
+.TP
+.B EROFS
+Open is attempted with
+.B O_WRONLY
+or
+.B O_RDWR
+when the tape in the drive is write-protected.
 .SH FILES
-.PD 0
 .TP 12
 .I /dev/st*
 the auto-rewind SCSI tape devices
 .TP 12
 .I /dev/nst*
 the non-rewind SCSI tape devices
-.PD
 .\" .SH AUTHOR
 .\" The driver has been written by Kai M\(:akisara (Kai.Makisara@metla.fi)
 .\" starting from a driver written by Dwayne Forsyth.
 .\" Several other
 .\" people have also contributed to the driver.
 .SH NOTES
-1. When exchanging data between systems, both systems have to agree on
+.IP 1. 4
+When exchanging data between systems, both systems have to agree on
 the physical tape block size.
 The parameters of a drive after startup
 are often not the ones most operating systems use with these
@@ -792,31 +897,36 @@ supports that mode.
 This applies to most modern drives, including
 DATs, 8mm helical scan drives, DLTs, etc.
 It may be advisable to use
-these drives in variable-block mode also in Linux (i.e., use MTSETBLK
-or MTSETDEFBLK at system startup to set the mode), at least when
+these drives in variable-block mode also in Linux (i.e., use
+.B MTSETBLK
+or
+.B MTSETDEFBLK
+at system startup to set the mode), at least when
 exchanging data with a foreign system.
 The drawback of
 this is that a fairly large tape block size has to be used to get
 acceptable data transfer rates on the SCSI bus.
-.PP
-2. Many programs (e.g., tar) allow the user to specify the blocking
+.IP 2.
+Many programs (e.g.,
+.BR tar (1))
+allow the user to specify the blocking
 factor on the command line.
 Note that this determines the physical block
 size on tape only in variable-block mode.
-.PP
-3. In order to use SCSI tape drives, the basic SCSI driver,
+.IP 3.
+In order to use SCSI tape drives, the basic SCSI driver,
 a SCSI-adapter driver and the SCSI tape driver must be either
 configured into the kernel or loaded as modules.
 If the SCSI-tape
 driver is not present, the drive is recognized but the tape support
 described in this page is not available.
-.PP
-4. The driver writes error messages to the console/log.
+.IP 4.
+The driver writes error messages to the console/log.
 The SENSE
 codes written into some messages are automatically translated to text
 if verbose SCSI messages are enabled in kernel configuration.
-.PP
-5. The driver's internal buffering allows good throughput in fixed-block
+.IP 5.
+The driver's internal buffering allows good throughput in fixed-block
 mode also with small
 .BR read (2)
 and

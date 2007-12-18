@@ -102,9 +102,6 @@ All times reported are in clock ticks.
 .BR times ()
 returns the number of clock ticks that have elapsed since
 an arbitrary point in the past.
-For Linux 2.4 and earlier this point is the moment the system was booted.
-Since Linux 2.6, this point is \fI(2^32/HZ) \- 300\fP
-(i.e., about 429 million) seconds before system boot time.
 The return value may overflow the possible range of type
 .IR clock_t .
 On error, \fI(clock_t)\ \-1\fP is returned, and
@@ -155,14 +152,29 @@ other Unix implementations require a non-NULL value for
 .LP
 Note that
 .BR clock (3)
-returns values of type
-.I clock_t
-that are not measured in clock ticks
-but in
-.BR CLOCKS_PER_SEC .
-.PP
-On older systems the number of clock ticks per second is given
-by the variable HZ.
+also returns a value of type
+.IR clock_t ,
+but this value is measured in units of
+.BR CLOCKS_PER_SEC ,
+not the clock ticks used by
+.BR times (2).
+
+On Linux, the "arbitrary point in the past" from which the return value of
+.BR times ()
+is measured has varied across kernel versions.
+On Linux 2.4 and earlier this point is the moment the system was booted.
+Since Linux 2.6, this point is \fI(2^32/HZ) \- 300\fP
+(i.e., about 429 million) seconds before system boot time.
+This variability across kernel versions (and across Unix implementations),
+combined with the fact that the returned value may overflow the range of
+.IR clock_t ,
+means that a portable application would be wise to avoid using this value.
+To measure changes in elapsed time, use
+.BR gettimeofday (2)
+instead.
+.\" .PP
+.\" On older systems the number of clock ticks per second is given
+.\" by the variable HZ.
 .SS "Historical"
 SVr1-3 returns
 .I long
@@ -174,6 +186,21 @@ V7 used
 for the struct members, because it had no type
 .I time_t
 yet.
+.SH BUGS
+A limitation of the Linux system call conventions on some architectures
+(notably x86) means that on Linux 2.6 there is a small time window
+(41 seconds) soon after boot when
+.BR times (2)
+can return \-1, falsely indicating that an error occurred.
+The same problem can occur when the return value wraps passed
+the maximum value that can be stored in
+.BR clockid_t .
+.\" The problem is that a syscall return of -4095 to -1
+.\" is interpreted by glibc as an error, and the wrapper converts
+.\" the return value to -1.
+.\" http://marc.info/?l=linux-kernel&m=119447727031225&w=2
+.\" "compat_sys_times() bogus until jiffies >= 0"
+.\" November 2007
 .SH "SEE ALSO"
 .BR time (1),
 .BR getrusage (2),

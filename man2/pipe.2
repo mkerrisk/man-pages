@@ -33,15 +33,15 @@ pipe \- create pipe
 .SH SYNOPSIS
 .B #include <unistd.h>
 .sp
-.BI "int pipe(int " filedes "[2]);"
+.BI "int pipe(int " pipefd "[2]);"
 .SH DESCRIPTION
 .BR pipe ()
 creates a pair of file descriptors, pointing to a pipe inode, and places
 them in the array pointed to by
-.IR filedes .
-.I filedes[0]
+.IR pipefd .
+.I pipefd[0]
 is for reading,
-.I filedes[1]
+.I pipefd[1]
 is for writing.
 .SH "RETURN VALUE"
 On success, zero is returned.
@@ -51,7 +51,7 @@ is set appropriately.
 .SH ERRORS
 .TP
 .B EFAULT
-.I filedes
+.I pipefd
 is not valid.
 .TP
 .B EMFILE
@@ -87,13 +87,13 @@ and echoes it on standard output.
 int
 main(int argc, char *argv[])
 {
-    int pfd[2];
+    int pipefd[2];
     pid_t cpid;
     char buf;
 
     assert(argc == 2);
 
-    if (pipe(pfd) == \-1) {
+    if (pipe(pipefd) == \-1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
@@ -105,20 +105,20 @@ main(int argc, char *argv[])
     }
 
     if (cpid == 0) {    /* Child reads from pipe */
-        close(pfd[1]);          /* Close unused write end */
+        close(pipefd[1]);          /* Close unused write end */
 
-        while (read(pfd[0], &buf, 1) > 0)
+        while (read(pipefd[0], &buf, 1) > 0)
             write(STDOUT_FILENO, &buf, 1);
 
         write(STDOUT_FILENO, "\\n", 1);
-        close(pfd[0]);
+        close(pipefd[0]);
         _exit(EXIT_SUCCESS);
 
     } else {            /* Parent writes argv[1] to pipe */
-        close(pfd[0]);          /* Close unused read end */
-        write(pfd[1], argv[1], strlen(argv[1]));
-        close(pfd[1]);          /* Reader will see EOF */
-        wait(NULL);             /* Wait for child */
+        close(pipefd[0]);          /* Close unused read end */
+        write(pipefd[1], argv[1], strlen(argv[1]));
+        close(pipefd[1]);          /* Reader will see EOF */
+        wait(NULL);                /* Wait for child */
         exit(EXIT_SUCCESS);
     }
 }

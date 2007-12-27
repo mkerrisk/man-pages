@@ -11,9 +11,9 @@ pivot_root \- change the root file system
 .BI "int pivot_root(const char *" new_root ", const char *" put_old );
 .SH DESCRIPTION
 .BR pivot_root ()
-moves the root file system of the current process to the
+moves the root file system of the calling process to the
 directory \fIput_old\fP and makes \fInew_root\fP the new root file system
-of the current process.
+of the calling process.
 .\"
 .\" The
 .\" .B CAP_SYS_ADMIN
@@ -28,14 +28,14 @@ the current root of all relevant processes or threads.
 
 .BR pivot_root ()
 may or may not change the current root and the current
-working directory (cwd) of any processes or threads which use the old
+working directory of any processes or threads which use the old
 root directory.
 The caller of
 .BR pivot_root ()
-must ensure that processes with root or cwd at the old root operate
-correctly in either case.
+must ensure that processes with root or current working directory
+at the old root operate correctly in either case.
 An easy way to ensure this is to change their
-root and cwd to \fInew_root\fP before invoking
+root and current working directory to \fInew_root\fP before invoking
 .BR pivot_root ().
 
 The paragraph above is intentionally vague because the implementation
@@ -44,21 +44,22 @@ of
 may change in the future.
 At the time of writing,
 .BR pivot_root ()
-changes root and cwd of each process or
+changes root and current working directory of each process or
 thread to \fInew_root\fP if they point to the old root directory.
 This
 is necessary in order to prevent kernel threads from keeping the old
-root directory busy with their root and cwd, even if they never access
+root directory busy with their root and current working directory,
+even if they never access
 the file system in any way.
 In the future, there may be a mechanism for
 kernel threads to explicitly relinquish any access to the file system,
 such that this fairly intrusive mechanism can be removed from
 .BR pivot_root ().
 
-Note that this also applies to the current process:
+Note that this also applies to the calling process:
 .BR pivot_root ()
 may
-or may not affect its cwd.
+or may not affect its current working directory.
 It is therefore recommended to call
 \fBchdir("/")\fP immediately after
 .BR pivot_root ().
@@ -112,7 +113,7 @@ or a file system is already mounted on \fIput_old\fP.
 \fInew_root\fP or \fIput_old\fP is not a directory.
 .TP
 .B EPERM
-The current process does not have the
+The calling process does not have the
 .B CAP_SYS_ADMIN
 capability.
 .SH VERSIONS
@@ -126,7 +127,7 @@ Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
 .SH BUGS
 .BR pivot_root ()
-should not have to change root and cwd of all other
+should not have to change root and current working directory of all other
 processes in the system.
 
 Some of the more obscure uses of

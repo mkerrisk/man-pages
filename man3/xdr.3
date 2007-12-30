@@ -1,8 +1,7 @@
 .\" This page was taken from the 4.4BSD-Lite CDROM (BSD license)
 .\"
 .\" @(#)xdr.3n	2.2 88/08/03 4.0 RPCSRC; from 1.16 88/03/14 SMI
-.\" FIXME -- change this page to use modern C prototypes
-.TH XDR 3 2007-05-18 "" "Linux Programmer's Manual"
+.TH XDR 3 2007-12-30 "" "Linux Programmer's Manual"
 .SH NAME
 xdr \- library routines for external data representation
 .SH "SYNOPSIS AND DESCRIPTION"
@@ -11,20 +10,29 @@ These routines allow C programmers to describe
 arbitrary data structures in a machine-independent fashion.
 Data for remote procedure calls are transmitted using these
 routines.
-.LP
-.ft B
-.nf
-.sp .5
-xdr_array(xdrs, arrp, sizep, maxsize, elsize, elproc)
-XDR *xdrs;
-char **arrp;
-unsigned int *sizep, maxsize, elsize;
-xdrproc_t elproc;
+
+The prototypes below are declared in
+.I <rpc/xdr.h>
+and make use of the following types:
+.in +4n
+
+typedef int \fIbool_t\fP;
+
+typedef bool_t (*\fIxdrproc_t\fP) (XDR *, void *,...);
 .fi
-.ft R
+.LP
+For the declaration of the
+.I XDR
+type, see
+.IR <rpc/xdr.h> .
+.LP
+.nf
+.BI "bool_t xdr_array(XDR *" xdrs ", char **" arrp ", unsigned int *" sizep ,
+.BI "                 unsigned int " maxsize ", unsigned int " elsize ,
+.BI "                 xdrproc_t " elproc );
+.fi
 .IP
-A filter primitive that translates between variable-length
-arrays
+A filter primitive that translates between variable-length arrays
 and their corresponding external representations.
 The parameter
 .I arrp
@@ -39,23 +47,14 @@ is the
 .I sizeof
 each of the array's elements, and
 .I elproc
-is an
-XDR
-filter that translates between
+is an XDR filter that translates between
 the array elements' C form, and their external
 representation.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-xdr_bool(xdrs, bp)
-XDR *xdrs;
-bool_t *bp;
+.BI "bool_t xdr_bool(XDR *" xdrs ", bool_t *" bp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between booleans (C
 integers)
@@ -63,18 +62,11 @@ and their external representations.
 When encoding data, this
 filter produces values of either one or zero.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-xdr_bytes(xdrs, sp, sizep, maxsize)
-XDR *xdrs;
-char **sp;
-unsigned int *sizep, maxsize;
+.BI "bool_t xdr_bytes(XDR *" xdrs ", char **" sp ", unsigned int *" sizep ,
+.BI "                 unsigned int " maxsize );
 .fi
-.ft R
 .IP
 A filter primitive that translates between counted byte
 strings and their external representations.
@@ -87,17 +79,10 @@ string is located at address
 strings cannot be longer than
 .IR maxsize .
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_char(xdrs, cp)
-XDR *xdrs;
-char *cp;
+.BI "bool_t xdr_char(XDR *" xdrs ", char *" cp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C characters
 and their external representations.
@@ -109,21 +94,12 @@ consider
 .BR xdr_opaque ()
 or
 .BR xdr_string ().
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdr_destroy(xdrs)
-XDR *xdrs;
+.BI "void xdr_destroy(XDR *" xdrs );
 .fi
-.ft R
 .IP
-A macro that invokes the destroy routine associated with the
-XDR
-stream,
+A macro that invokes the destroy routine associated with the XDR stream,
 .IR xdrs .
 Destruction usually involves freeing private data structures
 associated with the stream.
@@ -132,123 +108,65 @@ Using
 after invoking
 .BR xdr_destroy ()
 is undefined.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_double(xdrs, dp)
-XDR *xdrs;
-double *dp;
+.BI "bool_t xdr_double(XDR *" xdrs ", double *" dp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I double
 precision numbers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_enum(xdrs, ep)
-XDR *xdrs;
-enum_t *ep;
+.BI "bool_t xdr_enum(XDR *" xdrs ", enum_t *" ep );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .IR enum s
 (actually integers) and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-xdr_float(xdrs, fp)
-XDR *xdrs;
-float *fp;
+.BI "bool_t xdr_float(XDR *" xdrs ", float *" fp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .IR float s
 and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdr_free(proc, objp)
-xdrproc_t proc;
-char *objp;
+.BI "void xdr_free(xdrproc_t " proc ", char *" objp );
 .fi
-.ft R
 .IP
 Generic freeing routine.
-The first argument is the
-XDR
-routine for the object being freed.
-The second argument
-is a pointer to the object itself.
-Note: the pointer passed
-to this routine is
+The first argument is the XDR routine for the object being freed.
+The second argument is a pointer to the object itself.
+Note: the pointer passed to this routine is
 .I not
 freed, but what it points to
 .I is
 freed (recursively).
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-unsigned int
-xdr_getpos(xdrs)
-XDR *xdrs;
+.BI "unsigned int xdr_getpos(XDR *" xdrs );
 .fi
-.ft R
 .IP
 A macro that invokes the get-position routine
-associated with the
-XDR
-stream,
+associated with the XDR stream,
 .IR xdrs .
 The routine returns an unsigned integer,
-which indicates the position of the
-XDR
-byte stream.
-A desirable feature of
-XDR
+which indicates the position of the XDR byte stream.
+A desirable feature of XDR
 streams is that simple arithmetic works with this number,
-although the
-XDR
-stream instances need not guarantee this.
-.br
-.if t .ne 4
+although the XDR stream instances need not guarantee this.
 .LP
-.ft B
 .nf
-.sp .5
-.br
-long *
-xdr_inline(xdrs, len)
-XDR *xdrs;
-int len;
+.BI "long *xdr_inline(XDR *" xdrs ", int " len );
 .fi
-.ft R
 .IP
-A macro that invokes the in-line routine associated with the
-XDR
-stream,
+A macro that invokes the in-line routine associated with the XDR stream,
 .IR xdrs .
 The routine returns a pointer
 to a contiguous piece of the stream's buffer;
@@ -259,61 +177,34 @@ Note: pointer is cast to
 .IP
 Warning:
 .BR xdr_inline ()
-may return
-NULL
-(0)
+may return NULL (0)
 if it cannot allocate a contiguous piece of a buffer.
 Therefore the behavior may vary among stream instances;
 it exists for the sake of efficiency.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_int(xdrs, ip)
-XDR *xdrs;
-int *ip;
+.BI "bool_t xdr_int(XDR *" xdrs ", int *" ip );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C integers
 and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_long(xdrs, lp)
-XDR *xdrs;
-long *lp;
+.BI "bool_t xdr_long(XDR *" xdrs ", long *" lp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I long
 integers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 12
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdrmem_create(xdrs, addr, size, op)
-XDR *xdrs;
-char *addr;
-unsigned int size;
-enum xdr_op op;
+.BI "void xdrmem_create(XDR *" xdrs ", char *" addr ", unsigned int " size ,
+.BI "                   enum xdr_op " op );
 .fi
-.ft R
 .IP
-This routine initializes the
-XDR
-stream object pointed to by
+This routine initializes the XDR stream object pointed to by
 .IR xdrs .
 The stream's data is written to, or read from,
 a chunk of memory at location
@@ -323,26 +214,15 @@ whose length is no more than
 bytes long.
 The
 .I op
-determines the direction of the
-XDR
-stream
-(either
+determines the direction of the XDR stream (either
 .BR XDR_ENCODE ,
 .BR XDR_DECODE ,
 or
 .BR XDR_FREE ).
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-xdr_opaque(xdrs, cp, cnt)
-XDR *xdrs;
-char *cp;
-unsigned int cnt;
+.BI "bool_t xdr_opaque(XDR *" xdrs ", char *" cp ", unsigned int " cnt );
 .fi
-.ft R
 .IP
 A filter primitive that translates between fixed size opaque data
 and its external representation.
@@ -352,25 +232,15 @@ is the address of the opaque object, and
 .I cnt
 is its size in bytes.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-xdr_pointer(xdrs, objpp, objsize, xdrobj)
-XDR *xdrs;
-char **objpp;
-unsigned int objsize;
-xdrproc_t xdrobj;
+.BI "bool_t xdr_pointer(XDR *" xdrs ", char **" objpp ,
+.BI "                   unsigned int " objsize ", xdrproc_t " xdrobj );
 .fi
-.ft R
 .IP
 Like
 .BR xdr_reference ()
-except that it serializes
-NULL
-pointers, whereas
+except that it serializes NULL pointers, whereas
 .BR xdr_reference ()
 does not.
 Thus,
@@ -378,33 +248,22 @@ Thus,
 can represent
 recursive data structures, such as binary trees or
 linked lists.
-.br
-.if t .ne 15
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdrrec_create(xdrs, sendsize, recvsize, handle, readit, writeit)
-XDR *xdrs;
-unsigned int sendsize, recvsize;
-char *handle;
-int (*readit) (), (*writeit) ();
+.BI "void xdrrec_create(XDR *" xdrs ", unsigned int " sendsize ,
+.BI "                   unsigned int " recvsize ", char *" handle ,
+.BI "                   int (*" readit ") (char *, char *, int),"
+.BI "                   int (*" writeit ") (char *, char *, int));"
 .fi
-.ft R
 .IP
-This routine initializes the
-XDR
-stream object pointed to by
+This routine initializes the XDR stream object pointed to by
 .IR xdrs .
 The stream's data is written to a buffer of size
 .IR sendsize ;
-a value of zero indicates the system should use a suitable
-default.
+a value of zero indicates the system should use a suitable default.
 The stream's data is read from a buffer of size
 .IR recvsize ;
-it too can be set to a suitable default by passing a zero
-value.
+it too can be set to a suitable default by passing a zero value.
 When a stream's output buffer is full,
 .I writeit
 is called.
@@ -419,88 +278,51 @@ and
 except that
 .I handle
 is passed to the former routines as the first parameter.
-Note: the
-XDR
-stream's
+Note: the XDR stream's
 .I op
 field must be set by the caller.
 .IP
-Warning: this
-XDR
-stream implements an intermediate record stream.
+Warning: this XDR stream implements an intermediate record stream.
 Therefore there are additional bytes in the stream
 to provide record boundary information.
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-xdrrec_endofrecord(xdrs, sendnow)
-XDR *xdrs;
-int sendnow;
+.BI "bool_t xdrrec_endofrecord(XDR *" xdrs ", int " sendnow );
 .fi
-.ft R
 .IP
-This routine can be invoked only on
-streams created by
+This routine can be invoked only on streams created by
 .BR xdrrec_create ().
-The data in the output buffer is marked as a completed
-record,
+The data in the output buffer is marked as a completed record,
 and the output buffer is optionally written out if
 .I sendnow
 is nonzero.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-xdrrec_eof(xdrs)
-XDR *xdrs;
-int empty;
+.BI "bool_t xdrrec_eof(XDR *" xdrs );
 .fi
-.ft R
 .IP
-This routine can be invoked only on
-streams created by
+This routine can be invoked only on streams created by
 .BR xdrrec_create ().
 After consuming the rest of the current record in the stream,
 this routine returns one if the stream has no more input,
 zero otherwise.
-.br
-.if t .ne 3
 .LP
-.ft B
 .nf
-.sp .5
-xdrrec_skiprecord(xdrs)
-XDR *xdrs;
+.BI "bool_t xdrrec_skiprecord(XDR *" xdrs );
 .fi
-.ft R
 .IP
 This routine can be invoked only on
 streams created by
 .BR xdrrec_create ().
-It tells the
-XDR
-implementation that the rest of the current record
+It tells the XDR implementation that the rest of the current record
 in the stream's input buffer should be discarded.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 11
 .LP
-.ft B
 .nf
-.sp .5
-xdr_reference(xdrs, pp, size, proc)
-XDR *xdrs;
-char **pp;
-unsigned int size;
-xdrproc_t proc;
+.BI "bool_t xdr_reference(XDR *" xdrs ", char **" pp ", unsigned int " size ,
+.BI "                     xdrproc_t " proc );
 .fi
-.ft R
 .IP
 A primitive that provides pointer chasing within structures.
 The parameter
@@ -513,207 +335,121 @@ the structure that
 .I *pp
 points to; and
 .I proc
-is an
-XDR
-procedure that filters the structure
+is an XDR procedure that filters the structure
 between its C form and its external representation.
 This routine returns one if it succeeds, zero otherwise.
 .IP
-Warning: this routine does not understand
-NULL
-pointers.
+Warning: this routine does not understand NULL pointers.
 Use
 .BR xdr_pointer ()
 instead.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-xdr_setpos(xdrs, pos)
-XDR *xdrs;
-unsigned int pos;
+.BI "xdr_setpos(XDR *" xdrs ", unsigned int " pos );
 .fi
-.ft R
 .IP
 A macro that invokes the set position routine associated with
-the
-XDR
-stream
+the XDR stream
 .IR xdrs .
 The parameter
 .I pos
 is a position value obtained from
 .BR xdr_getpos ().
-This routine returns one if the
-XDR
-stream could be repositioned,
+This routine returns one if the XDR stream could be repositioned,
 and zero otherwise.
 .IP
-Warning: it is difficult to reposition some types of
-XDR
+Warning: it is difficult to reposition some types of XDR
 streams, so this routine may fail with one
 type of stream and succeed with another.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-xdr_short(xdrs, sp)
-XDR *xdrs;
-short *sp;
+.BI "bool_t xdr_short(XDR *" xdrs ", short *" sp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I short
 integers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdrstdio_create(xdrs, file, op)
-XDR *xdrs;
-FILE *file;
-enum xdr_op op;
+.BI "void xdrstdio_create(XDR *" xdrs ", FILE *" file ", enum xdr_op " op );
 .fi
-.ft R
 .IP
-This routine initializes the
-XDR
-stream object pointed to by
+This routine initializes the XDR stream object pointed to by
 .IR xdrs .
-The
-XDR
-stream data is written to, or read from, the
+The XDR stream data is written to, or read from, the
 .I stdio
 stream
 .IR file .
 The parameter
 .I op
-determines the direction of the
-XDR
-stream (either
+determines the direction of the XDR stream (either
 .BR XDR_ENCODE ,
 .BR XDR_DECODE ,
 or
 .BR XDR_FREE ).
 .IP
-Warning: the destroy routine associated with such
-XDR
-streams calls
+Warning: the destroy routine associated with such XDR streams calls
 .BR fflush (3)
 on the
 .I file
 stream, but never
 .BR fclose (3).
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-xdr_string(xdrs, sp, maxsize)
-XDR
-*xdrs;
-char **sp;
-unsigned int maxsize;
+.BI "bool_t xdr_string(XDR *" xdrs ", char **" sp ", unsigned int " maxsize );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C strings and
-their
-corresponding external representations.
+their corresponding external representations.
 Strings cannot be longer than
 .IR maxsize .
 Note:
 .I sp
 is the address of the string's pointer.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-xdr_u_char(xdrs, ucp)
-XDR *xdrs;
-unsigned char *ucp;
+.BI "bool_t xdr_u_char(XDR *" xdrs ", unsigned char *" ucp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between
 .I unsigned
 C characters and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-xdr_u_int(xdrs, up)
-XDR *xdrs;
-unsigned *up;
+.BI "bool_t xdr_u_int(XDR *" xdrs ", unsigned *" up );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I unsigned
 integers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_u_long(xdrs, ulp)
-XDR *xdrs;
-unsigned long *ulp;
+.BI "bool_t xdr_u_long(XDR *" xdrs ", unsigned long *" ulp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I "unsigned long"
 integers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_u_short(xdrs, usp)
-XDR *xdrs;
-unsigned short *usp;
+.BI "bool_t xdr_u_short(XDR *" xdrs ", unsigned short *" usp );
 .fi
-.ft R
 .IP
 A filter primitive that translates between C
 .I "unsigned short"
 integers and their external representations.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 16
 .LP
-.ft B
 .nf
-.sp .5
-xdr_union(xdrs, dscmp, unp, choices, dfault)
-XDR *xdrs;
-int *dscmp;
-char *unp;
-struct xdr_discrim *choices;
-bool_t (*defaultarm) ();  /* may equal NULL */
+.BI "bool_t xdr_union(XDR *" xdrs ", int *" dscmp ", char *" unp ,
+.BI "                 struct xdr_discrim *" choices ,
+.BI "                 xdrproc_t " defaultarm ");     /* may equal NULL */"
 .fi
-.ft R
 .IP
 A filter primitive that translates between a discriminated C
 .I union
@@ -740,31 +476,20 @@ then the
 is called to translate the union.
 The end of the
 .BR xdr_discrim ()
-structure array is denoted by a routine of value
-NULL.
+structure array is denoted by a routine of value NULL.
 If the discriminant is not found in the
 .I choices
 array, then the
 .I defaultarm
-procedure is called (if it is not
-NULL).
+procedure is called (if it is not NULL).
 Returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-xdr_vector(xdrs, arrp, size, elsize, elproc)
-XDR *xdrs;
-char *arrp;
-unsigned int size, elsize;
-xdrproc_t elproc;
+.BI "bool_t xdr_vector(XDR *" xdrs ", char *" arrp ", unsigned int " size ,
+.BI "                  unsigned int " elsize ", xdrproc_t " elproc );
 .fi
-.ft R
 .IP
-A filter primitive that translates between fixed-length
-arrays
+A filter primitive that translates between fixed-length arrays
 and their corresponding external representations.
 The parameter
 .I arrp
@@ -777,38 +502,22 @@ is the
 .I sizeof
 each of the array's elements, and
 .I elproc
-is an
-XDR
-filter that translates between
+is an XDR filter that translates between
 the array elements' C form, and their external
 representation.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 5
 .LP
-.ft B
 .nf
-.sp .5
-xdr_void()
+.BI "bool_t xdr_void(void);"
 .fi
-.ft R
 .IP
 This routine always returns one.
-It may be passed to
-RPC
-routines that require a function parameter,
+It may be passed to RPC routines that require a function parameter,
 where nothing is to be done.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-xdr_wrapstring(xdrs, sp)
-XDR *xdrs;
-char **sp;
+.BI "bool_t xdr_wrapstring(XDR *" xdrs ", char **" sp );
 .fi
-.ft R
 .IP
 A primitive that calls
 .B "xdr_string(xdrs, sp,MAXUN.UNSIGNED );"
@@ -817,10 +526,7 @@ where
 .B MAXUN.UNSIGNED
 is the maximum value of an unsigned integer.
 .BR xdr_wrapstring ()
-is handy because the
-RPC
-package passes a maximum of two
-XDR
+is handy because the RPC package passes a maximum of two XDR
 routines as parameters, and
 .BR xdr_string (),
 one of the most frequently used primitives, requires three.
@@ -830,11 +536,9 @@ Returns one if it succeeds, zero otherwise.
 .LP
 The following manuals:
 .RS
-.ft I
 eXternal Data Representation Standard: Protocol Specification
 .br
 eXternal Data Representation: Sun Technical Notes
-.ft R
 .br
 .IR "XDR: External Data Representation Standard" ,
 RFC\ 1014, Sun Microsystems, Inc.,

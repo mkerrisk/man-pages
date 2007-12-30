@@ -2,128 +2,101 @@
 .\"
 .\" @(#)rpc.3n	2.4 88/08/08 4.0 RPCSRC; from 1.19 88/06/24 SMI
 .\"
-.\" FIXME -- change this page to use modern C prototypes
+.\" 2007-12-30, mtk, Convert function prototypes to modern C syntax
 .\"
-.TH RPC 3 2007-11-15 "" "Linux Programmer's Manual"
+.TH RPC 3 2007-12-30 "" "Linux Programmer's Manual"
 .SH NAME
 rpc \- library routines for remote procedure calls
 .SH "SYNOPSIS AND DESCRIPTION"
 These routines allow C programs to make procedure
 calls on other machines across the network.
-First, the client calls a procedure to send a
-data packet to the server.
+First, the client calls a procedure to send a data packet to the server.
 Upon receipt of the packet, the server calls a dispatch routine
-to perform the requested service, and then sends back a
-reply.
+to perform the requested service, and then sends back a reply.
 Finally, the procedure call returns to the client.
 .\" .LP
-.\" We don't have an rpc_secure.3 page in the set at the moment -- MTK, 19 Sep 05
+.\" We don't have an rpc_secure.3 page at the moment -- MTK, 19 Sep 05
 .\" Routines that are used for Secure RPC (DES authentication) are described in
 .\" .BR rpc_secure (3).
 .\" Secure RPC can be used only if DES encryption is available.
 .LP
-.ft B
-.nf
-.sp .5
-#include <rpc/rpc.h>
+To take use of these routines, include the header file
+.IR "<rpc/rpc.h>" .
 .fi
-.ft R
-.br
-.if t .ne 8
+The prototypes below make use of the following types:
+.in +4n
+
+typedef int \fIbool_t\fP;
+
+typedef bool_t (*\fIxdrproc_t\fP) (XDR *, void *,...);
+
+typedef bool_t (*\fIresultproc_t\fP) (caddr_t resp, 
+                                      struct sockaddr_in *raddr);
+.fi
 .LP
-.ft B
+See the header files for the declarations of the
+.IR AUTH ,
+.IR CLIENT ,
+.IR SVCXPRT ,
+and
+.IR XDR
+types.
+.LP
 .nf
-.sp .5
-void
-auth_destroy(auth)
-AUTH *auth;
+.BI "void auth_destroy(AUTH *" auth );
 .fi
-.ft R
 .IP
 A macro that destroys the authentication information associated with
 .IR auth .
-Destruction usually involves deallocation of private data
-structures.
+Destruction usually involves deallocation of private data structures.
 The use of
 .I auth
 is undefined after calling
 .BR auth_destroy ().
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-AUTH *
-authnone_create()
+.BI "AUTH *authnone_create(void);"
 .fi
-.ft R
 .IP
-Create and returns an
-RPC
+Create and return an RPC
 authentication handle that passes non-usable authentication
 information with each remote procedure call.
-This is the
-default authentication used by
-RPC.
-.if t .ne 10
+This is the default authentication used by RPC.
 .LP
-.ft B
 .nf
-.sp .5
-AUTH *
-authunix_create(host, uid, gid, len, aup_gids)
-char *host;
-int uid, gid, len, *aup_gids;
+.BI "AUTH *authunix_create(char *" host ", int " uid ", int " gid ,
+.BI "                      int " len ", int *" aup_gids );
 .fi
-.ft R
 .IP
-Create and return an
-RPC
-authentication handle that contains
+Create and return an RPC authentication handle that contains
 authentication information.
 The parameter
 .I host
-is the name of the machine on which the information was
-created;
+is the name of the machine on which the information was created;
 .I uid
-is the user's user
-ID;
+is the user's user ID;
 .I gid
-is the user's current group
-ID;
+is the user's current group ID;
 .I len
 and
 .I aup_gids
 refer to a counted array of groups to which the user belongs.
 It is easy to impersonate a user.
-.br
-.if t .ne 5
 .LP
-.ft B
 .nf
-.sp .5
-AUTH *
-authunix_create_default()
+.BI "AUTH *authunix_create_default(void);"
 .fi
-.ft R
 .IP
 Calls
 .BR authunix_create ()
 with the appropriate parameters.
-.br
-.if t .ne 13
 .LP
-.ft B
 .nf
-.sp .5
-callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
-char *host;
-unsigned long prognum, versnum, procnum;
-char *in, *out;
-xdrproc_t inproc, outproc;
+.BI "int callrpc(char *" host ", unsigned long " prognum , 
+.BI "            unsigned long " versnum ", unsigned long " procnum ,
+.BI "            char *" in ", char *" out ,
+.BI "            xdrproc_t " inproc ", xdrproc_t " outproc );
 .fi
-.ft R
 .IP
 Call the remote procedure associated with
 .IR prognum ,
@@ -149,47 +122,32 @@ The routine
 is handy for translating failure statuses into messages.
 .IP
 Warning: calling remote procedures with this routine
-uses
-UDP/IP
-as a transport; see
+uses UDP/IP as a transport; see
 .BR clntudp_create ()
 for restrictions.
-You do not have control of timeouts or authentication using
-this routine.
-.br
-.if t .ne 16
+You do not have control of timeouts or authentication using this routine.
 .LP
-.ft B
 .nf
-.sp .5
-enum clnt_stat
-clnt_broadcast(prognum, versnum, procnum, inproc, in, outproc,
-               out, eachresult)
-unsigned long prognum, versnum, procnum;
-char *in, *out;
-xdrproc_t inproc, outproc;
-resultproc_t eachresult;
+.BI "enum clnt_stat clnt_broadcast(unsigned long " prognum ,
+.BI "                     unsigned long " versnum ", unsigned long " procnum ,
+.BI "                     char *" in ", char *" out ,
+.BI "                     xdrproc_t " inproc ", xdrproc_t " outproc ,
+.BI "                     resultproc_t " eachresult );
 .fi
-.ft R
 .IP
 Like
 .BR callrpc (),
 except the call message is broadcast to all locally
 connected broadcast nets.
-Each time it receives a
-response, this routine calls
+Each time it receives a response, this routine calls
 .BR eachresult (),
 whose form is:
 .IP
-.RS 1i
-.ft B
+.in +4n
 .nf
-eachresult(out, addr)
-char *out;
-struct sockaddr_in *addr;
-.ft R
+.BI "eachresult(char *" out ", struct sockaddr_in *" addr );
 .fi
-.RE
+.in
 .IP
 where
 .I out
@@ -204,36 +162,23 @@ If
 .BR eachresult ()
 returns zero,
 .BR clnt_broadcast ()
-waits for more replies; otherwise it returns with appropriate
-status.
+waits for more replies; otherwise it returns with appropriate status.
 .IP
 Warning: broadcast sockets are limited in size to the
 maximum transfer unit of the data link.
-For ethernet,
-this value is 1500 bytes.
-.br
-.if t .ne 13
+For ethernet, this value is 1500 bytes.
 .LP
-.ft B
 .nf
-.sp .5
-enum clnt_stat
-clnt_call(clnt, procnum, inproc, in, outproc, out, tout)
-CLIENT *clnt;
-unsigned long procnum;
-xdrproc_t inproc, outproc;
-char *in, *out;
-struct timeval tout;
+.BI "enum clnt_stat clnt_call(CLIENT *" clnt ", unsigned long " procnum ,
+.BI "                    xdrproc_t " inproc ", xdrproc_t " outproc ,
+.BI "                    char *" in ", char *" out ", struct timeval " tout );
 .fi
-.ft R
 .IP
 A macro that calls the remote procedure
 .I procnum
 associated with the client handle,
 .IR clnt ,
-which is obtained with an
-RPC
-client creation routine such as
+which is obtained with an RPC client creation routine such as
 .BR clnt_create ().
 The parameter
 .I in
@@ -246,20 +191,12 @@ is used to encode the procedure's parameters, and
 is used to decode the procedure's results;
 .I tout
 is the time allowed for results to come back.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-clnt_destroy(clnt)
-CLIENT *clnt;
+.BI "clnt_destroy(CLIENT *" clnt );
 .fi
-.ft R
 .IP
-A macro that destroys the client's
-RPC
-handle.
+A macro that destroys the client's RPC handle.
 Destruction usually involves deallocation
 of private data structures, including
 .I clnt
@@ -268,28 +205,17 @@ Use of
 .I clnt
 is undefined after calling
 .BR clnt_destroy ().
-If the
-RPC
-library opened the associated socket, it will close it also.
+If the RPC library opened the associated socket, it will close it also.
 Otherwise, the socket remains open.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-CLIENT *
-clnt_create(host, prog, vers, proto)
-char *host;
-unsigned long prog, vers;
-char *proto;
+.BI "CLIENT *clnt_create(char *" host ", unsigned long " prog ,
+.BI "                    unsigned long " vers ", char *" proto );
 .fi
-.ft R
 .IP
 Generic client creation routine.
 .I host
-identifies the name of the remote host where the server
-is located.
+identifies the name of the remote host where the server is located.
 .I proto
 indicates which kind of transport protocol to use.
 The currently supported values for this field are \(lqudp\(rq
@@ -297,28 +223,14 @@ and \(lqtcp\(rq.
 Default timeouts are set, but can be modified using
 .BR clnt_control ().
 .IP
-Warning: Using
-UDP
-has its shortcomings.
-Since
-UDP-based
-RPC
-messages can only hold up to 8 Kbytes of encoded data,
+Warning: Using UDP has its shortcomings.
+Since UDP-based RPC messages can only hold up to 8 Kbytes of encoded data,
 this transport cannot be used for procedures that take
 large arguments or return huge results.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-bool_t
-clnt_control(cl, req, info)
-CLIENT *cl;
-int req;
-char *info;
+.BI "bool_t clnt_control(CLIENT *" cl ", int " req ", char *" info );
 .fi
-.ft R
 .IP
 A macro used to change or retrieve various information
 about a client object.
@@ -326,18 +238,14 @@ about a client object.
 indicates the type of operation, and
 .I info
 is a pointer to the information.
-For both
-UDP
-and
-TCP,
-the supported values of
+For both UDP and TCP, the supported values of
 .I req
 and their argument types and what they do are:
 .IP
 .in +4n
 .nf
-CLSET_TIMEOUT	struct timeval	set total timeout
-CLGET_TIMEOUT	struct timeval	get total timeout
+\fBCLSET_TIMEOUT\fP  \fIstruct timeval\fP // set total timeout
+\fBCLGET_TIMEOUT\fP  \fIstruct timeval\fP // get total timeout
 .fi
 .in
 .IP
@@ -349,85 +257,50 @@ will be ignored in all future calls.
 .IP
 .in +4n
 .nf
-CLGET_SERVER_ADDR	struct sockaddr_in 	get server's address
+\fBCLGET_SERVER_ADDR\fP  \fIstruct sockaddr_in \fP // get server's address
 .fi
 .in
 .IP
-The following operations are valid for
-UDP
-only:
+The following operations are valid for UDP only:
 .IP
 .in +4n
 .nf
-CLSET_RETRY_TIMEOUT	struct timeval	set the retry timeout
-CLGET_RETRY_TIMEOUT	struct timeval	get the retry timeout
+\fBCLSET_RETRY_TIMEOUT\fP  \fIstruct timeval\fP // set the retry timeout
+\fBCLGET_RETRY_TIMEOUT\fP  \fIstruct timeval\fP // get the retry timeout
 .fi
 .in
 .IP
-The retry timeout is the time that
-"UDP RPC"
+The retry timeout is the time that "UDP RPC"
 waits for the server to reply before
 retransmitting the request.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-clnt_freeres(clnt, outproc, out)
-CLIENT *clnt;
-xdrproc_t outproc;
-char *out;
+.BI "clnt_freeres(CLIENT * " clnt ", xdrproc_t " outproc ", char *" out );
 .fi
-.ft R
 .IP
-A macro that frees any data allocated by the
-RPC/XDR
-system when it decoded the results of an
-RPC
-call.
+A macro that frees any data allocated by the RPC/XDR
+system when it decoded the results of an RPC call.
 The parameter
 .I out
 is the address of the results, and
 .I outproc
-is the
-XDR
-routine describing the results.
-This routine returns one if the results were successfully
-freed,
+is the XDR routine describing the results.
+This routine returns one if the results were successfully freed,
 and zero otherwise.
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-void
-clnt_geterr(clnt, errp)
-CLIENT *clnt;
-struct rpc_err *errp;
+.BI "void clnt_geterr(CLIENT *" clnt ", struct rpc_err *" errp );
 .fi
-.ft R
 .IP
 A macro that copies the error structure out of the client
-handle
-to the structure at address
+handle to the structure at address
 .IR errp .
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-void
-clnt_pcreateerror(s)
-char *s;
+.BI "void clnt_pcreateerror(char *" s );
 .fi
-.ft R
 .IP
-Print a message to standard error indicating
-why a client
-RPC
+Print a message to standard error indicating why a client RPC
 handle could not be created.
 The message is prepended with string
 .I s
@@ -439,38 +312,22 @@ Used when a
 or
 .BR clntudp_create ()
 call fails.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-void
-clnt_perrno(stat)
-enum clnt_stat stat;
+.BI "void clnt_perrno(enum clnt_stat " stat );
 .fi
-.ft R
 .IP
 Print a message to standard error corresponding
 to the condition indicated by
 .IR stat .
 Used after
 .BR callrpc ().
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-clnt_perror(clnt, s)
-CLIENT *clnt;
-char *s;
+.BI "clnt_perror(CLIENT *" clnt ", char *" s );
 .fi
-.ft R
 .IP
-Print a message to standard error indicating why an
-RPC
-call failed;
+Print a message to standard error indicating why an RPC call failed;
 .I clnt
 is the handle used to do the call.
 The message is prepended with string
@@ -478,53 +335,32 @@ The message is prepended with string
 and a colon.
 Used after
 .BR clnt_call ().
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-char *
-clnt_spcreateerror(s)
-char *s;
+.BI "char *clnt_spcreateerror(char *" s );
 .fi
-.ft R
 .IP
 Like
 .BR clnt_pcreateerror (),
-except that it returns a string
-instead of printing to the standard error.
+except that it returns a string instead of printing to the standard error.
 .IP
-Bugs: returns pointer to static data that is overwritten
-on each call.
-.br
-.if t .ne 9
+Bugs: returns pointer to static data that is overwritten on each call.
 .LP
-.ft B
 .nf
-.sp .5
-char *
-clnt_sperrno(stat)
-enum clnt_stat stat;
+.BI "char *clnt_sperrno(enum clnt_stat " stat );
 .fi
-.ft R
 .IP
 Take the same arguments as
 .BR clnt_perrno (),
-but instead of sending a message to the standard error
-indicating why an
-RPC
-call failed, return a pointer to a string which contains
-the message.
-The string ends with a
-NEWLINE.
+but instead of sending a message to the standard error indicating why an RPC
+call failed, return a pointer to a string which contains the message.
+The string ends with a NEWLINE.
 .IP
 .BR clnt_sperrno ()
 is used instead of
 .BR clnt_perrno ()
 if the program does not have a standard error (as a program
-running as a server quite likely does not), or if the
-programmer
+running as a server quite likely does not), or if the programmer
 does not want the message to be output with
 .BR printf (3),
 or if a message format different than that supported by
@@ -537,18 +373,10 @@ and
 .BR clnt_sperrno ()
 returns pointer to static data, but the
 result will not get overwritten on each call.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-char *
-clnt_sperror(rpch, s)
-CLIENT *rpch;
-char *s;
+.BI "char *clnt_sperror(CLIENT *" rpch ", char *" s );
 .fi
-.ft R
 .IP
 Like
 .BR clnt_perror (),
@@ -556,67 +384,38 @@ except that (like
 .BR clnt_sperrno ())
 it returns a string instead of printing to standard error.
 .IP
-Bugs: returns pointer to static data that is overwritten
-on each call.
-.br
-.if t .ne 10
+Bugs: returns pointer to static data that is overwritten on each call.
 .LP
-.ft B
 .nf
-.sp .5
-CLIENT *
-clntraw_create(prognum, versnum)
-unsigned long prognum, versnum;
+.BI "CLIENT *clntraw_create(unsigned long " prognum \
+", unsigned long " versnum );
 .fi
-.ft R
 .IP
-This routine creates a toy
-RPC
-client for the remote program
+This routine creates a toy RPC client for the remote program
 .IR prognum ,
 version
 .IR versnum .
 The transport used to pass messages to the service is
 actually a buffer within the process's address space, so the
-corresponding
-RPC
-server should live in the same address space; see
+corresponding RPC server should live in the same address space; see
 .BR svcraw_create ().
-This allows simulation of
-RPC
-and acquisition of
-RPC
-overheads, such as round trip times, without any
-kernel interference.
-This routine returns
-NULL
-if it fails.
-.br
-.if t .ne 15
+This allows simulation of RPC and acquisition of RPC
+overheads, such as round trip times, without any kernel interference.
+This routine returns NULL if it fails.
 .LP
-.ft B
 .nf
-.sp .5
-CLIENT *
-clnttcp_create(addr, prognum, versnum, sockp, sendsz, recvsz)
-struct sockaddr_in *addr;
-unsigned long prognum, versnum;
-int *sockp;
-unsigned int sendsz, recvsz;
+.BI "CLIENT *clnttcp_create(struct sockaddr_in *" addr ,
+.BI "                unsigned long " prognum ", unsigned long " versnum ,
+.BI "                int *" sockp ", unsigned int " sendsz \
+", unsigned int " recvsz );
 .fi
-.ft R
 .IP
-This routine creates an
-RPC
-client for the remote program
+This routine creates an RPC client for the remote program
 .IR prognum ,
 version
 .IR versnum ;
-the client uses
-TCP/IP
-as a transport.
-The remote program is located at Internet
-address
+the client uses TCP/IP as a transport.
+The remote program is located at Internet address
 .IR *addr .
 If
 .\"The following in-line font conversion is necessary for the hyphen indicator
@@ -631,46 +430,27 @@ is a socket; if it is
 .BR RPC_ANYSOCK ,
 then this routine opens a new one and sets
 .IR sockp .
-Since
-TCP-based
-RPC
-uses buffered
-I/O,
+Since TCP-based RPC uses buffered I/O,
 the user may specify the size of the send and receive buffers
 with the parameters
 .I sendsz
 and
 .IR recvsz ;
 values of zero choose suitable defaults.
-This routine returns
-NULL
-if it fails.
-.br
-.if t .ne 15
+This routine returns NULL if it fails.
 .LP
-.ft B
 .nf
-.sp .5
-CLIENT *
-clntudp_create(addr, prognum, versnum, wait, sockp)
-struct sockaddr_in *addr;
-unsigned long prognum, versnum;
-struct timeval wait;
-int *sockp;
+.BI "CLIENT *clntudp_create(struct sockaddr_in *" addr , 
+.BI "                unsigned long " prognum ", unsigned long " versnum ,
+.BI "                struct timeval " wait ", int *" sockp );
 .fi
-.ft R
 .IP
-This routine creates an
-RPC
-client for the remote program
+This routine creates an RPC client for the remote program
 .IR prognum ,
 version
 .IR versnum ;
-the client uses use
-UDP/IP
-as a transport.
-The remote program is located at Internet
-address
+the client uses use UDP/IP as a transport.
+The remote program is located at Internet address
 .IR addr .
 If
 \fB\%addr\->sin_port\fR
@@ -684,50 +464,29 @@ is a socket; if it is
 .BR RPC_ANYSOCK ,
 then this routine opens a new one and sets
 .IR sockp .
-The
-UDP
-transport resends the call message in intervals of
+The UDP transport resends the call message in intervals of
 .I wait
-time until a response is received or until the call times
-out.
+time until a response is received or until the call times out.
 The total time for the call to time out is specified by
 .BR clnt_call ().
 .IP
-Warning: since
-UDP-based
-RPC
-messages can only hold up to 8 Kbytes
+Warning: since UDP-based RPC messages can only hold up to 8 Kbytes
 of encoded data, this transport cannot be used for procedures
 that take large arguments or return huge results.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-CLIENT *
-clntudp_bufcreate(addr, prognum, versnum, wait, sockp, sendsize,
-                  recosize)
-struct sockaddr_in *addr;
-unsigned long prognum, versnum;
-struct timeval wait;
-int *sockp;
-unsigned int sendsize;
-unsigned int recosize;
+.BI "CLIENT *clntudp_bufcreate(struct sockaddr_in *" addr ,
+.BI "            unsigned long " prognum ", unsigned long " versnum ,
+.BI "            struct timeval " wait ", int *" sockp ,
+.BI "            unsigned int " sendsize ", unsigned int "recosize );
 .fi
-.ft R
 .IP
-This routine creates an
-RPC
-client for the remote program
+This routine creates an RPC client for the remote program
 .IR prognum ,
 on
 .IR versnum ;
-the client uses use
-UDP/IP
-as a transport.
-The remote program is located at Internet
-address
+the client uses use UDP/IP as a transport.
+The remote program is located at Internet address
 .IR addr .
 If
 \fB\%addr\->sin_port\fR
@@ -741,78 +500,45 @@ is a socket; if it is
 .BR RPC_ANYSOCK ,
 then this routine opens a new one and sets
 .BR sockp .
-The
-UDP
-transport resends the call message in intervals of
+The UDP transport resends the call message in intervals of
 .I wait
-time until a response is received or until the call times
-out.
+time until a response is received or until the call times out.
 The total time for the call to time out is specified by
 .BR clnt_call ().
 .IP
-This allows the user to specify the maximum packet size for sending and receiving
-UDP-based
-RPC
-messages.
-.br
-.if t .ne 7
+This allows the user to specify the maximum packet
+size for sending and receiving UDP-based RPC messages.
 .LP
-.ft B
 .nf
-.sp .5
-void
-get_myaddress(addr)
-struct sockaddr_in *addr;
+.BI "void get_myaddress(struct sockaddr_in *" addr );
 .fi
-.ft R
 .IP
-Stuff the machine's
-IP
-address into
+Stuff the machine's IP address into
 .IR *addr ,
 without consulting the library routines that deal with
 .IR /etc/hosts .
 The port number is always set to
 .BR htons(PMAPPORT) .
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-struct pmaplist *
-pmap_getmaps(addr)
-struct sockaddr_in *addr;
+.BI "struct pmaplist *pmap_getmaps(struct sockaddr_in *" addr );
 .fi
-.ft R
 .IP
 A user interface to the
 .B portmap
-service, which returns a list of the current
-RPC
-program-to-port mappings
-on the host located at
-IP
-address
+service, which returns a list of the current RPC
+program-to-port mappings on the host located at IP address
 .IR *addr .
-This routine can return
-NULL.
+This routine can return NULL.
 The command
 .IR "rpcinfo\ \-p"
 uses this routine.
-.br
-.if t .ne 12
 .LP
-.ft B
 .nf
-.sp .5
-unsigned short
-pmap_getport(addr, prognum, versnum, protocol)
-struct sockaddr_in *addr;
-unsigned long prognum, versnum;
-unsigned int protocol;
+.BI "unsigned short pmap_getport(struct sockaddr_in *" addr ,
+.BI "                    unsigned long " prognum ", unsigned long " versnum ,
+.BI "                    unsigned int " protocol );
 .fi
-.ft R
 .IP
 A user interface to the
 .B portmap
@@ -826,77 +552,48 @@ and speaks the transport protocol associated with
 The value of
 .I protocol
 is most likely
-.B
-IPPROTO_UDP
+.B IPPROTO_UDP
 or
 .BR IPPROTO_TCP .
 A return value of zero means that the mapping does not exist
-or that
-the
-RPC
-system failed to contact the remote
+or that the RPC system failed to contact the remote
 .B portmap
 service.
 In the latter case, the global variable
-.BR rpc_createerr ()
-contains the
-RPC
-status.
-.br
-.if t .ne 15
+.I rpc_createerr
+contains the RPC status.
 .LP
-.ft B
 .nf
-.sp .5
-enum clnt_stat
-pmap_rmtcall(addr, prognum, versnum, procnum, inproc, in,
-             outproc, out, tout, portp)
-struct sockaddr_in *addr;
-unsigned long prognum, versnum, procnum;
-char *in, *out;
-xdrproc_t inproc, outproc;
-struct timeval tout;
-unsigned long *portp;
+.BI "enum clnt_stat pmap_rmtcall(struct sockaddr_in *" addr ,
+.BI "                    unsigned long " prognum ", unsigned long " versnum ,
+.BI "                    unsigned long " procnum ", char *" in ", char *" out ,
+.BI "                    xdrproc_t " inproc ", xdrproc_t " outproc ,
+.BI "                    struct timeval " tout ", unsigned long *" portp );
 .fi
-.ft R
 .IP
 A user interface to the
 .B portmap
 service, which instructs
 .B portmap
-on the host at
-IP
-address
+on the host at IP address
 .I *addr
-to make an
-RPC
-call on your behalf to a procedure on that host.
+to make an RPC call on your behalf to a procedure on that host.
 The parameter
 .I *portp
-will be modified to the program's port number if the
-procedure
-succeeds.
+will be modified to the program's port number if the procedure succeeds.
 The definitions of other parameters are discussed
 in
 .BR callrpc ()
 and
 .BR clnt_call ().
-This procedure should be used for a \(lqping\(rq and nothing
-else.
+This procedure should be used for a \(lqping\(rq and nothing else.
 See also
 .BR clnt_broadcast ().
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-pmap_set(prognum, versnum, protocol, port)
-unsigned long prognum, versnum;
-unsigned int protocol;
-unsigned short port;
+.BI "bool_t pmap_set(unsigned long " prognum ", unsigned long " versnum ,
+.BI "                unsigned int " protocol ", unsigned short " port );
 .fi
-.ft R
 .IP
 A user interface to the
 .B portmap
@@ -910,23 +607,16 @@ service.
 The value of
 .I protocol
 is most likely
-.B
-IPPROTO_UDP
+.B IPPROTO_UDP
 or
 .BR IPPROTO_TCP .
 This routine returns one if it succeeds, zero otherwise.
 Automatically done by
 .BR svc_register ().
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-pmap_unset(prognum, versnum)
-unsigned long prognum, versnum;
+.BI "bool_t pmap_unset(unsigned long " prognum ", unsigned long " versnum );
 .fi
-.ft R
 .IP
 A user interface to the
 .B portmap
@@ -937,26 +627,17 @@ and
 on the machine's
 .B portmap
 service.
-This routine returns one if it succeeds, zero
-otherwise.
-.br
-.if t .ne 15
+This routine returns one if it succeeds, zero otherwise.
 .LP
-.ft B
 .nf
-.sp .5
-registerrpc(prognum, versnum, procnum, procname, inproc, outproc)
-unsigned long prognum, versnum, procnum;
-char *(*procname) () ;
-xdrproc_t inproc, outproc;
+.BI "int registerrpc(unsigned long " prognum ", unsigned long " versnum ,
+.BI "                unsigned long " procnum ", char *(*" procname ")(char *),
+.BI "                xdrproc_t " inproc ", xdrproc_t " outproc );
 .fi
-.ft R
 .IP
 Register procedure
 .I procname
-with the
-RPC
-service package.
+with the RPC service package.
 If a request arrives for program
 .IR prognum ,
 version
@@ -971,46 +652,28 @@ should return a pointer to its static result(s);
 is used to decode the parameters while
 .I outproc
 is used to encode the results.
-This routine returns zero if the registration succeeded, \-1
-otherwise.
+This routine returns zero if the registration succeeded, \-1 otherwise.
 .IP
 Warning: remote procedures registered in this form
-are accessed using the
-UDP/IP
-transport; see
+are accessed using the UDP/IP transport; see
 .BR svcudp_create ()
 for restrictions.
-.br
-.if t .ne 5
 .LP
-.ft B
 .nf
-.sp .5
-struct rpc_createerr     rpc_createerr;
+.BI "struct rpc_createerr " rpc_createerr ;
 .fi
-.ft R
 .IP
-A global variable whose value is set by any
-RPC
-client creation routine
+A global variable whose value is set by any RPC client creation routine
 that does not succeed.
 Use the routine
 .BR clnt_pcreateerror ()
 to print the reason why.
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void svc_destroy(xprt)
-SVCXPRT *
-xprt;
+.BI "void svc_destroy(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
-A macro that destroys the
-RPC
-service transport handle,
+A macro that destroys the RPC service transport handle,
 .IR xprt .
 Destruction usually involves deallocation
 of private data structures, including
@@ -1019,25 +682,16 @@ itself.
 Use of
 .I xprt
 is undefined after calling this routine.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-fd_set svc_fdset;
+.BI "fd_set " svc_fdset ;
 .fi
-.ft R
 .IP
-A global variable reflecting the
-RPC
-service side's
-read file descriptor bit mask; it is suitable as a parameter
-to the
+A global variable reflecting the RPC service side's
+read file descriptor bit mask; it is suitable as a parameter to the
 .BR select (2)
 system call.
-This is only of interest
-if a service implementor does not call
+This is only of interest if a service implementor does not call
 .BR svc_run (),
 but rather does his own asynchronous event processing.
 This variable is read-only (do not pass its address to
@@ -1045,145 +699,82 @@ This variable is read-only (do not pass its address to
 yet it may change after calls to
 .BR svc_getreqset ()
 or any creation routines.
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-int svc_fds;
+.BI "int " svc_fds ;
 .fi
-.ft R
 .IP
 Similar to
 .BR svc_fdset ,
 but limited to 32 descriptors.
 This interface is obsoleted by
 .BR svc_fdset .
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-svc_freeargs(xprt, inproc, in)
-SVCXPRT *xprt;
-xdrproc_t inproc;
-char *in;
+.BI "svc_freeargs(SVCXPRT *" xprt ", xdrproc_t " inproc ", char *" in );
 .fi
-.ft R
 .IP
-A macro that frees any data allocated by the
-RPC/XDR
-system when it decoded the arguments to a service procedure
-using
+A macro that frees any data allocated by the RPC/XDR
+system when it decoded the arguments to a service procedure using
 .BR svc_getargs ().
-This routine returns 1 if the results were successfully
-freed,
+This routine returns 1 if the results were successfully freed,
 and zero otherwise.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-svc_getargs(xprt, inproc, in)
-SVCXPRT *xprt;
-xdrproc_t inproc;
-char *in;
+.BI "svc_getargs(SVCXPRT *" xprt ", xdrproc_t " inproc ", char *" in );
 .fi
-.ft R
 .IP
-A macro that decodes the arguments of an
-RPC
-request
-associated with the
-RPC
-service transport handle,
+A macro that decodes the arguments of an RPC request
+associated with the RPC service transport handle,
 .IR xprt .
 The parameter
 .I in
 is the address where the arguments will be placed;
 .I inproc
-is the
-XDR
-routine used to decode the arguments.
-This routine returns one if decoding succeeds, and zero
-otherwise.
-.br
-.if t .ne 9
+is the XDR routine used to decode the arguments.
+This routine returns one if decoding succeeds, and zero otherwise.
 .LP
-.ft B
 .nf
-.sp .5
-struct sockaddr_in *
-svc_getcaller(xprt)
-SVCXPRT *xprt;
+.BI "struct sockaddr_in *svc_getcaller(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 The approved way of getting the network address of the caller
-of a procedure associated with the
-RPC
-service transport handle,
+of a procedure associated with the RPC service transport handle,
 .IR xprt .
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-svc_getreqset(rdfds)
-fd_set *rdfds;
+.BI "void svc_getreqset(fd_set *" rdfds );
 .fi
-.ft R
 .IP
-This routine is only of interest if a service implementor
-does not call
+This routine is only of interest if a service implementor does not call
 .BR svc_run (),
 but instead implements custom asynchronous event processing.
 It is called when the
 .BR select (2)
-system call has determined that an
-RPC
-request has arrived on some
-RPC
-socket(s);
+system call has determined that an RPC request has arrived on some
+RPC socket(s);
 .I rdfds
 is the resultant read file descriptor bit mask.
-The routine returns when all sockets associated with the
-value of
+The routine returns when all sockets associated with the value of
 .I rdfds
 have been serviced.
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-svc_getreq(rdfds)
-int rdfds;
+.BI "void svc_getreq(int " rdfds );
 .fi
-.ft R
 .IP
 Similar to
 .BR svc_getreqset (),
 but limited to 32 descriptors.
 This interface is obsoleted by
 .BR svc_getreqset ().
-.br
-.if t .ne 17
 .LP
-.ft B
 .nf
-.sp .5
-svc_register(xprt, prognum, versnum, dispatch, protocol)
-SVCXPRT *xprt;
-unsigned long prognum, versnum;
-void (*dispatch) ();
-unsigned long protocol;
+.BI "bool_t svc_register(SVCXPRT *" xprt ", unsigned long " prognum ,
+.BI "                    unsigned long " versnum ,
+.BI "                    void (*" dispatch ")(svc_req *, SVCXPRT *),"
+.BI "                    unsigned long " protocol );
 .fi
-.ft R
 .IP
 Associates
 .I prognum
@@ -1207,462 +798,244 @@ is established with the local
 service (generally
 .I protocol
 is zero,
-.B
-IPPROTO_UDP
+.B IPPROTO_UDP
 or
-.B
-IPPROTO_TCP
-).
+.BR IPPROTO_TCP ).
 The procedure
 .I dispatch
 has the following form:
 .RS 1i
-.ft B
 .nf
-dispatch(request, xprt)
-struct svc_req *request;
-SVCXPRT *xprt;
-.ft R
+dispatch(struct svc_req *request, SVCXPRT *xprt );
 .fi
 .RE
 .IP
 The
 .BR svc_register ()
 routine returns one if it succeeds, and zero otherwise.
-.br
-.if t .ne 6
 .LP
-.ft B
 .nf
-.sp .5
-svc_run()
+.B "void svc_run(void);"
 .fi
-.ft R
 .IP
 This routine never returns.
-It waits for
-RPC
-requests to arrive, and calls the appropriate service
+It waits for RPC requests to arrive, and calls the appropriate service
 procedure using
 .BR svc_getreq ()
 when one arrives.
 This procedure is usually waiting for a
 .BR select (2)
 system call to return.
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-svc_sendreply(xprt, outproc, out)
-SVCXPRT *xprt;
-xdrproc_t outproc;
-char *out;
+.BI "bool_t svc_sendreply(SVCXPRT *" xprt ", xdrproc_t " outproc \
+", char *" out );
 .fi
-.ft R
 .IP
-Called by an
-RPC
-service's dispatch routine to send the results of a
+Called by an RPC service's dispatch routine to send the results of a
 remote procedure call.
 The parameter
 .I xprt
 is the request's associated transport handle;
 .I outproc
-is the
-XDR
-routine which is used to encode the results; and
+is the XDR routine which is used to encode the results; and
 .I out
 is the address of the results.
 This routine returns one if it succeeds, zero otherwise.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svc_unregister(prognum, versnum)
-unsigned long prognum, versnum;
+.BI "void svc_unregister(unsigned long " prognum ", unsigned long " versnum );
 .fi
-.ft R
 .IP
 Remove all mapping of the double
 .RI [ prognum , versnum ]
 to dispatch routines, and of the triple
 .RI [ prognum , versnum , *\fR]
 to port number.
-.br
-.if t .ne 9
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_auth(xprt, why)
-SVCXPRT *xprt;
-enum auth_stat why;
+.BI "void svcerr_auth(SVCXPRT *" xprt ", enum auth_stat " why );
 .fi
-.ft R
 .IP
 Called by a service dispatch routine that refuses to perform
 a remote procedure call due to an authentication error.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_decode(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_decode(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 Called by a service dispatch routine that cannot successfully
 decode its parameters.
 See also
 .BR svc_getargs ().
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_noproc(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_noproc(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 Called by a service dispatch routine that does not implement
 the procedure number that the caller requests.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_noprog(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_noprog(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
-Called when the desired program is not registered with the
-RPC
-package.
+Called when the desired program is not registered with the RPC package.
 Service implementors usually do not need this routine.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_progvers(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_progvers(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 Called when the desired version of a program is not registered
-with the
-RPC
-package.
+with the RPC package.
 Service implementors usually do not need this routine.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_systemerr(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_systemerr(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 Called by a service dispatch routine when it detects a system
-error
-not covered by any particular protocol.
+error not covered by any particular protocol.
 For example, if a service can no longer allocate storage,
 it may call this routine.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-void
-svcerr_weakauth(xprt)
-SVCXPRT *xprt;
+.BI "void svcerr_weakauth(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
 Called by a service dispatch routine that refuses to perform
-a remote procedure call due to insufficient
-authentication parameters.
+a remote procedure call due to insufficient authentication parameters.
 The routine calls
 .BR "svcerr_auth(xprt, AUTH_TOOWEAK)" .
-.br
-.if t .ne 11
 .LP
-.ft B
 .nf
-.sp .5
-SVCXPRT *
-svcfd_create(fd, sendsize, recvsize)
-int fd;
-unsigned int sendsize;
-unsigned int recvsize;
+.BI "SVCXPRT *svcfd_create(int " fd ", unsigned int " sendsize ,
+.BI "                      unsigned int " recvsize );
 .fi
-.ft R
 .IP
 Create a service on top of any open descriptor.
 Typically, this descriptor is a connected socket for a stream protocol such
-as
-TCP.
+as TCP.
 .I sendsize
 and
 .I recvsize
 indicate sizes for the send and receive buffers.
-If they are
-zero, a reasonable default is chosen.
-.br
-.if t .ne 11
+If they are zero, a reasonable default is chosen.
 .LP
-.ft B
 .nf
-.sp .5
-SVCXPRT *
-svcraw_create()
+.BI "SVCXPRT *svcraw_create(void);"
 .fi
-.ft R
 .IP
-This routine creates a toy
-RPC
+This routine creates a toy RPC
 service transport, to which it returns a pointer.
 The transport is really a buffer within the process's address space,
-so the corresponding
-RPC
-client should live in the same
-address space;
-see
+so the corresponding RPC client should live in the same address space; see
 .BR clntraw_create ().
-This routine allows simulation of
-RPC
-and acquisition of
-RPC
-overheads (such as round trip times), without any kernel
-interference.
-This routine returns
-NULL
-if it fails.
-.br
-.if t .ne 11
+This routine allows simulation of RPC and acquisition of RPC
+overheads (such as round trip times), without any kernel interference.
+This routine returns NULL if it fails.
 .LP
-.ft B
 .nf
-.sp .5
-SVCXPRT *
-svctcp_create(sock, send_buf_size, recv_buf_size)
-int sock;
-unsigned int send_buf_size, recv_buf_size;
+.BI "SVCXPRT *svctcp_create(int " sock ", unsigned int " send_buf_size ,
+.BI "                       unsigned int " recv_buf_size );
 .fi
-.ft R
 .IP
-This routine creates a
-TCP/IP-based
-RPC
+This routine creates a TCP/IP-based RPC
 service transport, to which it returns a pointer.
 The transport is associated with the socket
 .IR sock ,
 which may be
 .BR RPC_ANYSOCK ,
 in which case a new socket is created.
-If the socket is not bound to a local
-TCP
+If the socket is not bound to a local TCP
 port, then this routine binds it to an arbitrary port.
 Upon completion,
 \fB\%xprt\->xp_sock\fR
 is the transport's socket descriptor, and
 \fB\%xprt\->xp_port\fR
 is the transport's port number.
-This routine returns
-NULL
-if it fails.
-Since
-TCP-based
-RPC
-uses buffered
-I/O,
+This routine returns NULL if it fails.
+Since TCP-based RPC uses buffered I/O,
 users may specify the size of buffers; values of zero
 choose suitable defaults.
-.br
-.if t .ne 10
 .LP
-.ft B
 .nf
-.sp .5
-SVCXPRT *
-svcudp_bufcreate(sock, sendsize, recosize)
-int sock;
-unsigned int sendsize, recosize;
+.BI "SVCXPRT *svcudp_bufcreate(int " sock ", unsigned int " sendsize ,
+.BI "                          unsigned int " recosize );
 .fi
-.ft R
 .IP
-This routine creates a
-UDP/IP-based
-RPC
+This routine creates a UDP/IP-based RPC
 service transport, to which it returns a pointer.
 The transport is associated with the socket
 .IR sock ,
 which may be
 .BR RPC_ANYSOCK ,
 in which case a new socket is created.
-If the socket is not bound to a local
-UDP
+If the socket is not bound to a local UDP
 port, then this routine binds it to an arbitrary port.
 Upon completion,
 \fB\%xprt\->xp_sock\fR
 is the transport's socket descriptor, and
 \fB\%xprt\->xp_port\fR
 is the transport's port number.
-This routine returns
-NULL
-if it fails.
+This routine returns NULL if it fails.
 .IP
 This allows the user to specify the maximum packet size for sending and
-receiving
-UDP-based
-RPC messages.
-.br
-.if t .ne 5
+receiving UDP-based RPC messages.
 .LP
-.ft B
 .nf
-.sp .5
-SVCXPRT *
-svcudp_create(sock)
-int sock;
+.BI "SVCXPRT *svcudp_create(int " sock );
 .fi
-.ft R
 .IP
 This call is equivalent to
 \fIsvcudp_bufcreate(sock,SZ,SZ)\fP
 for some default size \fISZ\fP.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_accepted_reply(xdrs, ar)
-XDR *xdrs;
-struct accepted_reply *ar;
+.BI "bool_t xdr_accepted_reply(XDR *" xdrs ", struct accepted_reply *" ar );
 .fi
-.ft R
 .IP
-Used for encoding
-RPC
-reply messages.
+Used for encoding RPC reply messages.
 This routine is useful for users who wish to generate
-RPC-style
-messages without using the
-RPC
-package.
-.br
-.if t .ne 7
+RPC-style messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-xdr_authunix_parms(xdrs, aupp)
-XDR *xdrs;
-struct authunix_parms *aupp;
+.BI "bool_t xdr_authunix_parms(XDR *" xdrs ", struct authunix_parms *" aupp );
 .fi
-.ft R
 .IP
-Used for describing
-UNIX
-credentials.
+Used for describing UNIX credentials.
 This routine is useful for users
-who wish to generate these credentials without using the
-RPC
+who wish to generate these credentials without using the RPC
 authentication package.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-void
-xdr_callhdr(xdrs, chdr)
-XDR *xdrs;
-struct rpc_msg *chdr;
+.BI "void xdr_callhdr(XDR *" xdrs ", struct rpc_msg *" chdr );
 .fi
-.ft R
 .IP
-Used for describing
-RPC
-call header messages.
+Used for describing RPC call header messages.
 This routine is useful for users who wish to generate
-RPC-style
-messages without using the
-RPC
-package.
-.br
-.if t .ne 7
+RPC-style messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-xdr_callmsg(xdrs, cmsg)
-XDR *xdrs;
-struct rpc_msg *cmsg;
+.BI "bool_t xdr_callmsg(XDR *" xdrs ", struct rpc_msg *" cmsg );
 .fi
-.ft R
 .IP
-Used for describing
-RPC
-call messages.
-This routine is useful for users who wish to generate
-RPC-style
-messages without using the
-RPC
-package.
-.br
-.if t .ne 7
+Used for describing RPC call messages.
+This routine is useful for users who wish to generate RPC-style
+messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-xdr_opaque_auth(xdrs, ap)
-XDR *xdrs;
-struct opaque_auth *ap;
+.BI "bool_t xdr_opaque_auth(XDR *" xdrs ", struct opaque_auth *" ap );
 .fi
-.ft R
 .IP
-Used for describing
-RPC
-authentication information messages.
+Used for describing RPC authentication information messages.
 This routine is useful for users who wish to generate
-RPC-style
-messages without using the
-RPC
-package.
-.br
-.if t .ne 7
+RPC-style messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-xdr_pmap(xdrs, regs)
-XDR *xdrs;
-struct pmap *regs;
+.BI "bool_t xdr_pmap(XDR *" xdrs ", struct pmap *" regs );
 .fi
-.ft R
 .IP
 Used for describing parameters to various
 .B portmap
@@ -1671,104 +1044,51 @@ This routine is useful for users who wish to generate
 these parameters without using the
 .B pmap
 interface.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_pmaplist(xdrs, rp)
-XDR *xdrs;
-struct pmaplist **rp;
+.BI "bool_t xdr_pmaplist(XDR *" xdrs ", struct pmaplist **" rp );
 .fi
-.ft R
 .IP
 Used for describing a list of port mappings, externally.
 This routine is useful for users who wish to generate
 these parameters without using the
 .B pmap
 interface.
-.br
-.if t .ne 7
 .LP
-.ft B
 .nf
-.sp .5
-xdr_rejected_reply(xdrs, rr)
-XDR *xdrs;
-struct rejected_reply *rr;
+.BI "bool_t xdr_rejected_reply(XDR *" xdrs ", struct rejected_reply *" rr );
 .fi
-.ft R
 .IP
-Used for describing
-RPC
-reply messages.
+Used for describing RPC reply messages.
 This routine is useful for users who wish to generate
-RPC-style
-messages without using the
-RPC
-package.
-.br
-.if t .ne 8
+RPC-style messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-xdr_replymsg(xdrs, rmsg)
-XDR *xdrs;
-struct rpc_msg *rmsg;
+.BI "bool_t xdr_replymsg(XDR *" xdrs ", struct rpc_msg *" rmsg );
 .fi
-.ft R
 .IP
-Used for describing
-RPC
-reply messages.
+Used for describing RPC reply messages.
 This routine is useful for users who wish to generate
-RPC
-style messages without using the
-RPC
-package.
-.br
-.if t .ne 8
+RPC style messages without using the RPC package.
 .LP
-.ft B
 .nf
-.sp .5
-void
-xprt_register(xprt)
-SVCXPRT *xprt;
+.BI "void xprt_register(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
-After
-RPC
-service transport handles are created,
-they should register themselves with the
-RPC
-service package.
+After RPC service transport handles are created,
+they should register themselves with the RPC service package.
 This routine modifies the global variable
-.BR svc_fds ().
+.IR svc_fds.
 Service implementors usually do not need this routine.
-.br
-.if t .ne 8
 .LP
-.ft B
 .nf
-.sp .5
-void
-xprt_unregister(xprt)
-SVCXPRT *xprt;
+.BI "void xprt_unregister(SVCXPRT *" xprt );
 .fi
-.ft R
 .IP
-Before an
-RPC
-service transport handle is destroyed,
-it should unregister itself with the
-RPC
-service package.
+Before an RPC service transport handle is destroyed,
+it should unregister itself with the RPC service package.
 This routine modifies the global variable
-.BR svc_fds ().
+.IR svc_fds .
 Service implementors usually do not need this routine.
 .SH "SEE ALSO"
 .\" We don't have an rpc_secure.3 page in the set at the moment -- MTK, 19 Sep 05
@@ -1777,14 +1097,12 @@ Service implementors usually do not need this routine.
 .br
 The following manuals:
 .RS
-.ft I
 Remote Procedure Calls: Protocol Specification
 .br
 Remote Procedure Call Programming Guide
 .br
 rpcgen Programming Guide
 .br
-.ft R
 .RE
 .IR "RPC: Remote Procedure Call Protocol Specification" ,
 RFC\ 1050, Sun Microsystems, Inc.,

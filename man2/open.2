@@ -36,8 +36,11 @@
 .\" 2004-12-08, mtk, reordered flags list alphabetically
 .\" 2004-12-08, Martin Pool <mbp@sourcefrog.net> (& mtk), added O_NOATIME
 .\" 2007-09-18, mtk, Added description of O_CLOEXEC + other minor edits
+.\" 2008-01-03, mtk, with input from Trond Myklebust 
+.\"     <trond.myklebust@fys.uio.no> and Timo Sirainen <tss@iki.fi>
+.\"     Rewrite description of O_EXCL.
 .\"
-.TH OPEN 2 2007-09-18 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2008-01-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -222,25 +225,46 @@ implementation of
 .BR opendir (3).
 .TP
 .B O_EXCL
-When used with
+Ensure that this call creates the file:
+if this flag is specified in conjunction with
 .BR O_CREAT ,
-if the file already exists it is an error and the
+and
+.I pathname
+already exists, then
 .BR open ()
 will fail.
-In this context, a symbolic link exists, regardless
-of where it points to.
+The behavior of
 .B O_EXCL
-is broken on NFS file systems; programs which rely on it for performing
-locking tasks will contain a race condition.
-The solution for performing
-atomic file locking using a lockfile is to create a unique file on
-the same file system (e.g., incorporating hostname and pid), use
+is undefined if
+.B O_CREAT
+is not specified.
+
+When these two flags are specified, symbolic links are not followed:
+.\" POSIX.1-2001 explicitly requires this behavior.
+if
+.I pathname
+is a symbolic link, then
+.BR open ()
+fails regardless of where the symbolic link points to.
+
+.B O_EXCL
+is not supported on NFS file systems before NFSv3
+or on Linux before kernel 2.6;
+it is supported on Linux 2.6 and later, with NFSv3 or later.
+In environments where NFS
+.B O_EXCL
+support is not provided, programs that rely on it
+for performing locking tasks will contain a race condition.
+Portable programs that want to perform atomic file locking using a lockfile,
+and need to avoid reliance on NFS support for
+.BR O_EXCL ,
+can create a unique file on
+the same file system (e.g., incorporating hostname and PID), and use
 .BR link (2)
 to make a link to the lockfile.
 If
 .BR link (2)
-returns 0, the lock is
-successful.
+returns 0, the lock is successful.
 Otherwise, use
 .BR stat (2)
 on the unique file to check if its link count has increased to 2,

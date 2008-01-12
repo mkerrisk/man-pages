@@ -1,6 +1,8 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
-.\" Copyright 2003 Abhijit Menon-Sen <ams@wiw.org>
+.\" Copyright (C) 2008 Michael Kerrisk <tmk.manpages@gmail.com>
+.\" and Copyright 2003 Abhijit Menon-Sen <ams@wiw.org>
+.\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
 .\" preserved on all copies.
@@ -22,10 +24,11 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
 .\" 2004-05-31, added tgkill, ahu, aeb
+.\" 2008-01-15 mtk -- rewote DESCRIPTION
 .\"
-.TH TKILL 2 2007-06-01 "Linux" "Linux Programmer's Manual"
+.TH TKILL 2 2008-01-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-tkill, tgkill \- send a signal to a single process
+tkill, tgkill \- send a signal to a thread
 .SH SYNOPSIS
 .nf
 .BI "int tkill(int " tid ", int " sig );
@@ -33,36 +36,34 @@ tkill, tgkill \- send a signal to a single process
 .BI "int tgkill(int " tgid ", int " tid ", int " sig );
 .fi
 .SH DESCRIPTION
-The
-.BR tkill ()
-system call is analogous to
-.BR kill (2),
-except when the specified process is part of a thread group
-(created by specifying the
-.B CLONE_THREAD
-flag in the call to
-.BR clone (2)).
-Since all the processes in a thread group have the same PID,
-they cannot be individually signaled with
-.BR kill (2).
-With
-.BR tkill (),
-however, one can address each process
-by its unique TID.
-.PP
-The
 .BR tgkill ()
-call improves on
+sends the signal
+.I sig
+to the thread with the thread ID
+.I tid
+in the thread group
+.IR tgid .
+(By contrast,
+.BR kill (2)
+can only be used to send a signal to a process (i.e., thread group)
+as a whole, and the signal will be delivered to an arbitrary
+thread within that process.)
+
 .BR tkill ()
-by allowing the caller to
-specify the thread group ID of the thread to be signaled, protecting
-against TID reuse.
-If the tgid is specified as \-1,
+is an obsolete predecessor to
+.BR tgkill ().
+It only allows the target thread ID to be specified,
+which may result in the wrong thread being signaled if a thread
+terminates and its thread ID is recycled.
+Avoid using this system call.
+
+If
+.I tgid
+is specified as \-1,
 .BR tgkill ()
-degenerates
-into
+is equivalent to
 .BR tkill ().
-.PP
+
 These are the raw system call interfaces, meant for internal
 thread library use.
 .SH "RETURN VALUE"
@@ -93,8 +94,16 @@ and
 are Linux-specific and should not be used
 in programs that are intended to be portable.
 .SH NOTES
+See the description of
+.B CLONE_THREAD
+in
+.BR clone (2)
+for an explanation of thread groups.
+
 Glibc does not provide wrappers for these system calls; call them using
 .BR syscall (2).
 .SH "SEE ALSO"
+.BR clone (2),
+.BR gettid (2),
 .BR gettid (2),
 .BR kill (2)

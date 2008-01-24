@@ -34,8 +34,11 @@
 .\" Converted Mon Nov 29 11:05:55 1993 by Rik Faith <faith@cs.unc.edu>
 .\" Modified Tue Oct 22 23:41:56 1996 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified 2002-07-17, aeb
+.\" 2008-01-24, mtk:
+.\"     Various rewrites and additions (notes on longjmp() and SIGSEGV).
+.\"     Weaken warning against use of alloca() (as per Debian bug 461100).
 .\"
-.TH ALLOCA 3  2002-07-17 "GNU" "Linux Programmer's Manual"
+.TH ALLOCA 3 2008-01-24 "GNU" "Linux Programmer's Manual"
 .SH NAME
 alloca \- memory allocator
 .SH SYNOPSIS
@@ -58,21 +61,48 @@ The
 function returns a pointer to the beginning of the allocated space.
 If the allocation causes stack overflow, program behavior is undefined.
 .SH "CONFORMING TO"
+This function is not in POSIX.1-2001.
+
 There is evidence that the
 .BR alloca ()
-function appeared in 32v, pwb, pwb.2, 3bsd, and 4bsd.
+function appeared in 32V, PWB, PWB.2, 3BSD, and 4BSD.
 There is a man page for it in 4.3BSD.
 Linux uses the GNU version.
-This function is not in POSIX.1-2001.
 .SH NOTES
+The
+.BR alloca ()
+function is machine- and compiler-dependent.
+Its use is discouraged.
+
+Because the space allocated by
+.BR alloca ()
+is allocated within the stack frame,
+that space is automatically freed if the function return
+is jumped over by a call to
+.BR longjmp (3)
+or
+.BR siglongjmp (3).
+
+Do not attempt to
+.BR free (3)
+space allocated by
+.BR alloca ()!
 .SS Notes on the GNU Version
 Normally,
-.B gcc (1)
+.BR gcc (1)
 translates calls to
 .BR alloca ()
-by inlined code.
-This is not done when either the \fI\-ansi\fP or
-the \fI\-fno\-builtin\fP option is given.
+with inlined code.
+This is not done when either the
+.IR "\-ansi" ,
+.IR "\-std=c89" ,
+.IR "\-std=c99" ,
+or the
+.IR "\-fno\-builtin"
+option is given
+(and the header
+.I <alloca.h>
+is not included).
 But beware!
 By default the glibc version of
 .I <stdlib.h>
@@ -86,7 +116,7 @@ and that contains the line:
 .fi
 with messy consequences if one has a private version of this function.
 .LP
-The fact that the code is inlined, means that it is impossible
+The fact that the code is inlined means that it is impossible
 to take the address of this function, or to change its behavior
 by linking with a different library.
 .LP
@@ -94,13 +124,11 @@ The inlined code often consists of a single instruction adjusting
 the stack pointer, and does not check for stack overflow.
 Thus, there is no NULL error return.
 .SH BUGS
-The
-.BR alloca ()
-function is machine- and compiler- dependent.
-On many systems
-its implementation is buggy.
-Its use is discouraged.
-.LP
+There is no error indication if the stack frame cannot be extended.
+(However, after a failed allocation, the program is likely to receive a
+.B SIGSEGV
+signal if it attempts to access the unallocated space.)
+
 On many systems
 .BR alloca ()
 cannot be used inside the list of arguments of a function call, because
@@ -110,7 +138,5 @@ would appear on the stack in the middle of the space for the
 function arguments.
 .SH "SEE ALSO"
 .BR brk (2),
-.BR getpagesize (2),
-.BR calloc (3),
-.BR malloc (3),
-.BR realloc (3)
+.BR longjmp (3),
+.BR malloc (3)

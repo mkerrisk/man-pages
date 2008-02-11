@@ -2,6 +2,7 @@
 .\"
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"                               1993 Michael Haardt, Ian Jackson.
+.\"                               2008 Greg Banks
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -39,8 +40,10 @@
 .\" 2008-01-03, mtk, with input from Trond Myklebust
 .\"     <trond.myklebust@fys.uio.no> and Timo Sirainen <tss@iki.fi>
 .\"     Rewrite description of O_EXCL.
+.\" 2008-01-11, Greg Banks <gnb@melbourne.sgi.com>: add more detail
+.\"     on O_DIRECT.
 .\"
-.TH OPEN 2 2008-01-03 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2008-01-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -188,7 +191,7 @@ and
 of the ext2 filesystem, as described in
 .BR mount (8)).
 .TP
-.BR O_DIRECT " (Since Linux 2.6.10)"
+.BR O_DIRECT " (Since Linux 2.4.10)"
 Try to minimize cache effects of the I/O to and from this file.
 In general this will degrade performance, but it is useful in
 special situations, such as when applications do their own caching.
@@ -197,14 +200,9 @@ The I/O is synchronous, that is, at the completion of a
 .BR read (2)
 or
 .BR write (2),
-data is guaranteed to have been transferred.
-Under Linux 2.4 transfer sizes, and the alignment of user buffer
-and file offset must all be multiples of the logical block size
-of the file system.
-Under Linux 2.6 alignment to 512-byte boundaries
-suffices.
-.\" Alignment should satisfy requirements for the underlying device
-.\" There may be coherency problems.
+data is guaranteed to have been transferred.  See
+.B NOTES
+below for further discussion.
 .sp
 A semantically similar (but deprecated) interface for block devices
 is described in
@@ -584,20 +582,6 @@ On many systems the file is actually truncated.
 .\" Tru64 5.1B: truncate
 .\" HP-UX 11.22: truncate
 .\" FreeBSD 4.7: truncate
-.LP
-The
-.B O_DIRECT
-flag was introduced in SGI IRIX, where it has alignment restrictions
-similar to those of Linux 2.4.
-IRIX has also a fcntl(2) call to
-query appropriate alignments, and sizes.
-FreeBSD 4.x introduced
-a flag of same name, but without alignment restrictions.
-Support was added under Linux in kernel version 2.4.10.
-Older Linux kernels simply ignore this flag.
-One may have to define the
-.B _GNU_SOURCE
-macro to get its definition.
 .PP
 There are many infelicities in the protocol underlying NFS, affecting
 amongst others
@@ -647,11 +631,95 @@ parent directory.
 Otherwise, if the file is modified because of the
 .B O_TRUNC
 flag, its st_ctime and st_mtime fields are set to the current time.
-.SH BUGS
+.SS O_DIRECT
+.LP
+The
+.B O_DIRECT
+flag may impose alignment restrictions on the length and address
+of userspace buffers and the file offset of I/Os.
+In Linux alignment
+restrictions vary by filesystem and kernel version and might be
+absent entirely.
+However there is currently no filesystem\-independent
+interface for an application to discover these restrictions for a given
+file or filesystem.
+Some filesystems provide their own interfaces
+for doing so, for example the
+.B XFS_IOC_DIOINFO
+operation in
+.BR xfsctl (3).
+.LP
+Under Linux 2.4, transfer sizes, and the alignment of user buffer
+and file offset must all be multiples of the logical block size
+of the file system.
+Under Linux 2.6, alignment to 512-byte boundaries
+suffices.
+.LP
+The
+.B O_DIRECT
+flag was introduced in SGI IRIX, where it has alignment
+restrictions similar to those of Linux 2.4.
+IRIX has also a
+.BR fcntl (2)
+call to query appropriate alignments, and sizes.
+FreeBSD 4.x introduced
+a flag of the same name, but without alignment restrictions.
+.LP
+.B O_DIRECT
+support was added under Linux in kernel version 2.4.10.
+Older Linux kernels simply ignore this flag.
+Some filesystems may not implement the flag and
+.BR open ()
+will fail with
+.B EINVAL
+if it is used.
+.LP
+Applications should avoid mixing
+.B O_DIRECT
+and normal I/O to the same file,
+and especially to overlapping byte regions in the same file.
+Even when the filesystem correctly handles the coherency issues in
+this situation, overall I/O throughput is likely to be slower than
+using either mode alone.
+Likewise, applications should avoid mixing
+.BR mmap (2)
+of files with direct I/O to the same files.
+.LP
+The behaviour of
+.B O_DIRECT
+with NFS will differ from local filesystems.
+Older kernels, or
+kernels configured in certain ways, may not support this combination.
+The NFS protocol does not support passing the flag to the server, so
+.B O_DIRECT
+I/O will only bypass the page cache on the client; the server may
+still cache the I/O.
+The client asks the server to make the I/O
+synchronous to preserve the synchronous semantics of
+.BR O_DIRECT .
+Some servers will perform poorly under these circumstances, especially
+if the I/O size is small.
+Some servers may also be configured to
+lie to clients about the I/O having reached stable storage; this
+will avoid the performance penalty at some risk to data integrity
+in the event of server power failure.
+The Linux NFS client places no alignment restrictions on
+.B O_DIRECT
+I/O.
+.PP
+In summary,
+.B O_DIRECT
+is a potentially powerful tool that should be used with caution.
+It is recommended that applications treat use of
+.B O_DIRECT
+as a performance option which is disabled by default.
+.PP
+.RS
 "The thing that has always disturbed me about O_DIRECT is that the whole
 interface is just stupid, and was probably designed by a deranged monkey
 on some serious mind-controlling substances." \(em Linus
-
+.RE
+.SH BUGS
 Currently, it is not possible to enable signal-driven
 I/O by specifying
 .B O_ASYNC

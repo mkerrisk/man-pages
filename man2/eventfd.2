@@ -1,0 +1,360 @@
+.\" Copyright (C) 2008 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" starting from a version by Davide Libenzi <davidel@xmailserver.org>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+.\" MA  02111-1307  USA
+.\"
+.TH EVENTFD 2 2008-02-11 Linux "Linux Programmer's Manual"
+.SH NAME
+eventfd \- create a file descriptor for event notification
+.SH SYNOPSIS
+.B #include <sys/eventfd.h>
+.sp
+.BI "int eventfd(unsigned int " initval ", int " flags );
+.SH DESCRIPTION
+.BR eventfd ()
+creates an "eventfd object" that can be used as
+an event wait/notify mechanism by userspace applications,
+and by the kernel to notify userspace applications of events.
+The object contains an unsigned 64-bit integer
+.RI ( uint64_t )
+counter that is maintained by the kernel.
+This counter is initialized with the value specified in the argument
+.IR initval .
+
+The
+.I flags
+argument is currently unused, and must be specified as zero.
+In the future, it may be used to request additional functionality.
+
+As its return value,
+.BR eventfd ()
+returns a new file descriptor that can be used to refer to the
+eventfd object.
+The following operations can be performed on the file descriptor:
+.TP
+.BR read (2)
+If the eventfd counter has a nonzero value, then a
+.BR read (2)
+returns 8 bytes containing that value,
+and the counter's value is reset to zero.
+(The returned value is in host byte order,
+i.e., the native byte order for integers on the host machine.)
+.IP
+If the counter is zero at the time of the
+.BR read (2),
+then the call either blocks until the counter becomes nonzero,
+or fails with the error
+.B EAGAIN
+if the file descriptor has been made non-blocking
+(via the use of the
+.BR fcntl (2)
+.B F_SETFL
+operation to set the
+.B O_NONBLOCK
+flag).
+.IP
+A
+.BR read (2)
+will fail with the error
+.B EINVAL
+if the size of the supplied buffer is less than 8 bytes.
+.TP
+.BR write (2)
+A
+.BR write (2)
+call adds the 8-byte integer value supplied in its
+buffer to the counter.
+The maximum value that may be stored in the counter is the largest
+unsigned 64-bit value minus 1 (i.e., 0xfffffffffffffffe).
+If the addition would cause the counter's value to exceed
+the maximum, then the
+.BR write (2)
+either blocks until a
+.BR read (2)
+is performed on the file descriptor,
+or fails with the error
+.B EAGAIN
+if the file descriptor has been made non-blocking.
+.IP
+A
+.BR write (2)
+will fail with the error
+.B EINVAL
+if the size of the supplied buffer is less than 8 bytes,
+or if an attempt is made to write the value 0xffffffffffffffff.
+.TP
+.BR poll "(2), " select "(2) (and similar)"
+The returned file descriptor supports
+.BR poll (2)
+(and analogously
+.BR epoll (7))
+and
+.BR select (2),
+as follows:
+.RS
+.IP * 3
+The file descriptor is readable
+(the
+.BR select (2)
+.I readfds
+argument; the
+.BR poll (2)
+.B POLLIN
+flag)
+if the counter has a value greater than 0.
+.IP *
+The file descriptor is writable
+(the
+.BR select (2)
+.I writefds
+argument; the
+.BR poll (2)
+.B POLLOUT
+flag)
+if it is possible to write a value of at least "1" without blocking.
+.IP *
+The file descriptor indicates an exceptional condition
+(the
+.BR select (2)
+.I exceptfds
+argument; the
+.BR poll (2)
+.B POLLERR
+flag)
+if an overflow of the counter value was detected.
+As noted above,
+.BR write (2)
+can never overflow the counter.
+However an overflow can occur if 2^64
+eventfd "signal posts" were performed by the KAIO
+subsystem (theoretically possible, but practically unlikely).
+If an overflow has occurred, then
+.BR read (2)
+will return that maximum
+.I uint64_t
+value (i.e., 0xffffffffffffffff).
+.RE
+.IP
+The eventfd file descriptor also supports the other file-descriptor
+multiplexing APIs:
+.BR pselect (2),
+.BR ppoll (2),
+and
+.BR epoll (7).
+.TP
+.BR close (2)
+When the file descriptor is no longer required it should be closed.
+When all file descriptors associated with the same eventfd object
+have been closed, the resources for object are freed by the kernel.
+.PP
+A copy of the file descriptor created by
+.BR eventfd ()
+is inherited by the child produced by
+.BR fork (2).
+The duplicate file descriptor is associated with the same
+eventfd object.
+File descriptors created by
+.BR eventfd ()
+are preserved across
+.BR execve (2).
+.SH "RETURN VALUE"
+On success,
+.BR eventfd ()
+returns a new eventfd file descriptor.
+On error, \-1 is returned and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP EINVAL
+.I flags
+is nonzero.
+.\" Eventually glibc may support some flags
+.TP
+.B EMFILE
+The per-process limit on open file descriptors has been reached.
+.TP
+.B ENFILE
+The system-wide limit on the total number of open files has been
+reached.
+.TP
+.B ENODEV
+.\" Note from Davide:
+.\" The ENODEV error is basically never going to happen if
+.\" the kernel boots correctly. That error happen only if during
+.\" the kernel initialization, some error occur in the anonymous
+.\" inode source initialization.
+Could not mount (internal) anonymous inode device.
+.TP
+.B ENOMEM
+There was insufficient memory to create a new
+eventfd file descriptor.
+.SH VERSIONS
+.BR eventfd ()
+is available on Linux since kernel 2.6.22.
+Working support is provided in glibc since version 2.8.
+.\" eventfd() is in glibc 2.7, but reportedly does not build
+.SH CONFORMING TO
+.BR eventfd ()
+is Linux-specific.
+.SH NOTES
+Applications can use an eventfd file descriptor instead of a pipe (see
+.BR pipe (2))
+in all cases where a pipe is used simply to signal events.
+The kernel overhead of an eventfd file descriptor
+is much lower than that of a pipe,
+and only one file descriptor is
+required (versus the two required for a pipe).
+
+When used in the kernel, an eventfd
+file descriptor can provide a kernel-userspace bridge allowing,
+for example, functionalities like KAIO (kernel AIO)
+.\" or eventually syslets/threadlets
+to signal to a file descriptor that some operation is complete.
+
+A key point about an eventfd file descriptor is that it can be
+monitored just like any other file descriptor using
+.BR select (2),
+.BR poll (2),
+or
+.BR epoll (7).
+This means that an application can simultaneously monitor the
+readiness of "traditional" files and the readiness of other
+kernel mechanisms that support the eventfd interface.
+(Without the
+.BR eventfd ()
+interface, these mechanisms could not be multiplexed via
+.BR select (2),
+.BR poll (2),
+or
+.BR epoll (7).)
+
+The
+.I flags
+argument is a glibc addition to the underlying system call,
+which takes only the
+.I initval
+argument.
+.SS Additional glibc features
+The GNU C library defines an additional type,
+and two functions that attempt to abstract some of the details of
+reading and writing on an eventfd file descriptor:
+.in +4n
+.nf
+
+typedef uint64_t eventfd_t;
+
+int eventfd_read (int __fd, eventfd_t *__value);
+int eventfd_write (int __fd, eventfd_t value);
+.fi
+.in
+
+The functions perform the read and write operations on an
+eventfd file descriptor,
+returning 0 if the correct number of bytes was transferred,
+or \-1 otherwise.
+.SH EXAMPLE
+.PP
+The following program creates an eventfd file descriptor
+and then forks to create a child process.
+While the parent briefly sleeps,
+the child writes each of the integers supplied in the program's
+command-line arguments to the eventfd file descriptor.
+When the parent has finished sleeping,
+it reads from the eventfd file descriptor.
+
+The following shell session shows a sample run of the program:
+.in +4n
+.nf
+
+$ ./a.out 1 2 4 7 14
+Child writing 1 to efd
+Child writing 2 to efd
+Child writing 4 to efd
+Child writing 7 to efd
+Child writing 14 to efd
+Child completed write loop
+Parent about to read
+Parent read 28 (0x1c) from efd
+.fi
+.in
+.nf
+
+#include <sys/eventfd.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>             /* Definition of uint64_t */
+
+#define handle_error(msg) \\
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int efd, j;
+    uint64_t u;
+    ssize_t s;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <num>...\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    efd = eventfd(0, 0);
+    if (efd == \-1)
+        handle_error("eventfd");
+
+    switch (fork()) {
+    case 0:
+        for (j = 1; j < argc; j++) {
+            printf("Child writing %s to efd\\n", argv[j]);
+            u = strtoull(argv[j], NULL, 0);
+                    /* strtoull() allows various bases */
+            s = write(efd, &u, sizeof(uint64_t));
+            if (s != sizeof(uint64_t))
+                handle_error("write");
+        }
+        printf("Child completed write loop\\n");
+
+        exit(EXIT_SUCCESS);
+
+    default:
+        sleep(2);
+
+        printf("Parent about to read\\n");
+        s = read(efd, &u, sizeof(uint64_t));
+        if (s != sizeof(uint64_t))
+            handle_error("read");
+        printf("Parent read %llu (0x%llx) from efd\\n",
+                (unsigned long long) u, (unsigned long long) u);
+        exit(EXIT_SUCCESS);
+
+    case \-1:
+        handle_error("fork");
+    }
+}
+.fi
+.SH "SEE ALSO"
+.BR futex (2),
+.BR pipe (2),
+.BR poll (2),
+.BR read (2),
+.BR select (2),
+.BR signalfd (2),
+.BR timerfd_create (2),
+.BR write (2),
+.BR epoll (7),
+.BR sem_overview (7)

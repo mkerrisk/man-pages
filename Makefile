@@ -49,13 +49,11 @@ html:
 		done; \
 	done; fi
 
-README=$(DESTDIR)$(MANDIR)/man1/README
 install:
 	for i in man? man??; do \
 		install -d -m 755 $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 	done; \
-	rm -f $(README) $(README).gz $(README).bz2
 
 # someone might also want to look at /var/catman/cat2 or so ...
 # a problem is that the location of cat pages varies a lot

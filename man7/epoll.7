@@ -285,7 +285,31 @@ Will closing a file descriptor cause it to be removed from all
 sets automatically?
 .TP
 .B A6
-Yes.
+Yes, but be aware of the following point.
+A file descriptor is a reference to an open file description (see
+.BR open (2)).
+Whenever a descriptor is duplicated via
+.BR dup (2),
+.BR dup2 (2),
+.BR fcntl (2)
+.BR F_DUPFD ,
+or
+.BR fork (2),
+a new file descriptor referring to the same open file description is
+created.
+An open file description continues to exist until all
+file descriptors referring to it have been closed.
+The
+.B epoll
+interface automatically removes a file descriptor from an
+.B epoll
+set only after all the file descriptors referring to the underlying
+open file handle have been closed.
+This means that even after a file descriptor that is part of an
+.B epoll
+set has been closed,
+events may be reported for that file descriptor if other file
+descriptors referring to the same underlying file description remain open.
 .TP
 .B Q7
 If more than one event occurs between
@@ -396,3 +420,11 @@ and Solaris has
 .BR epoll_create (2),
 .BR epoll_ctl (2),
 .BR epoll_wait (2)
+.SH COLOPHON
+This page is part of release 2.78 of the Linux
+.I man-pages
+project.
+A description of the project,
+and information about reporting bugs,
+can be found at
+http://www.kernel.org/doc/man-pages/.

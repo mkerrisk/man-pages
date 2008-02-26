@@ -26,8 +26,10 @@
 .\" 2005-08-09, mtk, added AI_ALL, AI_ADDRCONFIG, AI_V4MAPPED,
 .\"			and AI_NUMERICSERV.
 .\" 2007-06-08, mtk: added example programs
+.\" 2008-02-26, mtk; clarify discussion of NULL 'hints' argument; other
+.\"     minor rewrites.
 .\"
-.TH GETADDRINFO 3 2007-11-15 "GNU" "Linux Programmer's Manual"
+.TH GETADDRINFO 3 2008-02-26 "GNU" "Linux Programmer's Manual"
 .SH NAME
 getaddrinfo, freeaddrinfo, gai_strerror \- network address and service translation
 .SH SYNOPSIS
@@ -45,6 +47,16 @@ getaddrinfo, freeaddrinfo, gai_strerror \- network address and service translati
 .BI "const char *gai_strerror(int " "errcode" );
 .fi
 .SH DESCRIPTION
+Given
+.I node
+and
+.IR service ,
+.BR getaddrinfo ()
+returns one or more structures containing values that can be used by the
+.BR bind (2)
+and
+.BR connect (2)
+system calls to create a client or a server socket.
 The
 .BR getaddrinfo ()
 function combines the functionality provided by the
@@ -53,25 +65,10 @@ function combines the functionality provided by the
 .BR getservbyname (3)
 and
 .BR getservbyport (3)
-functions into a single interface.
-The thread-safe
+functions into a single interface, but unlike the latter functions,
 .BR getaddrinfo ()
-function creates one or more socket address structures
-that can be used by the
-.BR bind (2)
-and
-.BR connect (2)
-system calls to create a client or a server socket.
-.PP
-The
-.BR getaddrinfo ()
-function is not limited to creating IPv4 socket address structures;
-IPv6 socket address structures can be created if IPv6 support is available.
-These socket address structures can be used directly by
-.BR bind (2)
-or
-.BR connect (2),
-to prepare a client or a server socket.
+is reentrant
+and allows programs to eliminate IPv4-versus-IPv6 dependencies.
 .PP
 The
 .I addrinfo
@@ -111,31 +108,13 @@ address and another
 .B SOCK_DGRAM
 address, for example).
 .PP
-The members
-.IR ai_family ,
-.IR ai_socktype ,
-and
-.I ai_protocol
-have the same meaning as the corresponding parameters in the
-.BR socket (2)
-system call.
-The
-.BR getaddrinfo ()
-function returns socket addresses in either IPv4 or IPv6
-address family
-.RI "(" "ai_family"
-will be set to either
-.B AF_INET
-or
-.BR AF_INET6 ).
-.PP
 The
 .I hints
-parameter specifies
-the preferred socket type, or protocol.
-A NULL
-.I hints
-specifies that any network address or protocol is acceptable.
+parameter points to an
+.I addrinfo
+structure that specifies criteria for selecting the socket address
+structures returned in the list pointed to by
+.IR res .
 If this parameter is not NULL it points to an
 .I addrinfo
 structure
@@ -162,6 +141,20 @@ Multiple flags are specified by logically OR-ing them together.
 All the other members in the
 .I hints
 parameter must contain either 0, or a null pointer.
+Specifying
+.I hints
+as NULL is equivalent to setting
+.I ai_socktype
+and
+.I ai_protocol
+to 0;
+.I ai_family
+to
+.BR AF_UNSPEC ;
+and
+.I ai_flags
+to
+.BR "(AI_V4MAPPED\ |\ AI_ADDRCONFIG)" .
 .PP
 The
 .I node
@@ -208,13 +201,25 @@ flag.
 .IR ai_socktype ,
 and
 .I ai_protocol
-specify the socket creation parameters.
+specify the socket creation parameters (i.e., these fields have
+the same meaning as the corresponding parameters of
+.BR socket (2)).
 A pointer to the socket address is placed in the
 .I ai_addr
 member, and the length of the socket address, in bytes,
 is placed in the
 .I ai_addrlen
 member.
+.PP
+The
+.BR getaddrinfo ()
+function returns socket addresses in either IPv4 or IPv6
+address family
+.RI "(" "ai_family"
+will be set to either
+.B AF_INET
+or
+.BR AF_INET6 ).
 .PP
 If
 .I node

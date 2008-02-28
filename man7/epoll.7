@@ -18,7 +18,7 @@
 .\"
 .\"  Davide Libenzi <davidel@xmailserver.org>
 .\"
-.TH EPOLL 7 2008-02-26 "Linux" "Linux Programmer's Manual"
+.TH EPOLL 7 2008-02-28 "Linux" "Linux Programmer's Manual"
 .SH NAME
 epoll \- I/O event notification facility
 .SH SYNOPSIS
@@ -233,6 +233,15 @@ with
 .BR EPOLL_CTL_MOD .
 .SS Questions and Answers
 .TP 4
+.B Q0
+What is the key used to distinguish the file descriptors in an epoll set?
+.TP
+.B A0
+The key is the combination of the file descriptor number and
+the open file description
+(also known as "open file handle",
+the kernel's internal representation of an open file).
+.TP
 .B Q1
 What happens if you add the same file descriptor to an epoll set twice?
 .TP
@@ -243,11 +252,25 @@ However, it is possible to add a duplicate
 .RB ( dup (2),
 .BR dup2 (2),
 .BR fcntl (2)
-.BR F_DUPFD ,
-.BR fork (2))
+.BR F_DUPFD )
 descriptor to the same
 .B epoll
 set.
+.\" But a descriptor duplicated by fork(2) can't be added to the
+.\" set, which is an ugly inconsistency.  On the one hand, a child process
+.\" cannot add the duplicate file descriptor to the epoll set.  (In every
+.\" other case that I can think of, descriptors duplicated by fork have
+.\" similar semantics to descriptors duplicated by dup() and friends.)  On
+.\" the other hand, the very fact that the child has a duplicate of the
+.\" descriptor means that even if the parent closes its descriptor, then
+.\" epoll_wait() in the parent will continue to receive notifications for
+.\" that descriptor because of the duplicated descriptor in the child.
+.\" 
+.\" The choice of [file *, fd] as the key for epoll sets really does seem
+.\" unfortunate.  Keying on [pid, fd] would probably have given saner
+.\" semantics.  Obviously it can't be changed now though.
+.\"
+.\" mtk, Feb 2008
 This can be a useful technique for filtering events,
 if the duplicate file descriptors are registered with different
 .I events

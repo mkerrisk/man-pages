@@ -37,8 +37,10 @@
 .\" 2007-07-10, Carsten Emde <Carsten.Emde@osadl.org>
 .\"     Add text on real-time features that are currently being
 .\"     added to the mainline kernel.
+.\" FIXME 2.6..25-rc2 has RLIMIT_RTTIME, which sould probably get
+.\"     documented oin this page.
 .\"
-.TH SCHED_SETSCHEDULER 2 2007-11-25 "Linux" "Linux Programmer's Manual"
+.TH SCHED_SETSCHEDULER 2 2008-03-07 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sched_setscheduler, sched_getscheduler \-
 set and get scheduling algorithm/parameters
@@ -67,14 +69,15 @@ scheduler of the calling process will be set.
 The interpretation of
 the parameter \fIparam\fP depends on the selected policy.
 Currently, the
-following three scheduling policies are supported under Linux:
+following scheduling policies are supported under Linux:
 .BR SCHED_FIFO ,
 .BR SCHED_RR ,
 .BR SCHED_OTHER ,
 .\" In the 2.6 kernel sources, SCHED_OTHER is actually called
 .\" SCHED_NORMAL.
+.BR SCHED_BATCH ,
 and
-.BR SCHED_BATCH ;
+.BR SCHED_IDLE;
 their respective semantics are described below.
 
 .BR sched_getscheduler ()
@@ -105,12 +108,15 @@ with equal static priority and how it will move inside this list.
 \fBSCHED_OTHER\fP is the default universal time-sharing scheduler
 policy used by most processes.
 \fBSCHED_BATCH\fP is intended for "batch" style execution of processes.
+\fBSCHED_IDLE\fP is intended for running \fIvery\fP
+low priority background jobs.
 \fBSCHED_FIFO\fP and \fBSCHED_RR\fP are
 intended for special time-critical applications that need precise
 control over the way in which runnable processes are selected for
 execution.
 
-Processes scheduled with \fBSCHED_OTHER\fP or \fBSCHED_BATCH\fP
+Processes scheduled with \fBSCHED_OTHER\fP, \fBSCHED_BATCH\fP, or
+\fBSCHED_IDLE\fP
 must be assigned the static priority 0.
 Processes scheduled under \fBSCHED_FIFO\fP or
 \fBSCHED_RR\fP can have a static priority in the range 1 to 99.
@@ -132,7 +138,7 @@ priority.
 \fBSCHED_FIFO\fP can only be used with static priorities higher than
 0, which means that when a \fBSCHED_FIFO\fP processes becomes runnable,
 it will always immediately preempt any currently running
-\fBSCHED_OTHER\fP or \fBSCHED_BATCH\fP process.
+\fBSCHED_OTHER\fP, \fBSCHED_BATCH\fP, or \fBSCHED_IDLE\fP process.
 \fBSCHED_FIFO\fP is a simple scheduling
 algorithm without time slicing.
 For processes scheduled under the
@@ -208,11 +214,11 @@ processes.
 (Since Linux 2.6.16.)
 \fBSCHED_BATCH\fP can only be used at static priority 0.
 This policy is similar to \fBSCHED_OTHER\fP, except that
-this policy will cause the scheduler to always assume
+it will cause the scheduler to always assume
 that the process is CPU-intensive.
 Consequently, the scheduler will apply a small scheduling
-penalty so that this process is mildly disfavored in scheduling
-decisions.
+penalty with respect to wakeup behaviour,
+so that this process is mildly disfavored in scheduling decisions.
 .\" The following paragraph is drawn largely from the text that
 .\" accompanied Ingo Molnar's patch for the implementation of
 .\" SCHED_BATCH.
@@ -220,6 +226,18 @@ This policy is useful for workloads that are non-interactive,
 but do not want to lower their nice value,
 and for workloads that want a deterministic scheduling policy without
 interactivity causing extra preemptions (between the workload's tasks).
+.\"
+.SS SCHED_IDLE: Scheduling very low priority jobs
+(Since Linux 2.6.23.)
+\fBSCHED_IDLE\fP can only be used at static priority 0;
+the process nice value has no influence for this policy.
+This policy is intended for running jobs at extremely low
+priority (lower even than a +19 nice value with the
+.B SCHED_OTHER
+or
+.B SCHED_BATCH
+policies).
+.\"
 .SS Privileges and resource limits
 In Linux kernels before 2.6.12, only privileged
 .RB ( CAP_SYS_NICE )
@@ -321,7 +339,7 @@ The calling process does not have appropriate privileges.
 The process whose ID is \fIpid\fP could not be found.
 .SH "CONFORMING TO"
 POSIX.1-2001 (but see BUGS below).
-The \fBSCHED_BATCH\fP policy is Linux-specific.
+The \fBSCHED_BATCH\fP and \fBSCHED_IDLE\fP policies are Linux-specific.
 .SH NOTES
 POSIX.1 does not detail the permissions that an unprivileged
 process requires in order to call

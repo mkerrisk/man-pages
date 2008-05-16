@@ -28,7 +28,7 @@
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\" Modified 2004-10-10 by Andries Brouwer <aeb@cwi.nl>
 .\"
-.TH UTIME 2 2008-04-23 "Linux" "Linux Programmer's Manual"
+.TH UTIME 2 2008-05-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
 utime, utimes \- change file last access and modification times
 .SH SYNOPSIS
@@ -37,14 +37,16 @@ utime, utimes \- change file last access and modification times
 .br
 .B #include <utime.h>
 .sp
-.BI "int utime(const char *" filename ", const struct utimbuf *" buf );
+.BI "int utime(const char *" filename ", const struct utimbuf *" times );
 .sp
 .B #include <sys/time.h>
 .sp
 .BI "int utimes(const char *" filename ", const struct timeval " times [2]);
 .fi
 .SH DESCRIPTION
+The
 .BR utime ()
+system call
 changes the access and modification times of the inode specified by
 .I filename
 to the
@@ -54,17 +56,16 @@ fields of
 respectively.
 
 If
-.I buf
+.I times
 is NULL, then the access and modification times of the file are set
 to the current time.
 
 Changing timestamps is permitted when: either
-the process has appropriate privileges (Linux: has the
-.B CAP_FOWNER
-capability), or the effective user ID equals the user ID
+the process has appropriate privileges,
+or the effective user ID equals the user ID
 of the file, or
-.I buf
-is NULL and the process has write permission to the file.
+.I times
+is NULL and the process has write permission for the file.
 
 The
 .I utimbuf
@@ -79,15 +80,19 @@ struct utimbuf {
 .fi
 .in
 
-The function
+The
 .BR utime ()
+system call
 allows specification of timestamps with a resolution of 1 second.
 
-The function
+The
 .BR utimes ()
+system call
 is similar, but the
 .I times
-argument allows a resolution of 1 microsecond for the timestamps.
+argument refers to an array rather than a structure,
+and the structure allows a precision of 1 microsecond for
+specifying the timestamps.
 The
 .I timeval
 structure is:
@@ -123,19 +128,32 @@ Search permission is denied for one of the directories in
 the path prefix of
 .I path
 (see also
-.BR path_resolution (7)),
-or
-.I buf
-is NULL and the process does not have permission to change the timestamps
-(see above).
+.BR path_resolution (7)).
+.TP
+.B EACCES
+.I times
+is NULL,
+the caller's effective user ID does not match the owner of the file,
+the caller does not have write access to the file,
+and the caller is not privileged
+(Linux: does not have either the
+.B CAP_DAC_OVERRIDE
+or the
+.B CAP_FOWNER
+capability).
 .TP
 .B ENOENT
 .I filename
 does not exist.
 .TP
 .B EPERM
-.I buf
-is not NULL and the process does not have permission to change the timestamps.
+.I times
+is not NULL,
+the caller's effective UID does not match the owner of the file,
+and the caller is not privileged
+(Linux: does not have the
+.B CAP_FOWNER
+capability).
 .TP
 .B EROFS
 .I path
@@ -167,16 +185,9 @@ legacy, which is strange since it provides more functionality than
 .\" FIXME .
 .\" POSIX.1-2008 reverses things, removing the LEGACY marking for
 .\" utimes() and marking utime() OBSOLESCENT.
-.SH BUGS
-Linux is not careful to distinguish between the
-.B EACCES
-and
-.B EPERM
-error returns.
-On the other hand, POSIX.1-2001 is buggy in its error description for
-.BR utimes ().
 .SH "SEE ALSO"
 .BR chattr (1),
+.\" FIXME . Eventually add reference to utimensat.2 and futimens.3
 .BR futimesat (2),
 .BR stat (2),
 .BR futimes (3)

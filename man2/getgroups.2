@@ -25,8 +25,10 @@
 .\" Modified Thu Oct 31 12:04:29 1996 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified, 27 May 2004, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"     Added notes on capability requirements
+.\" 2008-05-03, mtk, expanded and rewrote parts of DESCRIPTION and RETURN
+.\"     VALUE, made style of page more consistent with man-pages style.
 .\"
-.TH GETGROUPS 2 2008-06-02 "Linux" "Linux Programmer's Manual"
+.TH GETGROUPS 2 2008-06-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getgroups, setgroups \- get/set list of supplementary group IDs
 .SH SYNOPSIS
@@ -50,39 +52,56 @@ _BSD_SOURCE
 .SH DESCRIPTION
 .\" FIXME. The layout of the DESCRIPTION and RETURN VALUE sections
 .\" of this page are somewhat inconsistent.
-.TP
+.PP
 .BR getgroups ()
-Up to
-.I size
-supplementary group IDs (of the calling process) are returned in
+returns the supplementary group IDs of the calling process in
 .IR list .
+The argument
+.I size
+should be set to the maximum number of items that can be stored in the
+buffer pointed to by
+.IR list .
+If the calling process is a member of more than
+.I size
+supplementary groups, then an error results.
 It is unspecified whether the effective group ID of the calling process
 is included in the returned list.
 (Thus, an application should also call
 .BR getegid (2)
 and add or remove the resulting value.)
+
 If
 .I size
 is zero,
 .I list
 is not modified, but the total number of supplementary group IDs for the
 process is returned.
-.TP
+This allows the caller to determine the size of a dynamically allocated
+.I list
+to be used in a further call to
+.BR getgroups ().
+.PP
 .BR setgroups ()
-Sets the supplementary group IDs for the process.
+sets the supplementary group IDs for the calling process.
 Appropriate privileges (Linux: the
 .B CAP_SETGID
 capability) are required.
+The
+.I size
+argument specifies the number of supplementary group IDs
+in the buffer pointed to by
+.IR list .
 .SH "RETURN VALUE"
-.TP
+On success,
 .BR getgroups ()
-On success, the number of supplementary group IDs is returned.
+the number of supplementary group IDs is returned.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
-.TP
+
+On success,
 .BR setgroups ()
-On success, zero is returned.
+returns 0.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
@@ -91,22 +110,28 @@ is set appropriately.
 .B EFAULT
 .I list
 has an invalid address.
+.PP
+.BR getgroups ()
+can additionally fail with the following error:
 .TP
 .B EINVAL
-For
-.BR setgroups (),
+.I size
+is less than the number of supplementary group IDs, but is not zero.
+.PP
+.BR setgroups ()
+can additionally fail with the following errors:
+.TP
+.B EINVAL
 .I size
 is greater than
 .B NGROUPS_MAX
 (32 before Linux 2.6.4; 65536 since Linux 2.6.4).
-For
-.BR getgroups (),
-.I size
-is less than the number of supplementary group IDs, but is not zero.
+.TP
+.B ENOMEM
+Out of memory.
 .TP
 .B EPERM
-The calling process has insufficient privilege to call
-.BR setgroups ().
+The calling process has insufficient privilege.
 .SH "CONFORMING TO"
 SVr4, 4.3BSD.
 The
@@ -116,13 +141,14 @@ Since
 .BR setgroups ()
 requires privilege, it is not covered by POSIX.1-2001.
 .SH NOTES
-A process can have up to at least
+A process can have up to
 .B NGROUPS_MAX
 supplementary group IDs
 in addition to the effective group ID.
 The set of supplementary group IDs
-is inherited from the parent process and may be changed using
-.BR setgroups ().
+is inherited from the parent process, and preserved across an
+.BR execve (2).
+
 The maximum number of supplementary group IDs can be found using
 .BR sysconf (3):
 .nf
@@ -131,9 +157,9 @@ The maximum number of supplementary group IDs can be found using
     ngroups_max = sysconf(_SC_NGROUPS_MAX);
 
 .fi
-The maximal return value of
+The maximum return value of
 .BR getgroups ()
-cannot be larger than one more than the value obtained this way.
+cannot be larger than one more than this value.
 .SH "SEE ALSO"
 .BR getgid (2),
 .BR setgid (2),

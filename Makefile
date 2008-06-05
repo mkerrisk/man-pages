@@ -26,15 +26,15 @@ screen:
 	done
 
 remove:
-	for i in man?/* man??/*; do \
+	for i in man?/*; do \
 		rm -f $(MANDIR)/"$$i" $(MANDIR)/"$$i".gz $(MANDIR)/"$$i".bz2; \
 	done
 
 gz:
-	for i in man? man??; do $(GZIP) "$$i"/*; done
+	for i in man?; do $(GZIP) "$$i"/*; done
 
 bz2:
-	for i in man? man??; do $(BZIP2) "$$i"/*; done
+	for i in man?; do $(BZIP2) "$$i"/*; done
 
 # Use with
 #  make HTDIR=/some/dir HTOPTS=whatever html
@@ -50,7 +50,7 @@ html:
 	done; fi
 
 install:
-	for i in man? man??; do \
+	for i in man?; do \
 		install -d -m 755 $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 	done; \

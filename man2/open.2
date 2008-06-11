@@ -269,7 +269,8 @@ The I/O is synchronous, that is, at the completion of a
 .BR read (2)
 or
 .BR write (2),
-data is guaranteed to have been transferred.  See
+data is guaranteed to have been transferred.
+See
 .B NOTES
 below for further discussion.
 .sp
@@ -469,7 +470,6 @@ for this case.)
 .\" See http://bugzilla.kernel.org/show_bug.cgi?id=7253
 .\" "Open of a large file on 32-bit fails with EFBIG, should be EOVERFLOW"
 .\" Reported 2006-10-03
-.\" Appears to be fixed in 2.6.24 -- test this.
 .TP
 .B EISDIR
 .I pathname
@@ -589,6 +589,35 @@ but does not necessarily have the intention to read or write.
 This is typically used to open devices in order to get a file descriptor
 for use with
 .BR ioctl (2).
+
+Unlike the other values that can be specified in
+.IR flags ,
+the
+.I "access mode"
+values
+.BR O_RDONLY ", " O_WRONLY ", and " O_RDWR ,
+do not specify individual bits.
+Rather, they define the low order two bits of
+.IR flags ,
+and are defined respectively as 0, 1, and 2.
+In other words, the combination
+.B "O_RDONLY | O_WRONLY"
+is a logical error, and certainly does not have the same meaning as
+.BR O_RDWR .
+Linux reserves the special, non-standard access mode 3 (binary 11) in
+.I flags
+to mean:
+check for read and write permission on the file and return a descriptor
+that can't be used for reading or writing.
+This non-standard access mode is used by some Linux drivers to return a
+descriptor that is only to be used for device-specific
+.BR ioctl (2)
+operations.
+.\" See for example util-linux's disk-utils/setfdprm.c
+.\" For some background on access mode 3, see
+.\" http://thread.gmane.org/gmane.linux.kernel/653123
+.\" "[RFC] correct flags to f_mode conversion in __dentry_open"
+.\" LKML, 12 Mar 2008
 .LP
 The (undefined) effect of
 .B O_RDONLY | O_TRUNC

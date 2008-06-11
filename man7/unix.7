@@ -8,8 +8,11 @@
 .\" Modified, 2003-09-23, Adam Langley
 .\" Modified, 2004-05-27, Michael Kerrisk, <mtk.manpages@gmail.com>
 .\"	Added SOCK_SEQPACKET
+.\" 2008-05-27, mtk, Provide a clear description of the three types of
+.\"     address that can appear in the sockaddr_un structure: pathname,
+.\"     unnamed, and abstract.
 .\"
-.TH UNIX  7 2004-05-27 "Linux" "Linux Programmer's Manual"
+.TH UNIX  7 2008-06-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
 unix, PF_UNIX, AF_UNIX, PF_LOCAL, AF_LOCAL \- Sockets for local
 interprocess communication
@@ -28,9 +31,8 @@ The
 .BR PF_LOCAL )
 socket family is used to communicate between processes on the same machine
 efficiently.
-Unix sockets can be either anonymous (created by
-.BR socketpair (2))
-or associated with a file of type socket.
+Traditionally, Unix sockets can be either unnamed,
+or bound to a file system pathname (marked as being of type socket).
 Linux also supports an abstract namespace which is independent of the
 file system.
 
@@ -49,44 +51,83 @@ and delivers messages in the order that they were sent.
 Unix sockets support passing file descriptors or process credentials
 to other processes using ancillary data.
 .SS Address Format
-A Unix address is defined as a filename in the file system or
-as a unique string in the abstract namespace.
-Sockets created by
-.BR socketpair (2)
-are anonymous.
-For non-anonymous sockets the target address can be set
-using
-.BR connect (2).
-The local address can be set using
-.BR bind (2).
-When a socket is connected and it doesn't already have a local address a
-unique address in the abstract namespace will be generated automatically.
-
+A Unix domain socket address is represented in the following structure:
 .in +4n
 .nf
+
 #define UNIX_PATH_MAX    108
 
 struct sockaddr_un {
-    sa_family_t    sun_family;               /* AF_UNIX */
-    char           sun_path[UNIX_PATH_MAX];  /* pathname */
+    sa_family_t sun_family;               /* AF_UNIX */
+    char        sun_path[UNIX_PATH_MAX];  /* pathname */
 };
 .fi
 .in
-
+.PP
 .I sun_family
 always contains
 .BR AF_UNIX .
+
+Three types of address are distinguished in this structure:
+.IP * 3
+.IR pathname :
+a Unix domain socket can be bound to a null-terminated file
+system pathname using
+.BR bind (2).
+When the address of the socket is returned by
+.BR getsockname (2),
+.BR getpeername (2),
+and
+.BR accept (2),
+its length is
+.IR "sizeof(sa_family_t) + strlen(sun_path) + 1" ,
+and
 .I sun_path
-contains the zero-terminated pathname of the socket in the file system.
-If
+contains the null-terminated pathname.
+.IP *
+.IR unnamed :
+A stream socket that has not been bound to a pathname using
+.BR bind (2)
+has no name.
+Likewise, the two sockets created by
+.BR socketpair (2)
+are unnamed.
+When the address of an unnamed socket is returned by
+.BR getsockname (2),
+.BR getpeername (2),
+and
+.BR accept (2),
+its length is
+.IR "sizeof(sa_family_t)" ,
+and
 .I sun_path
-starts with a null byte (\(aq\\0\(aq),
-then it refers to the abstract namespace maintained by
-the Unix protocol module.
+should not be inspected.
+.\" There is quite some variation across implementations: FreeBSD
+.\" says the length is 16 bytes, HP-UX 11 says it's zero bytes.
+.IP *
+.IR abstract :
+an abstract socket address is distinguished by the fact that
+.IR sun_path[0] 
+is a null byte (`\\0').
+All of the remaining bytes in
+.I sun_path
+define the "name" of the socket.
+(Null bytes in the name have no special significance.)
+The name has no connection with file system pathnames.
 The socket's address in this namespace is given by the rest of the
 bytes in
 .IR sun_path .
-Note that names in the abstract namespace are not zero-terminated.
+When the address of an abstract socket is returned by
+.BR getsockname (2),
+.BR getpeername (2),
+and
+.BR accept (2),
+its length is
+.IR "sizeof(struct sockaddr_un)" ,
+and
+.I sun_path
+contains the abstract name.
+The abstract socket namespace is a non-portable Linux extension.
 .SS Socket Options
 For historical reasons these socket options are specified with a
 .B SOL_SOCKET

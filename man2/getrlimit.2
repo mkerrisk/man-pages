@@ -1,7 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt, March 28, 1992
-.\" and Copyright (c) 2002 Michael Kerrisk
+.\" and Copyright (c) 2002, 2004, 2005, 2008 Michael Kerrisk
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -58,9 +58,9 @@
 .\" 2004-11-03, mtk, Added RLIMIT_SIGPENDING
 .\" 2005-07-13, mtk, documented RLIMIT_MSGQUEUE limit.
 .\" 2005-07-28, mtk, Added descriptions of RLIMIT_NICE and RLIMIT_RTPRIO
+.\" 2008-05-07, mtk / Peter Zijlstra, Added description of RLIMIT_RTTIME
 .\"
-.\" FIXME 2.6.25 adds RLIMIT_RTTIME, which needs to be documented.
-.TH GETRLIMIT 2 2005-09-20 "Linux" "Linux Programmer's Manual"
+.TH GETRLIMIT 2 2008-06-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getrlimit, setrlimit \- get/set resource limits
 .SH SYNOPSIS
@@ -306,6 +306,31 @@ this process using
 and
 .BR sched_setparam (2).
 .TP
+.BR RLIMIT_RTTIME " (Since Linux 2.6.25)"
+Specifies a limit on the amount of CPU time that a process scheduled
+under a real-time scheduling policy may consume without making a blocking
+system call.
+For the purpose of this limit,
+each time a process makes a blocking system call,
+the count of its consumed CPU time is reset to zero.
+The CPU time count is not reset if the process continues trying to
+use the CPU but is preempted, its time slice expires, or it calls
+.BR sched_yield (2).
+
+Upon reaching the soft limit, the process is sent a
+.B SIGXCPU
+signal.
+If the process catches or ignores this signal and
+continues consuming CPU time, then
+.B SIGXCPU
+will be generated once each second until the hard limit is reached,
+at which point the process is sent a
+.B SIGKILL
+signal.
+
+The intended use of this limit is to stop a runaway
+real-time process from locking up the system.
+.TP
 .BR RLIMIT_SIGPENDING " (Since Linux 2.6.8)"
 Specifies the limit on the number of signals
 that may be queued for the real user ID of the calling process.
@@ -379,6 +404,7 @@ it is nevertheless present on most implementations.
 .BR RLIMIT_MSGQUEUE ,
 .BR RLIMIT_NICE ,
 .BR RLIMIT_RTPRIO ,
+.BR RLIMIT_RTTIME ,
 and
 .B RLIMIT_SIGPENDING
 are Linux-specific.

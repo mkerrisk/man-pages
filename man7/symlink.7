@@ -1,0 +1,478 @@
+.\"-
+.\" Copyright (c) 1992, 1993, 1994
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	@(#)symlink.7	8.3 (Berkeley) 3/31/94
+.\" $FreeBSD: src/bin/ln/symlink.7,v 1.30 2005/02/13 22:25:09 ru Exp $
+.\"
+.\" 2008-06-11, mtk, Taken from FreeBSD 6.2 and heavily edited for
+.\"     specific Linux details, improved readability, and man-pages style.
+.\"
+.TH SYMLINK 7 2008-06-11 "Linux" "Linux Programmer's Manual"
+.SH NAME
+symlink \- symbolic link handling
+.SH SYMBOLIC LINK HANDLING
+Symbolic links are files that act as pointers to other files.
+To understand their behavior, you must first understand how hard links
+work.
+A hard link to a file is indistinguishable from the original file because
+it is a reference to the object underlying the original filename.
+Changes to a file are independent of the name used to reference the file.
+Hard links may not refer to directories
+(to prevent the possibility of loops within the file system tree,
+which would confuse many programs)
+and may not refer to files on different file systems.
+A symbolic link is a special type of file whose contents are a string
+that is the pathname another file, the file to which the link refers.
+In other words, a symbolic link is a pointer to another name,
+and not to an underlying object.
+For this reason, symbolic links may refer to directories and may cross
+file system boundaries.
+
+There is no requirement that the pathname referred to by a symbolic link
+should exist.
+A symbolic link that refers to a pathname that does not exist is said
+to be a "dangling link".
+
+Because a symbolic link and its referenced object coexist in the file system
+name space, confusion can arise in distinguishing between the link itself
+and the referenced object.
+On historical systems,
+commands and system calls adopted their own link
+following conventions in a somewhat ad-hoc fashion.
+Rules for a more uniform approach,
+as they are implemented on Linux and other systems,
+are outlined here.
+It is important that site-local applications also conform to these rules,
+so that the user interface can be as consistent as possible.
+.SS Symbolic link ownership, permissions, and timestamps
+The owner and group of an existing symbolic link can be changed
+using
+.BR lchown (2).
+The only time that the ownership of a symbolic link matters is
+when the link is being removed or renamed in a directory that
+has the sticky bit set (see
+.BR stat (2)).
+
+The last access and last modification timestamps
+of a symbolic link can be changed using
+.BR utimensat (2)
+or
+.BR lutimes (3).
+
+On Linux, the permissions of a symbolic link are not used
+in any operations; the permissions are always
+0777 (read, write, and execute for all user categories),
+.\" Linux does not currently implement an lchmod(2).
+and can't be changed.
+.\"
+.\" The
+.\" 4.4BSD
+.\" system differs from historical
+.\" 4BSD
+.\" systems in that the system call
+.\" .BR chown (2)
+.\" has been changed to follow symbolic links.
+.\" The
+.\" .BR lchown (2)
+.\" system call was added later when the limitations of the new
+.\" .BR chown (2)
+.\" became apparent.
+.SS Handling of symbolic links by system calls and commands
+Symbolic links are handled either by operating on the link itself,
+or by operating on the object referred to by the link.
+In the latter case,
+an application or system call is said to "follow" the link.
+Symbolic links may refer to other symbolic links,
+in which case the links are dereferenced until an object that is
+not a symbolic link is found,
+a symbolic link that refers to a file which does not exist is found,
+or a loop is detected.
+(Loop detection is done by placing an upper limit on the number of
+links that may be followed, and an error results if this limit is
+exceeded.)
+
+There are three separate areas that need to be discussed.
+They are as follows:
+.IP 1. 3
+Symbolic links used as filename arguments for system calls.
+.IP 2.
+Symbolic links specified as command-line arguments to utilities that
+are not traversing a file tree.
+.IP 3.
+Symbolic links encountered by utilities that are traversing a file tree
+(either specified on the command line or encountered as part of the
+file hierarchy walk).
+.SS System calls
+The first area is symbolic links used as filename arguments for
+system calls.
+
+Except as noted below, all system calls follow symbolic links.
+For example, if there were a symbolic link
+"slink"
+which pointed to a file named
+"afile",
+the system call
+.I "open("slink" ...\&)"
+would return a file descriptor referring to the file
+"afile".
+
+Various system calls do not follow links, and operate
+on the symbolic link itself.
+They are:
+.BR lchown (2),
+.BR lgetxattr (2),
+.BR llistxattr (2),
+.BR lremovexattr (2),
+.BR lsetxattr (2),
+.BR lstat (2),
+.BR lutimes (2),
+.BR readlink (2),
+.BR rename (2),
+.BR rmdir (2),
+and
+.BR unlink (2).
+Certain other system calls optionally follow symbolic links.
+They are:
+.BR faccessat (2),
+.\" Maybe one day: .BR fchownat (2)
+.BR fchownat (2),
+.BR fstatat (2),
+.BR linkat (2),
+.BR open (2),
+.BR openat (2),
+and
+.BR utimensat (2);
+see their manual pages for details.
+Because
+.BR remove (3)
+is an alias for
+.BR unlink (2),
+that library function also does not follow symbolic links.
+When
+.BR rmdir (2)
+is applied to a symbolic link, it fails with the error
+.BR ENOTDIR .
+The
+.BR link (2)
+warrants special discussion.
+POSIX.1-2001 specifies that
+.BR link (2)
+should dereference
+.I oldpath
+if it is a symbolic link.
+However, Linux does not do this.
+(By default Solaris is the same,
+but the POSIX.1-2001 specified behavior can be obtained with
+suitable compiler options.)
+The upcoming POSIX.1 revision changes the specification to allow
+either behavior in an implementation.
+.SS Commands not traversing a file tree
+The second area is symbolic links, specified as command-line
+filename arguments, to commands which are not traversing a file tree.
+
+Except as noted below, commands follow symbolic links named as
+command-line arguments.
+For example, if there were a symbolic link
+"slink"
+which pointed to a file named
+"afile",
+the command
+.I "cat slink"
+would display the contents of the file
+"afile".
+
+It is important to realize that this rule includes commands which may
+optionally traverse file trees, e.g.\& the command
+.I "chown file"
+is included in this rule, while the command
+.IR "chown -R file" ,
+which performs a tree traversal, is not.
+(The latter is described in the third area, below.)
+
+If it is explicitly intended that the command operate on the symbolic
+link instead of following the symbolic link, e.g., it is desired that
+.I "chown slink"
+change the ownership of the file that
+"slink"
+is, whether it is a symbolic link or not, the
+.I -h
+option should be used.
+In the above example,
+.I "chown root slink"
+would change the ownership of the file referred to by
+"slink",
+while
+.I "chown -h root slink"
+would change the ownership of
+"slink"
+itself.
+
+There are some exceptions to this rule:
+.IP * 2
+The
+.BR mv (1)
+and
+.BR rm (1)
+commands do not follow symbolic links named as arguments,
+but respectively attempt to rename and delete them.
+(Note, if the symbolic link references a file via a relative path,
+moving it to another directory may very well cause it to stop working,
+since the path may no longer be correct.)
+.IP *
+The
+.BR ls (1)
+command is also an exception to this rule.
+For compatibility with historic systems (when
+.BR ls (1)
+is not doing a tree walk, i.e., the
+.I -R
+option is not specified),
+the
+.BR ls (1)
+command follows symbolic links named as arguments if the
+.I -H
+or
+.I -L
+option is specified,
+or if the
+.IR -F ,
+.IR -d ,
+or
+.I -l
+options are not specified.
+(The
+.BR ls (1)
+command is the only command where the
+.I -H
+and
+.I -L
+options affect its behavior even though it is not doing a walk of
+a file tree.)
+.IP *
+The
+.BR file (1)
+command is also an exception to this rule.
+The
+.BR file (1)
+command does not follow symbolic links named as argument by default.
+The
+.BR file (1)
+command does follow symbolic links named as argument if the
+.I -L
+option is specified.
+.\"
+.\"The 4.4BSD system differs from historical 4BSD systems in that the
+.\".BR chown (1)
+.\"and
+.\".BR chgrp (1)
+.\"commands follow symbolic links specified on the command line.
+.SS Commands traversing a file tree
+The following commands either optionally or always traverse file trees:
+.BR chgrp (1),
+.BR chmod (1),
+.BR chown (1),
+.BR cp (1),
+.BR du (1),
+.BR find (1),
+.BR ls (1),
+.BR pax (1),
+.BR rm (1),
+and
+.BR tar (1).
+
+It is important to realize that the following rules apply equally to
+symbolic links encountered during the file tree traversal and symbolic
+links listed as command-line arguments.
+
+The \fIfirst rule\fP applies to symbolic links that reference files other
+than directories.
+Operations that apply to symbolic links are performed on the links
+themselves, but otherwise the links are ignored.
+
+The command
+.I "rm -r slink directory"
+will remove
+"slink" ,
+as well as any symbolic links encountered in the tree traversal of
+"directory",
+because symbolic links may be removed.
+In no case will
+.BR rm (1)
+affect the file referred to by
+"slink".
+
+The \fIsecond rule\fP applies to symbolic links that refer to directories.
+Symbolic links that refer to directories are never followed by default.
+This is often referred to as a "physical" walk, as opposed to a "logical"
+walk (where symbolic links the refer to directories are followed).
+
+Certain conventions are (should be) followed as consistently as
+possible by commands that perform file tree walks:
+.IP * 2
+A command can be made to follow 
+any symbolic links named on the command line,
+regardless of the type of file they reference, by specifying the
+.I -H
+(for "half\-logical") flag.
+This flag is intended to make the command-line name space look
+like the logical name space.
+(Note, for commands that do not always do file tree traversals, the
+.I -H
+flag will be ignored if the
+.I -R
+flag is not also specified.)
+
+For example, the command
+.I "chown -HR user slink"
+will traverse the file hierarchy rooted in the file pointed to by
+"slink".
+Note, the
+.I -H
+is not the same as the previously discussed
+.I -h
+flag.
+The
+.I -H
+flag causes symbolic links specified on the command line to be
+dereferenced for the purposes of both the action to be performed
+and the tree walk, and it is as if the user had specified the
+name of the file to which the symbolic link pointed.
+.IP *
+A command can be made to
+follow any symbolic links named on the command line,
+as well as any symbolic links encountered during the traversal,
+regardless of the type of file they reference, by specifying the
+.I -L
+(for "logical") flag.
+This flag is intended to make the entire name space look like
+the logical name space.
+(Note, for commands that do not always do file tree traversals, the
+.I -L
+flag will be ignored if the
+.I -R
+flag is not also specified.)
+
+For example, the command
+.I "chown -LR user slink"
+will change the owner of the file referred to by "slink".
+If "slink" refers to a directory,
+chown will traverse the file hierarchy rooted in the directory that it
+references.
+In addition, if any symbolic links are encountered in any file tree that
+chown traverses, they will be treated in the same fashion as
+"slink".
+.IP *
+A command can be made to
+provide the default behavior by specifying the
+.I -P
+(for
+"physical")
+flag.
+This flag is intended to make the entire name space look like the
+physical name space.
+.PP
+For commands that do not by default do file tree traversals, the
+.IR -H ,
+.IR -L ,
+and
+.I -P
+flags are ignored if the
+.I -R
+flag is not also specified.
+In addition, you may specify the
+.IR -H ,
+.IR -L ,
+and
+.I -P
+options more than once; the last one specified determines the
+command's behavior.
+This is intended to permit you to alias commands to behave one way
+or the other, and then override that behavior on the command line.
+
+The
+.BR ls (1)
+and
+.BR rm (1)
+commands have exceptions to these rules:
+.IP * 2
+The
+.BR rm (1)
+command operates on the symbolic link, and not the file it references,
+and therefore never follows a symbolic link.
+The
+.BR rm (1)
+command does not support the
+.IR -H ,
+.IR -L ,
+or
+.I -P
+options.
+.IP *
+To maintain compatibility with historic systems,
+the
+.BR ls (1)
+command acts a little differently.
+If you do not specify the
+.IR -F ,
+.IR -d
+or
+.I -l
+options,
+.BR ls (1)
+will follow symbolic links specified on the command line.
+If the
+.I -L
+flag is specified,
+.BR ls (1)
+follows all symbolic links,
+regardless of their type,
+whether specified on the command line or encountered in the tree walk.
+.SH SEE ALSO
+.\" Add SEE ALSOs from
+.\" path_resolution
+.\" *at.2
+.\" various syscalls listed earlier
+.\" 
+.\" 
+.\" Add SEE ALSO references from some of the following pages to this page:
+.BR chgrp (1),
+.BR chmod (1),
+.BR find (1),
+.BR ln (1),
+.BR ls (1),
+.BR mv (1),
+.BR rm (1),
+.BR lchown (2),
+.BR link (2),
+.BR lstat (2),
+.BR readlink (2),
+.BR rename (2),
+.BR symlink (2),
+.BR unlink (2),
+.BR utimensat (2),
+.BR lutimes (3)

@@ -1,8 +1,8 @@
-\(aq" Hey Emacs! This file is -*- nroff -*- source.
+.\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
 .\" and Copyright (c) 1998 Andries Brouwer (aeb@cwi.nl)
-.\" and Copyright (c) 2007 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (c) 2007, 2008 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -31,8 +31,11 @@
 .\" Modified 1997-05-18 by Michael Haardt <michael@cantor.informatik.rwth-aachen.de>
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\" 2007-07-08, mtk, added an example program; updated SYNOPSIS
+.\" 2008-05-08, mtk, Describe rules governing ownership of new files
+.\"     (bsdgroups versus sysvgroups, and the effect of the parent
+.\"     directory's set-group-ID permission bit).
 .\"
-.TH CHOWN 2 2007-07-26 "Linux" "Linux Programmer's Manual"
+.TH CHOWN 2 2008-06-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
 chown, fchown, lchown \- change ownership of a file
 .SH SYNOPSIS
@@ -53,12 +56,23 @@ Feature Test Macro Requirements for glibc (see
 .BR lchown ():
 _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500
 .SH DESCRIPTION
-.\" FIXME . The description here could be improved to explicitly say
-.\" what the differences are between chown() and lchown()
-These system calls change the owner and group of the file specified by
-.I path
-or by
+These system calls change the owner and group of a file.
+The differ only in how the file is specified:
+.IP * 2
+.BR chown ()
+changes the ownership of the file specified by
+.IR path ,
+which is dereferenced if it is a symbolic link.
+.IP *
+.BR fchown ()
+changes the ownership of the file referred to by the open file descriptor
 .IR fd .
+.IP *
+.BR lchown ()
+is like
+.BR chown (),
+but does not dereference symbolic links.
+.PP
 Only a privileged process (Linux: one with the
 .B CAP_CHOWN
 capability) may change the owner of a file.
@@ -167,6 +181,55 @@ used by the superuser (that is, ordinary users cannot give away files).
 .\" SVr4 documents additional EINVAL, EIO, EINTR, and ENOLINK
 .\" error conditions.
 .SH NOTES
+When a new file is created (by, for example,
+.BR open (2)
+or
+.BR mkdir (2)),
+its owner is made the same as the file system user ID of the
+creating process.
+The group of the file depends on a range of factors,
+including the type of file system,
+the options used to mount the file system,
+and whether or not the set-group-ID permission bit is enabled
+on the parent directory.
+If the file system supports the
+.I "\-o\ grpid"
+(or, synonymously
+.IR "\-o\ bsdgroups" )
+and
+.I "\-o\ nogrpid"
+(or, synonymously
+.IR "\-o\ sysvgroups" )
+.BR mount (8)
+options, then the rules are as follows:
+.IP * 2
+If the file system is mounted with
+.IR "\-o\ grpid" ,
+then the group of a new file is made
+the same as that of the parent directory.
+.IP *
+If the file system is mounted with
+.IR "\-o\ nogrpid"
+and the set-group-ID bit is disabled on the parent directory,
+then the group of a new file is made the same as the
+process's file system GID.
+.IP *
+If the file system is mounted with
+.IR "\-o\ nogrpid"
+and the set-group-ID bit is enabled on the parent directory,
+then the group of a new file is made
+the same as that of the parent directory.
+.PP
+As at Linux 2.6.25,
+the 
+.IR "\-o\ grpid"
+and
+.IR "\-o\ nogrpid"
+mount options are supported by ext2, ext3, ext4, and XFS.
+File systems that don't support theese mount options follow the
+.IR "\-o\ nogrpid"
+rules.
+.PP
 The
 .BR chown ()
 semantics are deliberately violated on NFS file systems

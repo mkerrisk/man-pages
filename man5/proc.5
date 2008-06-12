@@ -1,4 +1,5 @@
 .\" Copyright (C) 1994, 1995 by Daniel Quinlan (quinlan@yggdrasil.com)
+.\" and Copyright (C) 2002-2008 Michael Kerrisk <mtk.manpages@gmail.com>
 .\" with networking additions from Alan Cox (A.Cox@swansea.ac.uk)
 .\" and scsi additions from Michael Neuffer (neuffer@mail.uni-mainz.de)
 .\" and sysctl additions from Andries Brouwer (aeb@cwi.nl)
@@ -39,8 +40,10 @@
 .\" 2005-07-13, mtk, added /proc/sys/fs/mqueue/*
 .\" 2005-09-16, mtk, Added /proc/sys/fs/suid_dumpable
 .\" 2005-09-19, mtk, added /proc/zoneinfo
-.\" 2005-03-01, mtk, moved /proc/sys/fs/mqueue/* material to
-.\"             mq_overview.7.
+.\" 2005-03-01, mtk, moved /proc/sys/fs/mqueue/* material to mq_overview.7.
+.\" 2008-05-05, mtk, Added /proc/PID/oom_score, /proc/PID/oom_adj,
+.\"     /proc/PID/limits, /proc/PID/mountinfo, /proc/PID/mounstats, 
+.\"     and /proc/PID/fdinfo/*.
 .\"
 .\" FIXME 2.6.14 has /proc/PID/numa_maps (if CONFIG_NUMA is
 .\" enabled); this needs to be documented.
@@ -57,7 +60,7 @@
 .\" to see what information could be imported from that file
 .\" into this file.
 .\"
-.TH PROC 5 2007-11-30 "Linux" "Linux Programmer's Manual"
+.TH PROC 5 2008-06-22 "Linux" "Linux Programmer's Manual"
 .SH NAME
 proc \- process information pseudo-file system
 .SH DESCRIPTION
@@ -78,6 +81,12 @@ There is a numerical subdirectory for each running process; the
 subdirectory is named by the process ID.
 Each such subdirectory contains the following
 pseudo-files and directories.
+.\" FIXME Describe /proc/[number]/attr and
+.\"       /proc/PID/task/TID/attr
+.\"	  This is a directory
+.\"       Added in ???
+.\"	  CONFIG_SECURITY
+.\"
 .TP
 .IR /proc/[number]/auxv " (since 2.6.0-test7)"
 This contains the contents of the ELF interpreter information passed
@@ -85,6 +94,17 @@ to the process at exec time.
 The format is one \fIunsigned long\fP ID
 plus one \fIunsigned long\fP value for each entry.
 The last entry contains two zeros.
+.\" FIXME Describe /proc/[number]/cgroup and
+.\"       /proc/PID/task/TID/cgroup
+.\" 	  Info in Documentation/cgroups.txt
+.\"       Added in 2.6.24
+.\"	  CONFIG_CGROUPS
+.\"
+.\" FIXME Describe /proc/[number]/clear_refs
+.\"       Added in 2.6.22
+.\"       "Clears page referenced bits shown in smaps output"
+.\"       write-only
+.\"       CONFIG_PROC_PAGE_MONITOR
 .TP
 .I /proc/[number]/cmdline
 This holds the complete command line for the process,
@@ -94,6 +114,14 @@ In the latter case, there is nothing in this file:
 that is, a read on this file will return 0 characters.
 The command-line arguments appear in this file as a set of
 null-separated strings, with a further null byte after the last string.
+.TP
+.IR /proc/[number]/coredump_filter " (since kernel 2.6.23)"
+See
+.BR core (5).
+.\" FIXME Describe /proc/[number]/cpuset and
+.\"       /proc/PID/task/TID/cpuset
+.\"       Added in 2.6.12
+.\"
 .TP
 .I /proc/[number]/cwd
 This is a symbolic link to the current working directory of the process.
@@ -121,9 +149,8 @@ are not available if the main thread has already terminated
 .I /proc/[number]/environ
 This file contains the environment for the process.
 The entries are separated by null bytes (\(aq\\0\(aq),
-and there may be a null bytes at the end.
+and there may be a null byte at the end.
 Thus, to print out the environment of process 1, you would do:
-
 .in +4n
 .nf
 
@@ -205,6 +232,41 @@ Most Linux MAKEDEV scripts symbolically link
 /dev/fd to /proc/self/fd, in fact.
 .\" FIXME Describe /proc/[number]/loginuid
 .\"       Added in 2.6.11; updating requires CAP_AUDIT_CONTROL
+.\"       CONFIG_AUDITSYSCALL
+.TP
+.I /proc/[number]/fdinfo/ " (since kernel 2.6.22)"
+This is a subdirectory containing one entry for each file which the
+process has open, named by its file descriptor.
+The contents of each file can be read to obtain information
+about the corresponding file descriptor, for example:
+.in +4n
+.nf
+
+$ cat /proc/12015/fdinfo/4
+pos:    1000
+flags:  01002002
+.fi
+.in
+
+The
+.I pos
+field is a decimal number showing the current file offset.
+The
+.I flags
+field is an octal number that displays the
+file access mode and file status flags (see
+.BR open (2)).
+
+The files in this directory are readable only by the owner of the process.
+.\" FIXME document /proc/[number]/io
+.\" .TP
+.\" .IR /proc/[number]/io " (since kernel 2.6.20)"
+.TP
+.IR /proc/[number]/limits " (since kernel 2.6.24)"
+This file displays the soft limit, hard limit, and units of measurement
+for each of the process's resource limits (see
+.BR getrlimit (2).
+The file is protected to only allow reading by the real UID of the process.
 .TP
 .I /proc/[number]/maps
 A file containing the currently mapped memory regions and their access
@@ -255,21 +317,189 @@ This file can be used to access the pages of a process's memory through
 .BR read (2),
 and
 .BR lseek (2).
-.\" FIXME Describe /proc/[number]/mountstats and
-.\"       /proc/PID/task/TID/mountstats
-.\" 	  Some information can be found in the 2.6.17-rc1 change log.
-.\"       Added in 2.6.17
-.\"
 .\" FIXME Describe /proc/[number]/mountinfo and
 .\"       /proc/PID/task/TID/mountinfo
 .\" 	  Info in Documentation/filesystems/proc.txt
 .\"       Added in 2.6.26
 .\"
-.\" FIXME Describe /proc/[number]/oom_adj
-.\"       Added in 2.6.11; updating requires CAP_SYS_RESOURCE
-.\"       Mention OOM_DISABLE (-17)
-.\" FIXME Describe /proc/[number]/oom_score
-.\"       Added in 2.6.11; read-only
+.TP
+.IR /proc/[number]/mountinfo " (since Linux 2.6.26)"
+.\" This info adapted from Documentation/filesystems/proc.txt
+This file contains information about mount points.
+It contains lines of the form:
+.nf
+.ft CW
+.in 8n
+
+36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root rw,errors=continue
+(1)(2)(3)   (4)   (5)      (6)      (7)   (8) (9)   (10)         (11)
+.in
+.ft
+.fi
+.IP
+The numbers in parentheses are labels for the descriptions below:
+.RS 12
+.TP 5
+(1)
+mount ID: unique identifier of the mount (may be reused after
+.BR umount (2)).
+.TP
+(2)
+parent ID: ID of parent mount (or of self for the top of the mount tree).
+.TP
+(3)
+major:minor: value of
+.I st_dev
+for files on file system (see
+.BR stat (2)).
+.TP
+(4)
+root: root of the mount within the file system.
+.TP
+(5)
+mount point: mount point relative to the process's root.
+.TP
+(6)
+mount options: per-mount options.
+.TP
+(7)
+optional fields: zero or more fields of the form "tag[:value]".
+.TP
+(8)
+separator: marks the end of the optional fields.
+.TP
+(9)
+file system type: name of file system in the form "type[.subtype]".
+.TP
+(10)
+mount source: file system-specific information or "none".
+.TP
+(11)
+super options: per-super block options.
+.RE
+.IP
+Parsers should ignore all unrecognized optional fields.
+Currently the possible optional fields are:
+.RS 12
+.TP 18
+shared:X
+mount is shared in peer group X
+.TP
+master:X
+mount is slave to peer group X
+.TP
+propagate_from:X
+mount is slave and receives propagation from peer group X (*)
+.TP
+unbindable
+mount is unbindable
+.RE
+.IP
+(*) X is the closest dominant peer group under the process's root.
+If X is the immediate master of the mount,
+or if there is no dominant peer group under the same root,
+then only the "master:X" field is present
+and not the "propagate_from:X" field.
+
+For more information on mount propagation see:
+.I Documentation/filesystems/sharedsubtree.txt
+in the kernel source tree.
+.TP
+.IR /proc/[number]/mountstats " (since Linux 2.6.17)"
+This file system exports information (statistics, configuration information)
+about the mount points in the process's name space.
+Lines in this file have the form:
+.nf
+
+device /dev/sda7 mounted on /home with fstype ext3 [statistics]
+(       1      )            ( 2 )             (3 ) (4)
+.fi
+.IP
+The fields in each line are:
+.RS 12
+.TP 5
+(1)
+The name of the mounted device
+(or "nodevice" if there is no corresponding device).
+.TP
+(2)
+The mount point within the file system tree.
+.TP
+(3)
+The file system type.
+.TP
+(4)
+Optional statistics and configuration information.
+Currently (as at Linux 2.6.26), only NFS file systems export
+information via this field.
+.RE
+.IP
+This file is only readable by the owner of the process.
+.\"
+.\" FIXME Describe /proc/[number]/mountstats and
+.\"       /proc/PID/task/TID/mountstats
+.\" 	  Some information can be found in the 2.6.17 change log.
+.\"       Added in 2.6.17
+.\"
+.TP
+.IR /proc/[number]/oom_adj " (since Linux 2.6.11)"
+.\" FIXME . probably the discussion of MAP_NORESERVE in mmap.2
+.\" should point to the discussion of oom_adj and oom_score in this page.
+This file can be used to adjust the score used to select which process
+should be killed in an  out-of-memory (OOM) situation.
+The kernel uses this value for a bit-shift operation of the process's
+.IR oom_score
+value:
+valid values are in the range -16 to +15,
+plus the special value -17,
+which disables OOM-killing altogether for this process.
+A positive score increases the likelihood of this
+process being killed by the OOM-killer;
+a negative score decreases the likelihood.
+The default value for this file is 0;
+a new process inherits its parent's
+.I oom_adj
+setting.
+A process must be privileged
+.RB ( CAP_SYS_RESOURCE )
+to update this file.
+.TP
+.IR /proc/[number]/oom_score " (since Linux 2.6.11)"
+.\" See mm/oom_kill.c::badness() in the 2.6.25 sources
+This file displays the current score that the kernel gives to
+this process for the purpose of selecting a process
+for the OOM-killer.
+A higher score means that the process is more likely to be
+selected by the OOM-killer.
+The basis for this score is the amount of memory used by the process,
+with increases (+) or decreases (\-) for factors including:
+.\" See mm/oom_kill.c::badness() in the 2.6.25 sources
+.RS
+.IP * 2
+whether the process creates a lot of children using
+.BR fork (2)
+(+);
+.IP *
+whether the process has been running a long time,
+or has used a lot of CPU time (\-);
+.IP *
+whether the process has a low nice value (i.e., > 0) (+);
+.IP *
+whether the process is privileged (\-); and
+.\" More precisely, if it has CAP_SYS_ADMIN or CAP_SYS_RESOURCE
+.IP *
+whether the process is making direct hardware access (\-).
+.\" More precisely, if it has CAP_SYS_RAWIO
+.RE
+.IP
+The
+.I oom_score
+also reflects the bit-shift adjustment specified by the
+.I oom_adj
+setting for the process.
+.\" FIXME Describe /proc/[number]/pagemap
+.\"       Added in 2.6.25
+.\"       CONFIG_PROC_PAGE_MONITOR
 .TP
 .I /proc/[number]/root
 Unix and Linux support the idea of a per-process root of the
@@ -286,8 +516,21 @@ are not available if the main thread has already terminated
 .BR pthread_exit (3)).
 .\" FIXME Describe /proc/[number]/seccomp
 .\"       Added in 2.6.12
+.\" FIXME Describe /proc/[number]/sessionid
+.\"       Added in 2.6.25; read-only; only readable by real UID
+.\"       CONFIG_AUDITSYSCALL
+.\" FIXME Describe /proc/[number]/sched
+.\"       Added in 2.6.23
+.\"       CONFIG_SCHED_DEBUG, and additional fields if CONFIG_SCHEDSTATS
+.\"       Displays various scheduling parameters
+.\"       This file can be written, to reset stats
+.\" FIXME Describe /proc/[number]/schedstats and
+.\"       /proc/[number]/task/TID/schedstats
+.\"       Added in 2.6.9
+.\"       CONFIG_SCHEDSTATS
 .TP
 .IR /proc/[number]/smaps " (since Linux 2.6.14)"
+.\"       CONFIG_PROC_PAGE_MONITOR
 This file shows memory consumption for each of the process's mappings.
 For each of mappings there is a series of lines as follows:
 .in +4n
@@ -999,6 +1242,10 @@ It became once more non-optionally enabled in Linux 2.4.
 Next, it was deprecated in Linux 2.6 (still available with
 .B CONFIG_PCI_LEGACY_PROC
 set), and finally removed altogether since Linux 2.6.17.
+.\" FIXME /proc/sched_debug
+.\" .TP
+.\" .IR /proc/sched_debug " (since Linux 2.6.23)"
+.\" See also /proc/PID/sched
 .TP
 .I /proc/scsi
 A directory with the scsi mid-level pseudo-file and various SCSI low-level
@@ -1839,6 +2086,14 @@ Linux version 1.0.9 (quinlan@phaze) #1 Sat May 14 01:51:54 EDT 1994
 .ft
 .in +2
 .fi
+.\" FIXME Document /proc/timer_list
+.\" .TP
+.\" .IR /proc/timer_list " (since Linux 2.6.21)"
+.\" See the 2.6.21 Change log
+.\" FIXME Document /proc/timer_stats
+.\" .TP
+.\" .IR /proc/timer_stats " (since Linux 2.6.21)"
+.\" See the 2.6.21 Change log
 .TP
 .IR /proc/vmstat " (since Linux 2.6)"
 This file displays various virtual memory statistics.

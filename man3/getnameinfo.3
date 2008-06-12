@@ -4,7 +4,7 @@
 .\" 2004-12-14, mtk, Added EAI_OVERFLOW error
 .\" 2004-12-14 Fixed description of error return
 .\"
-.TH GETNAMEINFO 3 2008-06-14 "GNU" "Linux Programmer's Manual"
+.TH GETNAMEINFO 3 2008-06-18 "GNU" "Linux Programmer's Manual"
 .SH NAME
 getnameinfo \- address-to-name translation in protocol-independent manner
 .SH SYNOPSIS
@@ -19,13 +19,19 @@ getnameinfo \- address-to-name translation in protocol-independent manner
 .SH DESCRIPTION
 The
 .BR getnameinfo ()
-function is defined for protocol-independent address-to-nodename translation.
+function is the inverse of
+.BR getaddrinfo (3):
+it converts a socket address to a corresponding host and service,
+in a protocol-independent manner.
 It combines the functionality of
 .BR gethostbyaddr (3)
 and
-.BR getservbyport (3)
-and is the inverse of
-.BR getaddrinfo (3).
+.BR getservbyport (3),
+but unlike those functions,
+.BR getaddrinfo (3)
+is reentrant and allows programs to eliminate
+IPv4-versus-IPv6 dependencies.
+
 The
 .I sa
 argument is a pointer to a generic socket address structure
@@ -40,11 +46,14 @@ The arguments
 .I host
 and
 .I serv
-are pointers to buffers (of size
+are pointers to caller-allocated buffers (of size
 .I hostlen
 and
 .I servlen
-respectively) to hold the return values.
+respectively) into which
+.BR getnameinfo ()
+places null-terminated strings containing the host and
+service names respectively.
 
 The caller can specify that no hostname (or no service name)
 is required by providing a NULL
@@ -55,7 +64,7 @@ argument or a zero
 .I hostlen
 (or
 .IR servlen )
-parameter.
+argument.
 However, at least one of hostname or service name
 must be requested.
 
@@ -65,8 +74,18 @@ argument modifies the behavior of
 .BR getnameinfo ()
 as follows:
 .TP
+.B NI_NAMEREQD
+If set, then an error is returned if the hostname cannot be determined.
+.TP
+.B NI_DGRAM
+If set, then the service is datagram (UDP) based rather than
+stream (TCP) based.
+This is required for the few ports (512-514)
+that have different services for UDP and TCP.
+.TP
 .B NI_NOFQDN
-If set, return only the hostname part of the FQDN for local hosts.
+If set, return only the hostname part of the fully qualified domain name
+for local hosts.
 .TP
 .B NI_NUMERICHOST
 If set, then the numeric form of the hostname is returned.
@@ -75,20 +94,13 @@ If set, then the numeric form of the hostname is returned.
 .\" instead of
 .\" .BR gethostbyaddr ().
 (When not set, this will still happen in case the node's name
-cannot be looked up.)
-.TP
-.B NI_NAMEREQD
-If set, then an error is returned if the hostname cannot be looked up.
+cannot be determined.)
+.\" POSIX.1-2003 has NI_NUMERICSCOPE, but glibc doesn't have it.
 .TP
 .B NI_NUMERICSERV
-If set, then the service address is returned in numeric form,
-for example by its port number.
-.TP
-.B NI_DGRAM
-If set, then the service is datagram (UDP) based rather than
-stream (TCP) based.
-This is required for the few ports (512-514)
-that have different services for UDP and TCP.
+If set, then the numeric form of the service address is returned.
+(When not set, this will still happen in case the service's name
+cannot be determined.)
 .SS "Extensions to getaddrinfo() for Internationalized Domain Names"
 .PP
 Starting with glibc 2.3.4,
@@ -135,7 +147,7 @@ Try again later.
 .B EAI_BADFLAGS
 The
 .I flags
-parameter has an invalid value.
+argument has an invalid value.
 .TP
 .B EAI_FAIL
 A non-recoverable error occurred.
@@ -148,7 +160,7 @@ or the address length was invalid for the specified family.
 Out of memory.
 .TP
 .B EAI_NONAME
-The name does not resolve for the supplied parameters.
+The name does not resolve for the supplied arguments.
 .B NI_NAMEREQD
 is set and the host's name cannot be located,
 or neither hostname nor service name were requested.
@@ -238,6 +250,10 @@ An example program using
 can be found in
 .BR getaddrinfo (3).
 .SH "SEE ALSO"
+.BR accept (2),
+.BR getpeername (2),
+.BR getsockname (2),
+.BR recvfrom (2),
 .BR socket (2),
 .BR getaddrinfo (3),
 .BR gethostbyaddr (3),

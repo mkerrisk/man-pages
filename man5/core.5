@@ -1,4 +1,4 @@
-.\" Copyright (c) 2006 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (c) 2006, 2008 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -20,7 +20,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH CORE 5 2006-04-03 "Linux" "Linux Programmer's Manual"
+.TH CORE 5 2008-06-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
 core \- core dump file
 .SH DESCRIPTION
@@ -89,23 +89,43 @@ By default, a core dump file is named
 .IR core ,
 but the
 .I /proc/sys/kernel/core_pattern
-file
-(since Linux 2.6 and 2.4.21)
+file (since Linux 2.6 and 2.4.21)
 can be set to define a template that is used to name core dump files.
 The template can contain % specifiers which are substituted
 by the following values when a core file is created:
-.nf
-
-  %%  A single % character
-  %p  PID of dumped process
-  %u  real UID of dumped process
-  %g  real GID of dumped process
-  %s  number of signal causing dump
-  %t  time of dump (seconds since 0:00h, 1 Jan 1970)
-  %h  hostname (same as \fInodename\fP returned by \fBuname\fP(2))
-  %e  executable filename
-
-.fi
+.PP
+.RS 4
+.PD 0
+.TP 4
+%%
+a single % character
+.TP
+%p
+PID of dumped process
+.TP
+%u
+(numeric) real UID of dumped process
+.TP
+%g
+(numeric) real GID of dumped process
+.TP
+%s
+number of signal causing dump
+.TP
+%t
+time of dump, expressed as seconds since the Epoch (00:00h, 1\ Jan 1970, UTC)
+.TP
+%h
+hostname (same as \fInodename\fP returned by \fBuname\fP(2))
+.TP
+%e
+executable filename (without path prefix)
+.TP
+%c
+core file size soft resource limit of crashing process (since Linux 2.6.24)
+.PD
+.RE
+.PP
 A single % at the end of the template is dropped from the
 core filename, as is the combination of a % followed by any
 character other than those listed above.
@@ -113,7 +133,8 @@ All other characters in the template become a literal
 part of the core filename.
 The template may include \(aq/\(aq characters, which are interpreted
 as delimiters for directory names.
-The maximum size of the resulting core filename is 64 bytes.
+The maximum size of the resulting core filename is 128 bytes (64 bytes
+in kernels before 2.6.19).
 The default value in this file is "core".
 For backward compatibility, if
 .I /proc/sys/kernel/core_pattern
@@ -132,6 +153,99 @@ file contains the value 0, then a core dump file is simply named
 If this file contains a non-zero value, then the core dump file includes
 the process ID in a name of the form
 .IR core.PID .
+.SS Piping core dumps to a program
+Since kernel 2.6.19, Linux supports an alternate syntax for the
+.I /proc/sys/kernel/core_pattern
+file.
+If the first character of this file is a pipe symbol (\fB|\fP),
+then the remainder of the line is interpreted as a program to be
+executed.
+Instead of being written to a disk file, the core dump is given as
+standard input to the program.
+Note the following points:
+.IP * 3
+The program must be specified using an absolute pathname (or a
+pathname relative to the root directory, \fI/\fP),
+and must immediately follow the '|' character.
+.IP *
+The process created to run the program runs as user and group
+.IR root .
+.IP *
+Command-line arguments can be supplied to the
+program (since kernel 2.6.24),
+delimited by white space (up to a total line length of 128 bytes).
+.IP *
+The command-line arguments can include any of
+the % specifiers listed above.
+For example, to pass the PID of the process that is being dumped, specify
+.I %p
+in an argument.
+.SS Controlling which mappings are written to the core dump
+Since kernel 2.6.23, the Linux-specific
+.IR /proc/PID/coredump_filter
+file can be used to control which memory segments are written to the
+core dump file in the event that a core dump is performed for the
+process with the corresponding process ID.
+
+The value in the file is a bit mask of memory mapping types (see
+.BR mmap (2)).
+If a bit is set in the mask, then memory mappings of the
+corresponding type are dumped; otherwise they are not dumped.
+The bits in this file have the following meanings:
+.PP
+.PD 0
+.RS 4
+.TP
+bit 0
+Dump anonymous private mappings.
+.TP
+bit 1
+Dump anonymous shared mappings.
+.TP
+bit 2
+Dump file-backed private mappings.
+.TP
+bit 3
+Dump file-backed shared mappings.
+.\" file-backed shared mappings of course also update the underlying
+.\" mapped file.
+.RE
+.PD
+.PP
+The default value of
+.I coredump_filter
+is 0x3;
+this reflects traditional Linux behavior and means that
+only anonymous memory segments are dumped.
+
+Memory-mapped I/O pages such as frame buffer are never dumped, and 
+virtual DSO pages are always dumped, regardless of the
+.I coredump_filter
+value.
+
+A child process created via
+.BR fork (2)
+inherits its parents
+.I coredump_filter
+value;
+the 
+.I coredump_filter
+value is preserved across an
+.BR execve (2).
+
+It can be useful to set
+.I coredump_filter
+in the parent shell before running a program, for example:
+
+.in +4n
+.nf
+$ echo 0x7 > /proc/self/coredump_filter
+$ ./some_program
+.fi
+.in
+.PP
+This file is only provided if the kernel was built with the
+CONFIG_ELF_CORE configuration option.
 .SH NOTES
 The
 .BR gdb (1)
@@ -157,6 +271,90 @@ where each thread of a process has a different PID.)
 .\" LinuxThreads continue appending the PID (the kernel has no easy
 .\" way of telling which threading implementation the userspace
 .\" application is using). -- mtk, April 2006
+.SH EXAMPLE
+The program below can be used to demonstrate the use of the
+pipe syntax in the 
+.I /proc/sys/kernel/core_pattern
+file.
+The following shell session demonstrates the use of this program
+(compiled to create an executable named
+.IR core_pattern_pipe_test ):
+.PP
+.in +4n
+.nf
+$ cc -o core_pattern_pipe_test core_pattern_pipe_test.c
+$ su
+Password:
+# echo "|$PWD/core_pattern_pipe_test %p UID=%u GID=%g sig=%s" > \\
+    /proc/sys/kernel/core_pattern
+# exit
+$ sleep 100
+.I type control-backslash
+Quit (core dumped)
+$ cat core.info
+argc=5
+argc[0]=</home/mtk/core_pattern_pipe_test>
+argc[1]=<20575>
+argc[2]=<UID=1000>
+argc[3]=<GID=100>
+argc[4]=<sig=3>
+Total bytes in core dump: 282624
+.fi
+.in
+.PP
+The source code of the program is as follows:
+.PP
+.nf
+/* core_pattern_pipe_test.c */
+
+#define _GNU_SOURCE
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define BUF_SIZE 1024
+
+int
+main(int argc, char *argv[])
+{
+    int tot, j;
+    ssize_t nread;
+    char buf[BUF_SIZE];
+    FILE *fp;
+    char cwd[PATH_MAX];
+
+    /* Change our current working directory to that of the 
+       crashing process */
+
+    snprintf(cwd, PATH_MAX, "/proc/%s/cwd", argv[1]);
+    chdir(cwd);
+
+    /* Write output to file "core.info" in that directory */
+
+    fp = fopen("core.info", "w+");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    /* Display command\-line arguments given to core_pattern
+       pipe program */
+
+    fprintf(fp, "argc=%d\\n", argc);
+    for (j = 0; j < argc; j++)
+        fprintf(fp, "argc[%d]=<%s>\\n", j, argv[j]);
+
+    /* Count bytes in standard input (the core dump) */
+
+    tot = 0;
+    while ((nread = read(STDIN_FILENO, buf, BUF_SIZE)) > 0) 
+        tot += nread;
+    fprintf(fp, "Total bytes in core dump: %d\\n", tot);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR gdb (1),
 .BR getrlimit (2),

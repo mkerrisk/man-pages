@@ -1,5 +1,7 @@
-.\" Copyright 2000 Sam Varshavchik <mrsam@courier-mta.com>
-.\" and Copyright (c) 2007 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (c) 2007, 2008 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (c) 2006 Ulrich Drepper <drepper@redhat.com>
+.\" A few pieces of an earlier version remain:
+.\" Copyright 2000, Sam Varshavchik <mrsam@courier-mta.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -25,13 +27,17 @@
 .\"
 .\" 2005-08-09, mtk, added AI_ALL, AI_ADDRCONFIG, AI_V4MAPPED,
 .\"			and AI_NUMERICSERV.
+.\" 2006-11-25, Ulrich Drepper <drepper@redhat.com>
+.\"     Add text describing Internationalized Domain Name extensions.
 .\" 2007-06-08, mtk: added example programs
 .\" 2008-02-26, mtk; clarify discussion of NULL 'hints' argument; other
 .\"     minor rewrites.
+.\" 2008-06-18, mtk: many parts rewritten
 .\"
-.TH GETADDRINFO 3 2008-02-26 "GNU" "Linux Programmer's Manual"
+.TH GETADDRINFO 3 2008-06-18 "GNU" "Linux Programmer's Manual"
 .SH NAME
-getaddrinfo, freeaddrinfo, gai_strerror \- network address and service translation
+getaddrinfo, freeaddrinfo, gai_strerror \- network address and
+service translation
 .SH SYNOPSIS
 .nf
 .B #include <sys/types.h>
@@ -51,12 +57,15 @@ Given
 .I node
 and
 .IR service ,
+which identify an Internet host and a service,
 .BR getaddrinfo ()
-returns one or more structures containing values that can be used by the
+returns one or more
+.I addrinfo
+structures, each of which contains an Internet address
+that can be specified in a call to
 .BR bind (2)
-and
-.BR connect (2)
-system calls to create a client or a server socket.
+or
+.BR connect (2).
 The
 .BR getaddrinfo ()
 function combines the functionality provided by the
@@ -67,12 +76,13 @@ and
 .BR getservbyport (3)
 functions into a single interface, but unlike the latter functions,
 .BR getaddrinfo ()
-is reentrant
-and allows programs to eliminate IPv4-versus-IPv6 dependencies.
+is reentrant and allows programs to eliminate IPv4-versus-IPv6 dependencies.
 .PP
 The
 .I addrinfo
-structure used by this function contains the following members:
+structure used by
+.BR getaddrinfo ()
+contains the following fields:
 .sp
 .in +4n
 .nf
@@ -89,58 +99,64 @@ struct addrinfo {
 .fi
 .in
 .PP
-.BR getaddrinfo ()
-sets
-.I res
-to point to a dynamically allocated linked list of
-.I addrinfo
-structures, linked by the
-.I ai_next
-member.
-There are several reasons why
-the linked list may have more than one
-.I addrinfo
-structure, including: if the network host is
-multi-homed; or if the same service
-is available from multiple socket protocols (one
-.B SOCK_STREAM
-address and another
-.B SOCK_DGRAM
-address, for example).
-.PP
 The
 .I hints
-parameter points to an
+argument points to an
 .I addrinfo
 structure that specifies criteria for selecting the socket address
 structures returned in the list pointed to by
 .IR res .
-If this parameter is not NULL it points to an
+If
+.I hints
+is not NULL it points to an
 .I addrinfo
-structure
-whose
+structure whose
 .IR ai_family ,
 .IR ai_socktype ,
 and
 .I ai_protocol
-members specify the preferred socket type.
-.B AF_UNSPEC
-in
+specify criteria that limit the set of socket addresses returned by
+.BR getaddrinfo (),
+as follows:
+.TP 12
 .I ai_family
-specifies any protocol family (either IPv4 or IPv6, for example).
-0 in
+This field specifies the desired address family for the returned addresses.
+Valid values for this field include
+.BR AF_INET
+and
+.BR AF_INET6 .
+The value
+.B AF_UNSPEC
+indicates that
+.BR getaddrinfo ()
+should return socket addresses for any address family
+(either IPv4 or IPv6, for example) that can be used with
+.I node
+and
+.IR service .
+.TP
 .I ai_socktype
+This field specifies the preferred socket type, for example
+.BR SOCK_STREAM
 or
+.BR SOCK_DGRAM .
+Specifying 0 in this field indicates that socket addresses of any type
+can be returned by
+.BR getaddrinfo ().
+.TP
 .I ai_protocol
-specifies that any socket type or protocol is acceptable as well.
-The
+This field specifies the protocol for the returned socket addresses.
+Specifying 0 in this field indicates that socket addresses with
+any protocol can be returned by
+.BR getaddrinfo ().
+.TP
 .I ai_flags
-member
-specifies additional options, defined below.
+This field specifies additional options, described below.
 Multiple flags are specified by logically OR-ing them together.
-All the other members in the
+.PP
+All the other fields in the structure pointed to by
 .I hints
-parameter must contain either 0, or a null pointer.
+must contain either 0 or a null pointer, as appropriate.
 Specifying
 .I hints
 as NULL is equivalent to setting
@@ -155,92 +171,172 @@ and
 .I ai_flags
 to
 .BR "(AI_V4MAPPED\ |\ AI_ADDRCONFIG)" .
-.PP
-The
-.I node
-or
-.I service
-parameter, but not both, may be NULL.
+
 .I node
 specifies either a numerical network address
-(dotted-decimal format for IPv4, hexadecimal format for IPv6)
+(for IPv4, numbers-and-dots notation as supported by
+.BR inet_aton (3);
+for IPv6, hexadecimal string format as supported by
+.BR inet_pton (3)),
 or a network hostname, whose network addresses are looked up and resolved.
 If
 .I hints.ai_flags
 contains the
 .B AI_NUMERICHOST
-flag then the
+flag then
 .I node
-parameter must be a numerical network address.
+must be a numerical network address.
 The
 .B AI_NUMERICHOST
 flag suppresses any potentially lengthy network host address lookups.
 .PP
+If the
+.B AI_PASSIVE
+flag is specified in
+.IR hints.ai_flags ,
+and
+.I node
+is NULL,
+then the returned socket addresses will be suitable for
+.BR bind (2)ing
+a socket that will
+.BR accept (2)
+connections.
+The returned socket address will contain the "wildcard address"
+.RB ( INADDR_ANY
+for IPv4 addresses,
+.BR IN6ADDR_ANY_INIT
+for IPv6 address).
+The wildcard address is used by applications (typically servers)
+that intend to accept connections on any of the hosts's network addresses.
+If
+.I node
+is not NULL, then the
+AI_PASSIVE
+flag is ignored.
+.PP
+If the
+.B AI_PASSIVE
+flag is not set in
+.IR hints.ai_flags ,
+then the returned socket addresses will be suitable for use with
+.BR connect (2),
+.BR sendto (2),
+or
+.BR sendmsg (2).
+If
+.I node
+is NULL,
+then the network address will be set to the loopback interface address
+.RB ( INADDR_LOOPBACK
+for IPv4 addresses,
+.BR IN6ADDR_LOOPBACK_INIT
+for IPv6 address);
+this is used by applications that intend to communicate
+with peers running on the same host.
+.PP
+.I service
+sets the port in each returned address structure.
+If this argument is a service name (see
+.BR services (5)),
+it is translated to the corresponding port number.
+This argument can also be specified as a decimal number,
+which is simply converted to binary.
+If
+.I service
+is NULL, then the port number of the returned socket addresses
+will be left uninitialized.
+If
+.B AI_NUMERICSERV
+is specified in
+.I hints.ai_flags
+and
+.I service
+is not NULL, then
+.I service
+must point to a string containing a numeric port number.
+This flag is used to inhibit the invocation of a name resolution service
+in cases where it is known not to be required.
+.PP
+Either
+.I node
+or
+.IR service ,
+but not both, may be NULL.
+.PP
 The
 .BR getaddrinfo ()
-function creates a linked list of
+function allocates and initializes a linked list of
 .I addrinfo
-structures, one for each network address subject to any restrictions
-imposed by the
-.I hints
-parameter.
-The
-.I ai_canonname
-field of the first of these
+structures, one for each network address that matches
+.I node
+and
+.IR service ,
+subject to any restrictions imposed by
+.IR hints ,
+and returns a pointer to the start of the list in
+.IR  res .
+The items in the linked list are linked by the
+.I ai_next
+field.
+There are several reasons why
+the linked list may have more than one
 .I addrinfo
-structures is set to point to the official name of the host, if
+structure, including: the network host is multi-homed; or the same service
+is available from multiple socket protocols (one
+.B SOCK_STREAM
+address and another
+.B SOCK_DGRAM
+address, for example).
+.PP
+If
 .I hints.ai_flags
 includes the
 .B AI_CANONNAME
-flag.
+flag, then the
+.I ai_canonname
+field of the first of the
+.I addrinfo
+structures in the returned list is set to point to the
+official name of the host.
 .\" In glibc prior to 2.3.4, the ai_canonname of each addrinfo
 .\" structure was set pointing to the canonical name; that was
 .\" more than POSIX.1-2001 specified, or other implementations provided.
 .\" MTK, Aug 05
-.IR ai_family ,
+
+The remaining fields of each returned
+.I addrinfo
+structure are initialized as follows:
+.IP * 2
+The
+.I ai_family
 .IR ai_socktype ,
 and
 .I ai_protocol
-specify the socket creation parameters (i.e., these fields have
-the same meaning as the corresponding parameters of
+fields return the socket creation parameters (i.e., these fields have
+the same meaning as the corresponding arguments of
 .BR socket (2)).
-A pointer to the socket address is placed in the
-.I ai_addr
-member, and the length of the socket address, in bytes,
-is placed in the
-.I ai_addrlen
-member.
-.PP
-The
-.BR getaddrinfo ()
-function returns socket addresses in either IPv4 or IPv6
-address family
-.RI "(" "ai_family"
-will be set to either
+For example,
+.I ai_family
+might return
 .B AF_INET
 or
-.BR AF_INET6 ).
-.PP
-If
-.I node
-is NULL,
-the
-network address in each socket structure is initialized according to the
-.B AI_PASSIVE
-flag, which is set in
-.IR hints.ai_flags .
-The network address in each socket structure will be left unspecified
-if
-.B AI_PASSIVE
-flag is set.
-This is used by server applications, which intend to accept
-client connections on any network address.
-The network address will be set to the loopback interface address
-if the
-.B AI_PASSIVE
-flag is not set.
-This is used by client applications, which intend to connect
-to a server running on the same network host.
+.BR AF_INET6 ;
+.I ai_socktype
+might return
+.B SOCK_DGRAM
+or
+.BR SOCK_STREAM ;
+and
+.I ai_protocol
+returns the protocol for the socket.
+.IP *
+A pointer to the socket address is placed in the
+.I ai_addr
+field, and the length of the socket address, in bytes,
+is placed in the
+.I ai_addrlen
+field.
 .PP
 If
 .I hints.ai_flags
@@ -276,23 +372,6 @@ in the list pointed to by
 is ignored if
 .B AI_V4MAPPED
 is not also specified.
-.PP
-.I service
-sets the port number in the network address of each socket structure.
-If
-.I service
-is NULL the port number will be left uninitialized.
-If
-.B AI_NUMERICSERV
-is specified in
-.I hints.ai_flags
-and
-.I service
-is not NULL, then
-.I service
-must point to a string containing a numeric port number.
-This flag is used to inhibit the invocation of a name resolution service
-in cases where it is known not to be required.
 .PP
 The
 .BR freeaddrinfo ()
@@ -374,6 +453,7 @@ flags respectively to be used in the IDNA handling.
 returns 0 if it succeeds, or one of the following non-zero error codes:
 .TP
 .B EAI_ADDRFAMILY
+.\" Not in SUSv3
 The specified network host does not have any network addresses in the
 requested address family.
 .TP
@@ -389,12 +469,13 @@ contains invalid flags.
 The name server returned a permanent failure indication.
 .TP
 .B EAI_FAMILY
-The requested address family is not supported at all.
+The requested address family is not supported.
 .TP
 .B EAI_MEMORY
 Out of memory.
 .TP
 .B EAI_NODATA
+.\" Not in SUSv3
 The specified network host exists, but does not have any
 network addresses defined.
 .TP
@@ -420,7 +501,7 @@ The requested service is not available for the requested socket type.
 It may be available through another socket type.
 .TP
 .B EAI_SOCKTYPE
-The requested socket type is not supported at all.
+The requested socket type is not supported.
 .TP
 .B EAI_SYSTEM
 Other system error, check
@@ -658,5 +739,8 @@ main(int argc, char *argv[])
 .SH "SEE ALSO"
 .\" .BR getipnodebyaddr (3),
 .\" .BR getipnodebyname (3),
+.BR gethostbyname (3),
 .BR getnameinfo (3),
-.BR hostname (7)
+.BR inet (3),
+.BR hostname (7),
+.BR ip (7)

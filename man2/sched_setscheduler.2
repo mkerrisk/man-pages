@@ -41,7 +41,7 @@
 .\" 2008-05-07, mtk; Rewrote and restructured various parts of the page to
 .\"     improve readability.
 .\"
-.TH SCHED_SETSCHEDULER 2 2008-06-20 "Linux" "Linux Programmer's Manual"
+.TH SCHED_SETSCHEDULER 2 2008-06-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sched_setscheduler, sched_getscheduler \-
 set and get scheduling policy/parameters
@@ -69,7 +69,8 @@ If \fIpid\fP equals zero, the
 scheduling policy and parameters of the calling process will be set.
 The interpretation of
 the parameter \fIparam\fP depends on the selected policy.
-Currently, Linux supports the following "normal" scheduling policies:
+Currently, Linux supports the following "normal"
+(i.e., non-real-time) scheduling policies:
 .TP 14
 .BR SCHED_OTHER
 the standard round-robin time-sharing policy;
@@ -282,28 +283,43 @@ static priority for the
 and
 .B SCHED_FIFO
 policies.
+The rules for changing scheduling policy and priority are as follows:
+.IP * 2
 If an unprivileged process has a non-zero
 .B RLIMIT_RTPRIO
 soft limit, then it can change its scheduling policy and priority,
 subject to the restriction that the priority cannot be set to a
-value higher than the
+value higher than the maximum of its current priority and its
 .B RLIMIT_RTPRIO
 soft limit.
+.IP *
 If the
 .B RLIMIT_RTPRIO
-soft limit is 0, then the only permitted change is to lower the priority.
+soft limit is 0, then the only permitted changes are to lower the priority,
+or to switch to a non-real-time policy.
+.IP *
 Subject to the same rules,
 another unprivileged process can also make these changes,
 as long as the effective user ID of the process making the change
 matches the real or effective user ID of the target process.
+.IP *
+Special rules apply for the
+.BR SCHED_IDLE :
+an unprivileged process operating under this policy cannot
+change its policy, regardless of the value of its
+.BR RLIMIT_RTPRIO
+resource limit.
+.PP
+Privileged
+.RB ( CAP_SYS_NICE )
+processes ignore the
+.B RLIMIT_RTPRIO
+limit; as with older kernels,
+they can make arbitrary changes to scheduling policy and priority.
 See
 .BR getrlimit (2)
 for further information on
 .BR RLIMIT_RTPRIO .
-Privileged
-.RB ( CAP_SYS_NICE )
-processes ignore this limit; as with older kernels,
-they can make arbitrary changes to scheduling policy and priority.
 .SS Response time
 A blocked high priority process waiting for the I/O has a certain
 response time before it is scheduled again.

@@ -24,7 +24,7 @@
 .\" Modified 22 July 1995 by Michael Chastain <mec@duracef.shout.net>:
 .\"   Derived from 'readdir.2'.
 .\" Modified Tue Oct 22 08:11:14 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
-.TH GETDENTS 2  2007-06-01 "Linux" "Linux Programmer's Manual"
+.TH GETDENTS 2  2008-06-22 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getdents \- get directory entries
 .SH SYNOPSIS
@@ -49,9 +49,9 @@ The system call
 reads several
 .I dirent
 structures from the directory
-pointed at by
+referred to by the open file descriptor
 .I fd
-into the memory area pointed to by
+into the buffer pointed to by
 .IR dirp .
 The parameter
 .I count
@@ -63,11 +63,17 @@ structure is declared as follows:
 .PP
 .in +4n
 .nf
-struct dirent {
-    long d_ino;                 /* inode number */
-    off_t d_off;                /* offset to next \fIdirent\fP */
-    unsigned short d_reclen;    /* length of this \fIdirent\fP */
-    char d_name [NAME_MAX+1];   /* filename (null-terminated) */
+struct linux_dirent {
+    unsigned long  d_ino;     /* Inode number */
+    unsigned long  d_off;     /* Offset to next \fIdirent\fP */
+    unsigned short d_reclen;  /* Length of this \fIdirent\fP */
+    char           d_name []; /* Filename (null-terminated) */
+                        /* length is actually (d_reclen - 2 -
+                           offsetof(struct linux_dirent, d_name) */
+    /* char        pad;          Zero padding byte */
+    /* char        d_type;       File type (only since Linux 2.6.4;
+                                 offset is (d_reclen - 1)) */
+
 }
 .fi
 .in
@@ -82,9 +88,34 @@ is the size of this entire
 .IR dirent .
 .I d_name
 is a null-terminated filename.
-.PP
-This call supersedes
-.BR readdir (2).
+
+.I d_type
+is a byte at the end of the structure that indicates the file type.
+It returns one of the following values:
+.TP 12
+.B DT_BLK
+This is a block device.
+.TP
+.B DT_CHR
+This is a character device.
+.TP
+.B DT_DIR
+This is a directory.
+.TP
+.B DT_FIFO
+This is a named pipe (FIFO).
+.TP
+.B DT_LNK
+This is a symbolic link.
+.TP
+.B DT_REG
+This is a regular file.
+.TP
+.B DT_SOCK
+This is a Unix domain socket.
+.TP
+.B DT_UNKNOWN
+The file type is unknown.
 .SH "RETURN VALUE"
 On success, the number of bytes read is returned.
 On end of directory, 0 is returned.
@@ -114,6 +145,9 @@ SVr4.
 .SH NOTES
 Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
+
+This call supersedes
+.BR readdir (2).
 .SH "SEE ALSO"
 .BR readdir (2),
 .BR readdir (3)

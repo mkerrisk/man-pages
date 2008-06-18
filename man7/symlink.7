@@ -39,13 +39,22 @@ symlink \- symbolic link handling
 Symbolic links are files that act as pointers to other files.
 To understand their behavior, you must first understand how hard links
 work.
+
 A hard link to a file is indistinguishable from the original file because
 it is a reference to the object underlying the original filename.
+(To be precise: each of the hard links to a file is a reference to
+the same
+.IR "i-node number" ,
+where an i-node number is an index into the i-node table,
+which contains metadata about all files on a file system.  See
+.BR stat (2).)
 Changes to a file are independent of the name used to reference the file.
 Hard links may not refer to directories
 (to prevent the possibility of loops within the file system tree,
 which would confuse many programs)
-and may not refer to files on different file systems.
+and may not refer to files on different file systems
+(because i-node numbers are not unique across file systems).
+
 A symbolic link is a special type of file whose contents are a string
 that is the pathname another file, the file to which the link refers.
 In other words, a symbolic link is a pointer to another name,
@@ -56,14 +65,15 @@ file system boundaries.
 There is no requirement that the pathname referred to by a symbolic link
 should exist.
 A symbolic link that refers to a pathname that does not exist is said
-to be a "dangling link".
+to be a
+.IR "dangling link" .
 
 Because a symbolic link and its referenced object coexist in the file system
 name space, confusion can arise in distinguishing between the link itself
 and the referenced object.
 On historical systems,
-commands and system calls adopted their own link
-following conventions in a somewhat ad-hoc fashion.
+commands and system calls adopted their own link-following
+conventions in a somewhat ad-hoc fashion.
 Rules for a more uniform approach,
 as they are implemented on Linux and other systems,
 are outlined here.
@@ -106,7 +116,9 @@ and can't be changed.
 Symbolic links are handled either by operating on the link itself,
 or by operating on the object referred to by the link.
 In the latter case,
-an application or system call is said to "follow" the link.
+an application or system call is said to
+.I follow
+the link.
 Symbolic links may refer to other symbolic links,
 in which case the links are dereferenced until an object that is
 not a symbolic link is found,
@@ -133,13 +145,13 @@ system calls.
 
 Except as noted below, all system calls follow symbolic links.
 For example, if there were a symbolic link
-"slink"
+.I slink
 which pointed to a file named
-"afile",
+.IR afile ,
 the system call
 .I "open("slink" ...\&)"
 would return a file descriptor referring to the file
-"afile".
+.IR afile .
 
 Various system calls do not follow links, and operate
 on the symbolic link itself.
@@ -197,13 +209,13 @@ filename arguments, to commands which are not traversing a file tree.
 Except as noted below, commands follow symbolic links named as
 command-line arguments.
 For example, if there were a symbolic link
-"slink"
+.I slink
 which pointed to a file named
-"afile",
+.IR afile ,
 the command
 .I "cat slink"
 would display the contents of the file
-"afile".
+.IR afile .
 
 It is important to realize that this rule includes commands which may
 optionally traverse file trees, e.g.\& the command
@@ -217,18 +229,18 @@ If it is explicitly intended that the command operate on the symbolic
 link instead of following the symbolic link, e.g., it is desired that
 .I "chown slink"
 change the ownership of the file that
-"slink"
+.I slink
 is, whether it is a symbolic link or not, the
 .I -h
 option should be used.
 In the above example,
 .I "chown root slink"
 would change the ownership of the file referred to by
-"slink",
+.IR slink ,
 while
 .I "chown -h root slink"
 would change the ownership of
-"slink"
+.I slink
 itself.
 
 There are some exceptions to this rule:
@@ -316,14 +328,14 @@ themselves, but otherwise the links are ignored.
 The command
 .I "rm -r slink directory"
 will remove
-"slink" ,
+.IR slink ,
 as well as any symbolic links encountered in the tree traversal of
-"directory",
+.IR directory ,
 because symbolic links may be removed.
 In no case will
 .BR rm (1)
 affect the file referred to by
-"slink".
+.IR slink .
 
 The \fIsecond rule\fP applies to symbolic links that refer to directories.
 Symbolic links that refer to directories are never followed by default.
@@ -349,7 +361,7 @@ flag is not also specified.)
 For example, the command
 .I "chown -HR user slink"
 will traverse the file hierarchy rooted in the file pointed to by
-"slink".
+.IR slink .
 Note, the
 .I -H
 is not the same as the previously discussed
@@ -378,20 +390,23 @@ flag is not also specified.)
 
 For example, the command
 .I "chown -LR user slink"
-will change the owner of the file referred to by "slink".
-If "slink" refers to a directory,
-chown will traverse the file hierarchy rooted in the directory that it
+will change the owner of the file referred to by
+.IR slink .
+If
+.I slink
+refers to a directory,
+.B chown
+will traverse the file hierarchy rooted in the directory that it
 references.
 In addition, if any symbolic links are encountered in any file tree that
-chown traverses, they will be treated in the same fashion as
-"slink".
+.B chown
+traverses, they will be treated in the same fashion as
+.IR slink .
 .IP *
 A command can be made to
 provide the default behavior by specifying the
 .I -P
-(for
-"physical")
-flag.
+(for "physical") flag.
 This flag is intended to make the entire name space look like the
 physical name space.
 .PP
@@ -408,8 +423,8 @@ In addition, you may specify the
 .IR -L ,
 and
 .I -P
-options more than once; the last one specified determines the
-command's behavior.
+options more than once;
+the last one specified determines the command's behavior.
 This is intended to permit you to alias commands to behave one way
 or the other, and then override that behavior on the command line.
 
@@ -452,13 +467,6 @@ follows all symbolic links,
 regardless of their type,
 whether specified on the command line or encountered in the tree walk.
 .SH SEE ALSO
-.\" Add SEE ALSOs from
-.\" path_resolution
-.\" *at.2
-.\" various syscalls listed earlier
-.\"
-.\"
-.\" Add SEE ALSO references from some of the following pages to this page:
 .BR chgrp (1),
 .BR chmod (1),
 .BR find (1),
@@ -474,4 +482,5 @@ whether specified on the command line or encountered in the tree walk.
 .BR symlink (2),
 .BR unlink (2),
 .BR utimensat (2),
-.BR lutimes (3)
+.BR lutimes (3),
+.BR path_resolution (7)

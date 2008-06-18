@@ -9,8 +9,12 @@
 .\"
 .\" 2004-12-16, John V. Belmonte/mtk, Updated init and quit scripts
 .\" 2004-04-08, AEB, Improved description of read from /dev/urandom
+.\" 2008-06-20, George Spelvin <linux@horizon.com>,
+.\"             Matt Mackall <mpm@selenic.com>
+.\"     Add a Usage subsection that recommends most users to use
+.\"     /dev/urandom, and emphasizes parsimonious usage of /dev/random.
 .\"
-.TH RANDOM 4 2008-01-10 "Linux" "Linux Programmer's Manual"
+.TH RANDOM 4 2008-06-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 random, urandom \- kernel random number source devices
 .SH DESCRIPTION
@@ -45,6 +49,54 @@ literature, but it is theoretically possible that such an attack may
 exist.
 If this is a concern in your application, use \fI/dev/random\fP
 instead.
+.SS Usage
+If you are unsure about whether you should use
+.IR /dev/random
+or
+.IR /dev/urandom ,
+then probably you want to use the latter.
+As a general rule,
+.IR /dev/urandom
+should be used for everything except long-lived GPG/SSL/SSH keys.
+
+If a seed file is saved across reboots as recommended above (all major
+Linux distributions have done this since 2000 at least), the output is
+cryptographically secure against attackers without local root access as
+soon as it is reloaded in the boot sequence, and perfectly adequate for
+network encryption session keys.
+Users of
+.I /dev/random
+will usually want to open it in non-blocking mode
+and provide some sort of timeout or user notification if the desired
+entropy is not immediately available.
+
+The kernel random-number generator is designed to produce a small
+amount of high-quality seed material to seed a
+cryptographic pseudo-random number generator (CPRNG).
+It is designed for security, not speed, and is poorly
+suited to generating large amounts of random data.
+Users should be very economical in the amount of seed
+material that they read from
+.IR /dev/random ;
+unnecessarily reading large quantities of data from this device will have
+a negative impact on other users of the device.
+
+The amount of seed material required to generate a cryptographic key
+equals the effective key size of the key.
+For example, a 3072-bit RSA
+or Diffie-Hellman private key has an effective key size of 128 bits
+(it requires about 2^128 operations to break) so a key generator only
+needs 128 bits (16 bytes) of seed material from
+.IR /dev/random .
+
+While some fudge factor above that minimum is reasonable, as a guard
+against flaws in the CPRNG algorithm, no cryptographic primitive
+available today can hope to promise more than 256 bits of security,
+so if any program reads more than 256 bits (32 bytes) from the kernel
+random pool per invocation, or per reasonable re-seed interval (not less
+than one minute), that should be taken as a sign that its cryptography is
+.I not
+skilfuly implemented.
 .SS Configuration
 If your system does not have
 \fI/dev/random\fP and \fI/dev/urandom\fP created already, they

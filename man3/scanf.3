@@ -43,11 +43,11 @@
 .\"	incorporated from the GNU C library documentation ((C) The
 .\"	Free Software Foundation); other parts substantially rewritten.
 .\"
-.\" 2008-06-22, mtk
+.\" 2008-06-23, mtk
 .\"     Add ERRORS section.
 .\"     Document the 'a' and 'm' modifiers for dynamic string allocation.
 .\"
-.TH SCANF 3  2008-06-22 "GNU" "Linux Programmer's Manual"
+.TH SCANF 3  2008-06-23 "GNU" "Linux Programmer's Manual"
 .SH NAME
 scanf, fscanf, sscanf, vscanf, vsscanf, vfscanf \- input format conversion
 .SH SYNOPSIS
@@ -655,21 +655,36 @@ the returned string, as in the following example:
 .nf
 
 char *p;
+int n;
 
-scanf("%a[a-zA-Z]", &p);
-printf("%s\n", p);
-free(p);
+errno = 0;
+n = scanf("%a[a-z]", &p);
+if (n == 1) {
+    printf("read: %s\\n", p);
+    free(p);
+} else if (errno != 0) {
+    perror("scanf");
+} else {
+    fprintf(stderr, "No matching characters\\n"):
+}
 .fi
 .in
 .PP
-This feature is not available if the program is compiled with
-.I "cc -std=cc99"
+As shown in the above example, it is only necessary to call
+.BR free (3)
+if the
+.BR scanf ()
+call successfully read a string.
+.PP
+The
+.B a
+modifier is not available if the program is compiled with
+.I "gcc -std=c99"
 or
-.IR "cc -D_ISOC99_SOURCE"
+.IR "gcc -D_ISOC99_SOURCE"
 (unless
 .B _GNU_SOURCE
-is also specified),
-in which case the
+is also specified), in which case the
 .B a
 is interpreted as a specifier for floating point numbers (see above).
 
@@ -690,7 +705,7 @@ conversion specifiers (e.g.,
 It avoids ambiguity with respect to the
 .B %a
 floating-point conversion specifier (and is unaffected by
-.IR "cc -std=99"
+.IR "gcc -std=c99"
 etc.)
 .IP *
 It is specified in the upcoming revision of the POSIX.1 standard.

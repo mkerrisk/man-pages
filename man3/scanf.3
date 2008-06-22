@@ -43,13 +43,9 @@
 .\"	incorporated from the GNU C library documentation ((C) The
 .\"	Free Software Foundation); other parts substantially rewritten.
 .\"
-.\" 2008-06-22 Add ERRORS section.
-.\"
-.\" FIXME
-.\" The glibc 2.7 release announcement says:
-.\"     Implement 'm' modifier for scanf.  Add stricter C99/SUS compliance
-.\"     by not recognizing 'a' as a modifier when those specs are requested.
-.\" These changes need to be documented.
+.\" 2008-06-22, mtk
+.\"     Add ERRORS section.
+.\"     Document the 'a' and 'm' modifiers for dynamic string allocation.
 .\"
 .TH SCANF 3  2008-06-22 "GNU" "Linux Programmer's Manual"
 .SH NAME
@@ -637,6 +633,67 @@ The usage of
 is not the same as on 4.4BSD,
 as it may be used in float conversions equivalently to
 .BR L .
+.SH NOTES
+The GNU C library supports a non-standard extension that causes
+the library to dynamically allocate a string of sufficient size
+for input strings for the
+.B %s
+and
+\fB%a[\fP\fIrange\fP\fB]\fP
+conversion specifiers.
+.\" This feature seems to be present at least as far back as glibc 2.0.
+To make use of this feature, specify
+.B a
+as a length modifier (thus
+.B %as
+or
+\fB%a[\fP\fIrange\fP\fB]\fP).
+The caller must
+.BR free (3)
+the returned string, as in the following example:
+.in +4n
+.nf
+
+char *p;
+
+scanf("%a[a-zA-Z]", &p);
+printf("%s\n", p);
+free(p);
+.fi
+.in
+.PP
+This feature is not available if the program is compiled with
+.I "cc -std=cc99"
+or
+.IR "cc -D_ISOC99_SOURCE"
+(unless
+.B _GNU_SOURCE
+is also specified),
+in which case the
+.B a
+is interpreted as a specifier for floating point numbers (see above).
+
+Since version 2.7, glibc also provides the
+.B m
+modifier for the same purpose as the
+.BR a
+modifier.
+The
+.B m
+modifier has the following advantages:
+.IP * 2
+It may also be applied to
+.B %c
+conversion specifiers (e.g.,
+.BR %3mc ).
+.IP *
+It avoids ambiguity with respect to the
+.B %a
+floating-point conversion specifier (and is unaffected by
+.IR "cc -std=99"
+etc.)
+.IP *
+It is specified in the upcoming revision of the POSIX.1 standard.
 .SH "SEE ALSO"
 .BR getc (3),
 .BR printf (3),

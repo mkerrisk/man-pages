@@ -4,7 +4,7 @@
 .\" Modified Tue Oct 22 00:22:35 EDT 1996 by Eric S. Raymond <esr@thyrsus.com>
 .\" 2005-04-06 mtk, Matthias Lang <matthias@corelatus.se>
 .\" 	Noted MAX_SEC_IN_JIFFIES ceiling
-.TH GETITIMER 2 2006-04-27 "Linux" "Linux Programmer's Manual"
+.TH GETITIMER 2 2008-04-24 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getitimer, setitimer \- get or set value of an interval timer
 .SH SYNOPSIS
@@ -84,7 +84,7 @@ sets the indicated timer to the value in
 .IR value .
 If
 .I ovalue
-is non-zero, the old value of the timer is stored there.
+is non-NULL, the old value of the timer is stored there.
 .LP
 Timers decrement from
 .I it_value
@@ -104,7 +104,8 @@ are significant in determining the duration of a timer.
 .LP
 Timers will never expire before the requested time,
 but may expire some (short) time afterwards, which depends
-on the system timer resolution and on the system load.
+on the system timer resolution and on the system load; see
+.BR time (7).
 (But see BUGS below.)
 Upon expiration, a signal will be generated and the timer reset.
 If the timer expires while the process is active (always true for
@@ -145,6 +146,16 @@ A child created via
 does not inherit its parent's interval timers.
 Interval timers are preserved across an
 .BR execve (2).
+
+POSIX.1 leaves the 
+interaction between
+.BR setitimer()
+and
+.BR alarm (2),
+.BR sleep (3),
+and
+.BR usleep (3)
+unspecified.
 .SH BUGS
 The generation and delivery of a signal are distinct, and
 only one instance of each of the signals listed above may be pending
@@ -155,7 +166,7 @@ timer may expire before the signal from a previous expiration
 has been delivered.
 The second signal in such an event will be lost.
 
-On Linux, timer values are represented in jiffies.
+On Linux kernels before 2.6.16, timer values are represented in jiffies.
 If a request is made set a timer with a value whose jiffies
 representation exceeds
 .B MAX_SEC_IN_JIFFIES
@@ -166,6 +177,9 @@ On Linux/i386 (where, since Linux 2.6.13,
 the default jiffy is 0.004 seconds),
 this means that the ceiling value for a timer is
 approximately 99.42 days.
+Since Linux 2.6.16,
+the kernel uses a different internal representation for times,
+and this ceiling is removed.
 
 On certain systems (including i386),
 Linux kernels before version 2.6.12 have a bug which will produce

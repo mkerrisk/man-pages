@@ -20,9 +20,12 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH TIME 7 2006-04-28 "Linux" "Linux Programmer's Manual"
+.\" 2008-06-24, mtk: added some details about where jiffies come into
+.\"     play; added section on high-resolution timers.
+.\"
+.TH TIME 7 2008-06-24 "Linux" "Linux Programmer's Manual"
 .SH NAME
-time \- overview of time
+time \- overview of time and timers
 .SH DESCRIPTION
 .SS "Real time and process time"
 .I "Real time"
@@ -59,13 +62,21 @@ For further details, see
 and
 .BR hwclock (8).
 .SS "The Software Clock, HZ, and Jiffies"
-The accuracy of many system calls and timestamps is limited by
-the resolution of the
+The accuracy of various system calls that set timeouts,
+(e.g.,
+.BR select (2),
+.BR sigtimedwait (2))
+.\" semtimedop(), mq_timedwait(), io_getevents(), poll() are the same
+.\" futexes and thus sem_timedwait() seem to use high-res timers.
+and measure CPU time (e.g.,
+.BR getrusage (2))
+is limited by the resolution of the
 .IR "software clock" ,
 a clock maintained by the kernel which measures time in
 .IR jiffies .
 The size of a jiffy is determined by the value of the kernel constant
 .IR HZ .
+
 The value of
 .I HZ
 varies across kernel versions and hardware platforms.
@@ -73,12 +84,23 @@ On i386 the situation is as follows:
 on kernels up to and including 2.4.x, HZ was 100,
 giving a jiffy value of 0.01 seconds;
 starting with 2.6.0, HZ was raised to 1000, giving a jiffy of
-0.001 seconds; since kernel 2.6.13, the HZ value is a kernel
+0.001 seconds.
+Since kernel 2.6.13, the HZ value is a kernel
 configuration parameter and can be 100, 250 (the default) or 1000,
 yielding a jiffies value of, respectively, 0.01, 0.004, or 0.001 seconds.
 Since kernel 2.6.20, a further frequency is available:
 300, a number that divides evenly for the common video
 frame rates (PAL, 25 HZ; NTSC, 30 HZ).
+.SS "High-Resolution Timers"
+Before Linux 2.6.16, the accuracy of timer and sleep system calls
+(see below) was also limited by the size of the jiffy.
+
+Since Linux 2.6.16, Linux supports high-resolution timers (HRTs),
+optionally configurable since kernel 2.6.21 via CONFIG_HIGH_RES_TIMERS.
+On a system that supports HRTs, the accuracy of sleep and timer
+system calls is no longer constrained by the jiffy,
+but instead can be as accurate as the hardware allows
+(microsecond accuracy is typical of modern hardware).
 .SS "The Epoch"
 Unix systems represent time in seconds since the
 .IR Epoch ,
@@ -116,7 +138,8 @@ and
 .SS "Sleeping and Setting Timers"
 Various system calls and functions allow a program to sleep
 (suspend execution) for a specified period of time; see
-.BR nanosleep (2)
+.BR nanosleep (2),
+.BR clock_nanosleep (2),
 and
 .BR sleep (3).
 
@@ -125,6 +148,7 @@ at some point in the future, and optionally at repeated intervals;
 see
 .BR alarm (2),
 .BR getitimer (2),
+.BR timerfd_create (2),
 and
 .BR timer_create (3).
 .\" FIXME . timer_create() and friends are not yet in man-pages
@@ -133,6 +157,7 @@ and
 .BR time (1),
 .BR adjtimex (2),
 .BR alarm (2),
+.BR clock_nanosleep (2),
 .BR getitimer (2),
 .BR getrlimit (2),
 .BR getrusage (2),

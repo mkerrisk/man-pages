@@ -29,17 +29,19 @@
 .\" Modified 22 July 1996 by Andries Brouwer (aeb@cwi.nl)
 .\" 2007-07-30 Ulrich Drepper <drepper@redhat.com>, mtk:
 .\"     Rework discussion of non-standard structure fields.
+.\" 2008-07-04, mtk, Document readdir_r().
 .\"
-.TH READDIR 3  2008-06-20 "" "Linux Programmer's Manual"
+.TH READDIR 3  2008-07-04 "" "Linux Programmer's Manual"
 .SH NAME
-readdir \- read a directory
+readdir, readdir_r \- read a directory
 .SH SYNOPSIS
 .nf
-.B #include <sys/types.h>
-.sp
 .B #include <dirent.h>
 .sp
 .BI "struct dirent *readdir(DIR *" dir );
+.sp
+.BI "int readdir(DIR *" dir ", struct dirent *" entry \
+", struct dirent **" result );
 .fi
 .SH DESCRIPTION
 The
@@ -47,7 +49,7 @@ The
 function returns a pointer to a \fIdirent\fP structure
 representing the next directory entry in the directory stream pointed
 to by \fIdir\fP.
-It returns NULL on reaching the end-of-file or if
+It returns NULL on reaching the end of the directory stream or if
 an error occurred.
 .PP
 On Linux, the
@@ -84,16 +86,40 @@ The data returned by
 may be overwritten by subsequent calls to
 .BR readdir ()
 for the same directory stream.
+
+The
+.BR readdir_r ()
+function is a reentrant version of
+.BR readdir ().
+It reads the next directory entry from the directory stream
+.IR dir ,
+and returns it in the caller-allocated buffer pointed to by
+.IR entry .
+(See NOTES for information on allocating this buffer.)
+A pointer to the returned item is placed in
+.IR *result ;
+if the end of the directory stream was encountered,
+then NULL is instead returned in
+.IR *result .
 .SH "RETURN VALUE"
 The
 .BR readdir ()
 function returns a pointer to a
 .I dirent
 structure, or
-NULL if an error occurs or end-of-file is reached.
+NULL if an error occurs or end of the directory stream is reached.
 On error,
 .I errno
 is set appropriately.
+
+The
+.BR readdir_r ()
+function returns 0 on success.
+On error, it returns a positive error number.
+If the end of the directory stream is reached,
+.BR readdir_r ()
+returns 0, and returns NULL in
+.IR *result .
 .SH ERRORS
 .TP
 .B EBADF
@@ -161,11 +187,35 @@ If the file type could not be determined, the value
 .B DT_UNKNOWN
 is returned in
 .IR d_type .
+
+Since POSIX.1 does not specify the size of the
+.I d_name
+field, and other non-standard fields may precede that field within the
+.I dirent
+structure, portable applications that use
+.BR readdir_r ()
+should allocate the buffer whose address is passed in
+.IR entry
+as follows:
+.in +4n
+.nf
+
+len = offsetof(struct dirent, d_name) +
+          pathconf(dirpath, _PC_NAME_MAX) + 1
+entryp = malloc(len);
+
+.fi
+.in
+(POSIX.1 requires that
+.I d_name
+is the last field in a
+.IR "struct dirent" .)
 .SH "SEE ALSO"
 .BR read (2),
 .BR closedir (3),
 .BR dirfd (3),
 .BR ftw (3),
+.BR offsetof (3),
 .BR opendir (3),
 .BR rewinddir (3),
 .BR scandir (3),

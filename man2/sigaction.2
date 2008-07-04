@@ -40,7 +40,7 @@
 .\" 2005-09-15, mtk, split sigpending(), sigprocmask(), sigsuspend()
 .\"	out of this page into separate pages.
 .\"
-.TH SIGACTION 2 2007-07-08 "Linux" "Linux Programmer's Manual"
+.TH SIGACTION 2 2008-07-04 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sigaction \- examine and change a signal action
 .SH SYNOPSIS
@@ -137,8 +137,7 @@ will be blocked, unless the
 flag is used.
 .PP
 .I sa_flags
-specifies a set of flags which modify the behavior of the signal handling
-process.
+specifies a set of flags which modify the behavior of the signal.
 It is formed by the bitwise OR of zero or more of the following:
 .RS 4
 .TP
@@ -156,9 +155,10 @@ or resume (i.e., they receive
 .BR SIGCONT )
 (see
 .BR wait (2)).
+This flag is only meaningful when establishing a handler for
+.BR SIGCHLD .
 .TP
-.B SA_NOCLDWAIT
-(Linux 2.6 and later)
+.BR SA_NOCLDWAIT " (Since Linux 2.6)"
 .\" To be precise: Linux 2.5.60 -- MTK
 If
 .I signum
@@ -167,10 +167,27 @@ is
 do not transform children into zombies when they terminate.
 See also
 .BR waitpid (2).
+This flag is only meaningful when establishing a handler for
+.BR SIGCHLD ,
+or when setting that signal's disposition to
+.BR SIG_DFL .
+
+If the
+.B SA_NOCLDWAIT
+flag is set when establishing a handler for
+.BR SIGCHLD ,
+POSIX.1 leaves it unspecified whether a
+.B SIGCHLD
+signal is generated when a child process terminates.
+On Linux, a
+.B SIGCHLD
+signal is generated in this case;
+on some other implementations, it is not.
 .TP
-.B SA_RESETHAND
+.BR SA_RESETHAND
 Restore the signal action to the default state once the signal handler
 has been called.
+This flag is only meaningful when establishing a signal handler.
 .B SA_ONESHOT
 is an obsolete, non-standard synonym for this flag.
 .TP
@@ -178,26 +195,33 @@ is an obsolete, non-standard synonym for this flag.
 Call the signal handler on an alternate signal stack provided by
 .BR sigaltstack (2).
 If an alternate stack is not available, the default stack will be used.
+This flag is only meaningful when establishing a signal handler.
 .TP
 .B SA_RESTART
 Provide behavior compatible with BSD signal semantics by making certain
 system calls restartable across signals.
+This flag is only meaningful when establishing a signal handler.
+See
+.BR signal (7)
+for a discussion of system call restarting.
 .TP
 .B SA_NODEFER
 Do not prevent the signal from being received from within its own signal
 handler.
+This flag is only meaningful when establishing a signal handler.
 .B SA_NOMASK
 is an obsolete, non-standard synonym for this flag.
 .TP
-.B SA_SIGINFO
+.BR SA_SIGINFO " (since Linux 2.2)"
 The signal handler takes 3 arguments, not one.
 In this case,
 .I sa_sigaction
 should be set instead of
 .IR sa_handler .
-(The
-.I sa_sigaction
-field was added in Linux 2.1.86.)
+This flag is only meaningful when establishing a signal handler.
+.\" (The
+.\" .I sa_sigaction
+.\" field was added in Linux 2.1.86.)
 .RE
 .PP
 The
@@ -547,10 +571,6 @@ Use of these latter values in
 may be less portable in applications intended for older
 Unix implementations.
 .PP
-Support for
-.B SA_SIGINFO
-was added in Linux 2.2.
-.PP
 The
 .B SA_RESETHAND
 flag is compatible with the SVr4 flag of the same name.
@@ -564,11 +584,6 @@ allowed the receipt of any signal, not just the one we are installing
 (effectively overriding any
 .I sa_mask
 settings).
-.\".PP
-.\"The
-.\".BR SA_RESETHAND " and " SA_NODEFER
-.\"names for SVr4 compatibility are present only in library versions 3.0.9
-.\"and greater.
 .PP
 .BR sigaction ()
 can be called with a null second argument to query the current signal

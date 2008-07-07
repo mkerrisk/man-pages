@@ -40,7 +40,7 @@
 .\" 2005-09-15, mtk, split sigpending(), sigprocmask(), sigsuspend()
 .\"	out of this page into separate pages.
 .\"
-.TH SIGACTION 2 2008-07-04 "Linux" "Linux Programmer's Manual"
+.TH SIGACTION 2 2008-07-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sigaction \- examine and change a signal action
 .SH SYNOPSIS
@@ -75,7 +75,7 @@ is non-null, the previous action is saved in
 .PP
 The
 .I sigaction
-structure is defined as something like
+structure is defined as something like:
 .sp
 .in +4n
 .nf
@@ -126,7 +126,7 @@ pointer to a
 .I siginfo_t
 as its second argument and a pointer to a
 .I ucontext_t
-(cast to void *) as its third argument.
+(cast to \fIvoid\ *\fP) as its third argument.
 .PP
 .I sa_mask
 gives a mask of signals which should be blocked during execution of
@@ -184,11 +184,11 @@ On Linux, a
 signal is generated in this case;
 on some other implementations, it is not.
 .TP
-.BR SA_RESETHAND
-Restore the signal action to the default state once the signal handler
-has been called.
+.B SA_NODEFER
+Do not prevent the signal from being received from within its own signal
+handler.
 This flag is only meaningful when establishing a signal handler.
-.B SA_ONESHOT
+.B SA_NOMASK
 is an obsolete, non-standard synonym for this flag.
 .TP
 .B SA_ONSTACK
@@ -197,6 +197,13 @@ Call the signal handler on an alternate signal stack provided by
 If an alternate stack is not available, the default stack will be used.
 This flag is only meaningful when establishing a signal handler.
 .TP
+.BR SA_RESETHAND
+Restore the signal action to the default state once the signal handler
+has been called.
+This flag is only meaningful when establishing a signal handler.
+.B SA_ONESHOT
+is an obsolete, non-standard synonym for this flag.
+.TP
 .B SA_RESTART
 Provide behavior compatible with BSD signal semantics by making certain
 system calls restartable across signals.
@@ -204,13 +211,6 @@ This flag is only meaningful when establishing a signal handler.
 See
 .BR signal (7)
 for a discussion of system call restarting.
-.TP
-.B SA_NODEFER
-Do not prevent the signal from being received from within its own signal
-handler.
-This flag is only meaningful when establishing a signal handler.
-.B SA_NOMASK
-is an obsolete, non-standard synonym for this flag.
 .TP
 .BR SA_SIGINFO " (since Linux 2.2)"
 The signal handler takes 3 arguments, not one.
@@ -228,16 +228,20 @@ The
 .I siginfo_t
 parameter to
 .I sa_sigaction
-is a struct with the following elements
+is a struct with the following elements:
 .sp
 .in +4n
 .nf
 siginfo_t {
-.\" FIXME si_tid and si_overrun are not documented.
-.\" FIXME si_trapno is not documented; is it actually used?
     int      si_signo;    /* Signal number */
     int      si_errno;    /* An errno value */
     int      si_code;     /* Signal code */
+    int      si_trapno;   /* Trap number that caused
+                             hardware-generated signal
+                             (unused on most architectures) */
+.\" FIXME
+.\" si_trapno seems to be only used on SPARC and Alpha;
+.\" this page could use a little more detail on its purpose there.
     pid_t    si_pid;      /* Sending process ID */
     uid_t    si_uid;      /* Real user ID of sending process */
     int      si_status;   /* Exit value or signal */
@@ -246,6 +250,9 @@ siginfo_t {
     sigval_t si_value;    /* Signal value */
     int      si_int;      /* POSIX.1b signal */
     void    *si_ptr;      /* POSIX.1b signal */
+    int      si_overrun;  /* Timer overrun count; POSIX.1b timers */
+    int      si_timerid;  /* Timer ID; POSIX.1b timers */
+.\" In the kernel: si_tid
     void    *si_addr;     /* Memory location which caused fault */
     int      si_band;     /* Band event */
     int      si_fd;       /* File descriptor */
@@ -256,7 +263,7 @@ siginfo_t {
 .IR si_signo ", " si_errno " and " si_code
 are defined for all signals.
 .RI ( si_errno
-is unused on Linux.)
+is generally unused on Linux.)
 The rest of the struct may be a union, so that one should only
 read the fields that are meaningful for the given signal:
 .IP * 2
@@ -265,8 +272,18 @@ POSIX.1b signals and
 fill in
 .IR si_pid " and " si_uid .
 .IP *
+POSIX.1b timers (since Linux 2.6) fill in
+.I si_overrun
+and
+.IR si_timerid .
+The
+.I si_timerid
+field is an internal ID used by the kernel to identify
+the timer; it is not the same as the timer ID returned by
+.BR timer_create (3).
+.IP *
 .B SIGCHLD
-also fills in
+fills in
 .IR si_status ", " si_utime " and " si_stime .
 .\" FIXME .
 .\" When si_utime and si_stime where originally implemented, the

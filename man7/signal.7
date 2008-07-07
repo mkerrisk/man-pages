@@ -40,7 +40,7 @@
 .\"     Added section on system call restarting (SA_RESTART)
 .\"     Added section on stop/cont signals interrupting syscalls.
 .\"
-.TH SIGNAL 7  2008-07-04 "Linux" "Linux Programmer's Manual"
+.TH SIGNAL 7  2008-07-07 "Linux" "Linux Programmer's Manual"
 .SH NAME
 signal \- list of available signals
 .SH DESCRIPTION
@@ -481,25 +481,27 @@ write()
 .fi
 .in
 .SS Interruption of System Calls and Library Functions by Signal Handlers
-If a signal handler is invoked while a system call or library function
-call is blocked, then the call may fail with the error
+If a signal handler is invoked while a system call or library
+function call is blocked, then either:
+.IP * 2
+the call is automatically restarted after the signal handler returns; or
+.IP *
+the call fails with the error
 .BR EINTR .
-The details depend on the interface
-(in particular, whether the genealogy of the interface is System V or BSD)
-and whether or not the signal handler was established using the
+.PP
+Which of these two behaviors occurs depends on the interface and
+whether or not the signal handler was established using the
 .BR SA_RESTART
 flag (see
 .BR sigaction (2)).
 The details vary across Unix systems;
 below, are the details for Linux.
 
-For the following interfaces,
-if the
+If a blocked call to one of the following interfaces is interrupted
+by a signal handler, then the call will be automatically restarted
+after the signal handler returns if the
 .BR SA_RESTART
-flag was used,
-then a blocked call will be restarted after being interrupted
-by a signal handler;
-otherwise the call will fail with the error
+flag was used; otherwise the call will fail with the error
 .BR EINTR :
 .\" The following system calls use ERESTARTSYS,
 .\" so that they are restartable
@@ -512,11 +514,11 @@ otherwise the call will fail with the error
 and
 .BR ioctl (2)
 calls on "slow" devices.
-A "slow" device is one where the I/O call may block for an indefinite time,
-for example, a terminal, pipe, or socket.
+A "slow" device is one where the I/O call may block for an
+indefinite time, for example, a terminal, pipe, or socket.
 (A disk is not a slow device according to this definition.)
-If an I/O call on a slow device has already transferred some data by the
-time it is interrupted by a signal handler,
+If an I/O call on a slow device has already transferred some
+data by the time it is interrupted by a signal handler,
 then the call will return a success status
 (normally, the number of bytes transferred).
 .IP *
@@ -532,7 +534,7 @@ and
 .BR waitpid (2).
 .IP *
 Socket interfaces:
-.\" If a timeout i(setsockopt()) is in effect on the socket, then these
+.\" If a timeout (setsockopt()) is in effect on the socket, then these
 .\" system calls switch to using EINTR.  Consequently, they and are not
 .\" automatically restarted, and they show the stop/cont behavior
 .\" described below.  (Verified from 2.6.26 source, and by experiment; mtk)

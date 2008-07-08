@@ -1,4 +1,6 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright (c) 2008 Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -23,18 +25,29 @@
 .\" Modified Mon Apr 12 12:49:57 1993, David Metcalfe
 .\" Modified Sat Jul 24 18:56:22 1993, Rik Faith (faith@cs.unc.edu)
 .\" Modified Wed Feb 20 21:09:36 2002, Ian Redfern (redferni@logica.com)
+.\" 2008-07-09, mtk, add rawmemchr()
 .\"
-.TH MEMCHR 3  2003-11-01 "" "Linux Programmer's Manual"
+.TH MEMCHR 3  2008-07-09 "" "Linux Programmer's Manual"
 .SH NAME
-memchr, memrchr \- scan memory for a character
+memchr, memrchr, rawmemchr \- scan memory for a character
 .SH SYNOPSIS
 .nf
 .B #include <string.h>
-.sp
+
 .BI "void *memchr(const void *" s ", int " c ", size_t " n );
-.sp
+
 .BI "void *memrchr(const void *" s ", int " c ", size_t " n );
+
+.BI "void *rawmemchr(const void *" s ", int " c );
 .fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR rawmemchr ():
+_GNU_SOURCE
 .SH DESCRIPTION
 The
 .BR memchr ()
@@ -49,7 +62,39 @@ function is like the
 .BR memchr ()
 function,
 except that it searches backwards from the end of the \fIn\fP bytes
-pointed to by \fIs\fP instead of forwards from the front.
+pointed to by \fIs\fP instead of forwards from the beginning.
+
+The
+.BR rawmemchr ()
+function is similar to
+.BR memchr ():
+it assumes (i.e., the programmer knows for certain)
+that the character
+.I c
+lies somewhere in the string
+.IR s ,
+and so performs an optimized search
+for the character
+.IR c 
+(i.e., no checking for the terminating null byte, or use of an argument,
+.IR n ,
+to limit the range of the search).
+If the chararacter
+.I c
+is not in the string
+.IR s ,
+then
+.BR rawmemchr () 
+may proceeed to search beyond the end of the string,
+and the result is unspecified.
+The folowing call is a fast means of locating a string's
+terminating null byte:
+.in +4n
+.nf
+
+char *p; rawmemchr(s,\ '\\0');
+.fi
+.in
 .SH "RETURN VALUE"
 The
 .BR memchr ()
@@ -58,13 +103,23 @@ and
 functions return a pointer
 to the matching byte or NULL if the character does not occur in
 the given memory area.
+
+The
+.BR rawmemchr ()
+function returns a pointer to the matching byte, if one is found.
+If no matching byte is found, the result is unspecified.
 .SH "CONFORMING TO"
 The
 .BR memchr ()
 function conforms to SVr4, 4.3BSD, C89, C99, POSIX.1-2001.
+
 The
 .BR memrchr ()
 function is a GNU extension, available since glibc 2.1.91.
+
+The
+.BR rawmemrchr ()
+function is a GNU extension, available since glibc 2.1.
 .SH "SEE ALSO"
 .BR index (3),
 .BR rindex (3),

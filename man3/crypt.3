@@ -32,7 +32,7 @@
 .\" added _XOPEN_SOURCE, aeb, 970705
 .\" added GNU MD5 stuff, aeb, 011223
 .\"
-.TH CRYPT 3 2001-12-23 "" "Linux Programmer's Manual"
+.TH CRYPT 3 2008-07-09 "" "Linux Programmer's Manual"
 .SH NAME
 crypt \- password and data encryption
 .SH SYNOPSIS
@@ -142,22 +142,54 @@ function was not implemented, probably because of U.S.A. export restrictions.
 SVr4, 4.3BSD, POSIX.1-2001
 .SH NOTES
 .SS Glibc Notes
-The glibc2 version of this function has the following additional features.
+The glibc2 version of this function supports additional
+encryption algorithms.
+
 If
 .I salt
-is a character string starting with the three characters "$1$"
-followed by at most eight characters, and optionally terminated by "$",
-then instead of using the DES machine, the glibc crypt function
-uses an MD5-based algorithm, and outputs up to 34 bytes,
-namely "$1$<salt>$<encoded>", where
-"<salt>" stands for the up to 8 characters following "$1$" in the salt,
-and "<encoded>" is a further 22 characters.
-The characters in "<salt>" and "<encoded>" are drawn from the set
+is a character string starting with the characters "$\fIid\fP$"
+followed by a string terminated by "$":
+
+$\fIid\fP$\fIsalt\fP$\fIencrypted\fP
+
+then instead of using the DES machine,
+.I id
+identifies the encryption method used and this then determines how the rest
+of the password string is interpreted.
+The following values of
+.I id
+are supported:
+.TS
+l l.
+ID  | Method
+_
+1   | MD5
+2a  | Blowfish
+.\" md5 | Sun MD5
+5   | SHA-256 (since glibc 2.7)
+6   | SHA-512 (since glibc 2.7)
+.TE
+
+So $5$\fIsalt\fP$\fIencrypted\fP is an SHA-256 encoded
+password and $6$\fIsalt\fP$\fIencrypted\fP is an
+SHA-512 encoded one.
+
+"\fIsalt\fP" stands for the up to 16 characters following "$\fIid\fP$" in the salt.
+The encrypted part of the password string is the actual computed password.
+The size of this string is fixed:
+.TS
+l l.
+MD5     | 22 characters
+SHA-256 | 43 characters
+SHA-512 | 86 characters
+.TE
+
+The characters in "\fIsalt\fP" and "\fIencrypted\fP" are drawn from the set
 [\fBa\fP\(en\fBzA\fP\(en\fBZ0\fP\(en\fB9./\fP].
-The entire
+In the SHA implementation the entire
 .I key
-is significant here (instead of only the first
-8 bytes).
+is significant (instead of only the first
+8 bytes in MD5).
 .SH "SEE ALSO"
 .BR login (1),
 .BR passwd (1),

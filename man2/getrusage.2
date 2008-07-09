@@ -30,8 +30,10 @@
 .\"
 .\" Modified 2004-11-16, mtk, Noted that the non-conformance
 .\"	when SIGCHLD is being ignored is fixed in 2.6.9.
+.\" 2008-02-22, Sripathi Kodi <sripathik@in.ibm.com>: Document RUSAGE_THREAD
+.\" 2008-05-25, mtk, clarify RUSAGE_CHILDREN + other clean-ups.
 .\"
-.TH GETRUSAGE 2 2004-11-16 "Linux" "Linux Programmer's Manual"
+.TH GETRUSAGE 2 2008-07-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getrusage \- get resource usage
 .SH SYNOPSIS
@@ -43,14 +45,27 @@ getrusage \- get resource usage
 .SH DESCRIPTION
 .PP
 .BR getrusage ()
-returns current resource usages, for a \fIwho\fP
-of either
-.B RUSAGE_SELF
-or
-.BR RUSAGE_CHILDREN .
-The former asks for resources used by the calling process,
-the latter for resources used by those of its children
-that have terminated and have been waited for.
+returns resource usage measures for
+.IR who ,
+which can be one of the following:
+.TP
+.B RUSAGE_SELF 
+Return resource usage statistics for the calling process, 
+which is the sum of resources used by all threads in the process.
+.TP
+.B RUSAGE_CHILDREN 
+Return resource usage statistics for all children of the
+calling process that have terminated and been waited for.
+These statistics will include the resources used by grandchildren,
+and further removed descendants,
+if all of the intervening descendants waited on their terminated children.
+.TP
+.BR RUSAGE_THREAD " (since Linux 2.6.26)"
+Return resource usage statistics for the calling thread.
+.PP
+The resource usages are returned in the structure pointed to by
+.IR usage ,
+which has the following form:
 .PP
 .in +4n
 .nf
@@ -96,6 +111,9 @@ but only specifies the fields
 .I ru_utime
 and
 .IR ru_stime .
+
+.B RUSAGE_THREAD
+is Linux-specific.
 .SH NOTES
 Including
 .I <sys/time.h>
@@ -132,9 +150,13 @@ Since Linux 2.6,
 and
 .I ru_nivcsw
 are also maintained.
+
+See also the description of
+.IR /proc/PID/stat
+in
+.BR proc (5).
 .SH "SEE ALSO"
 .BR getrlimit (2),
 .BR times (2),
 .BR wait (2),
-.BR wait4 (2),
-.BR time (7)
+.BR wait4 (2)

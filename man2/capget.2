@@ -1,14 +1,15 @@
-.\"
-.\" $Id: capget.2,v 1.4 1999/09/09 16:43:26 morgan Exp $
-.\" written by Andrew Morgan <morgan@linux.kernel.org>
+.\" written by Andrew Morgan <morgan@kernel.org>
 .\" may be distributed as per GPL
 .\" Modified by David A. Wheeler <dwheeler@ida.org>
 .\" Modified 2004-05-27, mtk
 .\" Modified 2004-06-21, aeb
+.\" Modified 2008-04-28, morgan of kernel.org
+.\"     Update in line with addition of file capabilities and
+.\"     64-bit capability sets in kernel 2.6.2[45].
 .\"
-.TH CAPGET 2 2004-06-21 "Linux" "Linux Programmer's Manual"
+.TH CAPGET 2 2008-07-14 "Linux" "Linux Programmer's Manual"
 .SH NAME
-capget, capset \- set/get capabilities
+capget, capset \- set/get capabilities of thread(s)
 .SH SYNOPSIS
 .B #undef _POSIX_SOURCE
 .br
@@ -18,18 +19,19 @@ capget, capset \- set/get capabilities
 .sp
 .BI "int capset(cap_user_header_t " hdrp ", const cap_user_data_t " datap );
 .SH DESCRIPTION
-As of Linux 2.2, the power of the superuser (root) has been partitioned into
+As of Linux 2.2,
+the power of the superuser (root) has been partitioned into
 a set of discrete capabilities.
-Every thread has a set of effective capabilities identifying
+Each thread has a set of effective capabilities identifying
 which capabilities (if any) it may currently exercise.
-Every thread also has a set of inheritable capabilities that may be
+Each thread also has a set of inheritable capabilities that may be
 passed through an
 .BR execve (2)
 call, and a set of permitted capabilities
 that it can make effective or inheritable.
 .PP
 These two functions are the raw kernel interface for getting and
-setting capabilities.
+setting thread capabilities.
 Not only are these system calls specific to Linux,
 but the kernel API is likely to change and use of
 these functions (in particular the format of the
@@ -48,36 +50,80 @@ and
 .BR capgetp (3).
 .SS "Current details"
 Now that you have been warned, some current kernel details.
-The structs are defined as follows.
+The structures are defined as follows.
 .sp
 .nf
 .in +4n
-#define _LINUX_CAPABILITY_VERSION  0x19980330
+#define _LINUX_CAPABILITY_VERSION_1  0x19980330
+#define _LINUX_CAPABILITY_U32S_1     1
+
+#define _LINUX_CAPABILITY_VERSION_2  0x20071026
+#define _LINUX_CAPABILITY_U32S_2     2
 
 typedef struct __user_cap_header_struct {
-    int version;
-    int pid;
+   __u32 version;
+   int pid;
 } *cap_user_header_t;
 
 typedef struct __user_cap_data_struct {
-    int effective;
-    int permitted;
-    int inheritable;
+   __u32 effective;
+   __u32 permitted;
+   __u32 inheritable;
 } *cap_user_data_t;
 .fi
 .in -4n
 .sp
-The calls will return
+The calls will fail with the error
 .BR EINVAL ,
 and set the
 .I version
 field of
 .I hdrp
-to
-.B _LINUX_CAPABILITY_VERSION
-when another version was specified.
-
-The calls operate on the capabilities of the thread specified by the
+to the kernel preferred value of
+.B _LINUX_CAPABILITY_VERSION_?
+when an unsupported
+.I version
+value is specified.
+In this way, one can probe what the current
+preferred capability revision is.
+Kernels prior to 2.6.25 prefer
+32-bit capabilities with version
+.BR _LINUX_CAPABILITY_VERSION_1 ,
+and kernels 2.6.25+ prefer 64-bit capabilities with version
+.BR _LINUX_CAPABILITY_VERSION_2 .
+Note, 64-bit capabilities use
+.IR datap [0]
+and
+.IR datap [1],
+whereas 32-bit capabilities only use
+.IR datap [0].
+.sp
+Another change affecting the behavior of these system calls is kernel
+support for file capabilities (VFS capability support).
+This support is currently a compile time option (added in kernel 2.6.24).
+.sp
+For
+.BR capget ()
+calls, one can probe the capabilities of any process by specifying its
+process ID with the
+.I hdrp->pid
+field value.
+.SS With VFS Capability Support
+VFS Capability support creates a file-attribute method for adding
+capabilities to privileged executables.
+This privilege model obsoletes kernel support for one process
+asynchronously setting the capabilities of another.
+That is, with VFS support, for
+.BR capset ()
+calls the only permitted values for
+.I hdrp->pid
+are 0 or
+.BR getpid (2),
+which are equivalent.
+.SS Without VFS Capability Support
+When the kernel does not support VFS capabilities,
+.BR capset ()
+calls can operate on the capabilities of the thread specified by the
 .I pid
 field of
 .I hdrp
@@ -112,11 +158,11 @@ is set appropriately.
 .TP
 .B EFAULT
 Bad memory address.
-Neither of
 .I hdrp
-and
+must not be NULL.
 .I datap
-may be NULL.
+may only be NULL when the user is trying to determine the preferred
+capability version format supported by the kernel.
 .TP
 .B EINVAL
 One of the arguments was invalid.
@@ -130,7 +176,11 @@ Permitted set.
 The caller attempted to use
 .BR capset ()
 to modify the capabilities of a thread other than itself,
-but lacked sufficient privilege; the
+but lacked sufficient privilege.
+For kernels supporting VFS
+capabilities, this is never permitted.
+For kernels lacking VFS
+support, the
 .B CAP_SETPCAP
 capability is required.
 (A bug in kernels before 2.6.11 meant that this error could also
@@ -151,7 +201,7 @@ functions is provided by the
 .I libcap
 library and is available here:
 .br
-.I ftp://ftp.kernel.org/pub/linux/libs/security/linux-privs
+http://www.kernel.org/pub/linux/libs/security/linux-privs
 .SH "SEE ALSO"
 .BR clone (2),
 .BR gettid (2),

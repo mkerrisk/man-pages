@@ -33,9 +33,13 @@
 .\"	Added PR_SET_TIMING, PR_GET_TIMING, PR_SET_NAME, PR_GET_NAME,
 .\"	PR_SET_UNALIGN, PR_GET_UNALIGN, PR_SET_FPEMU, PR_GET_FPEMU,
 .\"	PR_SET_FPEXC, PR_GET_FPEXC
-.\" FIXME 2.6.26-rc3 has PR_GET_TSC and PR_SET_TSC
+.\" 2008-04-29 Serge Hallyn, Document PR_CAPBSET_READ and PR_CAPBSET_DROP
+.\" 2008-06-13 Erik Bosman, <ejbosman@cs.vu.nl>
+.\"     Document PR_GET_TSC and PR_SET_TSC.
+.\" 2008-06-15 mtk, Document PR_SET_SECCOMP, PR_GET_SECCOMP
+.\" FIXME . reorder commands alphabetically
 .\"
-.TH PRCTL 2 2007-07-27 "Linux" "Linux Programmer's Manual"
+.TH PRCTL 2 2008-07-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
 prctl \- operations on a process
 .SH SYNOPSIS
@@ -52,23 +56,21 @@ is called with a first argument describing what to do
 parameters with a significance depending on the first one.
 The first argument can be:
 .TP
-.B PR_SET_PDEATHSIG
-(since Linux 2.1.57)
+.BR PR_SET_PDEATHSIG " (since Linux 2.1.57)"
 Set the parent process death signal
 of the calling process to \fIarg2\fP (either a signal value
 in the range 1..maxsig, or 0 to clear).
 This is the signal that the calling process will get when its
 parent dies.
-This value is cleared upon a
+This value is cleared for the child of a
 .BR fork (2).
 .TP
-.B PR_GET_PDEATHSIG
-(Since Linux 2.3.15)
-Read the current value of the parent process death signal
-into the (int *) \fIarg2\fP.
+.BR PR_GET_PDEATHSIG " (since Linux 2.3.15)"
+Return the current value of the parent process death signal,
+in the location pointed to by
+.IR "(int\ *) arg2" .
 .TP
-.B PR_SET_DUMPABLE
-(Since Linux 2.3.20)
+.BR PR_SET_DUMPABLE " (since Linux 2.3.20)"
 Set the state of the flag determining whether core dumps are produced
 for this process upon delivery of a signal whose default behavior is
 to produce a core dump.
@@ -91,62 +93,148 @@ for security reasons, this feature has been removed.
 in
 .BR proc (5).)
 .TP
-.B PR_GET_DUMPABLE
-(Since Linux 2.3.20)
+.BR PR_GET_DUMPABLE " (since Linux 2.3.20)"
 Return (as the function result) the current state of the calling
 process's dumpable flag.
 .\" Since Linux 2.6.13, the dumpable flag can have the value 2,
 .\" but in 2.6.13 PR_GET_DUMPABLE simply returns 1 if the dumpable
 .\" flags has a non-zero value.  This was fixed in 2.6.14.
 .TP
-.B PR_SET_KEEPCAPS
-(Since Linux 2.2.18)
-Set the state of the process's "keep capabilities" flag,
-which determines whether the process's effective and permitted
-capability sets are cleared when a change is made to the process's user IDs
-such that the process's real UID, effective UID, and saved set-user-ID
+.BR PR_SET_KEEPCAPS " (since Linux 2.2.18)"
+Set the state of the thread's "keep capabilities" flag,
+which determines whether the threads's effective and permitted
+capability sets are cleared when a change is made to the threads's user IDs
+such that the threads's real UID, effective UID, and saved set-user-ID
 all become non-zero when at least one of them previously had the value 0.
 (By default, these credential sets are cleared).
 .I arg2
 must be either 0 (capabilities are cleared) or 1 (capabilities are kept).
+This value will be reset to 0 on subsequent calls to
+.BR execve (2).
 .TP
-.B PR_GET_KEEPCAPS
-(Since Linux 2.2.18)
-Return (as the function result) the current state of the calling process's
+.BR PR_GET_KEEPCAPS " (since Linux 2.2.18)"
+Return (as the function result) the current state of the calling threads's
 "keep capabilities" flag.
 .TP
-.B PR_SET_TIMING
-(Since Linux 2.6.0-test4)
-Set whether to use (normal, traditional) statistical process timing or
-accurate timestamp based process timing, by passing \fBPR_TIMING_STATISTICAL\fP
-or \fBPR_TIMING_TIMESTAMP\fP to \fIarg2\fP.
+.BR PR_CAPBSET_READ " (since Linux 2.6.25)
+Return (as the function result) 1 if the capability specified in
+.I arg2
+is in the calling thread's capability bounding set,
+or 0 if it is not.
+(The capability constants are defined in
+.IR <linux/capability.h> .)
+The capability bounding set dictates
+whether the process can receive the capability through a
+file's permitted capability set on a subsequent call to 
+.BR execve (2).
+
+If the capability specified in
+.I arg2
+is not valid, then the call fails with the error
+.BR EINVAL .
 .TP
-.B PR_GET_TIMING
-(Since Linux 2.6.0-test4)
+.BR PR_CAPBSET_DROP " (since Linux 2.6.25)"
+If the calling thread has the
+.B CAP_SETPCAP
+capability, then drop the capability specified by
+.I arg2
+from the calling thread's capability bounding set.
+Any children of the calling thread will inherit the newly
+reduced bounding set.
+
+The call fails with the error:
+.B EPERM
+if the calling thread does not have the 
+.BR CAP_SETPCAP ;
+.BR EINVAL
+if
+.I arg2
+does not represent a valid capability; or
+.BR EINVAL
+if file capabilities are not enabled in the kernel,
+in which case bounding sets are not supported.
+.TP
+.BR PR_SET_SECUREBITS " (since Linux 2.6.26)"
+Set the "securebits" flags of the calling thread to the value supplied in
+.IR arg2 .
+See
+.BR capabilities (7).
+.TP
+.BR PR_GET_SECUREBITS " (since Linux 2.6.26)"
+Return (as the function result)
+the "securebits" flags of the calling thread.
+See
+.BR capabilities (7).
+.TP
+.BR PR_SET_TSC " (since Linux 2.6.26, x86 only)"
+Set the state of the flag determining whether the timestamp counter
+can be read by the process.
+Pass
+.B PR_TSC_ENABLE
+to
+.I arg2
+to allow it to be read, or
+.B PR_TSC_SIGSEGV
+to generate a
+.B SIGSEGV
+when the process tries to read the timestamp counter.
+.TP
+.BR PR_GET_TSC " (since Linux 2.6.26, x86 only)"
+Return the state of the flag determining whether the timestamp counter
+can be read, 
+in the location pointed to by
+.IR "(int\ *) arg2" .
+.TP
+.BR PR_SET_TIMING " (since Linux 2.6.0-test4)"
+Set whether to use (normal, traditional) statistical process timing or
+accurate timestamp based process timing, by passing
+.B PR_TIMING_STATISTICAL
+.\" 0
+or
+.B PR_TIMING_TIMESTAMP
+.\" 1
+to \fIarg2\fP.
+.B PR_TIMING_TIMESTAMP
+is not currently implemented
+(attempting to set this mode will yield the error
+.BR EINVAL ).
+.\" PR_TIMING_TIMESTAMP doesn't do anything in 2.6.26-rc8,
+.\" and looking at the patch history, it appears
+.\" that it never did anything.
+.TP
+.BR PR_GET_TIMING " (since Linux 2.6.0-test4)"
 Return (as the function result) which process timing method is currently
 in use.
 .TP
-.B PR_SET_NAME
-(Since Linux 2.6.9)
-Set the process name for the calling process to \fIarg2\fP.
+.BR PR_SET_NAME " (since Linux 2.6.9)"
+Set the process name for the calling process,
+using the value in the location pointed to by
+.IR "(char\ *) arg2" .
+The name can be up to 16 bytes long,
+.\" TASK_COMM_LEN in include/linux/sched.h
+and should be null terminated if it contains fewer bytes.
 .TP
-.B PR_GET_NAME
-(Since Linux 2.6.11)
-Get the process name for the calling process from \fIarg2\fP.
+.BR PR_GET_NAME " (since Linux 2.6.11)"
+Return the process name for the calling process,
+in the buffer pointed to by
+.IR "(char\ *) arg2" .
+The buffer should allow space for up to 16 bytes;
+the returned string will be null terminated if it is shorter than that.
 .TP
-.B PR_GET_ENDIAN
-(Since Linux 2.6.18, PowerPC only)
-Return the endian-ness of the calling process.
-.TP
-.B PR_SET_ENDIAN
-(Since Linux 2.6.18, PowerPC only)
+.BR PR_SET_ENDIAN " (since Linux 2.6.18, PowerPC only)"
 Set the endian-ness of the calling process to the value given
 in \fIarg2\fP, which should be one of the following:
+.\" Respectively 0, 1, 2
 .BR PR_ENDIAN_BIG ,
 .BR PR_ENDIAN_LITTLE ,
 or
 .B PR_ENDIAN_PPC_LITTLE
 (PowerPC pseudo little endian).
+.TP
+.BR PR_GET_ENDIAN " (since Linux 2.6.18, PowerPC only)"
+Return the endian-ness of the calling process,
+in the location pointed to by
+.IR "(int\ *) arg2" .
 .TP
 .B PR_SET_UNALIGN
 (Only on: ia64, since Linux 2.3.48; parisc, since Linux 2.6.15;
@@ -162,22 +250,22 @@ on unaligned user access.
 (see
 .B PR_SET_UNALIGN
 for information on versions and architectures)
-Get unaligned access control bits from \fIarg2\fP.
+Return unaligned access control bits, in the location pointed to by
+.IR "(int\ *) arg2" .
 .TP
-.B PR_SET_FPEMU
-(Since Linux 2.4.18, 2.5.9, only on ia64)
+.BR PR_SET_FPEMU " (since Linux 2.4.18, 2.5.9, only on ia64)"
 Set floating-point emulation control bits to \fIarg2\fP.
 Pass \fBPR_FPEMU_NOPRINT\fP to silently emulate fp operations accesses, or
 \fBPR_FPEMU_SIGFPE\fP to not emulate fp operations and send
 .B SIGFPE
 instead.
 .TP
-.B PR_GET_FPEMU
-(Since Linux 2.4.18, 2.5.9, only on ia64)
-Get floating-point emulation control bits from \fIarg2\fP.
+.BR PR_GET_FPEMU " (since Linux 2.4.18, 2.5.9, only on ia64)"
+Return floating-point emulation control bits,
+in the location pointed to by
+.IR "(int\ *) arg2" .
 .TP
-.B PR_SET_FPEXC
-(Since Linux 2.4.21, 2.5.32, only on PowerPC)
+.BR PR_SET_FPEXC " (since Linux 2.4.21, 2.5.32, only on PowerPC)"
 Set floating-point exception mode to \fIarg2\fP.
 Pass \fBPR_FP_EXC_SW_ENABLE\fP to use FPEXC for FP exception enables,
 \fBPR_FP_EXC_DIV\fP for floating point divide by zero,
@@ -190,14 +278,57 @@ Pass \fBPR_FP_EXC_SW_ENABLE\fP to use FPEXC for FP exception enables,
 \fBPR_FP_EXC_ASYNC\fP for async recoverable exception mode,
 \fBPR_FP_EXC_PRECISE\fP for precise exception mode.
 .TP
-.B PR_GET_FPEXC
-(Since Linux 2.4.21, 2.5.32, only on PowerPC)
-Get floating-point exception mode from \fIarg2\fP.
-.SH "RETURN VALUE"
-.B PR_GET_DUMPABLE
+.BR PR_GET_FPEXC " (since Linux 2.4.21, 2.5.32, only on PowerPC)"
+Return floating-point exception mode,
+in the location pointed to by
+.IR "(int\ *) arg2" .
+.TP
+.BR PR_SET_SECCOMP " (since Linux 2.6.23)"
+.\" See http://thread.gmane.org/gmane.linux.kernel/542632
+.\" [PATCH 0 of 2] seccomp updates
+.\" andrea@cpushare.com
+Set the secure computing mode for the calling thread.
+In the current implementation,
+.IR arg2
+must be 1.
+After the secure computing mode has been set to 1,
+the only system calls that the thread is permitted to make are
+.BR read (2),
+.BR write (2),
+.BR _exit(2),
 and
-.B PR_GET_KEEPCAPS
-return 0 or 1 on success.
+.BR sigreturn (2).
+Other system calls result in the delivery of a
+.BR SIGKILL
+signal.
+Secure computing mode is useful for number-crunching applications
+that may need to execute untrusted byte code,
+perhaps obtained by reading from a pipe or socket.
+This operation is only available
+if the kernel is configured with CONFIG_SECCOMP enabled.
+.TP
+.BR PR_GET_SECCOMP " (since Linux 2.6.23)"
+Return the secure computing mode of the calling thread.
+Not very useful for the current implementation (mode equals 1),
+but may be useful for other possible future modes:
+if the caller is not in secure computing mode, this operation returns 0;
+if the caller is in secure computing mode, then the
+.BR prctl ()
+call will cause a
+.B SIGKILL
+signal to be sent to the process.
+This operation is only available
+if the kernel is configured with CONFIG_SECCOMP enabled.
+.SH "RETURN VALUE"
+On success,
+.BR PR_GET_DUMPABLE ,
+.BR PR_GET_KEEPCAPS ,
+.BR PR_CAPBSET_READ ,
+.BR PR_GET_TIMING ,
+.BR PR_GET_SECUREBITS ,
+and (if it returns)
+.BR PR_GET_SECCOMP
+return the non-negative values described above.
 All other
 .I option
 values return 0 on success.
@@ -206,14 +337,65 @@ On error, \-1 is returned, and
 is set appropriately.
 .SH ERRORS
 .TP
+.B EFAULT
+.I arg2
+is an invalid address.
+.TP
 .B EINVAL
 The value of
 .I option
-is not recognized, or it is
-.B PR_SET_PDEATHSIG
-and
+is not recognized
+.B EINVAL
 .I arg2
-is not zero or a signal number.
+is not valid value for this
+.IR option .
+.TP
+.B EINVAL
+.I option
+is
+.BR PR_SET_SECCOMP
+or
+.BR PR_SET_SECCOMP ,
+and the kernel was not configured with
+.BR CONFIG_SECCOMP .
+.TP
+.B EPERM
+.I option
+is
+.BR PR_SET_SECUREBITS ,
+and the caller does not have the
+.B CAP_SETPCAP
+capability,
+or tried to unset a "locked" flag,
+or tried to set a flag whose corresponding locked flag was set
+(see
+.BR capabilities (7)).
+.TP
+.B EPERM
+.I option
+is
+.BR PR_SET_KEEPCAPS ,
+and the callers's
+.B SECURE_KEEP_CAPS_LOCKED
+flag is set
+(see
+.BR capabilities (7)).
+.TP
+.B EPERM
+.I option
+is
+.BR PR_CAPBSET_DROP ,
+and the caller does not have the
+.B CAP_SETPCAP
+capability.
+.\" The following can't actually happen, because prctl() in
+.\" seccomp mode will cause SIGKILL.
+.\" .TP
+.\" .B EPERM
+.\" .I option
+.\" is
+.\" .BR PR_SET_SECCOMP ,
+.\" and secure computing mode is already 1.
 .SH VERSIONS
 The
 .BR prctl ()

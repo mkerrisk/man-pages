@@ -25,10 +25,11 @@
 .\"
 .\" Modified 2004-11-19, mtk:
 .\" added pointer to sigaction.2 for details of ignoring SIGCHLD
-.\" 2007-06-03, mtk: strengthened portability warning, and rerote
+.\" 2007-06-03, mtk: strengthened portability warning, and rewrote
 .\"     various sections.
+.\" 2008-07-11, mtk: rewrote and expanded portability discussion.
 .\"
-.TH SIGNAL 2 2007-06-03 "Linux" "Linux Programmer's Manual"
+.TH SIGNAL 2 2008-07-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 signal \- ANSI C signal handling
 .SH SYNOPSIS
@@ -134,7 +135,7 @@ is set to
 See
 .BR signal (7)
 for a list of the async-signal-safe functions that can be
-safely called inside from inside a signal handler.
+safely called from inside a signal handler.
 .PP
 The use of
 .I sighandler_t
@@ -147,37 +148,112 @@ and, when
 .B _GNU_SOURCE
 is defined, also
 .IR sighandler_t .
-.SS Portability
-The original Unix
+Without use of such a type, the declaration of
 .BR signal ()
-would reset the handler to
-.BR SIG_DFL ,
-and System V
-(and the Linux kernel and libc4,5) does the same.
-On the other hand, BSD does not reset the handler, but blocks
-new instances of this signal from occurring during a call of the handler.
-The glibc2 library follows the BSD behavior.
+is the somewhat harder to read:
+.in +4n
+.nf
 
+.BI "void ( *" signal "(int " signum ", void (*" handler ")(int)) ) (int);"
+.fi
+.in
+.SS Portability
+The only portable use of
+.BR signal ()
+is to set a signal's disposition to
+.BR SIG_DFL
+or
+.BR SIG_IGN .
+The semantics when using
+.BR signal ()
+to establish a signal handler vary across systems
+(and POSIX.1 explicitly permits this variation);
+.B do not use it for this purpose.
+
+POSIX.1 solved the portability mess by specifying
+.BR sigaction (2),
+which provides explicit control of the semantics when a
+signal handler is invoked; use that interface instead of
+.BR signal ().
+
+In the original Unix systems, when a handler that was established using
+.BR signal ()
+was invoked by the delivery of a signal,
+the disposition of the signal would be reset to
+.BR SIG_DFL ,
+and the system did not block delivery of further instances of the signal.
+System V also provides these semantics for
+.BR signal ().
+This was bad because the signal might be delivered again
+before the handler had a chance to reestablish itself.
+Furthermore, rapid deliveries of the same signal could
+result in recursive invocations of the handler.
+
+BSD improved on this situation by changing the semantics of
+signal handling
+(but, unfortunately, silently changed the semantics
+when establishing a handler with
+.BR signal ()).
+On BSD, when a signal handler is invoked,
+the signal disposition is not reset,
+and further instances of the signal are blocked from
+being delivered while the handler is executing.
+
+The situation on Linux is as follows:
+.IP * 2
+The kernel's
+.BR signal ()
+system call provides System V semantics.
+.IP *
+By default, in glibc 2 and later, the
+.BR signal ()
+wrapper function does not invoke the kernel system call.
+Instead, it calls
+.BR sigaction (2)
+using flags that supply BSD semantics.
+This default behavior is provided as long as the
+.B _BSD_SOURCE
+feature test macro is defined.
+By default,
+.B _BSD_SOURCE
+is defined;
+it is also implicitly defined if one defines
+.BR _GNU_SOURCE ,
+and can of course be explicitly defined.
+.sp
+On glibc 2 and later, if the
+.B _BSD_SOURCE
+feature test macro is not defined, then
+.BR signal ()
+provides System V semantics.
+(The default implicit definition of
+.B _BSD_SOURCE
+is not provided if one invokes
+.BR gcc (1)
+in one of its standard modes
+.RI ( -std=xxx " or " -ansi )
+or defines various other feature test macros such as
+.BR _POSIX_SOURCE ,
+.BR _XOPEN_SOURCE ,
+or
+.BR _SVID_SOURCE ;
+see
+.BR feature_test_macros (7).)
+.\" 
+.\" System V semantics are also provided if one uses the separate
+.\" .BR sysv_signal (3)
+.\" function.
+.IP *
+The
+.BR signal ()
+function in Linux libc4 and libc5 provide System V semantics.
 If one on a libc5 system includes
 .I <bsd/signal.h>
 instead of
-.I <signal.h>
+.IR <signal.h> ,
 then
 .BR signal ()
-is redefined as
-.BR __bsd_signal ()
-and
-.BR signal ()
-has the BSD semantics.
-This is not recommended.
-
-If one on a glibc2 system defines a feature test
-macro such as
-.B _XOPEN_SOURCE
-or uses a separate
-.BR sysv_signal (3)
-function, one obtains classical behavior.
-This is not recommended.
+provides BSD semantics.
 .SH "SEE ALSO"
 .BR kill (1),
 .BR alarm (2),

@@ -42,7 +42,7 @@
 .\" 2005-09-19, mtk, added /proc/zoneinfo
 .\" 2005-03-01, mtk, moved /proc/sys/fs/mqueue/* material to mq_overview.7.
 .\" 2008-06-05, mtk, Added /proc/PID/oom_score, /proc/PID/oom_adj,
-.\"     /proc/PID/limits, /proc/PID/mountinfo, /proc/PID/mounstats,
+.\"     /proc/PID/limits, /proc/PID/mountinfo, /proc/PID/mountstats,
 .\"     and /proc/PID/fdinfo/*.
 .\" 2008-06-19, mtk, Documented /proc/PID/status.
 .\" 2008-07-15, mtk, added /proc/config.gz
@@ -1109,7 +1109,7 @@ or
 .TP
 .IR /proc/config.gz " (since Linux 2.6)"
 This file exposes the configuration options that were used
-to build the curently running kernel,
+to build the currently running kernel,
 in the same format as they would be shown in the
 .I .config
 file that resulted when configuring the kernel (using
@@ -2355,17 +2355,43 @@ first.
 If non-zero, this disables the new 32-bit memory-mapping layout;
 the kernel will use the legacy (2.4) layout for all processes.
 .TP
+.IR /proc/sys/vm/oom_dump_tasks " (since Linux 2.6.25)"
+.\" The following is from Documentation/sysctl/vm.txt
+Enables a system-wide task dump (excluding kernel threads) to be
+produced when the kernel performs an OOM-killing.
+The dump includes the following information
+for each task (thread, process):
+thread ID, real user ID, thread group ID (process ID),
+virtual memory size, resident set size,
+the CPU that the task is scheduled on,
+oom_adj score (see the description of
+.IR /proc/[number]/oom_adj ),
+and command name.
+This is helpful to determine why the OOM-killer was invoked
+and to identify the rogue task that caused it.
+
+If this contains the value zero, this information is suppressed.
+On very large systems with thousands of tasks,
+it may not be feasible to dump the memory state information for each one.
+Such systems should not be forced to incur a performance penalty in
+OOM situations when the information may not be desired.
+
+If this is set to non-zero, this information is shown whenever the
+OOM-killer actually kills a memory-hogging task.
+
+The default value is 0.
+.TP
 .IR /proc/sys/vm/oom_kill_allocating_task " (since Linux 2.6.24)"
 .\" The following is from Documentation/sysctl/vm.txt
 This enables or disables killing the OOM-triggering task in
 out-of-memory situations.
 
-If this is set to zero, the OOM killer will scan through the entire
+If this is set to zero, the OOM-killer will scan through the entire
 tasklist and select a task based on heuristics to kill.
 This normally selects a rogue memory-hogging task that
 frees up a large amount of memory when killed.
 
-If this is set to non-zero, the OOM killer simply kills the task that
+If this is set to non-zero, the OOM-killer simply kills the task that
 triggered the out-of-memory condition.
 This avoids a possibly expensive tasklist scan.
 
@@ -2405,6 +2431,38 @@ is the size of the physical memory, and r is the contents of the file
 .I /proc/sys/vm/overcommit_ratio
 See the description of
 .IR /proc/sys/vm/overcommit_memory .
+.TP
+.IR /proc/sys/vm/panic_on_oom " (since Linux 2.6.18)"
+.\" The following is adapted from Documentation/sysctl/vm.txt
+This enables or disables a kernel panic in
+an out-of-memory situation.
+
+If this file is set to the value 0,
+the kernel's OOM-killer will kill some rogue process.
+Usually, the OOM-killer is able to kill a rogue process and the
+system will survive.
+
+If this file is set to the value 1,
+then the kernel normally panics when out-of-memory happens.
+However, if a process limits allocations to certain nodes
+using memory policies
+.RB ( mbind  (2)
+.BR MPOL_BIND )
+or cpusets
+.RB ( cpuset (7))
+and those nodes reach memory exhaustion status,
+one process may be killed by the OOM-killer.
+No panic occurs in this case:
+because other nodes' memory may be free, 
+this means the system as a whole may not have reached
+an out-of-memory situation yet.
+
+If this file is set to the value 2,
+the kernel always panics when an out-of-memory condition occurs.
+
+The default value is 0.
+1 and 2 are for failover of clustering.
+Select either according to your policy of failover.
 .TP
 .I /proc/sysvipc
 Subdirectory containing the pseudo-files

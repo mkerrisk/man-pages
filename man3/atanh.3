@@ -1,4 +1,6 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,7 +30,7 @@
 .\" Modified 2002-07-27 by Walter Harms
 .\" 	(walter.harms@informatik.uni-oldenburg.de)
 .\"
-.TH ATANH 3  2007-07-26 "" "Linux Programmer's Manual"
+.TH ATANH 3  2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
 atanh, atanhf, atanhl \- inverse hyperbolic tangent function
 .SH SYNOPSIS
@@ -50,10 +52,13 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR atanh (),
+.BR atanh ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR atanhf (),
 .BR atanhl ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .ad b
 .SH DESCRIPTION
@@ -61,21 +66,79 @@ The
 .BR atanh ()
 function calculates the inverse hyperbolic tangent of
 \fIx\fP; that is the value whose hyperbolic tangent is \fIx\fP.
-If the absolute value of \fIx\fP is greater than 1.0,
-.BR atanh ()
-returns
-not-a-number (NaN) and \fIerrno\fP is set.
+.SH "RETURN VALUE"
+On success, these functions return the inverse hyperbolic tangent of
+.IR x .
+
+If
+.I x
+is a NaN, a NaN is returned.
+
+If
+.I x
+is +0 (\-0), +0 (\-0) is returned.
+
+If
+.I x
+is +1 or \-1,
+a "pole error" occurs,
+and the functions return
+.BR HUGE_VAL ,
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+respectively, with the mathematically correct sign.
+
+If the absolute value of
+.I x
+is greater than 1,
+a "domain error" occurs,
+and a NaN is returned.
+.\"
+.\" POSIX.1-2001 documents an optional range error for subnormal x;
+.\" glibc 2.8 does not do this.
 .SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
 .TP
-.B EDOM
-\fIx\fP is out of range.
+Domain error: \fIx\fP less than \-1 or greater than +1
+.I errno
+is set to
+.BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.TP
+Pole error: \fIx\fP is +1 or \-1
+.I errno
+is set to
+.BR ERANGE 
+(but see BUGS).
+.\" FIXME . glibc actually gives EDOM for this case
+A divide-by-zero floating-point exception
+.RB ( FE_DIVBYZERO )
+is raised.
 .SH "CONFORMING TO"
-SVr4, POSIX.1-2001, 4.3BSD, C89.
-The
-.I float
-and
-.I "long double"
-variants are C99 requirements.
+C99, POSIX.1-2001.
+The variant returning
+.I double
+also conforms to
+SVr4, 4.3BSD, C89.
+.SH BUGS
+For a pole error,
+.\" 
+.\" FIXME . this is as at glibc 2.8; check later if this bug is fixed
+.\" This can be seen in sysdeps/ieee754/k_standard.c
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6759
+.I errno
+is set to
+.BR EDOM ;
+POSIX.1 says it should be set to
+.BR ERANGE .
 .SH "SEE ALSO"
 .BR acosh (3),
 .BR asinh (3),

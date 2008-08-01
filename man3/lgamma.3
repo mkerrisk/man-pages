@@ -1,8 +1,10 @@
 .\" Copyright 2002 Walter Harms (walter.harms@informatik.uni-oldenburg.de)
 .\" Distributed under GPL
 .\" based on glibc infopages
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
-.TH LGAMMA 3 2007-07-26 "" "Linux Programmer's Manual"
+.TH LGAMMA 3 2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
 lgamma, lgammaf, lgammal, lgamma_r, lgammaf_r, lgammal_r, signgam \-
 log gamma function
@@ -33,10 +35,13 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR lgamma (),
+.BR lgamma ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR lgammaf (),
 .BR lgammal ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE || _ISOC99_SOURCE; or
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .br
 .BR lgamma_r (),
@@ -66,42 +71,81 @@ Since using a constant location
 is not thread-safe, the functions
 .BR lgamma_r ()
 etc. have
-been introduced; they return this sign via the argument
+been introduced; they return the sign via the argument
 .IR signp .
-.PP
-For non-positive integer values of \fIx\fP,
-.BR lgamma ()
-returns
+.SH RETURN VALUE
+On success, these functions return the natural logarithm of Gamma(x).
+
+If
+.I x
+is a NaN, a NaN is returned.
+
+If
+.I x
+is 1 or 2, +0 is returned.
+
+If
+.I x
+is positive infinity or negative infinity,
+positive infinity is returned.
+
+If
+.I x
+is a non-positive integer,
+a "pole error" occurs,
+and the functions return
+.RB + HUGE_VAL ,
+.RB + HUGE_VALF ,
+or
+.RB + HUGE_VALL ,
+respectively.
+
+If the result overflows,
+a "range error" occurs,
+.\" e.g., lgamma(DBL_MAX)
+and the functions return
 .BR HUGE_VAL ,
-sets \fIerrno\fP to
-.B ERANGE
-and raises the zero divide exception.
-(Similarly,
-.BR lgammaf ()
-returns
-.B HUGE_VALF
-and
-.BR lgammal ()
-returns
-.BR HUGE_VALL .)
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+respectively, with the correct mathematical sign.
 .SH ERRORS
-In order to check for errors, set
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Pole error: \fIx\fP is a non-positive integer
 .I errno
-to zero and call
-.I feclearexcept(FE_ALL_EXCEPT)
-before calling these functions.
-On return, if
+is set to
+.\" FIXME . glibc 2.8 gives EDOM!
+.BR ERANGE 
+(but see BUGS).
+A divide-by-zero floating-point exception
+.RB ( FE_DIVBYZERO )
+is raised.
+.TP
+Range error: result overflow
 .I errno
-is non-zero or
-.I fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW)
-is non-zero, an error has occurred.
-.LP
-A range error occurs if
-.I x
-is too large.
-A pole error occurs if
-.I x
-is a negative integer or zero.
+is set to
+.BR ERANGE .
+An overflow floating-point exception
+.RB ( FE_OVERFLOW )
+is raised.
+.\" glibc (as at 2.8) also supports an inexact
+.\" exception for various cases.
+.SH BUGS
+For a pole error,
+.\" 
+.\" FIXME . this is as at glibc 2.8; check later if this bug is fixed
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6777
+.I errno
+is set to
+.BR EDOM ;
+POSIX.1 says it should be set to
+.BR ERANGE .
 .SH "CONFORMING TO"
 The
 .BR lgamma ()

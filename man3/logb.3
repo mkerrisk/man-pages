@@ -1,4 +1,6 @@
 .\" Copyright 2004 Andries Brouwer <aeb@cwi.nl>.
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -22,9 +24,9 @@
 .\"
 .\" Inspired by a page by Walter Harms created 2002-08-10
 .\"
-.TH LOGB 3 2007-07-26 "" "Linux Programmer's Manual"
+.TH LOGB 3 2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
-logb, logbf, logbl \- get exponent of a floating point value
+logb, logbf, logbl \- get exponent of a floating-point value
 .SH SYNOPSIS
 .B #include <math.h>
 .sp
@@ -42,19 +44,28 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR logb (),
+.BR logb ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR logbf (),
 .BR logbl ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .ad b
 .SH DESCRIPTION
-These functions extract the exponent of
+These functions extract the exponent from the
+internal floating-point representation of
 .I x
 and return it as a floating-point value.
+The integer constant
+.BR FLT_RADIX ,
+defined in
+.IR <float.h> ,
+indicates the radix used for the system's floating-point representation.
 If
 .B FLT_RADIX
-is two,
+is 2,
 .BI logb( x )
 is equal to
 .BI floor(log2( x ))\fR,
@@ -62,56 +73,62 @@ except that it is probably faster.
 .LP
 If
 .I x
-is de-normalized,
+is subnormal,
 .BR logb ()
 returns the exponent
 .I x
 would have if it were normalized.
-.LP
+.SH RETURN VALUE
+On success, these functions return the exponent of
+.IR x .
+
 If
 .I x
-is zero, \-\fBHUGE_VAL\fP (resp. \-\fBHUGE_VALF\fP, \-\fBHUGE_VALL\fP)
-is returned, and a pole error occurs.
+is a NaN,
+a NaN is returned.
+
 If
 .I x
-is infinite, plus infinity is returned.
+is zero, then a "pole error" occurs, and the functions return
+.RB - HUGE_VAL ,
+.RB - HUGE_VALF ,
+or
+.RB - HUGE_VALL ,
+respectively.
+
 If
 .I x
-is NaN, NaN is returned.
-.\" .SH "RETURN VALUE"
-.\" These functions return the exponent part of their argument.
+is negative infinity or positive infinity, then
+positive infinity is returned.
 .SH ERRORS
-In order to check for errors, set
-.I errno
-to zero and call
-.I feclearexcept(FE_ALL_EXCEPT)
-before calling these functions.
-On return, if
-.I errno
-is non-zero or
-.I fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW)
-is non-zero, an error has occurred.
-.LP
-If an error occurs and
-.I "(math_errhandling & MATH_ERRNO)"
-is non-zero, then
-.I errno
-is set to
-.BR ERANGE .
-If an error occurs and
-.I "(math_errhandling & MATH_ERREXCEPT)"
-is non-zero, then the divide-by-zero floating-point exception is raised.
-.LP
-A pole error occurs when
-.I x
-is zero.
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Pole error: \fIx\fP is 0
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+A divide-by-zero floating-point exception
+.RB ( FE_DIVBYZERO )
+is raised.
+.PP
+These functions do not set
+.IR errno .
+.\" FIXME . Is it intentional that these functions do not set errno?
+.\" log(), log2(), log10() do set errno
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6793
+.\"
 .\" .SH HISTORY
 .\" The
 .\" .BR logb ()
 .\" function occurs in 4.3BSD.
 .\" see IEEE.3 in the 4.3BSD manual
 .SH "CONFORMING TO"
-C99.
+C99, POSIX.1-2001.
 .SH "SEE ALSO"
 .BR ilogb (3),
 .BR log (3)

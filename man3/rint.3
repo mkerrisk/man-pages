@@ -1,4 +1,6 @@
 .\" Copyright 2001 Andries Brouwer <aeb@cwi.nl>.
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -20,9 +22,10 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH RINT 3  2007-07-26 "" "Linux Programmer's Manual"
+.TH RINT 3  2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
-nearbyint, nearbyintf, nearbyintl, rint, rintf, rintl \- round to nearest integer
+nearbyint, nearbyintf, nearbyintl, rint, rintf, rintl \- round
+to nearest integer
 .SH SYNOPSIS
 .nf
 .B #include <math.h>
@@ -54,17 +57,22 @@ Feature Test Macro Requirements for glibc (see
 _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .br
-.BR rint (),
+.BR rint ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR rintf (),
 .BR rintl ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .ad b
 .SH DESCRIPTION
 The
 .BR nearbyint ()
-functions round their argument to an integer value in floating point
-format, using the current rounding direction and without raising the
+functions round their argument to an integer value in floating-point
+format, using the current rounding direction (see
+.BR fesetround (3))
+and without raising the
 .I inexact
 exception.
 .LP
@@ -72,36 +80,41 @@ The
 .BR rint ()
 functions do the same, but will raise the
 .I inexact
-exception when the result differs in value from the argument.
+exception
+.RB ( FE_INEXACT ,
+checkable via
+.BR fetestexcept (3))
+when the result differs in value from the argument.
 .SH "RETURN VALUE"
-The rounded integer value.
-If \fIx\fP is integral or infinite,
+These functions return the rounded integer value.
+
+If \fIx\fP is integral, +0, \-0, NaN, or infinite,
 \fIx\fP itself is returned.
 .SH ERRORS
-No errors other than
-.B EDOM
-and
-.B ERANGE
-can occur.
-If \fIx\fP is NaN, then NaN is returned and
-.I errno
-may be set to
-.BR EDOM .
+No errors occur.
+POSIX.1-2001 documents a "range error" for overflows, but see NOTES.
 .SH "CONFORMING TO"
-C99.
+C99, POSIX.1-2001.
 .SH NOTES
 SUSv2 and POSIX.1-2001 contain text about overflow (which might set
 .I errno
 to
 .BR ERANGE ,
-or raise an exception).
+or raise an
+.B FE_OVERFLOW
+exception).
 In practice, the result cannot overflow on any current machine,
 so this error-handling stuff is just nonsense.
 (More precisely, overflow can happen only when the maximum value
 of the exponent is smaller than the number of mantissa bits.
-For the IEEE-754 standard 32-bit and 64-bit floating point numbers
-the maximum value of the exponent is 128 (respectively, 1024), and the number
-of mantissa bits is 24 (respectively, 53).)
+For the IEEE-754 standard 32-bit and 64-bit floating-point numbers
+the maximum value of the exponent is 128 (respectively, 1024),
+and the number of mantissa bits is 24 (respectively, 53).)
+
+If you want to store the rounded value in an integer type,
+you probably want to use one of the functions described in
+.BR lrint (3)
+instead.
 .SH "SEE ALSO"
 .BR ceil (3),
 .BR floor (3),

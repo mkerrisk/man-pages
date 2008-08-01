@@ -1,4 +1,6 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -30,7 +32,7 @@
 .\"	(walter.harms@informatik.uni-oldenburg.de)
 .\" Modified 2003-11-18, 2004-10-05 aeb
 .\"
-.TH REMAINDER 3  2008-06-16 "" "Linux Programmer's Manual"
+.TH REMAINDER 3  2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
 drem, dremf, dreml, remainder, remainderf, remainderl \- \
 floating-point remainder function
@@ -57,10 +59,13 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR remainder (),
+.BR remainder ():
+_SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR remainderf (),
 .BR remainderl ():
-_SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+_SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .br
 .BR drem (),
@@ -76,42 +81,93 @@ function computes the remainder of dividing
 by
 .IR y .
 The return value is
-.IR "x\ \-\ n\ *\ y" ,
+\fIx\fP\-\fIn\fP*\fIy\fP,
 where
 .I n
 is the value
 .IR "x\ /\ y" ,
 rounded to the nearest integer.
-If this quotient is 1/2 (mod 1), it is rounded to the nearest even number
-(independent of the current rounding mode).
-If the return value is 0, it has the sign of
-.IR x .
+If the absolute value of 
+\fIx\fP\-\fIn\fP*\fIy\fP
+is 0.5,
+.I n
+is chosen to be even.
+
+These functions are unaffected by the current rounding mode.
 .LP
 The
 .BR drem ()
 function does precisely the same thing.
 .SH "RETURN VALUE"
-The
-.BR remainder ()
-function returns the remainder, unless
+On success, these
+functions return the floating-point remainder,
+\fIx\fP\-\fIn\fP*\fIy\fP.
+If the return value is 0, it has the sign of
+.IR x .
+
+If
+.I x
+or
 .I y
-is zero, when the function fails and
-.I errno
-is set.
+is a NaN, a NaN is returned.
+
+If
+.I x
+is an infinity, 
+and
+.I y
+is not a NaN,
+a "domain error" occurs, and
+a NaN is returned.
+
+If
+.I y
+is zero,
+.\" FIXME . Instead, glibc gives a domain error even if x is a NaN
+and
+.I x
+is not a NaN,
+.\" Interestingly, remquo(3) does not have the same problem.
+a "domain error" occurs, and
+a NaN is returned.
 .SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
 .TP
-.B EDOM
-The denominator
-.I y
-is zero.
+Domain error: \fIx\fP is an infinity and \fIy\fP is not a NaN
+.\" .I errno
+.\" is set to
+.\" .BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.IP
+These functions do not set
+.IR errno
+for this case.
+.\" FIXME . Is it intentional that these functions do not set errno?
+.\" They do set errno for the y == 0 case, below.
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6783
+.TP
+Domain error: \fIy\fP is zero\" [XXX see bug above] and \fIx\fP is not a NaN
+.I errno
+is set to
+.BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
 .SH "CONFORMING TO"
-IEC 60559.
+.\" IEC 60559.
 The functions
 .BR remainder (),
 .BR remainderf (),
 and
 .BR remainderl ()
-are from C99.
+are specified in C99 and POSIX.1-2001.
 
 The function
 .BR drem ()
@@ -130,6 +186,15 @@ Avoid the use of these functions in favor of
 etc.
 .SH EXAMPLE
 The call "remainder(29.0, 3.0)" returns \-1.
+.SH BUGS
+The call
+
+    remainder(nan(""), 0);
+
+returns a NaN, as expected, but wrongly causes a domain error;
+it should yield a silent NaN.
+.\" FIXME . this bug occurs as at glibc 2.8.
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6779
 .SH "SEE ALSO"
 .BR fmod (3),
 .BR remquo (3)

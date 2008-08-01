@@ -1,10 +1,12 @@
 .\" Copyright 2002 Walter Harms (walter.harms@informatik.uni-oldenburg.de)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\" Distributed under GPL
 .\" Based on glibc infopages
-.TH NEXTAFTER 3 2007-07-26 "GNU" "Linux Programmer's Manual"
+.TH NEXTAFTER 3 2008-07-29 "GNU" "Linux Programmer's Manual"
 .SH NAME
 nextafter, nextafterf, nextafterl, nexttoward, nexttowardf, nexttowardl \-
-floating point number manipulation
+floating-point number manipulation
 .SH SYNOPSIS
 .B #include <math.h>
 .sp
@@ -28,27 +30,37 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-All functions shown above:
+.BR nextafter ():
 _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
+.BR nextafterf (),
+.BR nextafterl ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
+.BR nexttoward (),
+.BR nexttowardf (),
+.BR nexttowardl ():
+_XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE;
 .I cc\ -std=c99
 .ad b
 .SH DESCRIPTION
 The
 .BR nextafter ()
-functions return the next representable neighbor of
-\fIx\fP in the direction towards \fIy\fP.
-The size of the step
-between \fIx\fP and the result depends on the type of the result.
-If \fIx\fP = \fIy\fP the function simply returns \fIy\fP.
-If either value is
-.IR NaN ,
-then
-.I NaN
-is returned.
-Otherwise a value corresponding to the value of the
-least significant bit in the mantissa is added or subtracted,
-depending on the direction.
-.PP
+functions return the next representable floating-point value following
+.I x
+in the direction of
+.IR y .
+If
+.I y
+is less than
+.IR x ,
+these functions will return the next representable number less than
+.IR y .
+
+If \fIx\fP equals \fIy\fP, the functions return \fIy\fP.
+
 The
 .BR nexttoward ()
 functions do the same as the
@@ -56,11 +68,83 @@ functions do the same as the
 functions, except that they have a
 .I "long double"
 second argument.
+.SH RETURN VALUE
+On success,
+these functions return the next representable floating-point value after
+.I x
+in the direction of
+.IR y .
+
+If
+.I x
+equals
+.IR y ,
+then
+.I y
+(cast to the same type as
+.IR x )
+is returned.
+
+If
+.I x
+or
+.I y
+is a NaN,
+a NaN is returned.
+
+If
+.I x
+is finite,
+.\" e.g., DBL_MAX
+and the result would overflow,
+a "range error" occurs,
+and the functions return
+.BR HUGE_VAL ,
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+respectively, with the correct mathematical sign.
+
+If
+.I x
+is not equal to
+.IR y ,
+and the correct function result would be subnormal, zero, or underflow,
+a "range error" occurs,
+and either the correct value (if it can be represented),
+or 0.0, is returned.
+.SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
 .PP
-These functions will signal overflow or underflow if the result
-goes outside of the range of normalized numbers.
+The following errors can occur:
+.TP
+Range error: result overflow
+.\" e.g., nextafter(DBL_MAX, HUGE_VAL);
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+An overflow floating-point exception
+.RB ( FE_OVERFLOW )
+is raised.
+.TP
+Range error: result is subnormal or underflows
+.\" e.g., nextafter(DBL_MIN, 0.0);
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+An underflow floating-point exception
+.RB ( FE_UNDERFLOW )
+is raised.
+.PP
+These functions do not set
+.IR errno .
+.\" FIXME . Is it intentional that these functions do not set errno?
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6799
 .SH "CONFORMING TO"
-C99.
+C99, POSIX.1-2001.
 This function is defined in IEC 559 (and the appendix with
 recommended functions in IEEE 754/IEEE 854).
 .SH "SEE ALSO"

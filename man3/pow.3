@@ -1,4 +1,6 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,7 +30,7 @@
 .\" Modified 1995-08-14 by Arnt Gulbrandsen <agulbra@troll.no>
 .\" Modified 2002-07-27 by Walter Harms
 .\" 	(walter.harms@informatik.uni-oldenburg.de)
-.TH POW 3  2008-07-12 "" "Linux Programmer's Manual"
+.TH POW 3  2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
 pow, powf, powl \- power functions
 .SH SYNOPSIS
@@ -43,23 +45,281 @@ pow, powf, powl \- power functions
 .fi
 .sp
 Link with \fI\-lm\fP.
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.ad l
+.BR powf (),
+.BR powl ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.ad b
 .SH DESCRIPTION
 The
 .BR pow ()
 function returns the value of \fIx\fP raised to the
 power of \fIy\fP.
-.SH ERRORS
-.TP
-.B EDOM
-The argument \fIx\fP is negative and \fIy\fP is not an integral value.
-This would result in a complex number.
-.SH "CONFORMING TO"
-SVr4, 4.3BSD, C89.
-The
-.I float
+.SH RETURN VALUE
+On success, these functions return the value of
+.I x
+to the power of
+.IR y .
+
+If
+.I x
+is a finite value less than 0, and
+.I y
+is a finite non-integer, a "domain error" occurs,
+.\" The "domain error" is generated at least as far back as glibc 2.4
+and a NaN is returned.
+
+If the result overflows,
+a "range error" occurs,
+.\" The "range error" is generated at least as far back as glibc 2.4
+and the functions return
+.BR HUGE_VAL ,
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+respectively, with the mathematically correct sign.
+
+If result underflows, and is not representable,
+a "range error" occurs,
+and 0.0 is returned.
+.\" POSIX.1 does not specify the sign of the zero,
+.\" but http://sources.redhat.com/bugzilla/show_bug.cgi?id=2678
+.\" points out that the zero has the wrong sign in some cases.
+
+Except as specified below, if
+.I x
+or
+.I y
+is a NaN, the result is a NaN.
+
+If
+.I x
+is +1, the result is 1.0 (even if
+.I y
+is a NaN).
+
+If
+.I y
+is 0, the result is 1.0 (even if
+.I x
+is a NaN).
+
+If
+.I x
+is +0 (\-0),
 and
-.I "long double"
-variants are C99 requirements.
+.I y
+is an odd integer greater than 0,
+the result is +0 (\-0).
+
+If
+.I x
+is 0,
+and
+.I y
+greater than 0 and not an odd integer,
+the result is +0.
+
+If
+.I x
+is \-1,
+and
+.I y
+is positive infinity or negative infinity,
+the result is 1.0.
+
+If the absolute value of
+.I x
+is less than 1,
+and
+.I y
+is negative infinity,
+the result is positive infinity.
+
+If the absolute value of
+.I x
+is greater than 1,
+and
+.I y
+is negative infinity,
+the result is +0.
+
+If the absolute value of
+.I x
+is less than 1,
+and
+.I y
+is positive infinity,
+the result is +0.
+
+If the absolute value of
+.I x
+is greater than 1,
+and
+.I y
+is positive infinity,
+the result is positive infinity.
+
+If
+.I x
+is negative infinity,
+and
+.I y
+is an odd integer less than 0,
+the result is \-0.
+
+If
+.I x
+is negative infinity,
+and
+.I y
+less than 0 and not an odd integer,
+the result is +0.
+
+If
+.I x
+is negative infinity,
+and
+.I y
+is an odd integer greater than 0,
+the result is negative infinity.
+
+If
+.I x
+is negative infinity,
+and
+.I y
+greater than 0 and not an odd integer,
+the result is positive infinity.
+
+If
+.I x
+is positive infinity,
+and
+.I y
+less than 0,
+the result is +0.
+
+If
+.I x
+is positive infinity,
+and
+.I y
+greater than 0,
+the result is positive infinity.
+
+If
+.I x
+is +0 or -0,
+and
+.I y
+is an odd integer less than 0,
+a "pole error" occurs and
+.BR HUGE_VAL ,
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+is returned,
+with the same sign as
+.IR x .
+
+If
+.I x
+is +0 or -0,
+and
+.I y
+is less than 0 and not an odd integer,
+a "pole error" occurs and
+.\" The "pole error" is generated at least as far back as glibc 2.4
+.RB + HUGE_VAL ,
+.RB + HUGE_VALF ,
+or
+.RB + HUGE_VALL ,
+is returned.
+.SH ERRORS
+.\" FIXME . review status of this error
+.\" longstanding bug report for glibc:
+.\" http://sources.redhat.com/bugzilla/show_bug.cgi?id=369
+.\" For negative x, and -large and +large y, glibc 2.8 gives incorrect
+.\" results
+.\" pow(-0.5,-DBL_MAX)=nan
+.\" EDOM FE_INVALID nan; fail-errno fail-except fail-result;
+.\" FAIL (expected: range-error-overflow (ERANGE, FE_OVERFLOW); +INF)
+.\" 
+.\" pow(-1.5,-DBL_MAX)=nan
+.\" EDOM FE_INVALID nan; fail-errno fail-except fail-result;
+.\" FAIL (expected: range-error-underflow (ERANGE, FE_UNDERFLOW); +0)
+.\" 
+.\" pow(-0.5,DBL_MAX)=nan
+.\" EDOM FE_INVALID nan; fail-errno fail-except fail-result;
+.\" FAIL (expected: range-error-underflow (ERANGE, FE_UNDERFLOW); +0)
+.\" 
+.\" pow(-1.5,DBL_MAX)=nan
+.\" EDOM FE_INVALID nan; fail-errno fail-except fail-result;
+.\" FAIL (expected: range-error-overflow (ERANGE, FE_OVERFLOW); +INF)
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Domain error: \fIx\fP is negative, and \fIy\fP is a finite non-integer
+.I errno
+is set to
+.BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.TP
+Pole error: \fIx\fP is zero, and \fIy\fP is negative
+.I errno
+is set to
+.BR ERANGE 
+(but see BUGS).
+.\" FIXME . glibc 2.8 gives EDOM
+A divide-by-zero floating-point exception
+.RB ( FE_DIVBYZERO )
+is raised.
+.TP
+Range error: the result overflows
+.I errno
+is set to
+.BR ERANGE .
+An overflow floating-point exception
+.RB ( FE_OVERFLOW )
+is raised.
+.TP
+Range error: the result underflows
+.I errno
+is set to
+.BR ERANGE .
+An underflow floating-point exception
+.RB ( FE_UNDERFLOW )
+is raised.
+.SH "CONFORMING TO"
+C99, POSIX.1-2001.
+The variant returning
+.I double
+also conforms to
+SVr4, 4.3BSD, C89.
+.SH BUGS
+For a pole error,
+.\" 
+.\" FIXME . this is as at glibc 2.8; check later if this bug is fixed
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6776
+.I errno
+is set to
+.BR EDOM ;
+POSIX.1 says it should be set to
+.BR ERANGE .
 .SH "SEE ALSO"
 .BR cbrt (3),
 .BR cpow (3),

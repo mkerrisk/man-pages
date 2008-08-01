@@ -1,4 +1,6 @@
 .\" Copyright 2004 Andries Brouwer <aeb@cwi.nl>.
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -20,10 +22,10 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH SCALB 3 2007-07-26 "" "Linux Programmer's Manual"
+.TH SCALB 3 2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
-scalb, scalbf, scalbl, scalbn, scalbnf, scalbnl, scalbln, scalblnf, scalblnl \-
-multiply floating-point number by integral power of radix
+scalb, scalbf, scalbl \- multiply floating-point number
+by integral power of radix (OBSOLETE)
 .SH SYNOPSIS
 .B #include <math.h>
 .sp
@@ -33,18 +35,6 @@ multiply floating-point number by integral power of radix
 .br
 .BI "long double scalbl(long double " x ", double " exp );
 .sp
-.BI "double scalbn(double " x ", int " exp );
-.br
-.BI "float scalbnf(float " x ", int " exp );
-.br
-.BI "long double scalbnl(long double " x ", int " exp );
-.sp
-.BI "double scalbln(double " x ", long int " exp );
-.br
-.BI "float scalblnf(float " x ", long int " exp );
-.br
-.BI "long double scalblnl(long double " x ", long int " exp );
-.sp
 Link with \fI\-lm\fP.
 .sp
 .in -4n
@@ -53,56 +43,141 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR scalb (),
-.BR scalbf (),
-.BR scalbl ():
+.BR scalb ():
 _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500
 .br
-.BR scalbn (),
-.BR scalbnf (),
-.BR scalbnl ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
-.I cc\ -std=c99
-.br
-.BR scalbln (),
-.BR scalblnf (),
-.BR scalblnl ():
-_XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
-.I cc\ -std=c99
+.BR scalbf (),
+.BR scalbl ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600
 .ad b
 .SH DESCRIPTION
 These functions multiply their first argument
 .I x
 by
 .B FLT_RADIX
-(probably 2) to the power
-.IR exp .
+(probably 2)
+to the power of
+.IR exp ,
+that is:
+.nf
 
-If
-.B FLT_RADIX
-equals 2, then
-.BR scalbn ()
-is equivalent to
-.BR ldexp (3).
+    x * FLT_RADIX ** exp
+.fi
 
-The value of
+The definition of
 .B FLT_RADIX
-is found in
+can be obtained by including
 .IR <float.h> .
 .\" not in /usr/include but in a gcc lib
+.SH RETURN VALUE
+On success, these functions return \fIx\fP * \fBFLT_RADIX\fP ** \fIexp\fP.
+
+If
+.I x
+or
+.I exp
+is a NaN, a NaN is returned.
+
+If
+.I x
+is positive infinity (negative infinity),
+and
+.I exp
+is not negative infinity,
+positive infinity (negative infinity) is returned.
+
+If
+.I x
+is +0 (\-0), and
+.I exp
+is not positive infinity, +0 (\-0) is returned.
+
+If
+.I x
+is zero, and
+.I exp
+is positive infinity,
+a "domain error" occurs, and
+a NaN is returned.
+
+If
+.I x
+is an infinity,
+and
+.I exp
+is negative infinity, 
+a "domain error" occurs, and
+a NaN is returned.
+
+If the result overflows,
+a "range error" occurs,
+and the functions return
+.BR HUGE_VAL ,
+.BR HUGE_VALF ,
+or
+.BR HUGE_VALL ,
+respectively, with a sign the same as
+.IR x .
+
+If the result underflows,
+a "range error" occurs,
+and the functions return zero, with a sign the same as
+.IR x .
+.SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Domain error: \fIx\fP is 0, and \fIexp\fP is positive infinity, \
+or \fIx\fP is positive infinity and \fIexp\fP is negative infinity
+and the other argument is not a NaN
+.\" .I errno
+.\" is set to
+.\" .BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.TP
+Range error, overflow
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+An overflow floating-point exception
+.RB ( FE_OVERFLOW )
+is raised.
+.TP
+Range error, underflow
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+An underflow floating-point exception
+.RB ( FE_UNDERFLOW )
+is raised.
+.PP
+These functions do not set
+.IR errno .
+.\" FIXME . Is it intentional that these functions do not set errno?
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6803
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6804
 .SH "CONFORMING TO"
+.BR scalb ()
+is specified in POSIX.1-2001, but marked obsolescent.
+.\" FIXME . Mar 08: The next POSIX.1 revision removes scalb().
 The
 .BR scalb ()
 function is from 4.3BSD.
-The
-.BR scalbn ()
+
+.BR scalbf ()
 and
-.BR scalbln ()
-functions are from C99.
-All three are in POSIX.1-2001.
-The
-.BR scalb ()
-function is marked obsolescent.
-.\" FIXME . Mar 08: The next POSIX.1 revision removes scalb().
+.BR scalbl ()
+are unstandardized;
+.BR scalbf ()
+is nevertheless present on several other systems
+.\" Looking at header files: scalbf() is present on the
+.\" BSDs, Tru64, HP-UX 11, Irix 6.5; scalbl() is on HP-UX 11 and Tru64.
 .SH "SEE ALSO"
-.BR ldexp (3)
+.BR ldexp (3),
+.BR scalbln (3)

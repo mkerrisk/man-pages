@@ -1,4 +1,6 @@
 .\" Copyright 2004 Andries Brouwer <aeb@cwi.nl>.
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -22,9 +24,9 @@
 .\"
 .\" Inspired by a page by Walter Harms created 2002-08-10
 .\"
-.TH ILOGB 3 2004-10-31 "" "Linux Programmer's Manual"
+.TH ILOGB 3 2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
-ilogb, ilogbf, ilogbl \- get integer exponent of a floating point value
+ilogb, ilogbf, ilogbl \- get integer exponent of a floating-point value
 .SH SYNOPSIS
 .B #include <math.h>
 .sp
@@ -35,6 +37,22 @@ ilogb, ilogbf, ilogbl \- get integer exponent of a floating point value
 .BI "int ilogbl(long double " x );
 .sp
 Link with \fI\-lm\fP.
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.ad l
+.BR ilogb ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
+.BR ilogbf (),
+.BR ilogbl ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.ad b
 .SH DESCRIPTION
 These functions return the exponent part of their argument
 as a signed integer.
@@ -42,61 +60,77 @@ When no error occurs, these functions
 are equivalent to the corresponding
 .BR logb (3)
 functions, cast to
-.IR (int) .
-An error will occur for zero and infinity and NaN,
-and possibly for overflow.
-.\" .SH "RETURN VALUE"
-.\" These functions return the exponent part of their argument
-.\" as a signed integer.
-.SH ERRORS
-In order to check for errors, set
-.I errno
-to zero and call
-.I feclearexcept(FE_ALL_EXCEPT)
-before calling these functions.
-On return, if
-.I errno
-is non-zero or
-.I fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW)
-is non-zero, an error has occurred.
-.LP
-If an error occurs and
-.I "(math_errhandling & MATH_ERRNO)"
-is non-zero, then
-.I errno
-is set to
-.BR EDOM .
-If an error occurs and
-.I "(math_errhandling & MATH_ERREXCEPT)"
-is non-zero, then the invalid floating-point exception is raised.
-.LP
-A domain error occurs when
-.I x
-is zero or infinite (or too large, or too small) or NaN.
+.IR int .
+.SH RETURN VALUE
+On success, these functions return the exponent of
+.IR x ,
+as a signed integer.
+
 If
 .I x
-is zero, the constant
-.B FP_ILOGB0
-is returned.
+is zero, then a "domain error" occurs, and the functions return
+.\" the POSIX.1 spec for logb() says logb() gives "pole error" for this
+.\" case, but for ilogb() it says "domain error".
+.BR FP_ILOGB0 .
 .\" glibc: The numeric value is either `INT_MIN' or `-INT_MAX'.
+
 If
 .I x
-is NaN, the constant
-.B FP_ILOGBNAN
-is returned.
+is a NaN, then a "domain error" occurs, and the functions return
+.BR FP_ILOGBNAN .
 .\" glibc: The numeric value is either `INT_MIN' or `INT_MAX'.
+.\" On i386, FP_ILOGB0 and FP_ILOGBNAN have the same value.
+
 If
 .I x
-is infinite (or too large),
-.B INT_MAX
-is returned.
-If
-.I x
-is too small,
-.B INT_MIN
-is returned.
+is negative infinity or positive infinity, then
+a "domain error" occurs, and the functions return
+.BR INT_MAX .
+.\"
+.\" POSIX.1-2001 also says:
+.\" If  the correct value is greater than {INT_MAX}, {INT_MAX}
+.\" shall be returned and a domain error shall occur.
+.\"
+.\" If the correct value is less than {INT_MIN}, {INT_MIN}
+.\" shall be returned and  a  domain  error  shall occur.
+.SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Domain error: \fIx\fP is 0 or a NaN
+.\" .I errno
+.\" is set to
+.\" .BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.IP
+These functions do not set
+.IR errno
+for this case.
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6794
+.TP
+Domain error: \fIx\fP is an infinity
+.\" .I errno
+.\" is set to
+.\" .BR EDOM .
+.\" An invalid floating-point exception
+.\" .RB ( FE_INVALID )
+.\" is raised.
+.IP
+These functions do not set
+.IR errno
+or raise an exception for this case.
+.\" FIXME . Is it intentional that these functions do not set errno,
+.\" or raise an exception?
+.\" log(), log2(), log10() do set errno
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6794
 .SH "CONFORMING TO"
-C99.
+C99, POSIX.1-2001.
 .SH "SEE ALSO"
 .BR log (3),
 .BR logb (3)

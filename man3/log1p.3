@@ -1,4 +1,6 @@
 .\" Copyright 1995 Jim Van Zandt <jrv@vanzandt.mv.com>
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -22,7 +24,7 @@
 .\"
 .\" Modified 2002-07-27 by Walter Harms
 .\" 	(walter.harms@informatik.uni-oldenburg.de)
-.TH LOG1P 3   2007-07-26 "" "Linux Programmer's Manual"
+.TH LOG1P 3   2008-07-29 "" "Linux Programmer's Manual"
 .SH NAME
 log1p, log1pf, log1pl \-  logarithm of 1 plus argument
 .SH SYNOPSIS
@@ -44,10 +46,13 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .ad l
-.BR log1p (),
+.BR log1p ():
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+.I cc\ -std=c99
+.br
 .BR log1pf (),
 .BR log1pl ():
-_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 || _ISOC99_SOURCE; or
+_BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 600 || _ISOC99_SOURCE; or
 .I cc\ -std=c99
 .ad b
 .SH DESCRIPTION
@@ -60,13 +65,68 @@ returns a value equivalent to
 .fi
 It is computed in a way
 that is accurate even if the value of \fIx\fP is near zero.
+.SH RETURN VALUE
+On success, these functions return the natural logarithm of
+.IR "(1\ +\ x)" .
+
+If
+.I x
+is a NaN,
+a NaN is returned.
+
+If
+.I x
+is positive infinity, positive infinity is returned.
+
+If
+.I x
+is \-1, a "pole error" occurs,
+and the functions return
+.RB - HUGE_VAL ,
+.RB - HUGE_VALF ,
+or
+.RB - HUGE_VALL ,
+respectively.
+
+If
+.I x
+is less than \-1 (including negative infinity),
+a "domain error" occurs,
+and a NaN (not a number) is returned.
+.\" POSIX.1 specifies a possible range error if x is subnormal
+.\" glibc 2.8 doesn't do this
+.SH ERRORS
+See
+.BR math_error (7)
+for information on how to determine whether an error has occurred
+when calling these functions.
+.PP
+The following errors can occur:
+.TP
+Domain error: \fIx\fP is less than \-1
+.\" .I errno
+.\" is set to
+.\" .BR EDOM .
+An invalid floating-point exception
+.RB ( FE_INVALID )
+is raised.
+.TP
+Pole error: \fIx\fP is \-1
+.\" .I errno
+.\" is set to
+.\" .BR ERANGE .
+A divide-by-zero floating-point exception
+.RB ( FE_DIVBYZERO )
+is raised.
+.PP
+These functions do not set
+.IR errno .
+.\" FIXME . Is it intentional that these functions do not set errno?
+.\" log(), log2(), log10() do set errno
+.\" Bug raised: http://sources.redhat.com/bugzilla/show_bug.cgi?id=6792
 .SH "CONFORMING TO"
-BSD, C99.
-The
-.I float
-and
-.I "long double"
-variants are C99 requirements.
+C99, POSIX.1-2001.
+.\" BSD
 .SH "SEE ALSO"
 .BR exp (3),
 .BR expm1 (3),

@@ -22,9 +22,8 @@
 .\"
 .\" 2000-08-14 added GNU additions from Andreas Jaeger
 .\" 2000-12-05 some changes inspired by acahalan's remarks
-.\" FIXME add text on FLT_ROUNDS to this page?
 .\"
-.TH FENV 3  2008-08-05 "Linux" "Linux Programmer's Manual"
+.TH FENV 3  2008-08-07 "Linux" "Linux Programmer's Manual"
 .SH NAME
 feclearexcept, fegetexceptflag, feraiseexcept, fesetexceptflag,
 fetestexcept, fegetenv, fegetround, feholdexcept, fesetround,
@@ -148,12 +147,21 @@ function returns a word in which the bits are set that were
 set in the argument
 .I excepts
 and for which the corresponding exception is currently set.
-.SS Rounding
+.SS Rounding mode
+The rounding  mode determines how the result of floating-point operation
+is treated when the result cannot be exactly represented in the signifcand.
+Various rounding modes may be provided:
+round to nearest (the default),
+round up (towards positive infinity),
+round down (towards negative infinity), and
+round towards zero.
+
 Each of the macros
-.BR FE_DOWNWARD ,
 .BR FE_TONEAREST ,
-.BR FE_TOWARDZERO ,
-.B FE_UPWARD
+.BR FE_UPWARD ,
+.BR FE_DOWNWARD ,
+and
+.BR FE_TOWARDZERO
 is defined when the implementation supports getting and setting
 the corresponding rounding direction.
 .LP
@@ -166,6 +174,32 @@ The
 .BR fesetround ()
 function sets the rounding mode as specified by its argument
 and returns zero when it was successful.
+
+C99 and POSIX.1-2008 specify an identifier,
+.BR FLT_ROUNDS ,
+defined in
+.IR <float.h> ,
+which indicates the implementation-defined rounding
+behavior for floating-point addition.
+This identifier has one of the following values:
+.IP \-1
+The rounding mode is not determinable.
+.IP 0
+Rounding is towards 0.
+.IP 1
+Rounding is towards nearest number.
+.IP 2
+Rounding is towards positive infinity.
+.IP 3
+Rounding is towards negative infinity.
+.PP
+Other values represent machine-dependent, non-standard rounding modes.
+.PP
+The value of
+.BR FLT_ROUNDS
+should reflect the current rounding mode as set by
+.BR fesetround ()
+(but see BUGS).
 .SS "Floating-point environment"
 The entire floating-point environment, including
 control modes and status flags, can be handled
@@ -268,6 +302,17 @@ and \-1 otherwise.
 The
 .BR fegetexcept ()
 function returns the set of all currently enabled exceptions.
+.SH BUGS
+C99 specifies that the value of
+.B FLT_ROUNDS
+should reflect changes to the current rounding mode, as set by
+.BR fesetround ().
+Currently,
+.\" Aug 08, glibc 2.8
+this does not occur:
+.B FLT_ROUNDS
+always has the value 1.
+.\" See http://gcc.gnu.org/ml/gcc/2002-02/msg01535.html
 .SH "SEE ALSO"
 .BR feature_test_macros (7),
 .BR math_error (7)

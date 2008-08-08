@@ -1,8 +1,1033 @@
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
-.TH IP  7 2008-08-07 "Linux" "Linux Programmer's Manual"
+'\" t
+.\" Don't change the line above. it tells man that tbl is needed.
+.\" This man page is Copyright (C) 1999 Andi Kleen <ak@muc.de>.
+.\" Permission is granted to distribute possibly modified copies
+.\" of this page provided the header is included verbatim,
+.\" and in case of nontrivial modification author and date
+.\" of the modification is added to the header.
+.\" $Id: ip.7,v 1.19 2000/12/20 18:10:31 ak Exp $
+.TH IP  7 2001-06-19 "Linux" "Linux Programmer's Manual"
+.SH NAME
+ip \- Linux IPv4 protocol implementation
+.SH SYNOPSIS
+.B #include <sys/socket.h>
+.br
+.\" .B #include <net/netinet.h> -- does not exist anymore
+.\" .B #include <linux/errqueue.h> -- never include <linux/foo.h>
+.B #include <netinet/in.h>
+.br
+.B #include <netinet/ip.h>        \fR/* superset of previous */
+.sp
+.IB tcp_socket " = socket(PF_INET, SOCK_STREAM, 0);"
+.br
+.IB udp_socket " = socket(PF_INET, SOCK_DGRAM, 0);"
+.br
+.IB raw_socket " = socket(PF_INET, SOCK_RAW, " protocol ");"
+.SH DESCRIPTION
+Linux implements the Internet Protocol, version 4,
+described in RFC\ 791 and RFC\ 1122.
+.B ip
+contains a level 2
+multicasting implementation conforming to RFC\ 1112.
+It also contains an IP router including a packet filter.
+.\" FIXME has someone verified that 2.1 is really 1812 compliant?
+.PP
+The programming interface is BSD sockets compatible.
+For more information on sockets, see
+.BR socket (7).
+.PP
+An IP socket is created by calling the
+.BR socket (2)
+function as
+.BR "socket(PF_INET, socket_type, protocol)" .
+Valid socket types are
+.B SOCK_STREAM
+to open a
+.BR tcp (7)
+socket,
+.B SOCK_DGRAM
+to open a
+.BR udp (7)
+socket, or
+.B SOCK_RAW
+to open a
+.BR raw (7)
+socket to access the IP protocol directly.
+.I protocol
+is the IP protocol in the IP header to be received or sent.
+The only valid values for
+.I protocol
+are
+.B 0
+and
+.B IPPROTO_TCP
+for TCP sockets and
+.B 0
+and
+.B IPPROTO_UDP
+for UDP sockets.
+For
+.B SOCK_RAW
+you may specify
+a valid IANA IP protocol defined in
+RFC\ 1700
+assigned numbers.
+.PP
+.\" FIXME ip current does an autobind in listen, but I'm not sure
+.\" if that should be documented.
+When a process wants to receive new incoming packets or connections, it
+should bind a socket to a local interface address using
+.BR bind (2).
+Only one IP socket may be bound to any given local (address, port) pair.
+When
+.B INADDR_ANY
+is specified in the bind call the socket will be bound to
+.I all
+local interfaces.
+When
+.BR listen (2)
+or
+.BR connect (2)
+are called on an unbound socket, it is automatically bound to a
+random free port with the local address set to
+.BR INADDR_ANY .
+
+A TCP local socket address that has been bound is unavailable for
+some time after closing,
+unless the
+.B SO_REUSEADDR
+flag has been set.
+Care should be taken when using this flag as it
+makes TCP less reliable.
+.SS Address Format
+An IP socket address is defined as a combination of an IP interface
+address and a 16-bit port number.
+The basic IP protocol does not supply port numbers, they
+are implemented by higher level protocols like
+.BR udp (7)
+and
+.BR tcp (7).
+On raw sockets
+.I sin_port
+is set to the IP protocol.
+.PP
+.in +4n
+.nf
+struct sockaddr_in {
+    sa_family_t    sin_family; /* address family: AF_INET */
+    uint16_t       sin_port;   /* port in network byte order */
+    struct in_addr sin_addr;   /* internet address */
+};
+
+/* Internet address. */
+struct in_addr {
+    uint32_t       s_addr;     /* address in network byte order */
+};
+.fi
+.in
+.PP
+.I sin_family
+is always set to
+.BR AF_INET .
+This is required; in Linux 2.2 most networking functions return
+.B EINVAL
+when this setting is missing.
+.I sin_port
+contains the port in network byte order.
+The port numbers below 1024 are called
+.IR "reserved ports" .
+Only privileged processes (i.e., those having the
+.B CAP_NET_BIND_SERVICE
+capability) may
+.BR bind (2)
+to these sockets.
+Note that the raw IPv4 protocol as such has no concept of a
+port, they are only implemented by higher protocols like
+.BR tcp (7)
+and
+.BR udp (7).
+.PP
+.I sin_addr
+is the IP host address.
+The
+.I s_addr
+member of
+.I struct in_addr
+contains the host interface address in network byte order.
+.I in_addr
+should be assigned one of the INADDR_* values (e.g.,
+.BR INADDR_ANY )
+or set using the
+.BR inet_aton (3),
+.BR inet_addr (3),
+.BR inet_makeaddr (3)
+library functions or directly with the name resolver (see
+.BR gethostbyname (3)).
+IPv4 addresses are divided into unicast, broadcast
+and multicast addresses.
+Unicast addresses specify a single interface of a host,
+broadcast addresses specify all hosts on a network and multicast
+addresses address all hosts in a multicast group.
+Datagrams to broadcast addresses can be only sent or received when the
+.B SO_BROADCAST
+socket flag is set.
+In the current implementation connection oriented sockets are only allowed
+to use unicast addresses.
+.\" Leave a loophole for XTP @)
+
+Note that the address and the port are always stored in
+network byte order.
+In particular, this means that you need to call
+.BR htons (3)
+on the number that is assigned to a port.
+All address/port manipulation
+functions in the standard library work in network byte order.
+
+There are several special addresses:
+.B INADDR_LOOPBACK
+(127.0.0.1)
+always refers to the local host via the loopback device;
+.B INADDR_ANY
+(0.0.0.0)
+means any address for binding;
+.B INADDR_BROADCAST
+(255.255.255.255)
+means any host and has the same effect on bind as
+.B INADDR_ANY
+for historical reasons.
+.SS Socket Options
+IP supports some protocol-specific socket options that can be set with
+.BR setsockopt (2)
+and read with
+.BR getsockopt (2).
+The socket option level for IP is
+.BR IPPROTO_IP .
+.\" or SOL_IP on Linux
+A boolean integer flag is zero when it is false, otherwise true.
+.\"
+.\" FIXME Document IP_FREEBIND
+.\"
+.TP
+.B IP_OPTIONS
+Sets or get the IP options to be sent with every packet from this
+socket.
+The arguments are a pointer to a memory buffer containing the options
+and the option length.
+The
+.BR setsockopt (2)
+call sets the IP options associated with a socket.
+The maximum option size for IPv4 is 40 bytes.
+See RFC\ 791 for the allowed
+options.
+When the initial connection request packet for a
+.B SOCK_STREAM
+socket contains IP options, the IP options will be set automatically
+to the options from the initial packet with routing headers reversed.
+Incoming packets are not allowed to change options after the connection
+is established.
+The processing of all incoming source routing options
+is disabled by default and can be enabled by using the
+.B accept_source_route
+sysctl.
+Other options like timestamps are still handled.
+For datagram sockets, IP options can be only set by the local user.
+Calling
+.BR getsockopt (2)
+with
+.B IP_OPTIONS
+puts the current IP options used for sending into the supplied buffer.
+.TP
+.B IP_PKTINFO
+Pass an
+.B IP_PKTINFO
+ancillary message that contains a
+.I pktinfo
+structure that supplies some information about the incoming packet.
+This only works for datagram oriented sockets.
+The argument is a flag that tells the socket whether the
+.B IP_PKTINFO
+message should be passed or not.
+The message itself can only be sent/retrieved
+as control message with a packet using
+.BR recvmsg (2)
+or
+.BR sendmsg (2).
+.IP
+.in +4n
+.nf
+struct in_pktinfo {
+    unsigned int   ipi_ifindex;  /* Interface index */
+    struct in_addr ipi_spec_dst; /* Local address */
+    struct in_addr ipi_addr;     /* Header Destination
+                                    address */
+};
+.fi
+.in
+.IP
+.\" FIXME elaborate on that.
+.I ipi_ifindex
+is the unique index of the interface the packet was received on.
+.I ipi_spec_dst
+is the local address of the packet and
+.I ipi_addr
+is the destination address in the packet header.
+If
+.B IP_PKTINFO
+is passed to
+.BR sendmsg (2)
+and
+.\" This field is grossly misnamed
+.I ipi_spec_dst
+is not zero, then it is used as the local source address for the routing
+table lookup and for setting up IP source route options.
+When
+.I ipi_ifindex
+is not zero the primary local address of the interface specified by the
+index overwrites
+.I ipi_spec_dst
+for the routing table lookup.
+.TP
+.B IP_RECVTOS
+If enabled the
+.B IP_TOS
+ancillary message is passed with incoming packets.
+It contains a byte which specifies the Type of Service/Precedence
+field of the packet header.
+Expects a boolean integer flag.
+.TP
+.B IP_RECVTTL
+When this flag is set
+pass a
+.B IP_TTL
+control message with the time to live
+field of the received packet as a byte.
+Not supported for
+.B SOCK_STREAM
+sockets.
+.TP
+.B IP_RECVOPTS
+Pass all incoming IP options to the user in a
+.B IP_OPTIONS
+control message.
+The routing header and other options are already filled in
+for the local host.
+Not supported for
+.B SOCK_STREAM
+sockets.
+.TP
+.B IP_RETOPTS
+Identical to
+.B IP_RECVOPTS
+but returns raw unprocessed options with timestamp and route record
+options not filled in for this hop.
+.TP
+.B IP_TOS
+Set or receive the Type-Of-Service (TOS) field that is sent
+with every IP packet originating from this socket.
+It is used to prioritize packets on the network.
+TOS is a byte.
+There are some standard TOS flags defined:
+.B IPTOS_LOWDELAY
+to minimize delays for interactive traffic,
+.B IPTOS_THROUGHPUT
+to optimize throughput,
+.B IPTOS_RELIABILITY
+to optimize for reliability,
+.B IPTOS_MINCOST
+should be used for "filler data" where slow transmission doesn't matter.
+At most one of these TOS values can be specified.
+Other bits are invalid and shall be cleared.
+Linux sends
+.B IPTOS_LOWDELAY
+datagrams first by default,
+but the exact behavior depends on the configured queueing discipline.
+.\" FIXME elaborate on this
+Some high priority levels may require superuser privileges (the
+.B CAP_NET_ADMIN
+capability).
+The priority can also be set in a protocol independent way by the
+.RB ( SOL_SOCKET ", " SO_PRIORITY )
+socket option (see
+.BR socket (7)).
+.TP
+.B IP_TTL
+Set or retrieve the current time to live field that is used in every packet
+sent from this socket.
+.TP
+.B IP_HDRINCL
+If enabled
+the user supplies an IP header in front of the user data.
+Only valid for
+.B SOCK_RAW
+sockets.
+See
+.BR raw (7)
+for more information.
+When this flag is enabled the values set by
+.BR IP_OPTIONS ,
+.B IP_TTL
+and
+.B IP_TOS
+are ignored.
+.TP
+.BR IP_RECVERR " (defined in \fI<linux/errqueue.h>\fP)"
+Enable extended reliable error message passing.
+When enabled on a datagram socket all
+generated errors will be queued in a per-socket error queue.
+When the user
+receives an error from a socket operation the errors can
+be received by calling
+.BR recvmsg (2)
+with the
+.B MSG_ERRQUEUE
+flag set.
+The
+.I sock_extended_err
+structure describing the error will be passed in an ancillary message with
+the type
+.B IP_RECVERR
+and the level
+.BR IPPROTO_IP .
+.\" or SOL_IP on Linux
+This is useful for reliable error handling on unconnected sockets.
+The received data portion of the error queue
+contains the error packet.
+.IP
+The
+.B IP_RECVERR
+control message contains a
+.I sock_extended_err
+structure:
+.IP
+.in +4n
+.ne 18
+.nf
+#define SO_EE_ORIGIN_NONE    0
+#define SO_EE_ORIGIN_LOCAL   1
+#define SO_EE_ORIGIN_ICMP    2
+#define SO_EE_ORIGIN_ICMP6   3
+
+struct sock_extended_err {
+    uint32_t ee_errno;   /* error number */
+    uint8_t  ee_origin;  /* where the error originated */
+    uint8_t  ee_type;    /* type */
+    uint8_t  ee_code;    /* code */
+    uint8_t  ee_pad;
+    uint32_t ee_info;    /* additional information */
+    uint32_t ee_data;    /* other data */
+    /* More data may follow */
+};
+
+struct sockaddr *SO_EE_OFFENDER(struct sock_extended_err *);
+.fi
+.in
+.IP
+.I ee_errno
+contains the
+.I errno
+number of the queued error.
+.I ee_origin
+is the origin code of where the error originated.
+The other fields are protocol-specific.
+The macro
+.B SO_EE_OFFENDER
+returns a pointer to the address of the network object
+where the error originated from given a pointer to the ancillary message.
+If this address is not known, the
+.I sa_family
+member of the
+.I sockaddr
+contains
+.B AF_UNSPEC
+and the other fields of the
+.I sockaddr
+are undefined.
+.IP
+IP uses the
+.I sock_extended_err
+structure as follows:
+.I ee_origin
+is set to
+.B SO_EE_ORIGIN_ICMP
+for errors received as an ICMP packet, or
+.B SO_EE_ORIGIN_LOCAL
+for locally generated errors.
+Unknown values should be ignored.
+.I ee_type
+and
+.I ee_code
+are set from the type and code fields of the ICMP header.
+.I ee_info
+contains the discovered MTU for
+.B EMSGSIZE
+errors.
+The message also contains the
+.I sockaddr_in of the node
+caused the error, which can be accessed with the
+.B SO_EE_OFFENDER
+macro.
+The
+.I sin_family
+field of the SO_EE_OFFENDER address is
+.B AF_UNSPEC
+when the source was unknown.
+When the error originated from the network, all IP options
+.RI ( IP_OPTIONS ", " IP_TTL ", "
+etc.) enabled on the socket and contained in the
+error packet are passed as control messages.
+The payload of the packet
+causing the error is returned as normal payload.
+.\" FIXME . Is it a good idea to document that? It is a dubious feature.
+.\" On
+.\" .B SOCK_STREAM
+.\" sockets,
+.\" .B IP_RECVERR
+.\" has slightly different semantics. Instead of
+.\" saving the errors for the next timeout, it passes all incoming
+.\" errors immediately to the user.
+.\" This might be useful for very short-lived TCP connections which
+.\" need fast error handling. Use this option with care:
+.\" it makes TCP unreliable
+.\" by not allowing it to recover properly from routing
+.\" shifts and other normal
+.\" conditions and breaks the protocol specification.
+Note that TCP has no error queue;
+.B MSG_ERRQUEUE
+is not permitted on
+.B SOCK_STREAM
+sockets.
+.B IP_RECVERR
+is valid for TCP, but all errors are
+returned by socket function return or
+.B SO_ERROR
+only.
+.IP
+For raw sockets,
+.B IP_RECVERR
+enables passing of all received ICMP errors to the
+application, otherwise errors are only reported on connected sockets
+.IP
+It sets or retrieves an integer boolean flag.
+.B IP_RECVERR
+defaults to off.
+.TP
+.B IP_MTU_DISCOVER
+Sets or receives the Path MTU Discovery setting
+for a socket.
+When enabled, Linux will perform Path MTU Discovery
+as defined in RFC\ 1191
+on this socket.
+The don't fragment flag is set on all outgoing datagrams.
+The system-wide default is controlled by the
+.B ip_no_pmtu_disc
+sysctl for
+.B SOCK_STREAM
+sockets, and disabled on all others.
+For
+.RB non- SOCK_STREAM
+sockets it is the user's responsibility to packetize the data
+in MTU sized chunks and to do the retransmits if necessary.
+The kernel will reject packets that are bigger than the known
+path MTU if this flag is set (with
+.B EMSGSIZE
+).
+.TS
+tab(:);
+c l
+l l.
+Path MTU discovery flags:Meaning
+IP_PMTUDISC_WANT:Use per-route settings.
+IP_PMTUDISC_DONT:Never do Path MTU Discovery.
+IP_PMTUDISC_DO:Always do Path MTU Discovery.
+IP_PMTUDISC_PROBE:Set DF but ignore Path MTU.
+.TE
+
+When PMTU discovery is enabled the kernel automatically keeps track of
+the path MTU per destination host.
+When it is connected to a specific peer with
+.BR connect (2)
+the currently known path MTU can be retrieved conveniently using the
+.B IP_MTU
+socket option (e.g., after a
+.B EMSGSIZE
+error occurred).
+It may change over time.
+For connectionless sockets with many destinations
+the new also MTU for a given destination can also be accessed using the
+error queue (see
+.BR IP_RECVERR ).
+A new error will be queued for every incoming MTU update.
+
+While MTU discovery is in progress initial packets from datagram sockets
+may be dropped.
+Applications using UDP should be aware of this and not
+take it into account for their packet retransmit strategy.
+
+To bootstrap the path MTU discovery process on unconnected sockets it
+is possible to start with a big datagram size
+(up to 64K-headers bytes long) and let it shrink by updates of the
+path MTU.
+.\" FIXME this is an ugly hack
+
+To get an initial estimate of the
+path MTU connect a datagram socket to the destination address using
+.BR connect (2)
+and retrieve the MTU by calling
+.BR getsockopt (2)
+with the
+.B IP_MTU
+option.
+
+It is possible to implement RFC 4821 MTU probing with
+.B SOCK_DGRAM
+or
+.B SOCK_RAW
+sockets by setting a value of
+.BR IP_PMTUDISC_PROBE .
+This is also particularly useful for diagnostic tools such as
+.BR tracepath (8)
+that wish to deliberately send probe packets larger than
+the observed Path MTU.
+.TP
+.B IP_MTU
+Retrieve the current known path MTU of the current socket.
+Only valid when the socket has been connected.
+Returns an integer.
+Only valid as a
+.BR getsockopt (2).
+.\"
+.TP
+.B IP_ROUTER_ALERT
+Pass all to-be forwarded packets with the
+IP Router Alert
+option
+set to this socket.
+Only valid for raw sockets.
+This is useful, for instance, for user
+space RSVP daemons.
+The tapped packets are not forwarded by the kernel, it is
+the users responsibility to send them out again.
+Socket binding is ignored,
+such packets are only filtered by protocol.
+Expects an integer flag.
+.\"
+.TP
+.B IP_MULTICAST_TTL
+Set or reads the time-to-live value of outgoing multicast packets for this
+socket.
+It is very important for multicast packets to set the smallest TTL possible.
+The default is 1 which means that multicast packets don't leave the local
+network unless the user program explicitly requests it.
+Argument is an
+integer.
+.\"
+.TP
+.B IP_MULTICAST_LOOP
+Sets or reads a boolean integer argument whether sent multicast
+packets should be looped back to the local sockets.
+.\"
+.TP
+.B IP_ADD_MEMBERSHIP
+Join a multicast group.
+Argument is an
+.I ip_mreqn
+structure.
+.sp
+.in +4n
+.nf
+struct ip_mreqn {
+    struct in_addr imr_multiaddr; /* IP multicast group
+                                     address */
+    struct in_addr imr_address;   /* IP address of local
+                                     interface */
+    int            imr_ifindex;   /* interface index */
+};
+.fi
+.in
+.sp
+.I imr_multiaddr
+contains the address of the multicast group the application
+wants to join or leave.
+It must be a valid multicast address.
+.I imr_address
+is the address of the local interface with which the system
+should join the multicast
+group; if it is equal to
+.B INADDR_ANY
+an appropriate interface is chosen by the system.
+.I imr_ifindex
+is the interface index of the interface that should join/leave the
+.I imr_multiaddr
+group, or 0 to indicate any interface.
+.IP
+For compatibility, the old
+.I ip_mreq
+structure is still supported.
+It differs from
+.I ip_mreqn
+only by not including
+the
+.I imr_ifindex
+field.
+Only valid as a
+.BR setsockopt (2).
+.\"
+.TP
+.B IP_DROP_MEMBERSHIP
+Leave a multicast group.
+Argument is an
+.I ip_mreqn
+or
+.I ip_mreq
+structure similar to
+.BR IP_ADD_MEMBERSHIP .
+.\"
+.TP
+.B IP_MULTICAST_IF
+Set the local device for a multicast socket.
+Argument is an
+.I ip_mreqn
+or
+.I ip_mreq
+structure similar to
+.BR IP_ADD_MEMBERSHIP .
+.IP
+When an invalid socket option is passed,
+.B ENOPROTOOPT
+is returned.
+.SS Sysctls
+The IP protocol
+supports the sysctl interface to configure some global options.
+The sysctls can be accessed by reading or writing the
+.I /proc/sys/net/ipv4/*
+files or using the
+.\" FIXME As at 2.6.12, 14 Jun 2005, the following are undocumented:
+.\"	ip_queue_maxlen
+.\"	ip_conntrack_max
+.BR sysctl (2)
+interface.
+Variables described as
+.I Boolean
+take an integer value, with a non-zero value ("true") meaning that
+the corresponding option is enabled, and a zero value ("false")
+meaning that the option is disabled.
+.\"
+.TP
+.BR ip_always_defrag " (Boolean)"
+[New with kernel 2.2.13; in earlier kernel versions this feature
+was controlled at compile time by the
+.B CONFIG_IP_ALWAYS_DEFRAG
+option; this option is not present in 2.4.x and later]
+
+When this boolean frag is enabled (not equal 0) incoming fragments
+(parts of IP packets
+that arose when some host between origin and destination decided
+that the packets were too large and cut them into pieces) will be
+reassembled (defragmented) before being processed, even if they are
+about to be forwarded.
+
+Only enable if running either a firewall that is the sole link
+to your network or a transparent proxy; never ever use it for a
+normal router or host.
+Otherwise fragmented communication can be disturbed
+if the fragments travel over different links.
+Defragmentation also has a large memory and CPU time cost.
+
+This is automagically turned on when masquerading or transparent
+proxying are configured.
+.\"
+.TP
+.B ip_autoconfig
+.\" FIXME document ip_autoconfig
+Not documented.
+.\"
+.TP
+.BR ip_default_ttl " (integer; default: 64)"
+Set the default time-to-live value of outgoing packets.
+This can be changed per socket with the
+.B IP_TTL
+option.
+.\"
+.TP
+.BR ip_dynaddr " (Boolean; default: disabled)"
+Enable dynamic socket address and masquerading entry rewriting on interface
+address change.
+This is useful for dialup interface with changing IP addresses.
+0 means no rewriting, 1 turns it on and 2 enables verbose mode.
+.\"
+.TP
+.BR ip_forward " (Boolean; default: disabled)"
+Enable IP forwarding with a boolean flag.
+IP forwarding can be also set on a per interface basis.
+.\"
+.TP
+.B ip_local_port_range
+Contains two integers that define the default local port range
+allocated to sockets.
+Allocation starts with the first number and ends with the second number.
+Note that these should not conflict with the ports used by masquerading
+(although the case is handled).
+Also arbitrary choices may cause problems with some firewall packet
+filters that make assumptions about the local ports in use.
+First number should be at least >1024, better >4096 to avoid clashes
+with well known ports and to minimize firewall problems.
+.\"
+.TP
+.BR ip_no_pmtu_disc " (Boolean; default: disabled)"
+If enabled, don't do Path MTU Discovery for TCP sockets by default.
+Path MTU discovery may fail if misconfigured firewalls (that drop
+all ICMP packets) or misconfigured interfaces (e.g., a point-to-point
+link where the both ends don't agree on the MTU) are on the path.
+It is better to fix the broken routers on the path than to turn off
+Path MTU Discovery globally, because not doing it incurs a high cost
+to the network.
+.\"
+.\" The following is from 2.6.12: Documentation/networking/ip-sysctl.txt
+.TP
+.BR ip_nonlocal_bind " (Boolean; default: disabled)"
+If set, allows processes to
+.BR bind (2)
+to non-local IP addresses,
+which can be quite useful, but may break some applications.
+.\"
+.\" The following is from 2.6.12: Documentation/networking/ip-sysctl.txt
+.TP
+.BR ip6frag_time " (integer; default 30)"
+Time in seconds to keep an IPv6 fragment in memory.
+.\"
+.\" The following is from 2.6.12: Documentation/networking/ip-sysctl.txt
+.TP
+.BR ip6frag_secret_interval " (integer; default 600)"
+Regeneration interval (in seconds) of the hash secret (or lifetime
+for the hash secret) for IPv6 fragments.
+.TP
+.BR ipfrag_high_thresh " (integer), " ipfrag_low_thresh " (integer)"
+If the amount of queued IP fragments reaches
+.BR ipfrag_high_thresh ,
+the queue
+is pruned down to
+.BR ipfrag_low_thresh .
+Contains an integer with the number of
+bytes.
+.TP
+.B neigh/*
+See
+.BR arp (7).
+.\" FIXME Document the conf/*/* sysctls
+.\" FIXME Document the route/* sysctls
+.\" FIXME document them all
+.SS Ioctls
+All ioctls described in
+.BR socket (7)
+apply to ip.
+.\" 2006-04-02, mtk
+.\" commented out the following because ipchains is obsolete
+.\" .PP
+.\" The ioctls to configure firewalling are documented in
+.\" .BR ipfw (4)
+.\" from the
+.\" .B ipchains
+.\" package.
+.PP
+Ioctls to configure generic device parameters are described in
+.BR netdevice (7).
+.\" FIXME Add a discussion of multicasting
+.SH ERRORS
+.\" FIXME document all errors.
+.\"     We should really fix the kernels to give more uniform
+.\"     error returns (ENOMEM vs ENOBUFS, EPERM vs EACCES etc.)
+.TP
+.B EACCES
+The user tried to execute an operation without the necessary permissions.
+These include:
+sending a packet to a broadcast address without having the
+.B SO_BROADCAST
+flag set;
+sending a packet via a
+.I prohibit
+route;
+modifying firewall settings without superuser privileges (the
+.B CAP_NET_ADMIN
+capability);
+binding to a reserved port without superuser privileges (the
+.B CAP_NET_BIND_SERVICE
+capability).
+.TP
+.B EADDRINUSE
+Tried to bind to an address already in use.
+.TP
+.B EADDRNOTAVAIL
+A nonexistent interface was requested or the requested source
+address was
+not local.
+.TP
+.B EAGAIN
+Operation on a non-blocking socket would block.
+.TP
+.B EALREADY
+An connection operation on a non-blocking socket is already in progress.
+.TP
+.B ECONNABORTED
+A connection was closed during an
+.BR accept (2).
+.TP
+.B EHOSTUNREACH
+No valid routing table entry matches the destination address.
+This error can be caused by a ICMP message from a remote router or
+for the local routing table.
+.TP
+.B EINVAL
+Invalid argument passed.
+For send operations this can be caused by sending to a
+.I blackhole
+route.
+.TP
+.B EISCONN
+.BR connect (2)
+was called on an already connected socket.
+.TP
+.B EMSGSIZE
+Datagram is bigger than an MTU on the path and it cannot be fragmented.
+.TP
+.BR ENOBUFS ", " ENOMEM
+Not enough free memory.
+This often means that the memory allocation is limited by the socket
+buffer limits, not by the system memory, but this is not
+100% consistent.
+.TP
+.B ENOENT
+.B SIOCGSTAMP
+was called on a socket where no packet arrived.
+.TP
+.B ENOPKG
+A kernel subsystem was not configured.
+.TP
+.BR ENOPROTOOPT " and " EOPNOTSUPP
+Invalid socket option passed.
+.TP
+.B ENOTCONN
+The operation is only defined on a connected socket, but the socket wasn't
+connected.
+.TP
+.B EPERM
+User doesn't have permission to set high priority, change configuration,
+or send signals to the requested process or group.
+.TP
+.B EPIPE
+The connection was unexpectedly closed or shut down by the other end.
+.TP
+.B ESOCKTNOSUPPORT
+The socket is not configured or an unknown socket type was requested.
+.PP
+Other errors may be generated by the overlaying protocols; see
+.BR tcp (7),
+.BR raw (7),
+.BR udp (7)
+and
+.BR socket (7).
+.SH VERSIONS
+.BR IP_MTU ,
+.BR IP_MTU_DISCOVER ,
+.BR IP_PKTINFO ,
+.B IP_RECVERR
+and
+.B IP_ROUTER_ALERT
+are new options in Linux 2.2.
+They are also all Linux-specific and should not be used in
+programs intended to be portable.
+.PP
+.\" FIXME
+.\" To be confirmed that IP_PMTUDISC_PROBE makes it into kernel 2.6.22
+.B IP_PMTUDISC_PROBE
+is new in Linux 2.6.22.
+.PP
+.I struct ip_mreqn
+is new in Linux 2.2.
+Linux 2.0 only supported
+.BR ip_mreq .
+.PP
+The sysctls were introduced with Linux 2.2.
+.SH NOTES
+Be very careful with the
+.B SO_BROADCAST
+option \- it is not privileged in Linux.
+It is easy to overload the network
+with careless broadcasts.
+For new application protocols
+it is better to use a multicast group instead of broadcasting.
+Broadcasting is discouraged.
+.PP
+Some other BSD sockets implementations provide
+.B IP_RCVDSTADDR
+and
+.B IP_RECVIF
+socket options to get the destination address and the interface of
+received datagrams.
+Linux has the more general
+.B IP_PKTINFO
+for the same task.
+.PP
+Some BSD sockets implementations also provide an
+.B IP_RECVTTL
+option, but an ancillary message with type
+.B IP_RECVTTL
+is passed with the incoming packet.
+This is different from the
+.B IP_TTL
+option used in Linux.
+.PP
+Using
+.B SOL_IP
+socket options level isn't portable, BSD-based stacks use
+.B IPPROTO_IP
+level.
+.SS Compatibility
+For compatibility with Linux 2.0, the obsolete
+.BI "socket(PF_INET, SOCK_PACKET, " protocol )
+syntax is still supported to open a
+.BR packet (7)
+socket.
+This is deprecated and should be replaced by
+.BI "socket(PF_PACKET, SOCK_RAW, " protocol )
+instead.
+The main difference is the new
+.I sockaddr_ll
+address structure for generic link layer information instead of the old
+.BR sockaddr_pkt .
+.SH BUGS
+There are too many inconsistent error values.
+.PP
+The ioctls to configure IP-specific interface options and ARP tables are
+not described.
+.PP
+Some versions of glibc forget to declare
+.IR in_pktinfo .
+Workaround currently is to copy it into your program from this man page.
+.PP
+Receiving the original destination address with
+.B MSG_ERRQUEUE
+in
+.I msg_name
+by
+.BR recvmsg (2)
+does not work in some 2.2 kernels.
+.\" .SH AUTHORS
+.\" This man page was written by Andi Kleen.
+.SH "SEE ALSO"
+.BR recvmsg (2),
+.BR sendmsg (2),
+.BR byteorder (3),
+.BR ipfw (4),
+.BR capabilities (7),
+.BR netlink (7),
+.BR raw (7),
+.BR socket (7),
+.BR tcp (7),
+.BR udp (7)
+.PP
+RFC\ 791 for the original IP specification.
+.br
+RFC\ 1122 for the IPv4 host requirements.
+.br
+RFC\ 1812 for the IPv4 router requirements.
+.\" FIXME autobind INADDR REUSEADDR

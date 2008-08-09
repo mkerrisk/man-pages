@@ -27,7 +27,7 @@
 .\" Modified Mon Dec 11 13:32:51 MET 2000 by aeb
 .\" Modified Thu Apr 22 03:49:15 CEST 2002 by Roger Luethi <rl@hellgate.ch>
 .\"
-.TH GETCWD 3 2008-08-06 "GNU" "Linux Programmer's Manual"
+.TH GETCWD 3 2008-08-08 "GNU" "Linux Programmer's Manual"
 .SH NAME
 getcwd, getwd, get_current_dir_name \- Get current working directory
 .SH SYNOPSIS
@@ -52,6 +52,13 @@ _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500
 .BR get_current_dir_name ():
 _GNU_SOURCE
 .SH DESCRIPTION
+These functions return a null-terminated string containing an
+absolute pathname that is the current working directory of
+the calling process.
+The pathname is returned as the function result and via the argument
+.IR buf ,
+if present.
+
 The
 .BR getcwd ()
 function copies an absolute pathname of the current working directory
@@ -60,20 +67,15 @@ to the array pointed to by
 which is of length
 .IR size .
 .PP
-If the current absolute pathname would require a buffer longer than
+If the length of the absolute pathname of the current working directory,
+including the terminating null byte, exceeds
 .I size
-elements, NULL is returned, and
+bytes, NULL is returned, and
 .I errno
 is set to
 .BR ERANGE ;
 an application should check for this error, and allocate a larger
 buffer if necessary.
-.PP
-If
-.I buf
-is NULL, the behavior of
-.BR getcwd ()
-is undefined.
 .PP
 As an extension to the POSIX.1-2001 standard, Linux (libc4, libc5, glibc)
 .BR getcwd ()
@@ -81,7 +83,7 @@ allocates the buffer dynamically using
 .BR malloc (3)
 if
 .I buf
-is NULL on call.
+is NULL.
 In this case, the allocated buffer has the length
 .I size
 unless
@@ -89,19 +91,22 @@ unless
 is zero, when
 .I buf
 is allocated as big as necessary.
-It is possible (and, indeed,
-advisable) to
+The caller should
 .BR free (3)
-the buffers if they have been obtained this way.
+the returned buffer.
 
 .BR get_current_dir_name ()
 will
 .BR malloc (3)
-an array big enough to hold the current directory name.
+an array big enough to hold the absolute pathname of
+the current working directory.
 If the environment
 variable
 .B PWD
 is set, and its value is correct, then that value will be returned.
+The caller should
+.BR free (3)
+the returned buffer.
 
 .BR getwd ()
 does not
@@ -112,27 +117,32 @@ The
 argument should be a pointer to an array at least
 .B PATH_MAX
 bytes long.
-.BR getwd ()
-does only return the first
+If the length of the absolute pathname of the current working directory,
+including the terminating null byte, exceeds
 .B PATH_MAX
-bytes of the actual pathname.
-Note that
-.B PATH_MAX
-need not be a compile-time constant; it may depend on the file system
-and may even be unlimited.
+bytes, NULL is returned, and
+.I errno
+is set to
+.BR ENAMETOOLONG .
 For portability and security reasons, use of
 .BR getwd ()
 is deprecated.
 .SH "RETURN VALUE"
-NULL
-on failure with
+On success, these functions return a pointer to a string containing
+the pathname of the current working directory.
+In the case
+.BR getcwd ()
+and
+.BR getwd ()
+this is the same value as
+.IR buf.
+
+On failure, these functions return NULL, and
 .I errno
-set accordingly, and
-.I buf
-on success.
+is set to indicate the error.
 The contents of the array pointed to by
 .I buf
-is undefined on error.
+are undefined on error.
 .SH ERRORS
 .TP
 .B EACCES
@@ -149,21 +159,43 @@ argument is zero and
 .I buf
 is not a null pointer.
 .TP
+EINVAL
+.BR getwd ():
+.I buf
+is NULL.
+.TP
+ENAMETOOLONG
+.BR getwd ():
+The size of the null-terminated absolute pathname string exceeds
+.B PATH_MAX
+bytes.
+.TP
 .B ENOENT
 The current working directory has been unlinked.
 .TP
 .B ERANGE
 The
 .I size
-argument is less than the length of the working directory name.
+argument is less than the length of the the absolute pathname of the
+working directory, including the terminating null byte.
 You need to allocate a bigger array and try again.
 .SH "CONFORMING TO"
 .BR getcwd ()
 conforms to POSIX.1-2001.
+Note however that POSIX.1-2001 leaves the behavior of
+.BR getcwd ()
+unspecified if
+.I buf
+is NULL.
+
 .BR getwd ()
 is present in POSIX.1-2001, but marked LEGACY.
 POSIX.1-2008 removes the specification of
 .BR getwd ().
+POSIX.1-2001
+does not define any errors for
+.BR getwd ().
+
 .BR get_current_dir_name ()
 is a GNU extension.
 .SH NOTES

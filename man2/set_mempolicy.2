@@ -85,6 +85,30 @@ require the caller to specify via the
 .I nodemask
 argument one or more nodes.
 
+The
+.I mode
+argument may also include an optional
+.IR "mode flag ".
+The supported
+.I "mode flags"
+are:
+.TP
+.BR MPOL_F_STATIC_NODES " (since Linux 2.6.26)"
+A non-empty
+.I nodemask
+specifies physical node ids.
+Linux does will not remap the
+.I nodemask
+when the process moves to a different cpuset context,
+nor when the set of nodes allowed by the process's
+current cpuset context changes.
+.TP
+.BR MPOL_F_RELATIVE_NODES " (since Linux 2.6.26)"
+A non-empty
+.I nodemask
+specifies node ids that are relative to the set of
+node ids allowed  by the process's current cpuset.
+.PP
 .I nodemask
 points to a bit mask of node IDs that contains up to
 .I maxnode
@@ -104,16 +128,34 @@ is zero,
 the
 .I nodemask
 argument is ignored.
+
 Where a
 .I nodemask
 is required, it must contain at least one node that is on-line,
 allowed by the process's current cpuset context,
+[unless the
+.B MPOL_F_STATIC_NODES
+mode flag is specified],
 and contains memory.
+If the
+.B MPOL_F_STATIC_NODES
+is set in
+.I mode
+and a required
+.I nodemask
+contains no nodes that are allowed by the process's current cpuset context,
+the memory policy reverts to
+.IR "local allocation" .
+This effectively overrides the specified policy until the process's
+cpuset context includes one or more of the nodes specified by
+.IR nodemask.
 
 The
 .B MPOL_DEFAULT
-mode is the default and means to allocate memory locally,
-i.e., on the node of the CPU that triggered the allocation.
+mode specifies that any non-default process memory policy be removed,
+so that the memory policy "falls back" to the system default policy.
+The system default policy is "local allocation"--
+i.e., allocate memory on the node of the CPU that triggered the allocation.
 .I nodemask
 must be specified as NULL.
 If the "local node" contains no free memory, the system will
@@ -163,9 +205,8 @@ If the
 .I nodemask
 and
 .I maxnode
-arguments specify the empty set, then the memory is allocated on
-the node of the CPU that triggered the allocation (like
-.BR MPOL_DEFAULT ).
+arguments specify the empty set, then the policy specifies
+explicit local allocation.
 
 The process memory policy is preserved across an
 .BR execve (2),
@@ -219,6 +260,12 @@ Or, none of the node IDs specified by
 .I nodemask
 are on-line and allowed by the process's current cpuset context,
 or none of the specified nodes contain memory.
+Or, the
+.I mode
+argument specified both
+.B MPOL_F_STATIC_NODES
+and
+.BR MPOL_F_RELATIVE_NODES .
 .TP
 .B ENOMEM
 Insufficient kernel memory was available.

@@ -9,13 +9,22 @@ Contributors
 The following people contributed notes, ideas, or patches that have
 been incorporated in changes in this release:
 
+Alain Portal <aportal@univ-montp2.fr>
+Andries Brouwer <Andries.Brouwer@cwi.nl>
 Fabian Kreutz <kreutz@dbs.uni-hannover.de>
 Filippo Santovito <filippo.santovito@email.it>
 Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Heikki Orsila <shd@modeemi.cs.tut.fi>
+Khalil GHORBAL <khalil.ghorbal@cea.fr>
 Lee Schermerhorn <lee.schermerhorn@hp.com>
 Maxin John <maxin.john@gmail.com>
 Reuben Thomas <rrt@sc3d.org>
+Samuel Thibault <samuel.thibault@ens-lyon.org>
 Sam Varshavchik <mrsam@courier-mta.com>
+Soh Kam Yung <sohkamyung@gmail.com>
+Stephane Chazelas <stephane_chazelas@yahoo.fr>
+Pavel Heimlich <tropikhajma@seznam.cz>
+Reuben Thomas <rrt@sc3d.org>
 
 Apologies if I missed anyone!
 
@@ -107,6 +116,12 @@ mbind.2
 
 	Now that cpuset man page exists, we can refer to it.  Remove
 	stale comment regarding lack thereof.
+    Lee Schermerhorn
+        Add brief discussion of mode flags.
+    Lee Schermerhorn
+ 	ttempt to clarify discussion of MPOL_DEFAULT.
+    mtk
+        Fix URI reference for libnuma.
 
 mprotect.2
     mtk / Maxin John
@@ -128,6 +143,15 @@ set_mempolicy.2
 
 	Now that we have a cpuset man page, we can refer to cpusets directly
 	in the man page text. 
+
+    Lee Schermerhorn
+        Another attempt to rationalize description of MPOL_DEFAULT.
+
+	Since ~2.6.25, the system default memory policy is "local allocation".
+	MPOL_DEFAULT itself is a request to remove any non-default policy and
+	"fall back" to the surrounding context.  Try to say that without delving
+	into implementation details.
+
     Lee Schermerhorn
 	Add discussion of mempolicy mode flags to set_mempolicy(2).
 	This adds another reason for EINVAL.
@@ -184,11 +208,6 @@ clog2.3
         AVAILABILITY: These functions are still not in glibc
 	as at version 2.8.
 
-cosh.3
-    mtk
-        BUGS: In glibc 2.3.4 and earlier, an FE_OVERFLOW exception is not
-	raised when an overflow occurs.
-
 ctime.3
     mtk
         POSIX.1-2008 marks asctime(), asctime_r(), ctime(), and ctime_r()
@@ -202,23 +221,6 @@ ecvt.3
     mtk
         CONFORMING TO: POSIX.1-2008 removes the specifications of
 	ecvt() and fcvt().
-
-fenv.3
-    mtk / Fabian Kreuz
-        Provide more detail in the description of rounding modes.
-	Add text describing FLT_ROUNDS (foermerly in fma.3).
-        Add BUGS section pointing out the FLT_ROUNDS does not reflect
-	changes by fesetround().	
-
-fma.3
-    mtk
-        Remove text about FLT_ROUNDS, replacing with a cross-reference
-	to fenv(3).
-
-fpclassify.3
-    mtk
-        CONFORMING TO: Note that the standards provide a weaker guarantee
-	for the return value of isinf().
 
 ftime.3
     mtk
@@ -268,15 +270,6 @@ isalpha.3
     mtk
         CONFORMING TO: POSIX.1-2008 marks isalpha() as obsolete.
 
-log.3
-    mtk
-        BUGS: In glibc 2.5, log(nan("")) produces a bogus
-	FE_INVALID exception.
-
-lround.3
-    mtk
-	Add reference to fenv(3) for discussion of current rounding mode.
-
 makecontext.3
     mtk
         CONFORMING TO: POSIX.1-2008 removes the specifications of
@@ -295,28 +288,9 @@ opendir.3
     mtk
         CONFORMING TO: POSIX.1-2008 specifies fdopendir().
 
-pow.3
-    mtk
-        BUGS: described buggy NaN return when x is negative and y is large.
-	See also: http://sources.redhat.com/bugzilla/show_bug.cgi?id=3866.
-	BUGS: Note the bogus FE_INVALID exception that occurred in glibc
-	2.3.2 and earlier on overflow and underflow.
-
 rand.3
     mtk
         CONFORMING TO: POSIX.1-2008 marks rand_r() as obsolete.
-
-remainder.3
-    mtk
-	Add reference to fenv(3) for discussion of current rounding mode.
-
-round.3
-    mtk
-	Add reference to fenv(3) for discussion of current rounding mode.
-
-scalb.3
-    mtk
-        CONFORMING TO: POSIX.1-2008 removes the specification of scalb().
 
 siginterrupt.3
     mtk
@@ -330,11 +304,6 @@ sigset.3
 tempnam.3
     mtk
         CONFORMING TO: POSIX.1-2008 marks tempnam() as obsolete.
-
-tgamma.3
-    mtk
-    	BUGS: In glibc 2.3.3, tgamma(+-0) produced a domain error
-	instead of a pole error.
 
 tmpnam.3
     mtk
@@ -356,11 +325,6 @@ usleep.3
     mtk
         CONFORMING TO: POSIX.1-2008 removes the specification of usleep().
 
-y0.3
-    mtk
-        In glibc 2.3.2 and earlier, these functions do not raise an
-	FE_INVALID exception for a domain error.
-
 standards.7
     mtk
         Updated details for POSIX.1-2008, and noted that if
@@ -371,3 +335,77 @@ standards.7
 udp.7
     mtk
         SEE ALSO: add udplite(7).
+
+
+Changes to individual pages (math functions)
+--------------------------------------------
+
+Various changes here following on from the big update to the
+math pages in the previous release.  Test results going back
+glibc 2.3.2 (so far) allowed updates to various pages to note
+changes in historical behavior for error reporting by math
+functions.  Thanks to the following people for providing me
+with test results on various distributions and glibc versions:
+Alain Portal, Andries Brouwer, Fabian Kreutz, Heikki Orsila, 
+Khalil GHORBAL, Pavel Heimlich, Reuben Thomas, Samuel Thibault, 
+Soh Kam Yung, and Stephane Chazelas
+
+cosh.3
+    mtk
+        BUGS: In glibc 2.3.4 and earlier, an FE_OVERFLOW exception is not
+	raised when an overflow occurs.
+
+fenv.3
+    mtk / Fabian Kreuz
+        Provide more detail in the description of rounding modes.
+	Add text describing FLT_ROUNDS (foermerly in fma.3).
+        Add BUGS section pointing out the FLT_ROUNDS does not reflect
+	changes by fesetround().	
+
+fma.3
+    mtk
+        Remove text about FLT_ROUNDS, replacing with a cross-reference
+	to fenv(3).
+
+fpclassify.3
+    mtk
+        CONFORMING TO: Note that the standards provide a weaker guarantee
+	for the return value of isinf().
+
+log.3
+    mtk
+        BUGS: In glibc 2.5, log(nan("")) produces a bogus
+	FE_INVALID exception.
+
+lround.3
+    mtk
+	Add reference to fenv(3) for discussion of current rounding mode.
+
+pow.3
+    mtk
+        BUGS: described buggy NaN return when x is negative and y is large.
+	See also: http://sources.redhat.com/bugzilla/show_bug.cgi?id=3866.
+	BUGS: Note the bogus FE_INVALID exception that occurred in glibc
+	2.3.2 and earlier on overflow and underflow.
+
+remainder.3
+    mtk
+	Add reference to fenv(3) for discussion of current rounding mode.
+
+round.3
+    mtk
+	Add reference to fenv(3) for discussion of current rounding mode.
+
+scalb.3
+    mtk
+        CONFORMING TO: POSIX.1-2008 removes the specification of scalb().
+
+tgamma.3
+    mtk
+    	BUGS: In glibc 2.3.3, tgamma(+-0) produced a domain error
+	instead of a pole error.
+
+y0.3
+    mtk
+        In glibc 2.3.2 and earlier, these functions do not raise an
+	FE_INVALID exception for a domain error.

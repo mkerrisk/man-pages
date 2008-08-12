@@ -5,6 +5,8 @@
 .\" and sysctl additions from Andries Brouwer (aeb@cwi.nl)
 .\" and System V IPC (as well as various other) additions from
 .\" Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and numa_maps material Copyright (c) 2005 Silicon Graphics Incorporated.
+.\"     Christoph Lameter, <clameter@sgi.com>.
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -47,11 +49,6 @@
 .\" 2008-06-19, mtk, Documented /proc/PID/status.
 .\" 2008-07-15, mtk, added /proc/config.gz
 .\"
-.\" FIXME 2.6.14 has /proc/PID/numa_maps (if CONFIG_NUMA is
-.\" enabled); this needs to be documented.
-.\" Info on numa_maps can be found in the patch-2.6.14
-.\" Changelog, but this is possibly not up to date.
-.\"
 .\" FIXME 2.6.13 seems to have /proc/vmcore implemented
 .\" in the source code, but there is no option available under
 .\" 'make xconfig'; eventually this should be fixed, and then info
@@ -63,7 +60,7 @@
 .\" to see what information could be imported from that file
 .\" into this file.
 .\"
-.TH PROC 5 2008-07-15 "Linux" "Linux Programmer's Manual"
+.TH PROC 5 2008-08-12 "Linux" "Linux Programmer's Manual"
 .SH NAME
 proc \- process information pseudo-file system
 .SH DESCRIPTION
@@ -476,6 +473,116 @@ This file is only readable by the owner of the process.
 .\" 	  Some information can be found in the 2.6.17 change log.
 .\"       Added in 2.6.17
 .\"
+.TP
+.IR /proc/[number]/numa_maps " (since Linux 2.6.14)"
+.\" See also Changelog-2.6.14
+.\" FIXME . Perhaps one day, numa_maps information belongs in a
+.\" to-be-written numa.7 page.
+This file displays information about a process's
+NUMA memory policy and allocation
+(see 
+.BR set_mempolicy (2),
+.BR mbind (2),
+.BR cupset (7),
+.BR migratepages (8),
+.BR numactl (8)).
+
+Each line contains information about a memory range used by the process,
+displaying--among other information--the effective memory policy for
+that memory range and on which nodes the pages have been allocated.
+
+This file is only present if the
+.B CONFIG_NUMA
+kernel configuration
+option is enabled.
+
+.I numa_maps
+is a read-only file.
+When
+.I /proc/<pid>/numa_maps
+is read, the kernel will scan the virtual address space of the
+process and report how memory is used.
+One line is displayed for each unique memory range of the process.
+
+The first field of each line shows the starting address of the memory range.
+This field allows a correlation with the contents of the
+.I /proc/<pid>/maps
+file,
+which contains the end address of the range and other information,
+such as the access permissions and sharing.
+
+The second field shows the memory policy currently in effect for the
+memory range.
+Note that the effective policy is not necessarily the policy
+installed by the process for that memory range.
+Specifically, if the process installed a "default" policy for that range,
+the effective policy for that range will be the process policy,
+which may or may not be "default".
+
+The rest of the line contains information about the pages allocated in
+the memory range, as follows:
+.RS
+.TP
+.I N<node>=<nr_pages>
+The number of pages allocated on
+.IR <node> .
+.I <nr_pages>
+includes only pages currently mapped by the process.
+Page migration and memory reclaim may have temporarily unmapped pages
+associated with this memory range.
+These pages may only show up again after the process has
+attempted to reference them.
+If the memory range represents a shared memory area or file mapping,
+other processes may currently have additional pages mapped in a
+corresponding memory range.
+.TP
+.I file=<filename>
+The file backing the memory range.
+If the file is mapped as private, write accesses may have generated
+COW (Copy-On-Write) pages in this memory range.
+These pages are displayed as anonymous pages.
+.TP
+.I heap
+Memory range is used for the heap.
+.TP
+.I stack
+Memory range is used for the stack.
+.TP
+.I huge
+Huge memory range.
+The page counts shown are huge pages and not regular sized pages.
+.TP
+.I anon=<pages>
+The number of anonymous page in the range.
+.TP
+.I dirty=<pages>
+Number of dirty pages
+.TP
+.I mapped=<pages>
+Total number of mapped pages, if different from
+.IR dirty
+and
+.I anon
+pages.
+.TP
+.I mapmax=<count>
+Maximum mapcount (number of processes mapping a single page) encountered
+during the scan.
+This may be used as an indicator of the degree of sharing occurring in a
+given memory range.
+.TP
+.I swapcache=<count>
+Number of pages that have an associated entry on a swap device.
+.TP
+.I active=<pages>
+The number of pages on the active list.
+This field is only shown if different from the number of pages in this range.
+This means that some inactive pages exist in the memory range that may be
+removed from memory by the swapper soon.
+.TP
+.I writeback=<pages>
+Number of pages that are currently being written out to disk.
+.RE
 .TP
 .IR /proc/[number]/oom_adj " (since Linux 2.6.11)"
 This file can be used to adjust the score used to select which process

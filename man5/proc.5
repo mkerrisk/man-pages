@@ -41,10 +41,10 @@
 .\" 2005-09-16, mtk, Added /proc/sys/fs/suid_dumpable
 .\" 2005-09-19, mtk, added /proc/zoneinfo
 .\" 2005-03-01, mtk, moved /proc/sys/fs/mqueue/* material to mq_overview.7.
-.\" 2008-06-05, mtk, Added /proc/PID/oom_score, /proc/PID/oom_adj,
-.\"     /proc/PID/limits, /proc/PID/mountinfo, /proc/PID/mountstats,
-.\"     and /proc/PID/fdinfo/*.
-.\" 2008-06-19, mtk, Documented /proc/PID/status.
+.\" 2008-06-05, mtk, Added /proc/[pid]/oom_score, /proc/[pid]/oom_adj,
+.\"     /proc/[pid]/limits, /proc/[pid]/mountinfo, /proc/[pid]/mountstats,
+.\"     and /proc/[pid]/fdinfo/*.
+.\" 2008-06-19, mtk, Documented /proc/[pid]/status.
 .\" 2008-07-15, mtk, added /proc/config.gz
 .\"
 .\" FIXME 2.6.13 seems to have /proc/vmcore implemented
@@ -58,7 +58,7 @@
 .\" to see what information could be imported from that file
 .\" into this file.
 .\"
-.TH PROC 5 2008-08-13 "Linux" "Linux Programmer's Manual"
+.TH PROC 5 2008-08-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 proc \- process information pseudo-file system
 .SH DESCRIPTION
@@ -76,37 +76,37 @@ The following outline gives a quick tour through the
 hierarchy.
 .PD 1
 .TP
-.I /proc/[number]
+.I /proc/[pid]
 There is a numerical subdirectory for each running process; the
 subdirectory is named by the process ID.
 Each such subdirectory contains the following
 pseudo-files and directories.
-.\" FIXME Describe /proc/[number]/attr and
-.\"       /proc/PID/task/TID/attr
+.\" FIXME Describe /proc/[pid]/attr and
+.\"       /proc/[pid]/task/[tid]/attr
 .\"	  This is a directory
 .\"       Added in ???
 .\"	  CONFIG_SECURITY
 .\"
 .TP
-.IR /proc/[number]/auxv " (since 2.6.0-test7)"
+.IR /proc/[pid]/auxv " (since 2.6.0-test7)"
 This contains the contents of the ELF interpreter information passed
 to the process at exec time.
 The format is one \fIunsigned long\fP ID
 plus one \fIunsigned long\fP value for each entry.
 The last entry contains two zeros.
-.\" FIXME Describe /proc/[number]/cgroup and
-.\"       /proc/PID/task/TID/cgroup
+.\" FIXME Describe /proc/[pid]/cgroup and
+.\"       /proc/[pid]/task/[tid]/cgroup
 .\" 	  Info in Documentation/cgroups.txt
 .\"       Added in 2.6.24
 .\"	  CONFIG_CGROUPS
 .\"
-.\" FIXME Describe /proc/[number]/clear_refs
+.\" FIXME Describe /proc/[pid]/clear_refs
 .\"       Added in 2.6.22
 .\"       "Clears page referenced bits shown in smaps output"
 .\"       write-only
 .\"       CONFIG_PROC_PAGE_MONITOR
 .TP
-.I /proc/[number]/cmdline
+.I /proc/[pid]/cmdline
 This holds the complete command line for the process,
 unless the process is a zombie.
 .\" In 2.3.26, this also used to be true if the process was swapped out.
@@ -116,16 +116,16 @@ The command-line arguments appear in this file as a set of
 null-separated strings,
 with a further null byte (\(aq\\0\(aq) after the last string.
 .TP
-.IR /proc/[number]/coredump_filter " (since kernel 2.6.23)"
+.IR /proc/[pid]/coredump_filter " (since kernel 2.6.23)"
 See
 .BR core (5).
 .TP
-.IR /proc/[number]/cpuset " (since kernel 2.6.12)"
-.\" and/proc/PID/task/TID/cpuset
+.IR /proc/[pid]/cpuset " (since kernel 2.6.12)"
+.\" and/proc/[pid]/task/[tid]/cpuset
 See
 .BR cpuset (7).
 .TP
-.I /proc/[number]/cwd
+.I /proc/[pid]/cwd
 This is a symbolic link to the current working directory of the process.
 To find out the current working directory of process 20,
 for instance, you can do this:
@@ -151,7 +151,7 @@ are not available if the main thread has already terminated
 (typically by calling
 .BR pthread_exit (3)).
 .TP
-.I /proc/[number]/environ
+.I /proc/[pid]/environ
 This file contains the environment for the process.
 The entries are separated by null bytes (\(aq\\0\(aq),
 and there may be a null byte at the end.
@@ -170,15 +170,15 @@ Thus, to print out the environment of process 1, you would do:
 or
 .BR grub (8).)
 .TP
-.I /proc/[number]/exe
+.I /proc/[pid]/exe
 Under Linux 2.2 and later, this file is a symbolic link
 containing the actual pathname of the executed command.
 This symbolic link can be dereferenced normally; attempting to open
 it will open the executable.
 You can even type
-.I /proc/[number]/exe
+.I /proc/[pid]/exe
 to run another copy of the same executable as is being run by
-process [number].
+process [pid].
 .\" The following was still true as at kernel 2.6.13
 In a multithreaded process, the contents of this symbolic link
 are not available if the main thread has already terminated
@@ -186,7 +186,7 @@ are not available if the main thread has already terminated
 .BR pthread_exit (3)).
 
 Under Linux 2.0 and earlier
-.I /proc/[number]/exe
+.I /proc/[pid]/exe
 is a pointer to the binary which was executed,
 and appears as a symbolic link.
 A
@@ -203,7 +203,7 @@ with the
 .I \-inum
 option can be used to locate the file.
 .TP
-.I /proc/[number]/fd
+.I /proc/[pid]/fd
 This is a subdirectory containing one entry for each file which the
 process has open, named by its file descriptor, and which is a
 symbolic link to the actual file.
@@ -221,7 +221,7 @@ or that write to a file named as a command-line argument,
 but will not send their output to standard output
 if no argument is supplied, can nevertheless be made to use
 standard input or standard out using
-.IR /proc/[number]/fd .
+.IR /proc/[pid]/fd .
 For example, assuming that
 .I \-i
 is the flag designating an input file and
@@ -269,11 +269,11 @@ Thus the example command above could be written as:
 foobar \-i /dev/stdin \-o /dev/stdout ...
 .fi
 .in
-.\" FIXME Describe /proc/[number]/loginuid
+.\" FIXME Describe /proc/[pid]/loginuid
 .\"       Added in 2.6.11; updating requires CAP_AUDIT_CONTROL
 .\"       CONFIG_AUDITSYSCALL
 .TP
-.IR /proc/[number]/fdinfo/ " (since kernel 2.6.22)"
+.IR /proc/[pid]/fdinfo/ " (since kernel 2.6.22)"
 This is a subdirectory containing one entry for each file which the
 process has open, named by its file descriptor.
 The contents of each file can be read to obtain information
@@ -297,17 +297,17 @@ file access mode and file status flags (see
 .BR open (2)).
 
 The files in this directory are readable only by the owner of the process.
-.\" FIXME document /proc/[number]/io
+.\" FIXME document /proc/[pid]/io
 .\" .TP
-.\" .IR /proc/[number]/io " (since kernel 2.6.20)"
+.\" .IR /proc/[pid]/io " (since kernel 2.6.20)"
 .TP
-.IR /proc/[number]/limits " (since kernel 2.6.24)"
+.IR /proc/[pid]/limits " (since kernel 2.6.24)"
 This file displays the soft limit, hard limit, and units of measurement
 for each of the process's resource limits (see
 .BR getrlimit (2)).
 The file is protected to only allow reading by the real UID of the process.
 .TP
-.I /proc/[number]/maps
+.I /proc/[pid]/maps
 A file containing the currently mapped memory regions and their access
 permissions.
 
@@ -348,14 +348,14 @@ as the case would be with BSS (uninitialized data).
 
 Under Linux 2.0 there is no field giving pathname.
 .TP
-.I /proc/[number]/mem
+.I /proc/[pid]/mem
 This file can be used to access the pages of a process's memory through
 .BR open (2),
 .BR read (2),
 and
 .BR lseek (2).
 .TP
-.IR /proc/[number]/mountinfo " (since Linux 2.6.26)"
+.IR /proc/[pid]/mountinfo " (since Linux 2.6.26)"
 .\" This info adapted from Documentation/filesystems/proc.txt
 This file contains information about mount points.
 It contains lines of the form:
@@ -435,7 +435,7 @@ For more information on mount propagation see:
 .I Documentation/filesystems/sharedsubtree.txt
 in the kernel source tree.
 .TP
-.IR /proc/[number]/mountstats " (since Linux 2.6.17)"
+.IR /proc/[pid]/mountstats " (since Linux 2.6.17)"
 This file system exports information (statistics, configuration information)
 about the mount points in the process's name space.
 Lines in this file have the form:
@@ -466,17 +466,17 @@ information via this field.
 .IP
 This file is only readable by the owner of the process.
 .\"
-.\" FIXME Describe /proc/[number]/mountstats and
-.\"       /proc/PID/task/TID/mountstats
+.\" FIXME Describe /proc/[pid]/mountstats and
+.\"       /proc/[pid]/task/[tid]/mountstats
 .\" 	  Some information can be found in the 2.6.17 change log.
 .\"       Added in 2.6.17
 .\"
 .TP
-.IR /proc/[number]/numa_maps " (since Linux 2.6.14)"
+.IR /proc/[pid]/numa_maps " (since Linux 2.6.14)"
 See
 .BR numa (7).
 .TP
-.IR /proc/[number]/oom_adj " (since Linux 2.6.11)"
+.IR /proc/[pid]/oom_adj " (since Linux 2.6.11)"
 This file can be used to adjust the score used to select which process
 should be killed in an out-of-memory (OOM) situation.
 The kernel uses this value for a bit-shift operation of the process's
@@ -496,7 +496,7 @@ A process must be privileged
 .RB ( CAP_SYS_RESOURCE )
 to update this file.
 .TP
-.IR /proc/[number]/oom_score " (since Linux 2.6.11)"
+.IR /proc/[pid]/oom_score " (since Linux 2.6.11)"
 .\" See mm/oom_kill.c::badness() in the 2.6.25 sources
 This file displays the current score that the kernel gives to
 this process for the purpose of selecting a process
@@ -529,11 +529,11 @@ The
 also reflects the bit-shift adjustment specified by the
 .I oom_adj
 setting for the process.
-.\" FIXME Describe /proc/[number]/pagemap
+.\" FIXME Describe /proc/[pid]/pagemap
 .\"       Added in 2.6.25
 .\"       CONFIG_PROC_PAGE_MONITOR
 .TP
-.I /proc/[number]/root
+.I /proc/[pid]/root
 Unix and Linux support the idea of a per-process root of the
 file system, set by the
 .BR chroot (2)
@@ -546,22 +546,22 @@ In a multithreaded process, the contents of this symbolic link
 are not available if the main thread has already terminated
 (typically by calling
 .BR pthread_exit (3)).
-.\" FIXME Describe /proc/[number]/seccomp
+.\" FIXME Describe /proc/[pid]/seccomp
 .\"       Added in 2.6.12
-.\" FIXME Describe /proc/[number]/sessionid
+.\" FIXME Describe /proc/[pid]/sessionid
 .\"       Added in 2.6.25; read-only; only readable by real UID
 .\"       CONFIG_AUDITSYSCALL
-.\" FIXME Describe /proc/[number]/sched
+.\" FIXME Describe /proc/[pid]/sched
 .\"       Added in 2.6.23
 .\"       CONFIG_SCHED_DEBUG, and additional fields if CONFIG_SCHEDSTATS
 .\"       Displays various scheduling parameters
 .\"       This file can be written, to reset stats
-.\" FIXME Describe /proc/[number]/schedstats and
-.\"       /proc/[number]/task/TID/schedstats
+.\" FIXME Describe /proc/[pid]/schedstats and
+.\"       /proc/[pid]/task/[tid]/schedstats
 .\"       Added in 2.6.9
 .\"       CONFIG_SCHEDSTATS
 .TP
-.IR /proc/[number]/smaps " (since Linux 2.6.14)"
+.IR /proc/[pid]/smaps " (since Linux 2.6.14)"
 .\"       CONFIG_PROC_PAGE_MONITOR
 This file shows memory consumption for each of the process's mappings.
 For each of mappings there is a series of lines such as the following:
@@ -580,7 +580,7 @@ Private_Dirty:        0 kB
 .in
 The first of these lines shows the same information as is displayed
 for the mapping in
-.IR /proc/[number]/maps .
+.IR /proc/[pid]/maps .
 The remaining lines show the size of the mapping,
 the amount of the mapping that is currently resident in RAM,
 the number clean and dirty shared pages in the mapping,
@@ -591,7 +591,7 @@ This file is only present if the
 kernel configuration
 option is enabled.
 .TP
-.I /proc/[number]/stat
+.I /proc/[pid]/stat
 Status information about the process.
 This is used by
 .BR ps (1).
@@ -779,25 +779,25 @@ The current EIP (instruction pointer).
 \fIsignal\fP %lu
 The bitmap of pending signals, displayed as a decimal number.
 Obsolete, because it does not provide information on real-time signals; use
-.I /proc/[number]/status
+.I /proc/[pid]/status
 instead.
 .TP
 \fIblocked\fP %lu
 The bitmap of blocked signals, displayed as a decimal number.
 Obsolete, because it does not provide information on real-time signals; use
-.I /proc/[number]/status
+.I /proc/[pid]/status
 instead.
 .TP
 \fIsigignore\fP %lu
 The bitmap of ignored signals, displayed as a decimal number.
 Obsolete, because it does not provide information on real-time signals; use
-.I /proc/[number]/status
+.I /proc/[pid]/status
 instead.
 .TP
 \fIsigcatch\fP %lu
 The bitmap of caught signals, displayed as a decimal number.
 Obsolete, because it does not provide information on real-time signals; use
-.I /proc/[number]/status
+.I /proc/[pid]/status
 instead.
 .TP
 \fIwchan\fP %lu
@@ -850,16 +850,16 @@ Guest time of the process's children, measured in clock ticks (divide by
 .IR sysconf(_SC_CLK_TCK) .
 .RE
 .TP
-.I /proc/[number]/statm
+.I /proc/[pid]/statm
 Provides information about memory usage, measured in pages.
 The columns are:
 .in +4n
 .nf
 
 size       total program size
-           (same as VmSize in \fI/proc/[number]/status\fP)
+           (same as VmSize in \fI/proc/[pid]/status\fP)
 resident   resident set size
-           (same as VmRSS in \fI/proc/[number]/status\fP)
+           (same as VmRSS in \fI/proc/[pid]/status\fP)
 share      shared pages (from shared mappings)
 text       text (code)
 .\" (not including libs; broken, includes data segment)
@@ -870,11 +870,11 @@ dt         dirty pages (unused in Linux 2.6)
 .fi
 .in
 .TP
-.I /proc/[number]/status
+.I /proc/[pid]/status
 Provides much of the information in
-.I /proc/[number]/stat
+.I /proc/[pid]/stat
 and
-.I /proc/[number]/statm
+.I /proc/[pid]/statm
 in a format that's easier for humans to parse.
 Here's an example:
 .in +4n
@@ -1028,39 +1028,40 @@ Same as previous, but in "list format"
 Number of voluntary and involuntary context switches (since Linux 2.6.23).
 .RE
 .TP
-.IR /proc/[number]/task " (since Linux 2.6.0-test6)"
+.IR /proc/[pid]/task " (since Linux 2.6.0-test6)"
 This is a directory that contains one subdirectory
 for each thread in the process.
-The name of each subdirectory is the numerical thread ID of the
-thread (see
+The name of each subdirectory is the numerical thread ID
+.RI ( [tid] )
+of the thread (see
 .BR gettid (2)).
 Within each of these subdirectories, there is a set of
 files with the same names and contents as under the
-.I /proc/[number]
+.I /proc/[pid]
 directories.
 For attributes that are shared by all threads, the contents for
 each of the files under the
-.I task/[thread-ID]
+.I task/[tid]
 subdirectories will be the same as in the corresponding
 file in the parent
-.I /proc/[number]
+.I /proc/[pid]
 directory
 (e.g., in a multithreaded process, all of the
-.I task/[thread-ID]/cwd
+.I task/[tid]/cwd
 files will have the same value as the
-.I /proc/[number]/cwd
+.I /proc/[pid]/cwd
 file in the parent directory, since all of the threads in a process
 share a working directory).
 For attributes that are distinct for each thread,
 the corresponding files under
-.I task/[thread-ID]
+.I task/[tid]
 may have different values (e.g., various fields in each of the
-.I task/[thread-ID]/status
+.I task/[tid]/status
 files may be different for each thread).
 
 .\" The following was still true as at kernel 2.6.13
 In a multithreaded process, the contents of the
-.I /proc/[number]/task
+.I /proc/[pid]/task
 directory are not available if the main thread has already terminated
 (typically by calling
 .BR pthread_exit (3)).
@@ -1529,7 +1530,7 @@ set), and finally removed altogether since Linux 2.6.17.
 .\" FIXME /proc/sched_debug
 .\" .TP
 .\" .IR /proc/sched_debug " (since Linux 2.6.23)"
-.\" See also /proc/PID/sched
+.\" See also /proc/[pid]/sched
 .TP
 .I /proc/scsi
 A directory with the
@@ -2155,7 +2156,7 @@ can be set to any value up to 2^22
 .RB ( PID_MAX_LIMIT ,
 approximately 4 million).
 .\" Prior to 2.6.10, pid_max could also be raised above 32768 on 32-bit
-.\" platforms, but this broke /proc/PID
+.\" platforms, but this broke /proc/[pid]
 .\" See http://marc.theaimsgroup.com/?l=linux-kernel&m=109513010926152&w=2
 .TP
 .IR /proc/sys/kernel/powersave-nap " (PowerPC only)"
@@ -2355,7 +2356,7 @@ thread ID, real user ID, thread group ID (process ID),
 virtual memory size, resident set size,
 the CPU that the task is scheduled on,
 oom_adj score (see the description of
-.IR /proc/[number]/oom_adj ),
+.IR /proc/[pid]/oom_adj ),
 and command name.
 This is helpful to determine why the OOM-killer was invoked
 and to identify the rogue task that caused it.

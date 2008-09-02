@@ -27,7 +27,7 @@
 .\" Remarks from dhw@gamgee.acad.emich.edu Fri Jun 19 06:46:31 1998
 .\" Modified 2001-12-26, 2003-11-28, 2004-05-20, aeb
 .\"
-.TH HSEARCH 3 2004-05-20 "GNU" "Linux Programmer's Manual"
+.TH HSEARCH 3 2008-09-02 "GNU" "Linux Programmer's Manual"
 .SH NAME
 hcreate, hdestroy, hsearch, hcreate_r, hdestroy_r,
 hsearch_r \- hash table management
@@ -58,25 +58,39 @@ The three functions
 .BR hsearch (),
 and
 .BR hdestroy ()
-allow the user to create a hash table (only one at a time)
-which associates a key with any data.
+allow the caller to create and manage a hash table
+containing entries, each of which consists of a key (a string)
+and associated data.
+Using these functions, only one hash table can be used at a time.
 .PP
 First the table must be created with the function
 .BR hcreate ().
-The argument \fInel\fP is an estimate of the maximum number of entries
+The argument \fInel\fP specifies the maximum number of entries
 in the table.
+(This maximum cannot be changed later, so choose it wisely.)
 The function
 .BR hcreate ()
 may adjust this value upward to improve the
 performance of the resulting hash table.
+.\" e.g., in glibc it is raised to the next higher prime number
 .PP
 The corresponding function
 .BR hdestroy ()
-frees the memory occupied by
-the hash table so that a new table can be constructed.
-.PP
-The argument \fIitem\fP is of type \fBENTRY\fP, which is a typedef defined in
-\fI<search.h>\fP and includes these elements:
+frees the memory occupied by the hash table.
+After calling
+.BR hdestroy ()
+a new hash table can be created using
+.BR hcreate ().
+
+The function
+.BR hsearch ()
+searches the hash table for an
+item with the same key as \fIitem\fP (where "the same" is determined using
+.BR strcmp (3)),
+and if successful returns a pointer to it.
+
+The argument \fIitem\fP is of type \fIENTRY\fP, which is defined in
+\fI<search.h>\fP as follows:
 .in +4n
 .sp
 .nf
@@ -87,54 +101,75 @@ typedef struct entry {
 .in
 .fi
 .sp
-The field \fIkey\fP points to the null-terminated string which is the
+The field \fIkey\fP points to a null-terminated string which is the
 search key.
-The field \fIdata\fP points to the data associated with that key.
-The function
-.BR hsearch ()
-searches the hash table for an
-item with the same key as \fIitem\fP (where "the same" is determined using
-.BR strcmp (3)),
-and if successful returns a pointer to it.
+The field \fIdata\fP points to data that is associated with that key.
+
 The argument \fIaction\fP determines what
 .BR hsearch ()
-does
-after an unsuccessful search.
-A value of \fBENTER\fP instructs it to
-insert a copy of \fIitem\fP, while a value of \fBFIND\fP means to return
-NULL.
+does after an unsuccessful search.
+This argument must either have the value
+.BR ENTER ,
+meaning insert a copy of
+.IR item ,
+or the value
+.BR FIND ,
+meaning that NULL should be returned.
+(If
+.I action
+is
+.BR FIND ,
+then
+.I data
+is ignored.)
 .PP
 The three functions
 .BR hcreate_r (),
 .BR hsearch_r (),
 .BR hdestroy_r ()
-are reentrant versions that allow the use of more than one table.
-The last argument used identifies the table.
-The struct it points to
+are reentrant versions that allow a program to use
+more than one table at the same time.
+The last argument,
+.IR tab ,
+identifies the table.
+The structure that it points to
 must be zeroed before the first call to
 .BR hcreate_r ().
+The
+.BR hsearch_r ()
+function differs from
+.BR hsearch ()
+in that a pointer to the found item is returned in
+.IR retval ,
+rather than as the function result.
 .SH "RETURN VALUE"
 .BR hcreate ()
 and
 .BR hcreate_r ()
-return 0 when allocation of the memory
-for the hash table fails, non-zero otherwise.
-.LP
+return non-zero on success.
+They return 0 on error.
+
+On success,
 .BR hsearch ()
-returns NULL if \fIaction\fP is \fBENTER\fP and
+returns a pointer to an entry in the hash table.
+.BR hsearch ()
+returns NULL on error, that is,
+if \fIaction\fP is \fBENTER\fP and
 the hash table is full, or \fIaction\fP is \fBFIND\fP and \fIitem\fP
 cannot be found in the hash table.
-.LP
 .BR hsearch_r ()
-returns 0 if \fIaction\fP is \fBENTER\fP and
-the hash table is full, and non-zero otherwise.
+returns non-zero on success, and 0 on error.
 .SH ERRORS
-POSIX documents
-.TP
-.B ENOMEM
-Out of memory.
 .LP
-The glibc implementation will return the following two errors.
+.BR hcreate ()
+and
+.BR hcreate_r ()
+can fail for the following reasons:
+.TP
+.B EINVAL
+.RB ( hcreate_r ())
+.I tab
+is NULL.
 .TP
 .B ENOMEM
 Table full with \fIaction\fP set to \fBENTER\fP.
@@ -142,6 +177,32 @@ Table full with \fIaction\fP set to \fBENTER\fP.
 .B ESRCH
 The \fIaction\fP argument is \fBFIND\fP and no corresponding element
 is found in the table.
+.\" hdestroy_r() can set errno to EINVAL if 'tab' is NULL.
+.PP
+.BR hsearch ()
+and
+.BR hsearch_r ()
+can fail for the following reasons:
+.TP
+.B ENOMEM
+.I action
+was
+.BR ENTER ,
+.I key
+was not found in the table,
+and there was no room in the table to add a new entry.
+.TP
+.B ESRCH
+.I action
+was
+.BR find ,
+and
+.I key
+was not found in the table.
+.PP
+POSIX.1-2001 only specifies the
+.B ENOMEM
+error.
 .SH "CONFORMING TO"
 The functions
 .BR hcreate (),
@@ -154,19 +215,39 @@ The functions
 .BR hsearch_r (),
 .BR hdestroy_r ()
 are GNU extensions.
+.SH NOTES
+Hash table implementations are usually more efficient when the
+table contains enough free space to minimize collisions.
+Typically, this means that
+.I nel
+should be at least 25% larger than the maximum number of elements
+that the caller expects to store in the table.
+
+The
+.BR hdestroy ()
+function does not free the buffers pointed to by the
+.I key
+and
+.I data
+elements of the hash table entries.
+If these buffers need to be freed (perhaps because the program
+is repeatedly creating and destroying hash tables,
+rather than creating a single table whose lifetime
+matches that of the program),
+then the program must maintain bookkeeping data structures that
+allow it to free them.
 .SH BUGS
 SVr4 and POSIX.1-2001 specify that \fIaction\fP
 is significant only for unsuccessful searches, so that an \fBENTER\fP
 should not do anything for a successful search.
-The libc and glibc
+The libc and glibc (before version 2.3)
 implementations update the \fIdata\fP for the given \fIkey\fP
 in this case.
-.\" Tue Jan 29 09:27:40 2002: fixed in latest glibc snapshot
-.LP
+
 Individual hash table entries can be added, but not deleted.
 .SH EXAMPLE
 .PP
-The following program inserts 24 items in to a hash table, then prints
+The following program inserts 24 items into a hash table, then prints
 some of them.
 .nf
 
@@ -187,8 +268,8 @@ main(void)
     ENTRY e, *ep;
     int i;
 
-    /* starting with small table, and letting it grow does not work */
     hcreate(30);
+
     for (i = 0; i < 24; i++) {
         e.key = data[i];
         /* data is just an integer, instead of a
@@ -201,6 +282,7 @@ main(void)
             exit(EXIT_FAILURE);
         }
     }
+
     for (i = 22; i < 26; i++) {
         /* print two entries from the table, and
            show that two are not in the table */

@@ -1,5 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\" Copyright 1993 Ulrich Drepper (drepper@karlsruhe.gmd.de)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -27,8 +29,9 @@
 .\" Remarks from dhw@gamgee.acad.emich.edu Fri Jun 19 06:46:31 1998
 .\" Modified 2001-12-26, 2003-11-28, 2004-05-20, aeb
 .\" 2008-09-02, mtk: various additions and rewrites
+.\" 2008-09-03, mtk, restructured somewhat.
 .\"
-.TH HSEARCH 3 2008-09-02 "GNU" "Linux Programmer's Manual"
+.TH HSEARCH 3 2008-09-03 "GNU" "Linux Programmer's Manual"
 .SH NAME
 hcreate, hdestroy, hsearch, hcreate_r, hdestroy_r,
 hsearch_r \- hash table management
@@ -46,12 +49,12 @@ hsearch_r \- hash table management
 .br
 .B #include <search.h>
 .sp
-.BI "int hcreate_r(size_t " nel ", struct hsearch_data *" tab );
+.BI "int hcreate_r(size_t " nel ", struct hsearch_data *" htab );
 .sp
-.BI "int hsearch_r(ENTRY " item ", ACTION " action ", ENTRY **" ret ,
-.BI "              struct hsearch_data *" tab );
+.BI "int hsearch_r(ENTRY " item ", ACTION " action ", ENTRY **" retval ,
+.BI "              struct hsearch_data *" htab );
 .sp
-.BI "void hdestroy_r(struct hsearch_data *" tab );
+.BI "void hdestroy_r(struct hsearch_data *" htab );
 .fi
 .SH DESCRIPTION
 The three functions
@@ -63,29 +66,57 @@ allow the caller to create and manage a hash table
 containing entries, each of which consists of a key (a string)
 and associated data.
 Using these functions, only one hash table can be used at a time.
-.PP
-First the table must be created with the function
+
+The three functions
+.BR hcreate_r (),
+.BR hsearch_r (),
+.BR hdestroy_r ()
+are reentrant versions that allow a program to use
+more than one table at the same time.
+The last argument,
+.IR htab ,
+points to a structure that describes the table
+on which the function is to operate.
+The programmer should treat this structure as opaque
+(i.e., do not attempt to directly access or modify
+the fields in this structure).
+
+First a hash table must be created using
 .BR hcreate ().
 The argument \fInel\fP specifies the maximum number of entries
 in the table.
 (This maximum cannot be changed later, so choose it wisely.)
-The function
-.BR hcreate ()
-may adjust this value upward to improve the
+The implementation may adjust this value upward to improve the
 performance of the resulting hash table.
 .\" e.g., in glibc it is raised to the next higher prime number
-.PP
-The corresponding function
+
+The
+.BR hcreate_r ()
+function performs the same task as
+.BR hcreate (),
+but for the table described by the structure
+.IR *htab .
+The structure pointed to by
+.I htab
+must be zeroed before the first call to
+.BR hcreate_r ().
+
+The function
 .BR hdestroy ()
-frees the memory occupied by the hash table.
+frees the memory occupied by the hash table that was created by
+.BR hcreate ().
 After calling
 .BR hdestroy ()
 a new hash table can be created using
 .BR hcreate ().
+The
+.BR hdestroy_r ()
+function performs the analogous task for the hash table described by
+.IR *htab .
 
-The function
+The
 .BR hsearch ()
-searches the hash table for an
+function searches the hash table for an
 item with the same key as \fIitem\fP (where "the same" is determined using
 .BR strcmp (3)),
 and if successful returns a pointer to it.
@@ -112,7 +143,8 @@ does after an unsuccessful search.
 This argument must either have the value
 .BR ENTER ,
 meaning insert a copy of
-.IR item ,
+.IR item
+(and return a pointer to the new hash table entry as the function result),
 or the value
 .BR FIND ,
 meaning that NULL should be returned.
@@ -123,25 +155,19 @@ is
 then
 .I data
 is ignored.)
-.PP
-The three functions
-.BR hcreate_r (),
-.BR hsearch_r (),
-.BR hdestroy_r ()
-are reentrant versions that allow a program to use
-more than one table at the same time.
-The last argument,
-.IR tab ,
-identifies the table.
-The structure that it points to
-must be zeroed before the first call to
-.BR hcreate_r ().
+
+The
+.BR hsearch_r ()
+function is like
+.BR hsearch ()
+but operates on the hash table described by
+.IR *htab .
 The
 .BR hsearch_r ()
 function differs from
 .BR hsearch ()
 in that a pointer to the found item is returned in
-.IR ret ,
+.IR *retval ,
 rather than as the function result.
 .SH "RETURN VALUE"
 .BR hcreate ()
@@ -169,7 +195,7 @@ can fail for the following reasons:
 .TP
 .B EINVAL
 .RB ( hcreate_r ())
-.I tab
+.I htab
 is NULL.
 .TP
 .B ENOMEM
@@ -214,6 +240,7 @@ are from SVr4, and are described in POSIX.1-2001.
 The functions
 .BR hcreate_r (),
 .BR hsearch_r (),
+and
 .BR hdestroy_r ()
 are GNU extensions.
 .SH NOTES
@@ -226,11 +253,15 @@ that the caller expects to store in the table.
 
 The
 .BR hdestroy ()
-function does not free the buffers pointed to by the
+and
+.BR hdestroy _r()
+functions do not free the buffers pointed to by the
 .I key
 and
 .I data
 elements of the hash table entries.
+(It can't do this because it doesn't know
+whether these buffers were allocated dynamically.)
 If these buffers need to be freed (perhaps because the program
 is repeatedly creating and destroying hash tables,
 rather than creating a single table whose lifetime
@@ -241,9 +272,9 @@ allow it to free them.
 SVr4 and POSIX.1-2001 specify that \fIaction\fP
 is significant only for unsuccessful searches, so that an \fBENTER\fP
 should not do anything for a successful search.
-The libc and glibc (before version 2.3)
-implementations update the \fIdata\fP for the given \fIkey\fP
-in this case.
+In libc and glibc (before version 2.3), the
+implementation violates the specification,
+updating the \fIdata\fP for the given \fIkey\fP in this case.
 
 Individual hash table entries can be added, but not deleted.
 .SH EXAMPLE

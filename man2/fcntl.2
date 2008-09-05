@@ -53,7 +53,7 @@
 .\"	mtk: Noted F_SETOWN bug for socket file descriptor in Linux 2.4
 .\"	and earlier.  Added text on permissions required to send signal.
 .\"
-.TH FCNTL 2 2008-08-21 "Linux" "Linux Programmer's Manual"
+.TH FCNTL 2 2008-09-05 "Linux" "Linux Programmer's Manual"
 .SH NAME
 fcntl \- manipulate file descriptor
 .SH SYNOPSIS
@@ -61,9 +61,7 @@ fcntl \- manipulate file descriptor
 .B #include <unistd.h>
 .B #include <fcntl.h>
 .sp
-.BI "int fcntl(int " fd ", int " cmd );
-.BI "int fcntl(int " fd ", int " cmd ", long " arg );
-.BI "int fcntl(int " fd ", int " cmd ", struct flock *" lock );
+.BI "int fcntl(int " fd ", int " cmd ", ... /* " arg " */ );"
 .fi
 .SH DESCRIPTION
 .BR fcntl ()
@@ -71,16 +69,30 @@ performs one of the operations described below on the open file descriptor
 .IR fd .
 The operation is determined by
 .IR cmd .
+
+.BR fcntl ()
+can take an optional third argument.
+Whether or not this argument is required is determined by
+.IR cmd .
+The required argument type is indicated in paretheses after each
+.I cmd
+name (in most cases, the required type is
+.IR long ,
+and we identify the argument using the name
+.IR arg ),
+or
+.I void
+is specified if the argument is not required.
 .SS "Duplicating a file descriptor"
 .TP
-.B F_DUPFD
+.BR F_DUPFD " (\fIlong\fP)"
 Find the lowest numbered available file descriptor
 greater than or equal to
 .I arg
 and make it be a copy of
 .IR fd .
 This is different from
-.BR dup2 (2)
+.BR dup2 (2),
 which uses exactly the descriptor specified.
 .IP
 On success, the new descriptor is returned.
@@ -89,7 +101,7 @@ See
 .BR dup (2)
 for further details.
 .TP
-.BR F_DUPFD_CLOEXEC " (since Linux 2.6.24)"
+.BR F_DUPFD_CLOEXEC " (\fIlong\fP; since Linux 2.6.24)"
 As for
 .BR F_DUPFD ,
 but additionally set the
@@ -117,10 +129,12 @@ bit is 0, the file descriptor will remain open across an
 .BR execve (2),
 otherwise it will be closed.
 .TP
-.B F_GETFD
-Read the file descriptor flags.
+.BR F_GETFD " (\fIvoid\fP)"
+Read the file descriptor flags;
+.I arg
+is ignored.
 .TP
-.B F_SETFD
+.BR F_SETFD " (\fIlong\fP)"
 Set the file descriptor flags to the value specified by
 .IR arg .
 .SS "File status flags"
@@ -142,10 +156,12 @@ share the same file status flags.
 The file status flags and their semantics are described in
 .BR open (2).
 .TP
-.B F_GETFL
-Read the file status flags.
+.BR F_GETFL " (\fIvoid\fP)"
+Read the file status flags;
+.I arg
+is ignored.
 .TP
-.B F_SETFL
+.BR F_SETFL " (\fIlong\fP)"
 Set the file status flags to the value specified by
 .IR arg .
 File access mode
@@ -171,8 +187,8 @@ flags.
 .BR F_GETLK ", " F_SETLK " and " F_SETLKW
 are used to acquire, release, and test for the existence of record
 locks (also known as file-segment or file-region locks).
-The third argument
-.I lock
+The third argument,
+.IR lock ,
 is a pointer to a structure that has at least the following fields
 (in unspecified order).
 .in +4n
@@ -246,7 +262,7 @@ then the existing lock is converted to the new lock type.
 an existing lock if the byte range specified by the new lock does not
 precisely coincide with the range of the existing lock.)
 .TP
-.B F_SETLK
+.BR F_SETLK " (\fIstruct flock *\fP)"
 Acquire a lock (when
 .I l_type
 is
@@ -269,7 +285,7 @@ to
 or
 .BR EAGAIN .
 .TP
-.B F_SETLKW
+.BR F_SETLKW " (\fIstruct flock *\fP)"
 As for
 .BR F_SETLK ,
 but if a conflicting lock is held on the file, then wait for that
@@ -283,7 +299,7 @@ set to
 see
 .BR signal (7)).
 .TP
-.B F_GETLK
+.BR F_GETLK " (\fIstruct flock *\fP)"
 On input to this call,
 .I lock
 describes a lock we would like to place on the file.
@@ -397,8 +413,9 @@ See BUGS below.
 .BR F_GETOWN ", " F_SETOWN ", " F_GETSIG " and " F_SETSIG
 are used to manage I/O availability signals:
 .TP
-.B F_GETOWN
-Get the process ID or process group currently receiving
+.BR F_GETOWN " (\fIvoid\fP)"
+Return (as the function result)
+the process ID or process group currently receiving
 .B SIGIO
 and
 .B SIGURG
@@ -406,14 +423,18 @@ signals for events on file descriptor
 .IR fd .
 Process IDs are returned as positive values;
 process group IDs are returned as negative values (but see BUGS below).
+.I arg
+is ignored.
 .TP
-.B F_SETOWN
+.BR F_SETOWN " (\fIlong\fP)"
 Set the process ID or process group ID that will receive
 .B SIGIO
 and
 .B SIGURG
 signals for events on file descriptor
-.IR fd .
+.IR fd
+to the ID given in
+.IR arg .
 A process ID is specified as a positive value;
 a process group ID is specified as a negative value.
 Most commonly, the calling process specifies itself as the owner
@@ -522,8 +543,9 @@ and this signal is delivered to the entire
 process rather than to a specific thread.
 .\" See fs/fcntl.c::send_sigio_to_task() (2.4/2.6) sources -- MTK, Apr 05
 .TP
-.B F_GETSIG
-Get the signal sent when input or output becomes possible.
+.BR F_GETSIG " (\fIvoid\fP)"
+Return (as the function result)
+the signal sent when input or output becomes possible.
 A value of zero means
 .B SIGIO
 is sent.
@@ -533,9 +555,13 @@ is the
 signal sent instead, and in this case additional info is available to
 the signal handler if installed with
 .BR SA_SIGINFO .
+.I arg
+is ignored.
 .TP
-.B F_SETSIG
-Sets the signal sent when input or output becomes possible.
+.BR F_SETSIG " (\fIlong\fP)"
+Set the signal sent when input or output becomes possible
+to the value given in
+.IR arg .
 A value of zero means to send the default
 .B SIGIO
 signal.
@@ -626,7 +652,7 @@ or
 .BR truncate (2)
 the file referred to by that file descriptor.
 .TP
-.B F_SETLEASE
+.BR F_SETLEASE " (\fIlong\fP)"
 Set or remove a file lease according to which of the following
 values is specified in the integer
 .IR arg :
@@ -672,15 +698,14 @@ A process with the
 .B CAP_LEASE
 capability may take out leases on arbitrary files.
 .TP
-.B F_GETLEASE
+.BR F_GETLEASE " (\fIvoid\fP)"
 Indicates what type of lease is associated with the file descriptor
 .I fd
 by returning either
 .BR F_RDLCK ", " F_WRLCK ", or " F_UNLCK ,
 indicating, respectively, a read lease , a write lease, or no lease.
-(The third argument to
-.BR fcntl ()
-is omitted.)
+.I arg
+is ignored.
 .PP
 When a process (the "lease breaker") performs an
 .BR open (2)
@@ -765,7 +790,7 @@ that has been accessed by another process.
 (This is useful if the caller holds leases against multiple files).
 .SS "File and directory change notification (dnotify)"
 .TP
-.B F_NOTIFY
+.BR F_NOTIFY " (\fIlong\fP)"
 (Linux 2.4 onwards)
 Provide notification when the directory referred to by
 .I fd
@@ -846,10 +871,10 @@ a real time signal should be used for notification,
 so that multiple notifications can be queued.
 
 .B NOTE:
-New applications should consider using the
+New applications should use the
 .I inotify
 interface (available since kernel 2.6.13),
-which provides a superior interface for obtaining notifications of
+which provides a much superior interface for obtaining notifications of
 file system events.
 See
 .BR inotify (7).

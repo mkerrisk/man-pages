@@ -212,6 +212,9 @@ struct flock {
 The
 .IR l_whence ", " l_start ", and " l_len
 fields of this structure specify the range of bytes we wish to lock.
+Bytes past the end of the file may be locked,
+but not bytes before the start of the file.
+
 .I l_start
 is the starting offset for the lock, and is interpreted
 relative to either:
@@ -231,18 +234,35 @@ In the final two cases,
 .I l_start
 can be a negative number provided the
 offset does not lie before the start of the file.
+
 .I l_len
-is a non-negative integer (but see the NOTES below) specifying
-the number of bytes to be locked.
-Bytes past the end of the file may be locked,
-but not bytes before the start of the file.
+specifies the number of bytes to be locked.
+If
+.I l_len
+is positive, then the range to be locked covers bytes
+.I l_start
+up to and including
+.IR l_start + l_len \- 1 .
 Specifying 0 for
 .I l_len
 has the special meaning: lock all bytes starting at the
 location specified by
 .IR l_whence " and " l_start
 through to the end of file, no matter how large the file grows.
-.P
+
+POSIX.1-2001 allows (but does not require)
+an implementation to support a negative
+.I l_len
+value; if
+.I l_len
+is negative, the interval described by
+.I lock
+covers bytes
+.IR l_start + l_len
+up to and including
+.IR l_start \-1.
+This is supported by Linux since kernel versions 2.4.21 and 2.5.49.
+
 The
 .I l_type
 field can be used to place a read
@@ -1012,16 +1032,6 @@ placed by
 .BR flock (2)
 and
 .BR fcntl ().
-
-POSIX.1-2001 allows
-.I l_len
-to be negative.
-(And if it is, the interval described by the lock
-covers bytes
-.IR l_start + l_len
-up to and including
-.IR l_start \-1.)
-This is supported by Linux since Linux 2.4.21 and 2.5.49.
 
 Several systems have more fields in
 .I "struct flock"

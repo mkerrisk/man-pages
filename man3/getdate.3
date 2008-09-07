@@ -1,4 +1,6 @@
-.\"  Copyright 2001 walter harms (walter.harms@informatik.uni-oldenburg.de)
+.\" Copyright 2001 walter harms (walter.harms@informatik.uni-oldenburg.de)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -21,9 +23,11 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
 .\" Modified, 2001-12-26, aeb
-.TH GETDATE 3 2007-07-26 "" "Linux Programmer's Manual"
+.\" 2008-09-07, mtk, Various rewrites; added an example program.
+.\"
+.TH GETDATE 3 2008-09-07 "" "Linux Programmer's Manual"
 .SH NAME
-getdate, getdate_r \- convert a string to struct tm
+getdate, getdate_r \- convert a date-plus-time string to broken-down time
 .SH SYNOPSIS
 .B "#define _XOPEN_SOURCE 500"
 .br
@@ -41,15 +45,19 @@ getdate, getdate_r \- convert a string to struct tm
 .SH DESCRIPTION
 The function
 .BR getdate ()
-converts a string pointed to by
-.I string
-into the
+converts a string representation of a date and time,
+contained in the buffer pointed to by
+.IR string ,
+into a broken-down time.
+The broken-down time is stored in a
 .I tm
-structure that it returns.
+structure, and a pointer to this
+structure is returned as the function result.
 This
 .I tm
-structure may be found in static storage, so that
-it will be overwritten by the next call.
+structure is allocated in static storage,
+and consequently it will be overwritten by further calls to
+.BR getdate ().
 
 In contrast to
 .BR strptime (3),
@@ -58,7 +66,7 @@ In contrast to
 argument),
 .BR getdate ()
 uses the formats found in the file
-of which the full pathname is given in the environment variable
+whose full pathname is given in the environment variable
 .BR DATEMSK .
 The first line in the file that matches the given input string
 is used for the conversion.
@@ -69,17 +77,20 @@ be converted, is ignored.
 
 The conversion specifications that a pattern can contain are those given for
 .BR strptime (3).
-One more conversion specification is accepted:
+One more conversion specification is specified in POSIX.1-2001:
 .TP
 .B %Z
 Timezone name.
+This is not implemented in glibc.
 .LP
 When
 .B %Z
-is given, the value to be returned is initialized to the broken-down time
-corresponding to the current time in the given time zone.
-Otherwise, it is initialized to the broken-down time corresponding to
-the current local time.
+is given, the structure containing the broken-down time
+is initialized with values corresponding to the current
+time in the given time zone.
+Otherwise, the structure is initialized to the broken-down time
+corresponding to the current local time (as by a call to
+.BR localtime (3)).
 .LP
 When only the weekday is given, the day is taken to be the first such day
 on or after today.
@@ -93,37 +104,63 @@ hour, minute and second are taken.
 .LP
 If no date is given, but we know the hour, then that hour is taken
 to be the first such hour equal to or after the current hour.
+
+.BR getdate_r ()
+is a GNU extension that provides a reentrant version of
+.BR getdate ().
+Rather than using a global variable to report errors and a static buffer
+to return the broken down time,
+it returns errors via the function result value,
+and returns the resulting broken-down time in the
+caller-allocated buffer pointed to by the argument
+.IR res .
 .SH "RETURN VALUE"
-When successful, this function returns a pointer to a
+When successful, 
+.BR getdate ()
+returns a pointer to a
 .IR "struct tm" .
 Otherwise, it returns NULL and sets the global variable
-.IR getdate_err .
+.IR getdate_err
+to one of the error numbers shown below.
 Changes to
 .I errno
 are unspecified.
-The following values for
-.I getdate_err
-are defined:
+
+On success
+.BR getdate_r ()
+returns 0;
+on error it returns one of the error numbers shown below.
+.SH ERRORS
+The following errors are returned via
+.IR getdate_err
+(for
+.BR getdate ())
+or as the function result (for
+.BR getdate_r ()):
 .TP 4n
 .B 1
 The
 .B DATEMSK
-environment variable is null or undefined.
+environment variable is not defined, or its value is an empty string.
 .TP
 .B 2
-The template file cannot be opened for reading.
+The template file specified by
+.B DATEMSK
+cannot be opened for reading.
 .TP
 .B 3
 Failed to get file status information.
+.\" stat()
 .TP
 .B 4
 The template file is not a regular file.
 .TP
 .B 5
-An error is encountered while reading the template file.
+An error was encountered while reading the template file.
 .TP
 .B 6
 Memory allocation failed (not enough memory available).
+.\" Error 6 doesn't seem to occur in glibc
 .TP
 .B 7
 There is no line in the file that matches the input.
@@ -141,19 +178,6 @@ Variables used by
 .SH "CONFORMING TO"
 POSIX.1-2001.
 .SH NOTES
-Since
-.BR getdate ()
-is not reentrant because of the use of
-.I getdate_err
-and the static buffer to return the result in, glibc provides a
-thread-safe variant.
-The functionality is the same.
-The result is returned in the buffer pointed to by
-.I res
-and in case of an error the return value is non-zero with the same
-values as given above for
-.IR getdate_err .
-.LP
 The POSIX.1-2001 specification for
 .BR strptime (3)
 contains conversion specifications using the
@@ -162,15 +186,99 @@ or
 .B %O
 modifier, while such specifications are not given for
 .BR getdate ().
-The glibc implementation implements
+In glibc,
 .BR getdate ()
-using
-.BR strptime (3)
-so that automatically precisely the same conversions are supported by both.
-.LP
-The glibc implementation does not support the
-.B %Z
-conversion specification.
+is implemented using
+.BR strptime (3),
+so that precisely the same conversions are supported by both.
+.SH EXAMPLE
+The program below calls
+.BR getdate ()
+for each of its command-line arguments,
+and for each call displays the values in the fields of the returned
+.I tm
+structure.
+The following shell session demonstrates the operation of the program:
+
+.in +4n
+.nf
+$ TFILE=$PWD/tfile
+$ echo "%A" > $TFILE       # Full weekday name
+$ echo "%T" >> $TFILE      # ISO date (YYYY-MM-DD)
+$ echo "%F" >> $TFILE      # Time (HH:MM:SS)
+$ date
+$ export DATEMSK=$TFILE
+$ ./a.out Tuesday "2009-12-28" "12:22:33"
+Sun Sep  7 06:03:36 CEST 2008
+Call 1 ("Tuesday") succeeded:
+    tm_sec   = 36
+    tm_min   = 3
+    tm_hour  = 6
+    tm_mday  = 9
+    tm_mon   = 8
+    tm_year  = 108
+    tm_wday  = 2
+    tm_yday  = 252
+    tm_isdst = 1
+Call 2 ("2009-12-28") succeeded:
+    tm_sec   = 36
+    tm_min   = 3
+    tm_hour  = 6
+    tm_mday  = 28
+    tm_mon   = 11
+    tm_year  = 109
+    tm_wday  = 1
+    tm_yday  = 361
+    tm_isdst = 0
+Call 3 ("12:22:33") succeeded:
+    tm_sec   = 33
+    tm_min   = 22
+    tm_hour  = 12
+    tm_mday  = 7
+    tm_mon   = 8
+    tm_year  = 108
+    tm_wday  = 0
+    tm_yday  = 250
+    tm_isdst = 1
+.fi
+.in
+
+.nf
+#define _GNU_SOURCE 500
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char *argv[])
+{
+    struct tm *tmp;
+    int j;
+
+    for (j = 1; j < argc; j++) {
+        tmp = getdate(argv[j]);
+
+        if (tmp == NULL) {
+            printf("Call %d failed; getdate_err = %d\\n",
+                   j, getdate_err);
+            continue;
+        }
+
+        printf("Call %d (\\"%s\\") succeeded:\\n", j, argv[j]);
+        printf("    tm_sec   = %d\\n", tmp\->tm_sec);
+        printf("    tm_min   = %d\\n", tmp\->tm_min);
+        printf("    tm_hour  = %d\\n", tmp\->tm_hour);
+        printf("    tm_mday  = %d\\n", tmp\->tm_mday);
+        printf("    tm_mon   = %d\\n", tmp\->tm_mon);
+        printf("    tm_year  = %d\\n", tmp\->tm_year);
+        printf("    tm_wday  = %d\\n", tmp\->tm_wday);
+        printf("    tm_yday  = %d\\n", tmp\->tm_yday);
+        printf("    tm_isdst = %d\\n", tmp\->tm_isdst);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR time (2),
 .BR localtime (3),

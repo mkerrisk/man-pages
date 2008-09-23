@@ -43,7 +43,7 @@
 .\" FIXME 2.6.25: CLONE_IO flag to clone() causes I/O contexts (used in the
 .\"       CFQ block I/O scheduler) to be shared with the new child process.
 .\"
-.TH CLONE 2 2008-04-13 "Linux" "Linux Programmer's Manual"
+.TH CLONE 2 2008-09-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
 clone, __clone2 \- create a child process
 .SH SYNOPSIS
@@ -709,12 +709,28 @@ Versions of the GNU C library that include the NPTL threading library
 contain a wrapper function for
 .BR getpid (2)
 that performs caching of PIDs.
-In programs linked against such libraries, calls to
-.BR getpid (2)
-may return the same value, even when the threads were not created using
-.B CLONE_THREAD
-(and thus are not in the same thread group).
-To get the truth, it may be necessary to use code such as the following
+This caching relies on support in the glibc wrapper for
+.BR clone (),
+but as currently implemented,
+the cache may not be up to date in some circumstances.
+In particular,
+if a signal is delivered to the child immediately after the
+.BR clone ()
+call, then a call to
+.BR getpid ()
+in a handler for the signal may return the PID
+of the calling process ("the parent"),
+if the clone wrappper has not yet had a chance to update the PID
+cache in the child.
+(This discussion ignores the case where the child was created using
+.BR CLONE_THREAD,
+when
+.BR getpid ()
+.I should
+return the same value in the child and in the process that called
+.BR clone (),
+since the caller and the child are in the same thread group.)
+To get the truth, it may be necessary to use code such as the following:
 .nf
 
     #include <syscall.h>
@@ -723,6 +739,9 @@ To get the truth, it may be necessary to use code such as the following
 
     mypid = syscall(SYS_getpid);
 .fi
+.\" See also the following bug reports
+.\" https://bugzilla.redhat.com/show_bug.cgi?id=417521
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=6910
 .SH "SEE ALSO"
 .BR fork (2),
 .BR futex (2),

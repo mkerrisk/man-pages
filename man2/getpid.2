@@ -20,7 +20,7 @@
 .\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
-.TH GETPID 2 1993-07-23 "Linux" "Linux Programmer's Manual"
+.TH GETPID 2 2008-09-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getpid, getppid \- get process identification
 .SH SYNOPSIS
@@ -43,7 +43,60 @@ returns the process ID of the parent of the calling process.
 These functions are always successful.
 .SH "CONFORMING TO"
 POSIX.1-2001, 4.3BSD, SVr4.
+.SH NOTES
+Since glibc version 2.3.4,
+the glibc wrapper function for
+.BR getpid ()
+caches PIDs,
+so as to avoid additional system calls when a process calls
+.BR getpid ()
+repeatedly.
+Normally this caching is invisible,
+but its correct operation relies on support in the wrapper functions for
+.BR fork (2),
+.BR vfork (2),
+and
+.BR clone (2):
+if an application bypasses the glibc wrappers for these system calls by using
+.BR syscall (2),
+then a call to
+.BR getpid ()
+in the child will return the wrong value
+(to be precise: it will return the PID of the parent process).
+.\" The following program demonstrates this "feature":
+.\"
+.\" #define _GNU_SOURCE
+.\" #include <sys/syscall.h>
+.\" #include <sys/wait.h>
+.\" #include <stdio.h>
+.\" #include <stdlib.h>
+.\" #include <unistd.h>
+.\"
+.\" int
+.\" main(int argc, char *argv[])
+.\" {
+.\"    /* The following statement fills the getpid() cache */
+.\"
+.\"    printf("parent PID = %ld\n", (long) getpid());
+.\"
+.\"    if (syscall(SYS_fork) == 0) {
+.\"        if (getpid() != syscall(SYS_getpid))
+.\"            printf("child getpid() mismatch: getpid()=%ld; "
+.\"                    "syscall(SYS_getpid)=%ld\n",
+.\"                    (long) getpid(), (long) syscall(SYS_getpid));
+.\"        exit(EXIT_SUCCESS);
+.\"    }
+.\"    wait(NULL);
+.\"}
+See also
+.BR clone (2)
+for discussion of a case where
+.BR getpid ()
+may return the wrong value even when invoking
+.BR clone (2)
+via the glibc wrapper function.
 .SH "SEE ALSO"
+.BR clone (2),
 .BR fork (2),
 .BR kill (2),
 .BR exec (3),

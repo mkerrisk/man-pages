@@ -34,7 +34,7 @@
 .\" 2007-09-14 Ollie Wild <aaw@google.com>, mtk
 .\"     Add text describing limits on command-line arguments + environment
 .\"
-.TH EXECVE 2 2008-08-07 "Linux" "Linux Programmer's Manual"
+.TH EXECVE 2 2008-10-04 "Linux" "Linux Programmer's Manual"
 .SH NAME
 execve \- execute program
 .SH SYNOPSIS
@@ -310,21 +310,33 @@ resource limit (see
 that is in force at the time of the
 .BR execve ()
 call.
-.\" FIXME .
-.\" This means that as things stand sysconf(_SC_ARG_MAX) no longer returns
-.\" accurate info; see http://sourceware.org/bugzilla/show_bug.cgi?id=5786
-For these architectures, the total size is limited to 1/4 of the allowed
-stack size, the limit per string is 32 pages (the kernel constant
-.BR MAX_ARG_STRLEN ),
-and the maximum number of strings is 0x7FFFFFFF.
-(This change allows programs to have a much larger
+(Architectures with no memory management unit are excepted:
+they maintain the limit that was in effect before kernel 2.6.23.)
+This change allows programs to have a much larger
 argument and/or environment list.
-Imposing the 1/4-limit
+.\" For some background on the changes to ARG_MAX in kernels 2.6.23 and
+.\" 2.6.25, see:
+.\"     http://sourceware.org/bugzilla/show_bug.cgi?id=5786
+.\"     http://bugzilla.kernel.org/show_bug.cgi?id=10095
+.\"     http://thread.gmane.org/gmane.linux.kernel/646709/focus=648101,
+.\"     checked into 2.6.25 as commit a64e715fc74b1a7dcc5944f848acc38b2c4d4ee2.
+For these architectures, the total size is limited to 1/4 of the allowed
+stack size.
+(Imposing the 1/4-limit
 ensures that the new program always has some stack space.)
-Architectures with no memory management unit are excepted:
-they maintain the limit that was in effect before kernel 2.6.23.
 .\" Ollie: That doesn't include the lists of pointers, though,
 .\" so the actual usage is a bit higher (1 pointer per argument).
+Since Linux 2.6.25,
+the kernel places a floor of 32 pages on this size limit,
+so that, even when
+.BR RLIMIT_STACK
+is set very low,
+applications are guaranteed to have at least as much argument and
+environment space as was provided by Linux 2.6.23 and earlier.
+(This guarantee was not provided in Linux 2.6.23 and 2.6.24.)
+Additionally, the limit per string is 32 pages (the kernel constant
+.BR MAX_ARG_STRLEN ),
+and the maximum number of strings is 0x7FFFFFFF.
 .SH "RETURN VALUE"
 On success,
 .BR execve ()

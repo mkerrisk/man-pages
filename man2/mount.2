@@ -35,9 +35,9 @@
 .\" Modified 2004-06-17 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\" 2005-05-18, mtk, Added MNT_EXPIRE, plus a few other tidy-ups.
 .\"
-.TH MOUNT 2 2008-10-02 "Linux" "Linux Programmer's Manual"
+.TH MOUNT 2 2008-10-06 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mount, umount, umount2 \- mount and unmount file systems
+mount \- mount file system
 .SH SYNOPSIS
 .nf
 .B "#include <sys/mount.h>"
@@ -45,13 +45,8 @@ mount, umount, umount2 \- mount and unmount file systems
 .BI "int mount(const char *" source ", const char *" target ,
 .BI "          const char *" filesystemtype ", unsigned long " mountflags ,
 .BI "          const void *" data );
-.sp
-.BI "int umount(const char *" target );
-.sp
-.BI "int umount2(const char *" target ", int " flags );
 .fi
 .SH DESCRIPTION
-.\" FIXME . This page could be better structured
 .BR mount ()
 attaches the file system specified by
 .I source
@@ -59,15 +54,9 @@ attaches the file system specified by
 or a dummy) to the directory specified by
 .IR target .
 
-.BR umount ()
-and
-.BR umount2 ()
-remove the attachment of the (topmost) file system mounted on
-.IR target .
-
 Appropriate privilege (Linux: the
 .B CAP_SYS_ADMIN
-capability) is required to mount and unmount file systems.
+capability) is required to mount file systems.
 
 Since Linux 2.4 a single file system can be visible at
 multiple mount points, and multiple mounts can be stacked
@@ -263,49 +252,6 @@ understood by this file system.
 See
 .BR mount (8)
 for details of the options available for each filesystem type.
-.PP
-.\" Note: the kernel naming differs from the glibc naming
-.\" umount2 is the glibc name for what the kernel now calls umount
-.\" and umount is the glibc name for oldumount
-Linux 2.1.116 added the
-.BR umount2 ()
-system call, which, like
-.BR umount (),
-unmounts a target, but allows additional
-.I flags
-controlling the behavior of the operation:
-.TP
-.BR MNT_FORCE " (since Linux 2.1.116)"
-Force unmount even if busy.
-This can cause data loss.
-(Only for NFS mounts.)
-.\" FIXME Can MNT_FORCE result in data loss?  According to
-.\" the Solaris manual page it can cause data loss on Solaris.
-.\" If the same holds on Linux, then this should be documented.
-.TP
-.BR MNT_DETACH " (since Linux 2.4.11)"
-Perform a lazy unmount: make the mount point unavailable for
-new accesses, and actually perform the unmount when the mount point
-ceases to be busy.
-.TP
-.BR MNT_EXPIRE " (since Linux 2.6.8)"
-Mark the mount point as expired.
-If a mount point is not currently in use, then an initial call to
-.BR umount2 ()
-with this flag fails with the error
-.BR EAGAIN ,
-but marks the mount point as expired.
-The mount point remains expired as long as it isn't accessed
-by any process.
-A second
-.BR umount2 ()
-call specifying
-.B MNT_EXPIRE
-unmounts an expired mount point.
-This flag cannot be specified with either
-.B MNT_FORCE
-or
-.BR MNT_DETACH .
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -333,13 +279,6 @@ option.
 .\" mtk: Probably: write permission is required for MS_BIND, with
 .\" the error EPERM if not present; CAP_DAC_OVERRIDE is required.
 .TP
-.B EAGAIN
-A call to
-.BR umount2 ()
-specifying
-.B MNT_EXPIRE
-successfully marked an unbusy file system as expired.
-.TP
 .B EBUSY
 .I source
 is already mounted.
@@ -351,7 +290,6 @@ because
 .I target
 is still busy (it is the working directory of some task,
 the mount point of another device, has open files, etc.).
-Or, it could not be unmounted because it is busy.
 .TP
 .B EFAULT
 One of the pointer arguments points outside the user address space.
@@ -370,17 +308,6 @@ Or, a move
 was attempted, but
 .I source
 was not a mount point, or was \(aq/\(aq.
-Or, an unmount was attempted, but
-.I target
-was not a mount point.
-Or,
-.BR umount2 ()
-was called with
-.B MNT_EXPIRE
-and either
-.B MNT_DETACH
-or
-.BR MNT_FORCE .
 .TP
 .B ELOOP
 Too many links encountered during pathname resolution.
@@ -412,8 +339,10 @@ The kernel could not allocate a free page to copy filenames or data into.
 is not a block device (and a device was required).
 .TP
 .B ENOTDIR
-The second argument, or a prefix of the first argument, is not
-a directory.
+.IR target ,
+or a prefix of
+.IR source ,
+is not a directory.
 .TP
 .B ENXIO
 The major number of the block device
@@ -423,21 +352,10 @@ is out of range.
 .B EPERM
 The caller does not have the required privileges.
 .SH "CONFORMING TO"
-These functions are Linux-specific and should not be used in
+This function is Linux-specific and should not be used in
 programs intended to be portable.
 .SH NOTES
 .SS Linux Notes
-The original
-.BR umount ()
-function was called as \fIumount(device)\fP and would return
-.B ENOTBLK
-when called with something other than a block device.
-In Linux 0.98p4 a call \fIumount(dir)\fP was added, in order to
-support anonymous devices.
-In Linux 2.3.99-pre7 the call \fIumount(device)\fP was removed,
-leaving only \fIumount(dir)\fP (since now devices can be mounted
-in more than one place, so specifying the device does not suffice).
-.LP
 The original
 .B MS_SYNC
 flag was renamed
@@ -456,6 +374,7 @@ Since Linux 2.4 the set-user-ID and set-group-ID bits are
 just silently ignored in this case.
 .\" The change is in patch-2.4.0-prerelease.
 .SH "SEE ALSO"
+.BR umount (2),
 .BR path_resolution (7),
 .BR mount (8),
 .BR umount (8)

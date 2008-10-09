@@ -31,22 +31,25 @@
 .\" Modified 2002-09-28, aeb
 .\" 2009-01-12, mtk, reordered text in DESCRIPTION and added some
 .\"     details for dup2().
+.\" 2008-10-09, mtk: add description of dup3()
 .\"
-.TH DUP 2 2008-01-12 "Linux" "Linux Programmer's Manual"
+.TH DUP 2 2008-10-09 "Linux" "Linux Programmer's Manual"
 .SH NAME
-dup, dup2 \- duplicate a file descriptor
+dup, dup2, dup3 \- duplicate a file descriptor
 .SH SYNOPSIS
 .nf
 .B #include <unistd.h>
 .sp
 .BI "int dup(int " oldfd );
 .BI "int dup2(int " oldfd ", int " newfd );
+.sp
+.B #define _GNU_SOURCE
+.B #include <unistd.h>
+.sp
+.BI "int dup3(int " oldfd ", int " newfd ", int " flags );
 .fi
 .SH DESCRIPTION
-.BR dup ()
-and
-.BR dup2 ()
-create a copy of the file descriptor
+The system calls create a copy of the file descriptor
 .IR oldfd .
 
 .BR dup ()
@@ -73,10 +76,7 @@ then
 does nothing, and returns
 .IR newfd .
 .PP
-After a successful return from
-.BR dup ()
-or
-.BR dup2 (),
+After a successful return from one of these system calls,
 the old and new file descriptors may be used interchangeably.
 They refer to the same open file description (see
 .BR open (2))
@@ -92,13 +92,33 @@ The close-on-exec flag
 see
 .BR fcntl (2))
 for the duplicate descriptor is off.
+
+.BR dup3 ()
+is the same as
+.BR dup2 (),
+except that:
+.IP * 3
+The caller can force the close-on-exec flag to be set
+for the new file descriptor by specifying
+.BR O_CLOEXEC
+in
+.IR flags .
+.IP *
+.\" FIXME . To confirm with Al Viro that this was intended, and its rationale
+If
+.IR oldfd
+equals
+.IR newfd ,
+then
+.BR dup3 ()
+fails with the error
+.BR EINVAL .
 .SH "RETURN VALUE"
-.BR dup ()
-and
-.BR dup2 ()
-return the new descriptor, or \-1 if an error occurred (in which case,
+On success, these system calls
+return the new descriptor.
+On error, \-1 is returned, and (in which case,
 .I errno
-is set appropriately).
+is set appropriately.
 .SH ERRORS
 .TP
 .B EBADF
@@ -110,6 +130,8 @@ is out of the allowed range for file descriptors.
 .B EBUSY
 (Linux only) This may be returned by
 .BR dup2 ()
+or
+.BR dup3 ()
 during a race condition with
 .BR open (2)
 and
@@ -118,14 +140,36 @@ and
 .B EINTR
 The
 .BR dup2 ()
+or    
+.BR dup3 ()
 call was interrupted by a signal; see
 .BR signal (7).
+.TP
+.B EINVAL
+.RB ( dup3 ())
+.I flags
+contain an invalid value.
+.\" FIXME . To confirm with Al Viro that this was intended, and its rationale
+Or,
+.I oldfd
+was equal to
+.IR newfd .
 .TP
 .B EMFILE
 The process already has the maximum number of file
 descriptors open and tried to open a new one.
+.SH VERSIONS
+.BR dup3 ()
+was added to Linux in version 2.6.27;
+glibc support is available starting with
+version 2.9.
 .SH "CONFORMING TO"
+.BR dup (),
+.BR dup2 ():
 SVr4, 4.3BSD, POSIX.1-2001.
+
+.BR dup3 ()
+is Linux-specific.
 .\" SVr4 documents additional
 .\" EINTR and ENOLINK error conditions.  POSIX.1 adds EINTR.
 .\" The EBUSY return is Linux-specific.
@@ -151,6 +195,8 @@ was open, any errors that would have been reported at
 time are lost.
 A careful programmer will not use
 .BR dup2 ()
+or
+.BR dup3 ()
 without closing
 .I newfd
 first.

@@ -31,14 +31,22 @@
 .\" Modified 2005, mtk: added an example program
 .\" Modified 2008-01-09, mtk: rewrote DESCRIPTION; minor additions
 .\"     to EXAMPLE text.
+.\" 2008-10-10, mtk: add description of pipe2()
 .\"
-.TH PIPE 2 2008-01-09 "Linux" "Linux Programmer's Manual"
+.TH PIPE 2 2008-10-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
-pipe \- create pipe
+pipe, pipe2 \- create pipe
 .SH SYNOPSIS
+.nf
 .B #include <unistd.h>
 .sp
 .BI "int pipe(int " pipefd "[2]);"
+.sp
+.B #define _GNU_SOURCE
+.B #include <unistd.h>
+.sp
+.BI "int pipe2(int " pipefd "[2], " flags );
+.fi
 .SH DESCRIPTION
 .BR pipe ()
 creates a pipe, a unidirectional data channel that
@@ -54,6 +62,30 @@ Data written to the write end of the pipe is buffered by the kernel
 until it is read from the read end of the pipe.
 For further details, see
 .BR pipe (7).
+
+If
+.IR flags
+is 0, then
+.BR pipe2 ()
+is the same as
+.BR pipe ().
+The following values can be bitwise ORed in
+.IR flags
+to obtain different behavior:
+.TP 12
+.B O_NONBLOCK
+Set the
+.BR O_NONBLOCK
+file status flag on the two new file descriptors.
+Using this flag saves extra calls to
+.BR fcntl ()
+to achieve the same result.
+.TP
+.B O_CLOEXEC
+Set the close-on-exec flag on the two new file descriptors.
+See the description of the same flag in
+.BR open (2)
+for reasons why this may be useful.
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -65,13 +97,27 @@ is set appropriately.
 .I pipefd
 is not valid.
 .TP
+.B EINVAL
+.RB ( pipe2 ())
+Invalid value in
+.IR flags .
+.TP
 .B EMFILE
 Too many file descriptors are in use by the process.
 .TP
 .B ENFILE
 The system limit on the total number of open files has been reached.
+.SH VERSIONS
+.BR pipe2 ()
+was added to Linux in version 2.6.27;
+glibc support is available starting with
+version 2.9.
 .SH "CONFORMING TO"
+.BR pipe ():
 POSIX.1-2001.
+
+.BR pipe2 ()
+is Linux-specific.
 .SH EXAMPLE
 .\" fork.2 refers to this example program.
 The following program creates a pipe, and then

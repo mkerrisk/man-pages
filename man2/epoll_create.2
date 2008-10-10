@@ -20,16 +20,21 @@
 .\"
 .\" Modified 2004-06-17 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\" Modified 2005-04-04 by Marko Kohtala <marko.kohtala@gmail.com>
+.\" 2008-10-10, mtk: add description of epoll_create1()
 .\"
-.TH EPOLL_CREATE 2 2008-05-29 "Linux" "Linux Programmer's Manual"
+.TH EPOLL_CREATE 2 2008-10-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
-epoll_create \- open an epoll file descriptor
+epoll_create, epoll_create1 \- open an epoll file descriptor
 .SH SYNOPSIS
+.nf
 .B #include <sys/epoll.h>
 .sp
 .BI "int epoll_create(int " size );
+.BI "int epoll_create1(int " flags );
+.fi
 .SH DESCRIPTION
-Open an
+.BR epoll_create ()
+opens an
 .B epoll
 file descriptor by requesting the kernel to allocate
 an event backing store dimensioned for
@@ -39,27 +44,56 @@ The
 .I size
 is not the maximum size of the backing store but
 just a hint to the kernel about how to dimension internal structures.
-The returned file descriptor will be used for all the subsequent calls to the
+(Nowadays,
+.I size
+is ignored; see NOTES below.)
+
+The returned file descriptor is used for all the subsequent calls to the
 .B epoll
 interface.
 The file descriptor returned by
 .BR epoll_create ()
 must be closed by using
 .BR close (2).
+
+If
+.I flags
+is 0, then, other than the fact that the obsolete
+.I flags
+argument is dropped,
+.BR epoll_create1 ()
+is the same as
+.BR epoll_create ().
+The following value can be included in
+.IR flags
+to obtain different behavior:
+.TP
+.B EPOLL_CLOEXEC
+Set the close-on-exec
+.RB ( FD_CLOEXEC)
+flag on the new file descriptor.
+See the description of the 
+.B O_CLOEXEC
+flag in
+.BR open (2)
+for reasons why this may be useful.
 .SH "RETURN VALUE"
-When successful,
-.BR epoll_create ()
-returns a non-negative integer identifying the descriptor.
-When an error occurs,
-.BR epoll_create ()
-returns \-1 and
+On success, 
+these system calls
+return a non-negative file descriptor.
+On error, \-1 is returned, and
 .I errno
-is set appropriately.
+is set to indicate the error.
 .SH ERRORS
 .TP
 .B EINVAL
 .I size
 is not positive.
+.TP
+.B EINVAL
+.RB ( epoll_create1 ())
+Invalid value specified in
+.IR flags .
 .TP
 .B ENFILE
 The system limit on the total number of open files has been reached.

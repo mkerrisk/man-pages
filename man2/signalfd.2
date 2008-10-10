@@ -16,7 +16,7 @@
 .\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 .\" MA  02111-1307  USA
 .\"
-.TH SIGNALFD 2 2008-07-08 Linux "Linux Programmer's Manual"
+.TH SIGNALFD 2 2008-10-20 Linux "Linux Programmer's Manual"
 .SH NAME
 signalfd \- create a file descriptor for accepting signals
 .SH SYNOPSIS
@@ -69,10 +69,33 @@ then it must specify a valid existing signalfd file descriptor, and
 .I mask
 is used to replace the signal set associated with that descriptor.
 
-The
+Starting with Linux 2.6.27, the following values may be bitwise ORed in
+.IR flags
+to change the behaviour of
+.BR signalfd ():
+.TP 14
+.B SFD_NONBLOCK
+Set the
+.BR O_NONBLOCK
+file status flag on the new open file description.
+Using this flag saves extra calls to
+.BR fcntl (2)
+to achieve the same result.
+.TP
+.B SFD_CLOEXEC
+Set the close-on-exec
+.RB ( FD_CLOEXEC )
+flag on the new file descriptor.
+See the description of the 
+.B O_CLOEXEC
+flag in
+.BR open (2)
+for reasons why this may be useful.
+.PP
+In Linux up to version 2.6.26, the
 .I flags
-argument is currently unused, and must be specified as zero.
-In the future, it may be used to request additional functionality.
+argument is unused, and must be specified as zero.
+
 
 .BR signalfd ()
 returns a file descriptor that supports the following operations:
@@ -113,13 +136,7 @@ either blocks until one of the signals in
 is generated for the process,
 or fails with the error
 .B EAGAIN
-if the file descriptor has been made non-blocking
-(via the use of the
-.BR fcntl (2)
-.B F_SETFL
-operation to set the
-.B O_NONBLOCK
-flag).
+if the file descriptor has been made non-blocking.
 .TP
 .BR poll "(2), " select "(2) (and similar)"
 The file descriptor is readable
@@ -256,15 +273,18 @@ file descriptor is not a valid file descriptor.
 .TP
 .B EINVAL
 .I fd
-is not a valid signalfd file descriptor;
-or,
-.I flags
-is non-zero.
-.\" Eventually glibc may support some flags
+is not a valid signalfd file descriptor.
 .\" or, the
 .\" .I sizemask
 .\" argument is not equal to
 .\" .IR sizeof(sigset_t) ;
+.TP
+.B EINVAL
+.I flags
+is invalid;
+or, in Linux 2.6.26 or earlier,
+.I flags
+is non-zero.
 .TP
 .B EMFILE
 The per-process limit of open file descriptors has been reached.
@@ -283,6 +303,9 @@ There was insufficient memory to create a new signalfd file descriptor.
 is available on Linux since kernel 2.6.22.
 Working support is provided in glibc since version 2.8.
 .\" signalfd() is in glibc 2.7, but reportedly does not build
+The
+.BR signalfd4 ()
+system call (see NOTES) is available on Linux since kernel 2.6.27.
 .SH CONFORMING TO
 .BR signalfd ()
 is Linux-specific.
@@ -314,6 +337,22 @@ If a signal appears in the
 .I mask
 of more than one of the file descriptors, then occurrences
 of that signal can be read (once) from any one of the descriptors.
+.SS Underlying Linux system calls
+There are two underlying Linux system calls:
+.BR signalfd ()
+and the more recent
+.BR signalfd4 ().
+The former system call does not implement a
+.I flags
+argument.
+The latter system call implements the
+.I flags
+values described above.
+Starting with glibc 2.9, the
+.BR signalfd ()
+wrapper function will use
+.BR signalfd4 ()
+where it is available.
 .SH BUGS
 In kernels before 2.6.25, the
 .I ssi_ptr

@@ -16,7 +16,7 @@
 .\" Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 .\" MA  02111-1307  USA
 .\"
-.TH EVENTFD 2 2008-08-19 Linux "Linux Programmer's Manual"
+.TH EVENTFD 2 2008-10-10 Linux "Linux Programmer's Manual"
 .SH NAME
 eventfd \- create a file descriptor for event notification
 .SH SYNOPSIS
@@ -34,10 +34,32 @@ counter that is maintained by the kernel.
 This counter is initialized with the value specified in the argument
 .IR initval .
 
-The
+Starting with Linux 2.6.27, the following values may be bitwise ORed in
+.IR flags
+to change the behaviour of
+.BR eventfd ():
+.TP 14
+.B EFD_NONBLOCK
+Set the
+.BR O_NONBLOCK
+file status flag on the new open file description.
+Using this flag saves extra calls to
+.BR fcntl (2)
+to achieve the same result.
+.TP
+.B EFD_CLOEXEC
+Set the close-on-exec
+.RB ( FD_CLOEXEC )
+flag on the new file descriptor.
+See the description of the 
+.B O_CLOEXEC
+flag in
+.BR open (2)
+for reasons why this may be useful.
+.PP
+In Linux up to version 2.6.26, the
 .I flags
-argument is currently unused, and must be specified as zero.
-In the future, it may be used to request additional functionality.
+argument is unused, and must be specified as zero.
 
 As its return value,
 .BR eventfd ()
@@ -58,13 +80,7 @@ If the counter is zero at the time of the
 then the call either blocks until the counter becomes non-zero,
 or fails with the error
 .B EAGAIN
-if the file descriptor has been made non-blocking
-(via the use of the
-.BR fcntl (2)
-.B F_SETFL
-operation to set the
-.B O_NONBLOCK
-flag).
+if the file descriptor has been made non-blocking.
 .IP
 A
 .BR read (2)
@@ -180,8 +196,10 @@ is set to indicate the error.
 .TP
 .B EINVAL
 .I flags
+is invalid;
+or, in Linux 2.6.26 or earlier,
+.I flags
 is non-zero.
-.\" Eventually glibc may support some flags
 .TP
 .B EMFILE
 The per-process limit on open file descriptors has been reached.
@@ -206,9 +224,14 @@ eventfd file descriptor.
 is available on Linux since kernel 2.6.22.
 Working support is provided in glibc since version 2.8.
 .\" eventfd() is in glibc 2.7, but reportedly does not build
+The
+.BR eventfd2 ()
+system call (see NOTES) is available on Linux since kernel 2.6.27.
 .SH CONFORMING TO
 .BR eventfd ()
-is Linux-specific.
+and
+.BR eventfd ()
+are Linux-specific.
 .SH NOTES
 Applications can use an eventfd file descriptor instead of a pipe (see
 .BR pipe (2))
@@ -247,6 +270,23 @@ argument is a glibc addition to the underlying system call,
 which takes only the
 .I initval
 argument.
+.SS Underlying Linux system calls
+There are two underlying Linux system calls:
+.BR eventfd ()
+and the more recent
+.BR eventfd2 ().
+The former system call does not implement a
+.I flags
+argument.
+The latter system call implements the
+.I flags
+values described above.
+.\" FIXME as at 2008-10-10, the glibc snapshot doesn't seem
+.\" to make use of eventfd2() yet.  Check later to see what
+.\" glibc version adds support for this syscall.
+The glibc wrapper function will use
+.BR eventfd2 ()
+where it is available.
 .SS Additional glibc features
 The GNU C library defines an additional type,
 and two functions that attempt to abstract some of the details of

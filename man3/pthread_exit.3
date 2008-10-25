@@ -1,0 +1,93 @@
+.\" Copyright (c) 2008 Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH PTHREAD_EXIT 3 2008-10-24 "Linux" "Linux Programmer's Manual"
+.SH NAME
+pthread_exit \- terminate calling thread
+.SH SYNOPSIS
+.nf
+.B #include <pthread.h>
+
+.BI "void pthread_exit(void *" value_ptr );
+.sp
+Compile and link with \fI\-pthread\fP.
+.SH DESCRIPTION
+The
+.BR pthread_exit ()
+function terminates the calling thread and returns a value via
+.I retval
+that (if the thread is joinable)
+is available to another thread in the same process that calls
+.BR pthread_join (3).
+
+Any clean-up handlers established by
+.BR pthread_cleanup_push (3)
+that have not yet been popped,
+are popped (in the reverse of the order in which they were pushed)
+and executed.
+If the thread has any thread-specific data, then,
+after the clean-up handlers have been executed,
+the corresponding destructor functions are called,
+in an unspecified order.
+
+When a thread terminates,
+process-shared resources (e.g., mutexes, condition variables,
+semaphores, and file descriptors) are not released,
+and functions registered using
+.BR atexit (3)
+are not called.
+
+After the last thread in a process terminates,
+the process terminates as by calling
+.BR exit (3)
+with an exit status of zero;
+thus, process-shared resources
+are released and functions registered using
+.BR atexit (3)
+are called.
+.SH RETURN VALUE
+This function does not return to the caller.
+.SH ERRORS
+This function always succeeds.
+.SH CONFORMING TO
+POSIX.1-2001.
+.SH NOTES
+Performing a return from the start function of any thread other
+than the main thread results in an implicit call to
+.BR pthread_exit (),
+using the function's return value as the thread's exit status.
+
+To allow other threads to continue execution,
+the main thread should terminate by calling
+.BR pthread_create ()
+rather than
+.BR exit (3).
+
+The value pointed to by
+.IR retval
+should not be located on the calling thread's stack,
+since the contents of that stack are undefined after the thread terminates.
+.SH SEE ALSO
+.BR pthread_create (3),
+.BR pthread_join (3),
+.BR pthreads (7)

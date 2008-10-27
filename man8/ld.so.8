@@ -126,6 +126,14 @@ Ignore RPATH and RUNPATH information in object names in LIST.
 .SH ENVIRONMENT
 There are four important environment variables.
 .TP
+.B LD_BIND_NOW
+(libc5; glibc since 2.1.1)
+If set to a non-empty string,
+causes the dynamic linker to resolve all symbols
+at program startup instead of deferring function call resolution to the point
+when they are first referenced.
+This is useful when using a debugger.
+.TP
 .B LD_LIBRARY_PATH
 A colon-separated list of directories in which to search for
 ELF libraries at execution-time.
@@ -141,14 +149,6 @@ For set-user-ID/set-group-ID ELF binaries,
 only libraries in the standard search
 directories that are also set-user-ID will be loaded.
 .TP
-.B LD_BIND_NOW
-(libc5; glibc since 2.1.1)
-If set to a non-empty string,
-causes the dynamic linker to resolve all symbols
-at program startup instead of deferring function call resolution to the point
-when they are first referenced.
-This is useful when using a debugger.
-.TP
 .B LD_TRACE_LOADED_OBJECTS
 (ELF only)
 If set to a non-empty string, causes the program to list its dynamic library
@@ -159,33 +159,21 @@ instead of running normally.
 Then there are lots of more or less obscure variables,
 many obsolete or only for internal use.
 .TP
-.B LD_USE_LOAD_BIAS
-.\" http://sources.redhat.com/ml/libc-hacker/2003-11/msg00127.html
-.\" Subject: [PATCH] Support LD_USE_LOAD_BIAS
-.\" Jakub Jelinek
-By default (i.e., if this variable is not defined)
-executables and prelinked
-shared objects will honor base addresses of their dependent libraries
-and (non-prelinked) position-independent executables (PIEs)
-and other shared objects will not honor them.
-If
-.B LD_USE_LOAD_BIAS
-is defined wit the value, both executables and PIEs
-will honor the base addresses.
-If
-.B LD_USE_LOAD_BIAS
-is defined with the value 0,
-neither executables nor PIEs will honor the base addresses.
-This variable is ignored by set-user-ID and set-group-ID programs.
+.B LD_AOUT_LIBRARY_PATH
+(libc5)
+Version of
+.B LD_LIBRARY_PATH
+for a.out binaries only.
+Old versions of ld\-linux.so.1 also supported
+.BR LD_ELF_LIBRARY_PATH .
 .TP
-.B LD_WARN
-(ELF only)(glibc since 2.1.3)
-If set to a non-empty string, warn about unresolved symbols.
-.TP
-.B LD_NOWARN
-(a.out only)(libc5)
-Suppress warnings about a.out libraries with incompatible minor
-version numbers.
+.B LD_AOUT_PRELOAD
+(libc5)
+Version of
+.B LD_PRELOAD
+for a.out binaries only.
+Old versions of ld\-linux.so.1 also supported
+.BR LD_ELF_PRELOAD .
 .TP
 .B LD_BIND_NOT
 (glibc since 2.1.95)
@@ -213,17 +201,35 @@ output should be fed into, default is standard output.
 .B LD_DEBUG_OUTPUT
 is ignored for set-user-ID/set-group-ID binaries.
 .TP
-.B LD_VERBOSE
+.B LD_DYNAMIC_WEAK
+(glibc since 2.1.91)
+Allow weak symbols to be overridden (reverting to old glibc behavior).
+For security reasons, since glibc 2.3.4,
+.B LD_DYNAMIC_WEAK
+is ignored for set-user-ID/set-group-ID binaries.
+.TP
+.B LD_HWCAP_MASK
 (glibc since 2.1)
-If set to a non-empty string,
-output symbol versioning information about the
-program if querying information about the program (i.e., either
-.B LD_TRACE_LOADED_OBJECTS
-has been set, or
-.B \-\-list
-or
-.B \-\-verify
-options have been given to the dynamic linker).
+Mask for hardware capabilities.
+.TP
+.B LD_KEEPDIR
+(a.out only)(libc5)
+Don't ignore the directory in the names of a.out libraries to be loaded.
+Use of this option is strongly discouraged.
+.TP
+.B LD_NOWARN
+(a.out only)(libc5)
+Suppress warnings about a.out libraries with incompatible minor
+version numbers.
+.TP
+.B LD_ORIGIN_PATH
+(glibc since 2.1)
+Path where the binary is found (for non-set-user-ID programs).
+For security reasons, since glibc 2.4,
+.B LD_ORIGIN_PATH
+is ignored for set-user-ID/set-group-ID binaries.
+.\" Only used if $ORIGIN can't be determined by normal means
+.\" (from the origin path saved at load time, or from /proc/self/exe)?
 .TP
 .B LD_PROFILE
 (glibc since 2.1)
@@ -237,22 +243,6 @@ output should be written; default is standard output.
 .B LD_PROFILE_OUTPUT
 is ignored for set-user-ID/set-group-ID binaries.
 .TP
-.B LD_AOUT_LIBRARY_PATH
-(libc5)
-Version of
-.B LD_LIBRARY_PATH
-for a.out binaries only.
-Old versions of ld\-linux.so.1 also supported
-.BR LD_ELF_LIBRARY_PATH .
-.TP
-.B LD_AOUT_PRELOAD
-(libc5)
-Version of
-.B LD_PRELOAD
-for a.out binaries only.
-Old versions of ld\-linux.so.1 also supported
-.BR LD_ELF_PRELOAD .
-.TP
 .B LD_SHOW_AUXV
 (glibc since 2.1)
 Show auxiliary array passed up from the kernel.
@@ -260,30 +250,40 @@ For security reasons, since glibc 2.3.5,
 .B LD_SHOW_AUXV
 is ignored for set-user-ID/set-group-ID binaries.
 .TP
-.B LD_HWCAP_MASK
+.B LD_USE_LOAD_BIAS
+.\" http://sources.redhat.com/ml/libc-hacker/2003-11/msg00127.html
+.\" Subject: [PATCH] Support LD_USE_LOAD_BIAS
+.\" Jakub Jelinek
+By default (i.e., if this variable is not defined)
+executables and prelinked
+shared objects will honor base addresses of their dependent libraries
+and (non-prelinked) position-independent executables (PIEs)
+and other shared objects will not honor them.
+If
+.B LD_USE_LOAD_BIAS
+is defined wit the value, both executables and PIEs
+will honor the base addresses.
+If
+.B LD_USE_LOAD_BIAS
+is defined with the value 0,
+neither executables nor PIEs will honor the base addresses.
+This variable is ignored by set-user-ID and set-group-ID programs.
+.TP
+.B LD_VERBOSE
 (glibc since 2.1)
-Mask for hardware capabilities.
+If set to a non-empty string,
+output symbol versioning information about the
+program if querying information about the program (i.e., either
+.B LD_TRACE_LOADED_OBJECTS
+has been set, or
+.B \-\-list
+or
+.B \-\-verify
+options have been given to the dynamic linker).
 .TP
-.B LD_ORIGIN_PATH
-(glibc since 2.1)
-Path where the binary is found (for non-set-user-ID programs).
-For security reasons, since glibc 2.4,
-.B LD_ORIGIN_PATH
-is ignored for set-user-ID/set-group-ID binaries.
-.\" Only used if $ORIGIN can't be determined by normal means
-.\" (from the origin path saved at load time, or from /proc/self/exe)?
-.TP
-.B LD_DYNAMIC_WEAK
-(glibc since 2.1.91)
-Allow weak symbols to be overridden (reverting to old glibc behavior).
-For security reasons, since glibc 2.3.4,
-.B LD_DYNAMIC_WEAK
-is ignored for set-user-ID/set-group-ID binaries.
-.TP
-.B LD_KEEPDIR
-(a.out only)(libc5)
-Don't ignore the directory in the names of a.out libraries to be loaded.
-Use of this option is strongly discouraged.
+.B LD_WARN
+(ELF only)(glibc since 2.1.3)
+If set to a non-empty string, warn about unresolved symbols.
 .TP
 .B LDD_ARGV0
 (libc5)

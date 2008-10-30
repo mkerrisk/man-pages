@@ -23,7 +23,7 @@
 .\" 1999-11-10: Merged text taken from the page contributed by
 .\" Reed H. Petty (rhp@draper.net)
 .\"
-.TH VFORK 2 2008-10-29 "Linux" "Linux Programmer's Manual"
+.TH VFORK 2 2008-10-30 "Linux" "Linux Programmer's Manual"
 .SH NAME
 vfork \- create a child process and block parent
 .SH SYNOPSIS
@@ -80,13 +80,15 @@ where a child will be created which then immediately issues an
 .BR vfork ()
 differs from
 .BR fork (2)
-in that the parent is suspended until the child makes a call to
-.BR execve (2)
-or
-.BR _exit (2).
-The child shares all memory with its parent, including the stack, until
-.BR execve (2)
-is issued by the child.
+in that the parent is suspended until the child terminates
+(either normally,
+by calling
+.BR exit (2),
+or abnormally, after delivery of a fatal signal),
+or it makes a call to
+.BR execve (2).
+Until that point, the child shares all memory with its parent,
+including the stack.
 The child must not return from the current function or call
 .BR exit (3),
 but may call
@@ -95,9 +97,8 @@ but may call
 Signal handlers are inherited, but not shared.
 Signals to the parent
 arrive after the child releases the parent's memory
-(i.e., after the child calls
-.BR _exit (2)
-or
+(i.e., after the child terminates
+or calls
 .BR execve (2)).
 .SS "Historic Description"
 Under Linux,
@@ -135,11 +136,9 @@ The requirements put on
 by the standards are weaker than those put on
 .BR fork (2),
 so an implementation where the two are synonymous is compliant.
-In particular, the programmer cannot
-rely on the parent remaining blocked until a call of
-.BR execve (2)
-or
-.BR _exit (2)
+In particular, the programmer cannot rely on the parent
+remaining blocked until the child either terminates or calls
+.BR execve (2),
 and cannot rely on any specific behavior with respect to shared memory.
 .\" In AIXv3.1 vfork is equivalent to fork.
 .SH NOTES

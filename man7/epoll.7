@@ -18,7 +18,7 @@
 .\"
 .\"  Davide Libenzi <davidel@xmailserver.org>
 .\"
-.TH EPOLL 7 2008-10-10 "Linux" "Linux Programmer's Manual"
+.TH EPOLL 7 2008-11-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
 epoll \- I/O event notification facility
 .SH SYNOPSIS
@@ -198,28 +198,44 @@ from where it stopped before.
 
 .in +4n
 .nf
-struct epoll_event ev, *events;
+#define MAX_EVENTS 10
+struct epoll_event ev, events[MAX_EVENTS];
+int listen_sock, conn_sock, nfds, epollfd;
+
+/* Set up listening socket, \(aqlisten_sock\(aq (socket(),
+   bind(), listen()) */
+
+epollfd = epoll_create(10);
+if (epollfd == \-1) {
+    perror("epoll_create");
+    exit(EXIT_FAILURE);
+}
+
+ev.events = EPOLL_IN;
+ev.data.fd = listen_sock;
+if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sock, &ev) == \-1) {
+    perror("epoll_ctl: listen_sock");
+    exit(EXIT_FAILURE);
+}
 
 for (;;) {
-    nfds = epoll_wait(kdpfd, events, maxevents, \-1);
+    nfds = epoll_wait(epollfd, events, MAX_EVENTS, \-1);
 
     for (n = 0; n < nfds; ++n) {
-        if (events[n].data.fd == listener) {
-            client = accept(listener, (struct sockaddr *) &local,
-                            &addrlen);
-            if (client < 0){
+        if (events[n].data.fd == listen_sock) {
+            conn_sock = accept(listen_sock,
+                            (struct sockaddr *) &local, &addrlen);
+            if (conn_sock == \-1) {
                 perror("accept");
                 continue;
             }
-            setnonblocking(client);
+            setnonblocking(conn_sock);
             ev.events = EPOLLIN | EPOLLET;
-            ev.data.fd = client;
-            if (epoll_ctl(kdpfd, EPOLL_CTL_ADD, client, &ev)
-                    == \-1) {
-                fprintf(stderr,
-                        "epoll set insertion error: fd=%d\\n",
-                        client);
-                return \-1;
+            ev.data.fd = conn_sock;
+            if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
+                        &ev) == \-1) {
+                perror("epoll_ctl: conn_sock);
+                exit(EXIT_FAILURE);
             }
         } else {
             do_use_fd(events[n].data.fd);

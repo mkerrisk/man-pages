@@ -1,4 +1,6 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2008, Linux Foundation, written by Michael Kerrisk
+.\"     <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,6 +30,7 @@
 .\" Modified 1993-07-24 by Rik Faith (faith@cs.unc.edu)
 .\" Modified 1996-05-27 by Martin Schulze (joey@linux.de)
 .\" Modified 2003-11-15 by aeb
+.\" 2008-11-07, mtk, Added an example program for getpwnam_r().
 .\"
 .TH GETPWNAM 3  2008-11-07 "GNU" "Linux Programmer's Manual"
 .SH NAME
@@ -232,6 +235,58 @@ To determine the (initial) home directory of another user,
 it is necessary to use
 .I getpwnam("username")\->pw_dir
 or similar.
+.SH EXAMPLE
+The program below demonstrates the use of
+.BR getpwnam_r ()
+to find the full username and user ID for the username
+supplied as a command-line argument.
+
+.nf
+#include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
+int
+main(int argc, char *argv[])
+{
+    struct passwd pwd;
+    struct passwd *result;
+    char *buf;
+    size_t bufsize;
+    int s;
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s username\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (bufsize == \-1)          /* Value was indeterminate */
+        bufsize = 16384;        /* Should be more than enough */
+
+    buf = malloc(bufsize);
+    if (buf == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    s = getpwnam_r(argv[1], &pwd, buf, bufsize, &result);
+    if (result == NULL) {
+        if (s == 0)
+            printf("Not found\\n");
+        else {
+            errno = s;
+            perror("getpwnam_r");
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Name: %s; UID: %ld\n", pwd.pw_gecos, (long) pwd.pw_uid);
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR endpwent (3),
 .BR fgetpwent (3),

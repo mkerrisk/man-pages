@@ -21,7 +21,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_CREATE 3 2008-11-05 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_CREATE 3 2008-11-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_create \- create a new thread
 .SH SYNOPSIS
@@ -241,12 +241,11 @@ Joined with thread 3; returned value was SERVUS
 #include <errno.h>
 #include <ctype.h>
 
-/* Simple error handling functions */
+#define handle_error_en(en, msg) \\
+        do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
-#define errExit(msg)            { perror(msg); exit(EXIT_FAILURE); }
-
-#define errExitEN(en, msg)      { errno = en; perror(msg); \\
-                                  exit(EXIT_FAILURE); }
+#define handle_error(msg) \\
+        do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 struct thread_info {    /* Used as argument to thread_start() */
     pthread_t thread_id;        /* ID returned by pthread_create */
@@ -268,7 +267,7 @@ thread_start(void *arg)
 
     uargv = strdup(tinfo\->argv_string);
     if (uargv == NULL)
-        errExit("strdup");
+        handle_error("strdup");
 
     for (p = uargv; *p != \(aq\\0\(aq; p++)
         *p = toupper(*p);
@@ -307,19 +306,19 @@ main(int argc, char *argv[])
 
     s = pthread_attr_init(&attr);
     if (s != 0)
-        errExitEN(s, "pthread_attr_init");
+        handle_error_en(s, "pthread_attr_init");
 
     if (stack_size > 0) {
         s = pthread_attr_setstacksize(&attr, stack_size);
         if (s != 0)
-            errExitEN(s, "pthread_attr_setstacksize");
+            handle_error_en(s, "pthread_attr_setstacksize");
     }
 
     /* Allocate memory for pthread_create() arguments */
 
     tinfo = calloc(num_threads, sizeof(struct thread_info));
     if (tinfo == NULL)
-        errExit("calloc");
+        handle_error("calloc");
 
     /* Create one thread for each command\-line argument */
 
@@ -333,7 +332,7 @@ main(int argc, char *argv[])
         s = pthread_create(&tinfo[tnum].thread_id, &attr,
                            &thread_start, &tinfo[tnum]);
         if (s != 0)
-            errExitEN(s, "pthread_create");
+            handle_error_en(s, "pthread_create");
     }
 
     /* Destroy the thread attributes object, since it is no
@@ -341,14 +340,14 @@ main(int argc, char *argv[])
 
     s = pthread_attr_destroy(&attr);
     if (s != 0)
-        errExitEN(s, "pthread_attr_destroy");
+        handle_error_en(s, "pthread_attr_destroy");
 
     /* Now join with each thread, and display its returned value */
 
     for (tnum = 0; tnum < num_threads; tnum++) {
         s = pthread_join(tinfo[tnum].thread_id, &res);
         if (s != 0)
-            errExitEN(s, "pthread_join");
+            handle_error_en(s, "pthread_join");
 
         printf("Joined with thread %d; returned value was %s\\n",
                 tinfo[tnum].thread_num, (char *) res);

@@ -21,7 +21,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_ATTR_INIT 3 2008-10-24 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_ATTR_INIT 3 2008-11-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_attr_init, pthread_attr_destroy \- initialize and destroy
 thread attributes object
@@ -152,8 +152,8 @@ Thread attributes:
 #include <unistd.h>
 #include <errno.h>
 
-#define errExitEN(en, msg)      { errno = en; perror(msg); \\
-                                  exit(EXIT_FAILURE); }
+#define handle_error_en(en, msg) \\
+        do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static void
 display_pthread_attr(pthread_attr_t *attr, char *prefix)
@@ -165,7 +165,7 @@ display_pthread_attr(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getdetachstate(attr, &i);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getdetachstate");
+        handle_error_en(s, "pthread_attr_getdetachstate");
     printf("%sDetach state        = %s\\n", prefix,
             (i == PTHREAD_CREATE_DETACHED) ? "PTHREAD_CREATE_DETACHED" :
             (i == PTHREAD_CREATE_JOINABLE) ? "PTHREAD_CREATE_JOINABLE" :
@@ -173,7 +173,7 @@ display_pthread_attr(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getscope(attr, &i);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getscope");
+        handle_error_en(s, "pthread_attr_getscope");
     printf("%sScope               = %s\\n", prefix,
             (i == PTHREAD_SCOPE_SYSTEM)  ? "PTHREAD_SCOPE_SYSTEM" :
             (i == PTHREAD_SCOPE_PROCESS) ? "PTHREAD_SCOPE_PROCESS" :
@@ -181,7 +181,7 @@ display_pthread_attr(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getinheritsched(attr, &i);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getinheritsched");
+        handle_error_en(s, "pthread_attr_getinheritsched");
     printf("%sInherit scheduler   = %s\\n", prefix,
             (i == PTHREAD_INHERIT_SCHED)  ? "PTHREAD_INHERIT_SCHED" :
             (i == PTHREAD_EXPLICIT_SCHED) ? "PTHREAD_EXPLICIT_SCHED" :
@@ -189,7 +189,7 @@ display_pthread_attr(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getschedpolicy(attr, &i);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getschedpolicy");
+        handle_error_en(s, "pthread_attr_getschedpolicy");
     printf("%sScheduling policy   = %s\\n", prefix,
             (i == SCHED_OTHER) ? "SCHED_OTHER" :
             (i == SCHED_FIFO)  ? "SCHED_FIFO" :
@@ -198,17 +198,17 @@ display_pthread_attr(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getschedparam(attr, &sp);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getschedparam");
+        handle_error_en(s, "pthread_attr_getschedparam");
     printf("%sScheduling priority = %d\\n", prefix, sp.sched_priority);
 
     s = pthread_attr_getguardsize(attr, &v);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getguardsize");
+        handle_error_en(s, "pthread_attr_getguardsize");
     printf("%sGuard size          = %d bytes\\n", prefix, v);
 
     s = pthread_attr_getstack(attr, &stkaddr, &v);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getstack");
+        handle_error_en(s, "pthread_attr_getstack");
     printf("%sStack address       = %p\\n", prefix, stkaddr);
     printf("%sStack size          = 0x%x bytes\\n", prefix, v);
 }
@@ -225,7 +225,7 @@ thread_start(void *arg)
 
     s = pthread_getattr_np(pthread_self(), &gattr);
     if (s != 0)
-        errExitEN(s, "pthread_getattr_np");
+        handle_error_en(s, "pthread_getattr_np");
 
     printf("Thread attributes:\\n");
     display_pthread_attr(&gattr, "\\t");
@@ -255,37 +255,37 @@ main(int argc, char *argv[])
 
         s = pthread_attr_init(&attr);
         if (s != 0)
-            errExitEN(s, "pthread_attr_init");
+            handle_error_en(s, "pthread_attr_init");
 
         s = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
         if (s != 0)
-            errExitEN(s, "pthread_attr_setdetachstate");
+            handle_error_en(s, "pthread_attr_setdetachstate");
 
         s = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
         if (s != 0)
-            errExitEN(s, "pthread_attr_setinheritsched");
+            handle_error_en(s, "pthread_attr_setinheritsched");
 
         stack_size = strtoul(argv[1], NULL, 0);
 
         s = posix_memalign(&sp, sysconf(_SC_PAGESIZE), stack_size);
         if (s != 0)
-            errExitEN(s, "posix_memalign");
+            handle_error_en(s, "posix_memalign");
 
         printf("posix_memalign() allocated at %p\\n", sp);
 
         s = pthread_attr_setstack(&attr, sp, stack_size);
         if (s != 0)
-            errExitEN(s, "pthread_attr_setstack");
+            handle_error_en(s, "pthread_attr_setstack");
     }
 
     s = pthread_create(&thr, attrp, &thread_start, NULL);
     if (s != 0)
-        errExitEN(s, "pthread_create");
+        handle_error_en(s, "pthread_create");
 
     if (attrp != NULL) {
         s = pthread_attr_destroy(attrp);
         if (s != 0)
-            errExitEN(s, "pthread_attr_destroy");
+            handle_error_en(s, "pthread_attr_destroy");
     }
 
     pause();    /* Terminates when other thread calls exit() */

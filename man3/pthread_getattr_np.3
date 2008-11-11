@@ -21,7 +21,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_GETATTR_NP 3 2008-11-07 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_GETATTR_NP 3 2008-11-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_getattr_np \- get attributes of created thread
 .SH SYNOPSIS
@@ -183,8 +183,8 @@ Attributes of created thread:
 #include <unistd.h>
 #include <errno.h>
 
-#define errExitEN(en, msg)      { errno = en; perror(msg); \\
-                                  exit(EXIT_FAILURE); }
+#define handle_error_en(en, msg) \\
+        do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static void
 display_stack_related_attributes(pthread_attr_t *attr, char *prefix)
@@ -195,12 +195,12 @@ display_stack_related_attributes(pthread_attr_t *attr, char *prefix)
 
     s = pthread_attr_getguardsize(attr, &guard_size);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getguardsize");
+        handle_error_en(s, "pthread_attr_getguardsize");
     printf("%sGuard size          = %d bytes\\n", prefix, guard_size);
 
     s = pthread_attr_getstack(attr, &stack_addr, &stack_size);
     if (s != 0)
-        errExitEN(s, "pthread_attr_getstack");
+        handle_error_en(s, "pthread_attr_getstack");
     printf("%sStack address       = %p", prefix, stack_addr);
     if (stack_size > 0)
         printf(" (EOS = %p)", (char *) stack_addr + stack_size);
@@ -217,13 +217,13 @@ display_thread_attributes(pthread_t thread, char *prefix)
 
     s = pthread_getattr_np(thread, &attr);
     if (s != 0)
-        errExitEN(s, "pthread_getattr_np");
+        handle_error_en(s, "pthread_getattr_np");
 
     display_stack_related_attributes(&attr, prefix);
 
     s = pthread_attr_destroy(&attr);
     if (s != 0)
-        errExitEN(s, "pthread_attr_destroy");
+        handle_error_en(s, "pthread_attr_destroy");
 }
 
 static void *           /* Start function for thread we create */
@@ -279,31 +279,31 @@ get_thread_attributes_from_cl(int argc, char *argv[],
 
         s = pthread_attr_init(attrp);
         if (s != 0)
-            errExitEN(s, "pthread_attr_init");
+            handle_error_en(s, "pthread_attr_init");
     }
 
     if (stack_size >= 0) {
         if (!allocate_stack) {
             s = pthread_attr_setstacksize(attrp, stack_size);
             if (s != 0)
-                errExitEN(s, "pthread_attr_setstacksize");
+                handle_error_en(s, "pthread_attr_setstacksize");
         } else {
             s = posix_memalign(&stack_addr, sysconf(_SC_PAGESIZE),
                                stack_size);
             if (s != 0)
-                errExitEN(s, "posix_memalign");
+                handle_error_en(s, "posix_memalign");
             printf("Allocated thread stack at %p\\n\\n", stack_addr);
 
             s = pthread_attr_setstack(attrp, stack_addr, stack_size);
             if (s != 0)
-                errExitEN(s, "pthread_attr_setstacksize");
+                handle_error_en(s, "pthread_attr_setstacksize");
         }
     }
 
     if (guard_size >= 0) {
         s = pthread_attr_setguardsize(attrp, guard_size);
         if (s != 0)
-            errExitEN(s, "pthread_attr_setstacksize");
+            handle_error_en(s, "pthread_attr_setstacksize");
     }
 
     return ret_attrp;
@@ -328,12 +328,12 @@ main(int argc, char *argv[])
 
     s = pthread_create(&thr, attrp, &thread_start, NULL);
     if (s != 0)
-        errExitEN(s, "pthread_create");
+        handle_error_en(s, "pthread_create");
 
     if (attrp != NULL) {
         s = pthread_attr_destroy(attrp);
         if (s != 0)
-            errExitEN(s, "pthread_attr_destroy");
+            handle_error_en(s, "pthread_attr_destroy");
     }
 
     pause();    /* Terminates when other thread calls exit() */

@@ -22,10 +22,13 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH CPU_SET 2 2008-11-12 "Linux" "Linux Programmer's Manual"
+.TH CPU_SET 2 2008-11-13 "Linux" "Linux Programmer's Manual"
 .SH NAME
 CPU_SET, CPU_CLR, CPU_ISSET, CPU_ZERO, CPU_COUNT,
-CPU_AND, CPU_OR, CPU_XOR, CPU_EQUAL \-
+CPU_AND, CPU_OR, CPU_XOR, CPU_EQUAL, 
+CPU_ALLOC, CPU_ALLOC_SIZE, CPU_FREE,
+CPU_SET_S, CPU_CLR_S, CPU_ISSET_S, CPU_ZERO_S,
+CPU_COUNT_S, CPU_AND_S, CPU_OR_S, CPU_XOR_S, CPU_EQUAL_S \-
 macros for manipulating CPU sets
 .SH SYNOPSIS
 .nf
@@ -48,6 +51,28 @@ macros for manipulating CPU sets
 .BI "             cpu_set_t *" srcset1 ", cpu_set_t *" srcset2 );
 .sp
 .BI "int  CPU_EQUAL(cpu_set_t *" set1 ", cpu_set_t *" set2 );
+.sp
+.BI "cpu_set_t *CPU_ALLOC(int " num_cpus );
+.BR "void CPU_FREE(cpu_set_t *" set );
+.BI "int  CPU_ALLOC_SIZE(int " num_cpus );
+.sp
+.BI "void CPU_ZERO_S(size_t " setsize ", cpu_set_t *" set );
+.sp
+.BI "void CPU_SET_S(int " cpu ", size_t " setsize ", cpu_set_t *" set );
+.BI "void CPU_CLR_S(int " cpu ", size_t " setsize ", cpu_set_t *" set );
+.BI "int  CPU_ISSET_S(int " cpu ", size_t " setsize ", cpu_set_t *" set );
+.sp
+.BI "void CPU_COUNT_S(size_t " setsize ", cpu_set_t *" set );
+.sp
+.BI "void CPU_AND_S(size_t " setsize ", cpu_set_t *" destset , 
+.BI "             cpu_set_t *" srcset1 ", cpu_set_t *" srcset2 );
+.BI "void CPU_OR_S(size_t " setsize ", cpu_set_t *" destset , 
+.BI "             cpu_set_t *" srcset1 ", cpu_set_t *" srcset2 );
+.BI "void CPU_XOR_S(size_t " setsize ", cpu_set_t *" destset , 
+.BI "             cpu_set_t *" srcset1 ", cpu_set_t *" srcset2 );
+.sp
+.BI "int  CPU_EQUAL_S(size_t " setsize ", cpu_set_t *" set1 \
+", cpu_set_t *" set2 );
 .fi
 .SH DESCRIPTION
 The
@@ -59,7 +84,7 @@ and similar interfaces.
 
 The following macros are provided to operate on the CPU set
 .IR set :
-.TP 16
+.TP 17
 .BR CPU_ZERO ()
 Clears
 .IR set ,
@@ -100,10 +125,11 @@ value of 1, and so on.
 The constant
 .B CPU_SETSIZE
 (currently 1024) specifies a value one greater than the maximum CPU
-number that can be stored in a CPU set.
+number that can be stored in
+.IR cpu_set_t .
 
-The following macros perform logical operations on SPU sets:
-.TP 16
+The following macros perform logical operations on CPU sets:
+.TP 17
 .BR CPU_AND ()
 Store the logical AND of the sets
 .I srcset1
@@ -132,25 +158,78 @@ in
 (which may be one of the source sets).
 .TP
 .BR CPU_EQUAL ()
-Tests whether two CPU set contain the same CPUs.
+Test whether two CPU set contain exactly the same CPUs.
+.SS Dynamically sized CPU sets
+Because some applications may require the ability to dynamically
+size CPU sets (e.g., to allocate sets larger than that
+defined by the standard
+.I cpu_set_t
+data type), glibc nowadays provides a set of macros to support this.
+
+The following macros are used to allocate and deallocate CPU sets:
+.TP 17
+.BR CPU_ALLOC ()
+Allocate a CPU set large enough to hold CPUs
+in the range 0 to
+.IR num_cpus-1 .
+.TP
+.BR CPU_ALLOC_SIZE ()
+Return the size in bytes of the CPU set that would be needed to
+hold CPUs in the range 0 to
+.IR num_cpus-1 .
+.\" FIXME . track this bug
+.\" Currently (glibc 2.8), CPU_ALLOC_SIZE() returns double the
+.\" value that it should.  This also causes CPU_ALLOC() to allocate
+.\" twice as much memory as is required.
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=7029
+.\" Eventually, write this up in BUGS.
+This macro provides the value that can be used for
+.I setsize
+in the
+.BR CPU_*_S ()
+macros described below.
+.TP
+.BR CPU_FREE ()
+Free a CPU set previously allocated by
+.BR CPU_ALLOC ().
+.PP
+The macros whose name ends with "_S" are the analogs of
+the similarly named macros without the suffix.
+These macros perform the same tasks as their analogs,
+but operate on the dynamically allocated CPU set(s) whose size is
+.I setsize
+bytes.
 .SH "RETURN VALUE"
 .BR CPU_ISSET ()
-returns non-zero if
+and
+.BR CPU_ISSET_S ()
+return non-zero if
 .I cpu
 is in
 .IR set ;
 otherwise, it returns 0.
 
 .BR CPU_COUNT ()
-returns the number of CPUs in
+and
+.BR CPU_COUNT_S ()
+return the number of CPUs in
 .IR set .
 
 .BR CPU_EQUAL ()
-returns non-zero if the two CPU sets are equal; otherwise it returns 0.
+and
+.BR CPU_EQUAL_S ()
+return non-zero if the two CPU sets are equal; otherwise it returns 0.
+
+.BR CPU_ALLOC ()
+returns a pointer on success, or NULL on failure.
+(Errors are as for
+.BR malloc (3).)
+
+.BR CPU_ALLOC_SIZE ()
+returns the number of bytes required to store a
+CPU set of the specified cardinality.
 
 The other functions do not return a value.
-.\" .SH ERRORS
-.\" AFAICT, no E* errors are occur.
 .SH VERSIONS
 The
 .BR CPU_ZERO (),
@@ -166,14 +245,68 @@ first appeared in glibc 2.6.
 .BR CPU_AND (),
 .BR CPU_OR (),
 .BR CPU_XOR (),
+.BR CPU_EQUAL (),
+.BR CPU_ALLOC (),
+.BR CPU_ALLOC_SIZE (),
+.BR CPU_FREE (),
+.BR CPU_ZERO_S (),
+.BR CPU_SET_S (),
+.BR CPU_CLR_S (),
+.BR CPU_ISSET_S (),
+.BR CPU_AND_S (),
+.BR CPU_OR_S (),
+.BR CPU_XOR_S (),
 and
-.BR CPU_EQUAL ()
+.BR CPU_EQUAL_S ()
 first appeared in glibc 2.7.
 .SH "CONFORMING TO"
 These interfaces are Linux-specific.
+.SH EXAMPLE
+The following program demonstrates the use of some of the macros
+used for dynamically allocated CPU sets.
+
+.nf
+#define _GNU_SOURCE
+#include <sched.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <assert.h>
+
+int
+main(int argc, char *argv[])
+{
+    cpu_set_t *cpusetp;
+    size_t size;
+    int num_cpus, cpu;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <num\-cpus>\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    num_cpus = atoi(argv[1]);
+
+    cpusetp = CPU_ALLOC(num_cpus);
+    if (cpusetp == NULL) {
+        perror("CPU_ALLOC");
+        exit(EXIT_FAILURE);
+    }
+
+    size = CPU_ALLOC_SIZE(num_cpus);
+
+    CPU_ZERO_S(size, cpusetp);
+    for (cpu = 0; cpu < num_cpus; cpu += 2)
+        CPU_SET_S(cpu, size, cpusetp);
+
+    printf("CPU_COUNT() of set:    %d\\n", CPU_COUNT_S(size, cpusetp));
+
+    CPU_FREE(cpusetp);
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR sched_setaffinity (2),
-.BR CPU_SET (3),
 .BR pthread_attr_setaffinity_np (3),
 .BR pthread_setaffinity_np (3),
 .BR cpuset (7)

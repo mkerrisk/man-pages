@@ -21,7 +21,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_SETAFFINITY_NP 3 2008-11-11 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_SETAFFINITY_NP 3 2008-11-14 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_setaffinity_np, pthread_getaffinity_np \- set/get
 CPU affinity of a thread
@@ -55,18 +55,21 @@ function returns the CPU affinity mask of the thread
 in the buffer pointed to by
 .IR cpuset .
 
+For more details on CPU affinity masks, see
+.BR sched_setaffinity (2).
+For a description of a set of macros
+that can be used to manipulate and inspect CPU sets, see
+.BR CPU_SET (3).
+
 The argument
 .I cpusetsize
 is the length (in bytes) of the buffer pointed to by
 .IR cpuset .
 Typically, this argument would be specified as
 .IR sizeof(cpu_set_t) .
-
-For more details on CPU affinity masks, see
-.BR sched_setaffinity (2).
-For a description of a set of macros
-that can be used to manipulate and inspect CPU sets, see
-.BR CPU_SET (3).
+(It may be some other value, if using the macros described in
+.BR CPU_SET (3)
+for dynamically allocating a CPU set.)
 .SH RETURN VALUE
 On success, these functions return 0;
 on error, they return a non-zero error number.
@@ -79,19 +82,19 @@ A supplied memory address was invalid.
 .RB ( pthread_setaffinity_np ())
 The affinity bit mask
 .I mask
-contains no processors that are physically on the system.
+contains no processors that are currently physically on the system.
 .TP
 .BR EINVAL
 .RB ( pthread_setaffinity_np ())
 .I cpuset
-specified a CPU that was outside the range
-permitted by the kernel data type
+specified a CPU that was outside the set supported by the kernel.
+(The kernel configuration option
+.BR CONFIG_NR_CPUS
+defines the range of the set supported by the kernel data type
 .\" cpumask_t
-used to represent CPU sets.
+used to represent CPU sets.)
 .\" The raw sched_getaffinity() system call returns the size (in bytes)
 .\" of the cpumask_t type.
-This range is determined by the kernel configuration option
-.BR CONFIG_NR_CPUS .
 .TP
 .B EINVAL
 .RB ( pthread_getaffinity_np ())
@@ -108,6 +111,19 @@ These functions are provided by glibc since version 2.3.4.
 These functions are non-standard GNU extensions;
 hence the suffix "_np" (non-portable) in the names.
 .SH NOTES
+After a call to
+.BR pthread_setaffinity_np (3),
+the set of CPUs on which the thread will actually run is
+the intersection of the set specified in the
+.I cpuset
+argument and the set of CPUs actually present on the system.
+The system may further restrict the set of CPUs on which the thread
+runs if the "cpuset" mechanism described in
+.BR cpuset (7)
+is being used.
+These restrictions on the actual set of CPUs on which the thread
+will run are silently imposed by the kernel.
+
 These functions are implemented on top of the
 .BR sched_setaffinity (2)
 and

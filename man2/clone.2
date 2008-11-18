@@ -43,7 +43,7 @@
 .\" FIXME 2.6.25: CLONE_IO flag to clone() causes I/O contexts (used in the
 .\"       CFQ block I/O scheduler) to be shared with the new child process.
 .\"
-.TH CLONE 2 2008-09-23 "Linux" "Linux Programmer's Manual"
+.TH CLONE 2 2008-11-18 "Linux" "Linux Programmer's Manual"
 .SH NAME
 clone, __clone2 \- create a child process
 .SH SYNOPSIS
@@ -155,53 +155,20 @@ may also be bitwise-or'ed with zero or more of the following constants,
 in order to specify what is shared between the calling process
 and the child process:
 .TP
-.BR CLONE_PARENT " (since Linux 2.3.12)"
-If
-.B CLONE_PARENT
-is set, then the parent of the new child (as returned by
-.BR getppid (2))
-will be the same as that of the calling process.
-
-If
-.B CLONE_PARENT
-is not set, then (as with
-.BR fork (2))
-the child's parent is the calling process.
-
-Note that it is the parent process, as returned by
-.BR getppid (2),
-which is signaled when the child terminates, so that
-if
-.B CLONE_PARENT
-is set, then the parent of the calling process, rather than the
-calling process itself, will be signaled.
+.BR CLONE_CHILD_CLEARTID " (since Linux 2.5.49)"
+Erase child thread ID at location
+.I child_tidptr
+in child memory when the child exits, and do a wakeup on the futex
+at that address.
+The address involved may be changed by the
+.BR set_tid_address (2)
+system call.
+This is used by threading libraries.
 .TP
-.B CLONE_FS
-If
-.B CLONE_FS
-is set, the caller and the child process share the same file system
-information.
-This includes the root of the file system, the current
-working directory, and the umask.
-Any call to
-.BR chroot (2),
-.BR chdir (2),
-or
-.BR umask (2)
-performed by the calling process or the child process also affects the
-other process.
-
-If
-.B CLONE_FS
-is not set, the child process works on a copy of the file system
-information of the calling process at the time of the
-.BR clone ()
-call.
-Calls to
-.BR chroot (2),
-.BR chdir (2),
-.BR umask (2)
-performed later by one of the processes do not affect the other process.
+.BR CLONE_CHILD_SETTID " (since Linux 2.5.49)"
+Store child thread ID at location
+.I child_tidptr
+in child memory.
 .TP
 .B CLONE_FILES
 If
@@ -229,6 +196,33 @@ Subsequent operations that open or close file descriptors,
 or change file descriptor flags,
 performed by either the calling
 process or the child process do not affect the other process.
+.TP
+.B CLONE_FS
+If
+.B CLONE_FS
+is set, the caller and the child process share the same file system
+information.
+This includes the root of the file system, the current
+working directory, and the umask.
+Any call to
+.BR chroot (2),
+.BR chdir (2),
+or
+.BR umask (2)
+performed by the calling process or the child process also affects the
+other process.
+
+If
+.B CLONE_FS
+is not set, the child process works on a copy of the file system
+information of the calling process at the time of the
+.BR clone ()
+call.
+Calls to
+.BR chroot (2),
+.BR chdir (2),
+.BR umask (2)
+performed later by one of the processes do not affect the other process.
 .TP
 .BR CLONE_NEWNS " (since Linux 2.4.19)"
 Start the child in a new namespace.
@@ -272,6 +266,60 @@ in the same
 .BR clone ()
 call.
 .TP
+.BR CLONE_PARENT " (since Linux 2.3.12)"
+If
+.B CLONE_PARENT
+is set, then the parent of the new child (as returned by
+.BR getppid (2))
+will be the same as that of the calling process.
+
+If
+.B CLONE_PARENT
+is not set, then (as with
+.BR fork (2))
+the child's parent is the calling process.
+
+Note that it is the parent process, as returned by
+.BR getppid (2),
+which is signaled when the child terminates, so that
+if
+.B CLONE_PARENT
+is set, then the parent of the calling process, rather than the
+calling process itself, will be signaled.
+.TP
+.BR CLONE_PARENT_SETTID " (since Linux 2.5.49)"
+Store child thread ID at location
+.I parent_tidptr
+in parent and child memory.
+(In Linux 2.5.32-2.5.48 there was a flag
+.B CLONE_SETTID
+that did this.)
+.TP
+.BR CLONE_PID " (obsolete)"
+If
+.B CLONE_PID
+is set, the child process is created with the same process ID as
+the calling process.
+This is good for hacking the system, but otherwise
+of not much use.
+Since 2.3.21 this flag can be
+specified only by the system boot process (PID 0).
+It disappeared in Linux 2.5.16.
+.TP
+.B CLONE_PTRACE
+If
+.B CLONE_PTRACE
+is specified, and the calling process is being traced,
+then trace the child also (see
+.BR ptrace (2)).
+.TP
+.BR CLONE_SETTLS " (since Linux 2.5.32)"
+The
+.I newtls
+argument is the new TLS (Thread Local Storage) descriptor.
+(See
+.BR set_thread_area (2).)
+.TP
 .B CLONE_SIGHAND
 If
 .B CLONE_SIGHAND
@@ -307,20 +355,6 @@ if
 .B CLONE_SIGHAND
 is specified
 .TP
-.B CLONE_PTRACE
-If
-.B CLONE_PTRACE
-is specified, and the calling process is being traced,
-then trace the child also (see
-.BR ptrace (2)).
-.TP
-.BR CLONE_UNTRACED " (since Linux 2.5.46)"
-If
-.B CLONE_UNTRACED
-is specified, then a tracing process cannot force
-.B CLONE_PTRACE
-on this child process.
-.TP
 .BR CLONE_STOPPED " (since Linux 2.6.0-test2)"
 If
 .B CLONE_STOPPED
@@ -335,56 +369,14 @@ You probably never wanted to use it,
 you certainly shouldn't be using it, and soon it will go away.
 .\" glibc 2.8 removed this defn from bits/sched.h
 .TP
-.B CLONE_VFORK
+.BR CLONE_SYSVSEM " (since Linux 2.5.10)"
 If
-.B CLONE_VFORK
-is set, the execution of the calling process is suspended
-until the child releases its virtual memory
-resources via a call to
-.BR execve (2)
-or
-.BR _exit (2)
-(as with
-.BR vfork (2)).
-
-If
-.B CLONE_VFORK
-is not set then both the calling process and the child are schedulable
-after the call, and an application should not rely on execution occurring
-in any particular order.
-.TP
-.B CLONE_VM
-If
-.B CLONE_VM
-is set, the calling process and the child process run in the same memory
-space.
-In particular, memory writes performed by the calling process
-or by the child process are also visible in the other process.
-Moreover, any memory mapping or unmapping performed with
-.BR mmap (2)
-or
-.BR munmap (2)
-by the child or calling process also affects the other process.
-
-If
-.B CLONE_VM
-is not set, the child process runs in a separate copy of the memory
-space of the calling process at the time of
-.BR clone ().
-Memory writes or file mappings/unmappings performed by one of the
-processes do not affect the other, as with
-.BR fork (2).
-.TP
-.BR CLONE_PID " (obsolete)"
-If
-.B CLONE_PID
-is set, the child process is created with the same process ID as
-the calling process.
-This is good for hacking the system, but otherwise
-of not much use.
-Since 2.3.21 this flag can be
-specified only by the system boot process (PID 0).
-It disappeared in Linux 2.5.16.
+.B CLONE_SYSVSEM
+is set, then the child and the calling process share
+a single list of System V semaphore undo values (see
+.BR semop (2)).
+If this flag is not set, then the child has a separate undo list,
+which is initially empty.
 .TP
 .BR CLONE_THREAD " (since Linux 2.4.0-test8)"
 If
@@ -503,44 +495,52 @@ the kernel will arbitrarily select one of these threads
 to receive a signal sent using
 .BR kill (2).
 .TP
-.BR CLONE_SYSVSEM " (since Linux 2.5.10)"
+.BR CLONE_UNTRACED " (since Linux 2.5.46)"
 If
-.B CLONE_SYSVSEM
-is set, then the child and the calling process share
-a single list of System V semaphore undo values (see
-.BR semop (2)).
-If this flag is not set, then the child has a separate undo list,
-which is initially empty.
+.B CLONE_UNTRACED
+is specified, then a tracing process cannot force
+.B CLONE_PTRACE
+on this child process.
 .TP
-.BR CLONE_SETTLS " (since Linux 2.5.32)"
-The
-.I newtls
-argument is the new TLS (Thread Local Storage) descriptor.
-(See
-.BR set_thread_area (2).)
+.B CLONE_VFORK
+If
+.B CLONE_VFORK
+is set, the execution of the calling process is suspended
+until the child releases its virtual memory
+resources via a call to
+.BR execve (2)
+or
+.BR _exit (2)
+(as with
+.BR vfork (2)).
+
+If
+.B CLONE_VFORK
+is not set then both the calling process and the child are schedulable
+after the call, and an application should not rely on execution occurring
+in any particular order.
 .TP
-.BR CLONE_PARENT_SETTID " (since Linux 2.5.49)"
-Store child thread ID at location
-.I parent_tidptr
-in parent and child memory.
-(In Linux 2.5.32-2.5.48 there was a flag
-.B CLONE_SETTID
-that did this.)
-.TP
-.BR CLONE_CHILD_SETTID " (since Linux 2.5.49)"
-Store child thread ID at location
-.I child_tidptr
-in child memory.
-.TP
-.BR CLONE_CHILD_CLEARTID " (since Linux 2.5.49)"
-Erase child thread ID at location
-.I child_tidptr
-in child memory when the child exits, and do a wakeup on the futex
-at that address.
-The address involved may be changed by the
-.BR set_tid_address (2)
-system call.
-This is used by threading libraries.
+.B CLONE_VM
+If
+.B CLONE_VM
+is set, the calling process and the child process run in the same memory
+space.
+In particular, memory writes performed by the calling process
+or by the child process are also visible in the other process.
+Moreover, any memory mapping or unmapping performed with
+.BR mmap (2)
+or
+.BR munmap (2)
+by the child or calling process also affects the other process.
+
+If
+.B CLONE_VM
+is not set, the child process runs in a separate copy of the memory
+space of the calling process at the time of
+.BR clone ().
+Memory writes or file mappings/unmappings performed by one of the
+processes do not affect the other, as with
+.BR fork (2).
 .SS "sys_clone"
 The
 .B sys_clone

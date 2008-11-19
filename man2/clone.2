@@ -34,9 +34,8 @@
 .\" 2008-11-18, mtk, order CLONE_* flags  alphabetically
 .\" 2008-11-18, mtk, document CLONE_NEWPID
 .\" 2008-11-19, mtk, document CLONE_NEWUTS
+.\" 2008-11-19, mtk, document CLONE_NEWIPC
 .\"
-.\" FIXME Document CLONE_NEWIPC, which is new in 2.6.18
-.\"       (also supported for unshare()?)
 .\" FIXME Document CLONE_NEWUSER, which is new in 2.6.23
 .\"       (also supported for unshare()?)
 .\" FIXME 2.6.25 marks the unused CLONE_STOPPED as obsolete, and it will
@@ -224,6 +223,36 @@ Calls to
 .BR chdir (2),
 .BR umask (2)
 performed later by one of the processes do not affect the other process.
+.TP
+.BR CLONE_NEWIPC " (since Linux 2.4.19)"
+If
+.B CLONE_NEWIPC
+is set, then create the process in a new IPC namespace.
+If this flag is not set, then (as with
+.BR fork (2)),
+the process is created in the same IPC namespace as
+the calling process.
+This flag is intended for the implementation of control groups.
+
+An IPC namespace consists of the set of identifiers for
+System V IPC objects.
+(These objects are created using
+.BR msgctl (2),
+.BR semctl (2),
+and
+.BR shmctl (2)).
+Objects created in an IPC namespace are visible to other processes
+that are members of that namespace,
+but are not visible to processes in other IPC namespaces.
+
+Use of this flag requires: a kernel configured with the
+.B CONFIG_SYSVIPC
+and
+.B CONFIG_IPC_NS
+configuration options and that the process be privileged
+.RB ( CAP_SYS_ADMIN ).
+This flag can't be specified in conjunction with
+.BR CLONE_SYSVSEM .
 .TP
 .BR CLONE_NEWNS " (since Linux 2.4.19)"
 Start the child in a new namespace.
@@ -729,6 +758,14 @@ were specified in
 .TP
 .B EINVAL
 Both
+.B CLONE_NEWIPC
+and
+.B CLONE_SYSVSEM
+were specified in
+.IR flags .
+.TP
+.B EINVAL
+Both
 .BR CLONE_NEWPID
 and
 .BR CLONE_THREAD
@@ -740,6 +777,16 @@ Returned by
 .BR clone ()
 when a zero value is specified for
 .IR child_stack .
+.TP
+.B EINVAL
+.BR CLONE_NEWIPC
+was specified in
+.IR flags ,
+but the kernel was not configured with the
+.B CONFIG_SYSVIPC
+and
+.BR CONFIG_IPC_NS
+options.
 .TP
 .B EINVAL
 .BR CLONE_NEWPID
@@ -763,6 +810,7 @@ child, or to copy those parts of the caller's context that need to be
 copied.
 .TP
 .B EPERM
+.BR CLONE_NEWIPC ,
 .BR CLONE_NEWNS ,
 .BR CLONE_NEWPID ,
 or

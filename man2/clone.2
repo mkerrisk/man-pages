@@ -31,6 +31,8 @@
 .\"	wrapper under BUGS.
 .\" 2005-05-10, mtk, added CLONE_SYSVSEM, CLONE_UNTRACED, CLONE_STOPPED.
 .\" 2005-05-17, mtk, Substantially enhanced discussion of CLONE_THREAD.
+.\" 2008-11-18, mtk, order CLONE_* flags  alphabetically
+.\" 2008-11-18, mtk, document CLONE_NEWPID
 .\"
 .\" FIXME Document CLONE_NEWIPC, which is new in 2.6.18
 .\"       (also supported for unshare()?)
@@ -43,7 +45,7 @@
 .\" FIXME 2.6.25: CLONE_IO flag to clone() causes I/O contexts (used in the
 .\"       CFQ block I/O scheduler) to be shared with the new child process.
 .\"
-.TH CLONE 2 2008-11-18 "Linux" "Linux Programmer's Manual"
+.TH CLONE 2 2008-11-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
 clone, __clone2 \- create a child process
 .SH SYNOPSIS
@@ -265,6 +267,79 @@ and
 in the same
 .BR clone ()
 call.
+.TP
+.BR CLONE_NEWPID " (since Linux 2.6.24)"
+.\" This explanation draws a lot of details from
+.\" http://lwn.net/Articles/259217/
+.\" Authors: Pavel Emelyanov <xemul@openvz.org>
+.\" and Kir Kolyshkin <kir@openvz.org>
+.\"
+.\" The primary kernel commit is 30e49c263e36341b60b735cbef5ca37912549264
+.\" Author: Pavel Emelyanov <xemul@openvz.org>
+If
+.B CLONE_PID
+is set, then create the process in a new PID namespace.
+If this flag is not set, then (as with
+.BR fork (2)),
+the process is created in the same PID namespace as
+the calling process.
+This flag is intended for the implementation of control groups.
+
+A PID namespace provides an isolated environment for PIDs:
+PIDs in a new namespace start at 1,
+somewhat like a standalone system, and calls to
+.BR fork (2),
+.BR vfork (2),
+or
+.BR clone (2)
+will produce processes whose PIDs within the namespace
+are only guaranteed to be unique within that namespace.
+
+The first process created in a new namespace
+(i.e., the process created using the
+.BR CLONE_NEWPID
+flag) has the PID 1, and is the "init" process for the namespace.
+Children that are orphaned within the namespace will be reparented
+to this process rather than
+.BR init (8).
+Unlike the traditional
+.B init
+process, the "init" process of a PID namespace can terminate,
+and if it does, all of the processes in the namespace are terminated.
+
+PID namespaces form a hierarchy.
+When a PID new namespace is created,
+the PIDs of the processes in that namespace are visible
+in the PID namespace of the process that created the new namespace;
+analogously, if the parent PID namespace is itself
+the child of another PID namespace,
+then PIDs of the child and parent PID namespaces will both be
+visible in the grandparent PID namespace.
+Conversely, the processes in the "child" PID namespace do not see
+the PIDs of the processes in the parent namespace.
+The existence of a namespace hierarchy means that each process
+may now have multiple PIDs:
+one for each namespace in which it is visible.
+(A call to
+.BR getpid (2)
+always returns the PID associated with the namespace in which
+the process was created.)
+
+After creating the new namespace,
+it is useful for the child to change its root directory
+and mount a new procfs instance at
+.I /proc
+so that tools such as
+.BR ps (1)
+work correctly.
+.\" mount -t proc proc /proc
+
+Use of this flag requires: a kernel configured with the
+.B CONFIG_PID_NS
+configuration option and that the process be privileged
+.RB (CAP_SYS_ADMIN ).
+This flag can't be specified in conjunction with
+.BR CLONE_THREAD .
 .TP
 .BR CLONE_PARENT " (since Linux 2.3.12)"
 If
@@ -627,6 +702,14 @@ were specified in
 .IR flags .
 .TP
 .B EINVAL
+Both
+.BR CLONE_NEWPID
+and
+.BR CLONE_THREAD
+were specified in
+.IR flags .
+.TP
+.B EINVAL
 Returned by
 .BR clone ()
 when a zero value is specified for
@@ -639,6 +722,8 @@ copied.
 .TP
 .B EPERM
 .B CLONE_NEWNS
+or
+.B CLONE_NEWPID
 was specified by a non-root process (process without \fBCAP_SYS_ADMIN\fP).
 .TP
 .B EPERM

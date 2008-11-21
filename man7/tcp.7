@@ -758,7 +758,8 @@ depending on memory available.
 
 .I min
 - minimum size of the send buffer used by each TCP socket.
-The default value is 4K bytes.
+The default value is the system page size.
+(On Linux 2.4, the default value is 4K bytes.)
 This value is used to ensure that in memory pressure mode,
 allocations below this size will still succeed.
 This is not used to bound the size of the send buffer declared using
@@ -772,6 +773,7 @@ the generic global
 .I net.core.wmem_default
 defined for all protocols.
 The default value is 16K bytes.
+.\" True in Linux 2.4 and 2.6
 If larger send buffer sizes are desired, this value
 should be increased (to affect all sockets).
 To employ large TCP windows, the 
@@ -785,8 +787,12 @@ This value does not override the value in
 This is not used to limit the size of the send buffer declared using
 .B SO_SNDBUF
 on a socket.
-The default value is 128K bytes.
-It is lowered to 64K depending on the memory available in the system.
+The default value is calculated using the formula
+
+    max(65536, min(4MB, \fItcp_mem\fP[1]*PAGE_SIZE/128))
+
+(On Linux 2.4, the default value is 128K bytes,
+lowered 64K depending on low-memory systems.)
 .TP
 .IR tcp_workaround_signed_windows " (Boolean; default: disabled; since Linux 2.6.26)"
 If enabled, assume that no receipt of a window-scaling option means that the

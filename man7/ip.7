@@ -6,7 +6,7 @@
 .\" and in case of nontrivial modification author and date
 .\" of the modification is added to the header.
 .\" $Id: ip.7,v 1.19 2000/12/20 18:10:31 ak Exp $
-.TH IP  7 2008-10-28 "Linux" "Linux Programmer's Manual"
+.TH IP  7 2008-11-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ip \- Linux IPv4 protocol implementation
 .SH SYNOPSIS
@@ -199,6 +199,188 @@ A boolean integer flag is zero when it is false, otherwise true.
 .\" FIXME Document IP_FREEBIND
 .\"
 .TP
+.B IP_ADD_MEMBERSHIP
+Join a multicast group.
+Argument is an
+.I ip_mreqn
+structure.
+.sp
+.in +4n
+.nf
+struct ip_mreqn {
+    struct in_addr imr_multiaddr; /* IP multicast group
+                                     address */
+    struct in_addr imr_address;   /* IP address of local
+                                     interface */
+    int            imr_ifindex;   /* interface index */
+};
+.fi
+.in
+.sp
+.I imr_multiaddr
+contains the address of the multicast group the application
+wants to join or leave.
+It must be a valid multicast address
+.\" (i.e., within the 224.0.0.0-239.255.255.255 range)
+(or
+.BR setsockopt (2)
+fails with the error
+.BR EINVAL ).
+.I imr_address
+is the address of the local interface with which the system
+should join the multicast group; if it is equal to
+.B INADDR_ANY
+an appropriate interface is chosen by the system.
+.I imr_ifindex
+is the interface index of the interface that should join/leave the
+.I imr_multiaddr
+group, or 0 to indicate any interface.
+.IP
+For compatibility, the old
+.I ip_mreq
+structure is still supported.
+It differs from
+.I ip_mreqn
+only by not including the
+.I imr_ifindex
+field.
+Only valid as a
+.BR setsockopt (2).
+.\"
+.TP
+.B IP_DROP_MEMBERSHIP
+Leave a multicast group.
+Argument is an
+.I ip_mreqn
+or
+.I ip_mreq
+structure similar to
+.BR IP_ADD_MEMBERSHIP .
+.TP
+.B IP_HDRINCL
+If enabled,
+the user supplies an IP header in front of the user data.
+Only valid for
+.B SOCK_RAW
+sockets.
+See
+.BR raw (7)
+for more information.
+When this flag is enabled the values set by
+.BR IP_OPTIONS ,
+.B IP_TTL
+and
+.B IP_TOS
+are ignored.
+.TP
+.B IP_MTU
+Retrieve the current known path MTU of the current socket.
+Only valid when the socket has been connected.
+Returns an integer.
+Only valid as a
+.BR getsockopt (2).
+.TP
+.B IP_MTU_DISCOVER
+Sets or receives the Path MTU Discovery setting for a socket.
+When enabled, Linux will perform Path MTU Discovery
+as defined in RFC\ 1191
+on this socket.
+The don't-fragment flag is set on all outgoing datagrams.
+The system-wide default is controlled by the
+.I /proc/sys/net/ipv4/ip_no_pmtu_disc
+file for
+.B SOCK_STREAM
+sockets, and disabled on all others.
+For
+.RB non- SOCK_STREAM
+sockets, it is the user's responsibility to packetize the data
+in MTU sized chunks and to do the retransmits if necessary.
+The kernel will reject packets that are bigger than the known
+path MTU if this flag is set (with
+.B EMSGSIZE
+).
+.TS
+tab(:);
+c l
+l l.
+Path MTU discovery flags:Meaning
+IP_PMTUDISC_WANT:Use per-route settings.
+IP_PMTUDISC_DONT:Never do Path MTU Discovery.
+IP_PMTUDISC_DO:Always do Path MTU Discovery.
+IP_PMTUDISC_PROBE:Set DF but ignore Path MTU.
+.TE
+
+When PMTU discovery is enabled, the kernel automatically keeps track of
+the path MTU per destination host.
+When it is connected to a specific peer with
+.BR connect (2),
+the currently known path MTU can be retrieved conveniently using the
+.B IP_MTU
+socket option (e.g., after a
+.B EMSGSIZE
+error occurred).
+It may change over time.
+For connectionless sockets with many destinations,
+the new MTU for a given destination can also be accessed using the
+error queue (see
+.BR IP_RECVERR ).
+A new error will be queued for every incoming MTU update.
+
+While MTU discovery is in progress, initial packets from datagram sockets
+may be dropped.
+Applications using UDP should be aware of this and not
+take it into account for their packet retransmit strategy.
+
+To bootstrap the path MTU discovery process on unconnected sockets, it
+is possible to start with a big datagram size
+(up to 64K-headers bytes long) and let it shrink by updates of the path MTU.
+.\" FIXME this is an ugly hack
+
+To get an initial estimate of the
+path MTU, connect a datagram socket to the destination address using
+.BR connect (2)
+and retrieve the MTU by calling
+.BR getsockopt (2)
+with the
+.B IP_MTU
+option.
+
+It is possible to implement RFC 4821 MTU probing with
+.B SOCK_DGRAM
+or
+.B SOCK_RAW
+sockets by setting a value of
+.BR IP_PMTUDISC_PROBE .
+This is also particularly useful for diagnostic tools such as
+.BR tracepath (8)
+that wish to deliberately send probe packets larger than
+the observed Path MTU.
+.TP
+.B IP_MULTICAST_IF
+Set the local device for a multicast socket.
+Argument is an
+.I ip_mreqn
+or
+.I ip_mreq
+structure similar to
+.BR IP_ADD_MEMBERSHIP .
+.IP
+When an invalid socket option is passed,
+.B ENOPROTOOPT
+is returned.
+.TP
+.B IP_MULTICAST_LOOP
+Sets or reads a boolean integer argument that determines whether
+sent multicast packets should be looped back to the local sockets.
+.TP
+.B IP_MULTICAST_TTL
+Set or read the time-to-live value of outgoing multicast packets for this
+socket.
+It is very important for multicast packets to set the smallest TTL possible.
+The default is 1 which means that multicast packets don't leave the local
+network unless the user program explicitly requests it.
+Argument is an integer.
+.TP
 .B IP_OPTIONS
 Sets or get the IP options to be sent with every packet from this socket.
 The arguments are a pointer to a memory buffer containing the options
@@ -276,88 +458,6 @@ is not zero, the primary local address of the interface specified by the
 index overwrites
 .I ipi_spec_dst
 for the routing table lookup.
-.TP
-.B IP_RECVTOS
-If enabled the
-.B IP_TOS
-ancillary message is passed with incoming packets.
-It contains a byte which specifies the Type of Service/Precedence
-field of the packet header.
-Expects a boolean integer flag.
-.TP
-.B IP_RECVTTL
-When this flag is set, pass a
-.B IP_TTL
-control message with the time to live
-field of the received packet as a byte.
-Not supported for
-.B SOCK_STREAM
-sockets.
-.TP
-.B IP_RECVOPTS
-Pass all incoming IP options to the user in a
-.B IP_OPTIONS
-control message.
-The routing header and other options are already filled in
-for the local host.
-Not supported for
-.B SOCK_STREAM
-sockets.
-.TP
-.B IP_RETOPTS
-Identical to
-.BR IP_RECVOPTS ,
-but returns raw unprocessed options with timestamp and route record
-options not filled in for this hop.
-.TP
-.B IP_TOS
-Set or receive the Type-Of-Service (TOS) field that is sent
-with every IP packet originating from this socket.
-It is used to prioritize packets on the network.
-TOS is a byte.
-There are some standard TOS flags defined:
-.B IPTOS_LOWDELAY
-to minimize delays for interactive traffic,
-.B IPTOS_THROUGHPUT
-to optimize throughput,
-.B IPTOS_RELIABILITY
-to optimize for reliability,
-.B IPTOS_MINCOST
-should be used for "filler data" where slow transmission doesn't matter.
-At most one of these TOS values can be specified.
-Other bits are invalid and shall be cleared.
-Linux sends
-.B IPTOS_LOWDELAY
-datagrams first by default,
-but the exact behavior depends on the configured queueing discipline.
-.\" FIXME elaborate on this
-Some high priority levels may require superuser privileges (the
-.B CAP_NET_ADMIN
-capability).
-The priority can also be set in a protocol independent way by the
-.RB ( SOL_SOCKET ", " SO_PRIORITY )
-socket option (see
-.BR socket (7)).
-.TP
-.B IP_TTL
-Set or retrieve the current time-to-live field that is used in every packet
-sent from this socket.
-.TP
-.B IP_HDRINCL
-If enabled,
-the user supplies an IP header in front of the user data.
-Only valid for
-.B SOCK_RAW
-sockets.
-See
-.BR raw (7)
-for more information.
-When this flag is enabled the values set by
-.BR IP_OPTIONS ,
-.B IP_TTL
-and
-.B IP_TOS
-are ignored.
 .TP
 .BR IP_RECVERR " (defined in \fI<linux/errqueue.h>\fP)"
 Enable extended reliable error message passing.
@@ -496,89 +596,38 @@ It sets or retrieves an integer boolean flag.
 .B IP_RECVERR
 defaults to off.
 .TP
-.B IP_MTU_DISCOVER
-Sets or receives the Path MTU Discovery setting for a socket.
-When enabled, Linux will perform Path MTU Discovery
-as defined in RFC\ 1191
-on this socket.
-The don't-fragment flag is set on all outgoing datagrams.
-The system-wide default is controlled by the
-.I /proc/sys/net/ipv4/ip_no_pmtu_disc
-file for
+.B IP_RECVOPTS
+Pass all incoming IP options to the user in a
+.B IP_OPTIONS
+control message.
+The routing header and other options are already filled in
+for the local host.
+Not supported for
 .B SOCK_STREAM
-sockets, and disabled on all others.
-For
-.RB non- SOCK_STREAM
-sockets, it is the user's responsibility to packetize the data
-in MTU sized chunks and to do the retransmits if necessary.
-The kernel will reject packets that are bigger than the known
-path MTU if this flag is set (with
-.B EMSGSIZE
-).
-.TS
-tab(:);
-c l
-l l.
-Path MTU discovery flags:Meaning
-IP_PMTUDISC_WANT:Use per-route settings.
-IP_PMTUDISC_DONT:Never do Path MTU Discovery.
-IP_PMTUDISC_DO:Always do Path MTU Discovery.
-IP_PMTUDISC_PROBE:Set DF but ignore Path MTU.
-.TE
-
-When PMTU discovery is enabled, the kernel automatically keeps track of
-the path MTU per destination host.
-When it is connected to a specific peer with
-.BR connect (2),
-the currently known path MTU can be retrieved conveniently using the
-.B IP_MTU
-socket option (e.g., after a
-.B EMSGSIZE
-error occurred).
-It may change over time.
-For connectionless sockets with many destinations,
-the new MTU for a given destination can also be accessed using the
-error queue (see
-.BR IP_RECVERR ).
-A new error will be queued for every incoming MTU update.
-
-While MTU discovery is in progress, initial packets from datagram sockets
-may be dropped.
-Applications using UDP should be aware of this and not
-take it into account for their packet retransmit strategy.
-
-To bootstrap the path MTU discovery process on unconnected sockets, it
-is possible to start with a big datagram size
-(up to 64K-headers bytes long) and let it shrink by updates of the path MTU.
-.\" FIXME this is an ugly hack
-
-To get an initial estimate of the
-path MTU, connect a datagram socket to the destination address using
-.BR connect (2)
-and retrieve the MTU by calling
-.BR getsockopt (2)
-with the
-.B IP_MTU
-option.
-
-It is possible to implement RFC 4821 MTU probing with
-.B SOCK_DGRAM
-or
-.B SOCK_RAW
-sockets by setting a value of
-.BR IP_PMTUDISC_PROBE .
-This is also particularly useful for diagnostic tools such as
-.BR tracepath (8)
-that wish to deliberately send probe packets larger than
-the observed Path MTU.
+sockets.
 .TP
-.B IP_MTU
-Retrieve the current known path MTU of the current socket.
-Only valid when the socket has been connected.
-Returns an integer.
-Only valid as a
-.BR getsockopt (2).
-.\"
+.B IP_RECVTOS
+If enabled the
+.B IP_TOS
+ancillary message is passed with incoming packets.
+It contains a byte which specifies the Type of Service/Precedence
+field of the packet header.
+Expects a boolean integer flag.
+.TP
+.B IP_RECVTTL
+When this flag is set, pass a
+.B IP_TTL
+control message with the time to live
+field of the received packet as a byte.
+Not supported for
+.B SOCK_STREAM
+sockets.
+.TP
+.B IP_RETOPTS
+Identical to
+.BR IP_RECVOPTS ,
+but returns raw unprocessed options with timestamp and route record
+options not filled in for this hop.
 .TP
 .B IP_ROUTER_ALERT
 Pass all to-be forwarded packets with the
@@ -590,93 +639,39 @@ the user's responsibility to send them out again.
 Socket binding is ignored,
 such packets are only filtered by protocol.
 Expects an integer flag.
-.\"
 .TP
-.B IP_MULTICAST_TTL
-Set or read the time-to-live value of outgoing multicast packets for this
-socket.
-It is very important for multicast packets to set the smallest TTL possible.
-The default is 1 which means that multicast packets don't leave the local
-network unless the user program explicitly requests it.
-Argument is an integer.
-.\"
+.B IP_TOS
+Set or receive the Type-Of-Service (TOS) field that is sent
+with every IP packet originating from this socket.
+It is used to prioritize packets on the network.
+TOS is a byte.
+There are some standard TOS flags defined:
+.B IPTOS_LOWDELAY
+to minimize delays for interactive traffic,
+.B IPTOS_THROUGHPUT
+to optimize throughput,
+.B IPTOS_RELIABILITY
+to optimize for reliability,
+.B IPTOS_MINCOST
+should be used for "filler data" where slow transmission doesn't matter.
+At most one of these TOS values can be specified.
+Other bits are invalid and shall be cleared.
+Linux sends
+.B IPTOS_LOWDELAY
+datagrams first by default,
+but the exact behavior depends on the configured queueing discipline.
+.\" FIXME elaborate on this
+Some high priority levels may require superuser privileges (the
+.B CAP_NET_ADMIN
+capability).
+The priority can also be set in a protocol independent way by the
+.RB ( SOL_SOCKET ", " SO_PRIORITY )
+socket option (see
+.BR socket (7)).
 .TP
-.B IP_MULTICAST_LOOP
-Sets or reads a boolean integer argument that determines whether
-sent multicast packets should be looped back to the local sockets.
-.\"
-.TP
-.B IP_ADD_MEMBERSHIP
-Join a multicast group.
-Argument is an
-.I ip_mreqn
-structure.
-.sp
-.in +4n
-.nf
-struct ip_mreqn {
-    struct in_addr imr_multiaddr; /* IP multicast group
-                                     address */
-    struct in_addr imr_address;   /* IP address of local
-                                     interface */
-    int            imr_ifindex;   /* interface index */
-};
-.fi
-.in
-.sp
-.I imr_multiaddr
-contains the address of the multicast group the application
-wants to join or leave.
-It must be a valid multicast address
-.\" (i.e., within the 224.0.0.0-239.255.255.255 range)
-(or
-.BR setsockopt (2)
-fails with the error
-.BR EINVAL ).
-.I imr_address
-is the address of the local interface with which the system
-should join the multicast group; if it is equal to
-.B INADDR_ANY
-an appropriate interface is chosen by the system.
-.I imr_ifindex
-is the interface index of the interface that should join/leave the
-.I imr_multiaddr
-group, or 0 to indicate any interface.
-.IP
-For compatibility, the old
-.I ip_mreq
-structure is still supported.
-It differs from
-.I ip_mreqn
-only by not including the
-.I imr_ifindex
-field.
-Only valid as a
-.BR setsockopt (2).
-.\"
-.TP
-.B IP_DROP_MEMBERSHIP
-Leave a multicast group.
-Argument is an
-.I ip_mreqn
-or
-.I ip_mreq
-structure similar to
-.BR IP_ADD_MEMBERSHIP .
-.\"
-.TP
-.B IP_MULTICAST_IF
-Set the local device for a multicast socket.
-Argument is an
-.I ip_mreqn
-or
-.I ip_mreq
-structure similar to
-.BR IP_ADD_MEMBERSHIP .
-.IP
-When an invalid socket option is passed,
-.B ENOPROTOOPT
-is returned.
+.B IP_TTL
+Set or retrieve the current time-to-live field that is used in every packet
+sent from this socket.
 .SS /proc interfaces
 The IP protocol
 supports a set of

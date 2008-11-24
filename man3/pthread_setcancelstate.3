@@ -21,7 +21,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_SETCANCELSTATE 3 2008-11-14 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_SETCANCELSTATE 3 2008-11-24 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_setcancelstate, pthread_setcanceltype \-
 set cancelability state and type
@@ -125,22 +125,24 @@ Setting the cancelability type to
 is rarely useful.
 Since the thread could be canceled at
 .I any
-time, it cannot reserve resources (e.g., allocating memory),
-acquire mutexes, semaphores, or locks, and so on,
-since, when the thread is canceled,
-the application has no way of knowing what the state of these resources is;
-that is, did the canceled thread manage to release the resources or not?
-(Among other things, this means that clean-up handlers cease to be useful,
-since they can't determine the state of resources that
-they are intended to clean up.)
-In general, most library functions, including most pthreads functions,
-can't be safely called from an asynchronously cancelable thread.
-(POSIX.1-2001 only requires that
+time, it cannot safely reserve resources (e.g., allocating memory with
+.BR malloc (3)),
+acquire mutexes, semaphores, or locks, and so on.
+Reserving resources is unafe because the application has no way of
+knowing what the state of these resources is when the thread is canceled;
+that is, did cancellation occur before the resources were reserved,
+while they were reserved, or after they were released?
+Consequently, clean-up handlers cease to be useful.
+Functions that can be safely asynchronously canceled are called
+.IR "async-cancel-safe functions" . 
+POSIX.1-2001 only requires that
 .BR pthread_cancel (3),
 .BR pthread_setcancelstate (),
 and
 .BR pthread_setcanceltype ()
-be safe to call from an asynchronously cancelable thread.)
+be async-cancel-safe.
+In general, other library functions
+can't be safely called from an asynchronously cancelable thread.
 One of the few circumstances in which asynchronous cancelability is useful
 is for cancellation of a thread that is in a pure compute-bound loop.
 

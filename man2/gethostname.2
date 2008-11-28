@@ -27,8 +27,9 @@
 .\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified 2000-06-04, 2001-12-15 by aeb
 .\" Modified 2004-06-17 by mtk
+.\" Modified 2008-11-27 by mtk
 .\"
-.TH GETHOSTNAME 2 2007-07-26 "Linux" "Linux Programmer's Manual"
+.TH GETHOSTNAME 2 2008-11-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 gethostname, sethostname \- get/set hostname
 .SH SYNOPSIS
@@ -53,15 +54,29 @@ _BSD_SOURCE || (_XOPEN_SOURCE && _XOPEN_SOURCE\ <\ 500)
 .SH DESCRIPTION
 These system calls are used to access or to change the hostname of the
 current processor.
+
+.BR sethostname ()
+sets the hostname to the value given in the character array
+.IR name .
 The
+.I len
+argument specifies the number of bytes in
+.IR name .
+(Thus,
+.I name
+does not require a terminating null byte.)
+
 .BR gethostname ()
-system call returns a null-terminated hostname (set earlier by
-.BR sethostname ())
-in the array \fIname\fP that has a length of \fIlen\fP bytes.
-In case the null-terminated hostname does not fit, no error is
-returned, but the hostname is truncated.
-It is unspecified
-whether the truncated hostname will be null-terminated.
+returns the null-terminated hostname in the character array
+.IR name ,
+which has a length of
+.I len
+bytes.
+If the null-terminated hostname is too large to fit,
+then the name is truncated, and no error is returned (but see NOTES below).
+POSIX.1-2001 says that if such truncation occurs,
+then it is unspecified whether the returned buffer
+includes a terminating null byte.
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -75,17 +90,21 @@ is an invalid address.
 .TP
 .B EINVAL
 .I len
-is negative or, for
+is negative
+.\" Can't occur for gethostbyname() wrapper, since 'len' has an
+.\" unsigned type; can occur for the underlying system call.
+or, for
 .BR sethostname (),
 .I len
-is larger than the maximum allowed size,
-or, for
-.BR gethostname ()
-on Linux/i386,
+is larger than the maximum allowed size.
+.TP
+.B ENAMETOOLONG
+.RB "(glibc " gethostname ())
 .I len
 is smaller than the actual size.
-(In this last case glibc 2.1 uses
-.BR ENAMETOOLONG .)
+(Before version 2.1, glibc uses
+.BR EINVAL
+for this case.)
 .TP
 .B EPERM
 For
@@ -106,7 +125,9 @@ the terminating null byte) are limited to
 .B HOST_NAME_MAX
 bytes".
 .SS Glibc Notes
-The GNU C library implements
+The GNU C library does not employ the
+.BR gethostname ()
+system call; instead, it implements
 .BR gethostname ()
 as a library function that calls
 .BR uname (2)
@@ -123,7 +144,10 @@ was greater than or equal to
 and if it is, then the function returns \-1 with
 .I errno
 set to
-.BR ENAMETOOLONG .
+.BR ENAMETOOLONG ;
+in this case, no null-terminator is included in the returned
+.IR name .
+
 Versions of glibc before 2.2
 .\" At least glibc 2.0 and 2.1, older versions not checked
 handle the case where the length of the

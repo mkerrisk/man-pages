@@ -24,8 +24,9 @@
 .\"
 .\" Modified 1997-08-25 by Nicolás Lichtmaier <nick@debian.org>
 .\" Modified 2004-06-17 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Modified 2008-11-27 by mtk
 .\"
-.TH GETDOMAINNAME 2 2007-07-26 "Linux" "Linux Programmer's Manual"
+.TH GETDOMAINNAME 2 2008-11-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 getdomainname, setdomainname \- get/set domain name
 .SH SYNOPSIS
@@ -48,21 +49,51 @@ _BSD_SOURCE || (_XOPEN_SOURCE && _XOPEN_SOURCE\ <\ 500)
 .SH DESCRIPTION
 These functions are used to access or to change the domain name of the
 current processor.
+
+.BR setdomainname ()
+sets the domain name to the value given in the character array
+.IR name .
+The
+.I len
+argument specifies the number of bytes in
+.IR name .
+(Thus,
+.I name
+does not require a terminating null byte.)
+
+.BR getdomainname ()
+returns the null-terminated domain name in the character array
+.IR name ,
+which has a length of
+.I len
+bytes.
 If the null-terminated domain name requires more than \fIlen\fP bytes,
 .BR getdomainname ()
-returns the first \fIlen\fP bytes (glibc) or returns an error (libc).
+returns the first \fIlen\fP bytes (glibc) or gives an error (libc).
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
 .SH ERRORS
+.BR setdomainname ()
+can fail with the following errors:
 .TP
 .B EFAULT
-For
-.BR setdomainname ():
 .I name
 pointed outside of user address space.
+.TP
+.B EINVAL
+.I len
+was negative or too large.
+.TP
+.B EPERM
+the caller is unprivileged (Linux: does not have the
+.B CAP_SYS_ADMIN
+capability).
+.PP
+.BR getdomainname ()
+can fail with the following errors:
 .TP
 .B EINVAL
 For
@@ -74,22 +105,23 @@ is NULL or
 is longer than
 .I len
 bytes.
-.TP
-.B EINVAL
-For
-.BR setdomainname ():
-.I len
-was negative or too large.
-.TP
-.B EPERM
-For
-.BR setdomainname ():
-the caller is unprivileged (Linux: does not have the
-.B CAP_SYS_ADMIN
-capability).
 .SH "CONFORMING TO"
 POSIX does not specify these calls.
 .\" But they appear on most systems...
+.SH NOTES
+Since Linux 1.0, the limit on the length of a domain name,
+including the terminating null byte, is 64 bytes.
+In older kernels, it was 8 bytes.
+
+On most Linux architectures (including x86),
+there is no
+.BR getdomainname ()
+system call; instead, glibc implements
+.BR getdomainname ()
+as a library function that returns a copy of the
+.I domainname
+field returned from a call to
+.BR uname (2).
 .SH "SEE ALSO"
 .BR gethostname (2),
 .BR sethostname (2),

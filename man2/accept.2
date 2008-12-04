@@ -34,16 +34,24 @@
 .\" Modified 1998-2000 by Andi Kleen to match Linux 2.2 reality
 .\" Modified 2002-04-23 by Roger Luethi <rl@hellgate.ch>
 .\" Modified 2004-06-17 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" 2008-12-04, mtk, Add documentation of accept4()
 .\"
-.TH ACCEPT 2 2008-12-03 "Linux" "Linux Programmer's Manual"
+.TH ACCEPT 2 2008-12-04 "Linux" "Linux Programmer's Manual"
 .SH NAME
 accept \- accept a connection on a socket
 .SH SYNOPSIS
+.nf
 .BR "#include <sys/types.h>" "          /* See NOTES */"
-.br
 .B #include <sys/socket.h>
-.sp
+
 .BI "int accept(int " sockfd ", struct sockaddr *" addr ", socklen_t *" addrlen );
+
+.B #define _GNU_SOURCE
+.B #include <sys/socket.h>
+
+.BI "int accept4(int " sockfd ", struct sockaddr *" addr ,
+.BI "            socklen_t *" addrlen ", int " flags );
+.fi
 .SH DESCRIPTION
 The
 .BR accept ()
@@ -137,10 +145,37 @@ implied by closing the new socket.
 Currently only
 DECNet
 has these semantics on Linux.
+
+If
+.IR flags
+is 0, then
+.BR accept4 ()
+is the same as
+.BR accept ().
+The following values can be bitwise ORed in
+.IR flags
+to obtain different behavior:
+.TP 16
+.B SOCK_NONBLOCK
+Set the
+.BR O_NONBLOCK
+file status flag on the new open file description.
+Using this flag saves extra calls to
+.BR fcntl (2)
+to achieve the same result.
+.TP
+.B SOCK_CLOEXEC
+Set the close-on-exec
+.RB ( FD_CLOEXEC )
+flag on the new file descriptor.
+See the description of the
+.B O_CLOEXEC
+flag in
+.BR open (2)
+for reasons why this may be useful.
 .SH "RETURN VALUE"
 On success,
-.BR accept ()
-returns a non-negative integer that is a descriptor
+these system calls return a non-negative integer that is a descriptor
 for the accepted socket.
 On error, \-1 is returned, and
 .I errno
@@ -148,6 +183,8 @@ is set appropriately.
 .SS "Error Handling"
 Linux
 .BR accept ()
+(and
+.BR accept4 ())
 passes already-pending network errors on the new socket
 as an error code from
 .BR accept ().
@@ -171,8 +208,6 @@ In case of TCP/IP these are
 and
 .BR ENETUNREACH .
 .SH ERRORS
-.BR accept ()
-shall fail if:
 .TP
 .BR EAGAIN " or " EWOULDBLOCK
 The socket is marked non-blocking and no connections are
@@ -193,6 +228,11 @@ before a valid connection arrived; see
 Socket is not listening for connections, or
 .I addrlen
 is invalid (e.g., is negative).
+.TP
+.B EINVAL
+.RB ( accept4 ())
+invalid value in
+.IR flags .
 .TP
 .B EMFILE
 The per-process limit of open file descriptors has been reached.
@@ -241,16 +281,27 @@ return other errors such as
 The value
 .B ERESTARTSYS
 may be seen during a trace.
+.SH VERSIONS
+.\" FIXME . Verify the following
+The
+.BR accept4 ()
+system call is available starting with Linux 2.6.28;
+support in glibc is available starting with version 2.10.
 .SH "CONFORMING TO"
+.BR accept ():
+POSIX.1-2001,
 SVr4, 4.4BSD,
 .RB ( accept ()
-first appeared in 4.2BSD), POSIX.1-2001.
+first appeared in 4.2BSD).
 .\" The BSD man page documents five possible error returns
 .\" (EBADF, ENOTSOCK, EOPNOTSUPP, EWOULDBLOCK, EFAULT).
 .\" POSIX.1-2001 documents errors
 .\" EAGAIN, EBADF, ECONNABORTED, EINTR, EINVAL, EMFILE,
 .\" ENFILE, ENOBUFS, ENOMEM, ENOTSOCK, EOPNOTSUPP, EPROTO, EWOULDBLOCK.
 .\" In addition, SUSv2 documents EFAULT and ENOSR.
+
+.BR accept4 ()
+is a non-standard Linux extension.
 .LP
 On Linux, the new socket returned by
 .BR accept ()

@@ -30,8 +30,9 @@
 .\" Modified by Matt Domsch, 2003-04-09: _init and _fini obsolete
 .\" Modified by Michael Kerrisk <mtk.manpages@gmail.com> 2003-05-16.
 .\" Modified by Walter Harms: dladdr, dlvsym
+.\" Modified by Petr Baudis <pasky@suse.cz>, 2008-12-04: dladdr caveat
 .\"
-.TH DLOPEN 3 2008-10-27 "Linux" "Linux Programmer's Manual"
+.TH DLOPEN 3 2008-12-05 "Linux" "Linux Programmer's Manual"
 .SH NAME
 dladdr, dlclose, dlerror, dlopen, dlsym, dlvsym \- programming interface to
 dynamic linking loader
@@ -414,6 +415,34 @@ That system also has
 .BR dladdr (),
 but not
 .BR dlvsym ().
+.SH BUGS
+Sometimes, the function pointers you pass to
+.BR dladdr ()
+may surprise you.
+On some architectures (notably i386 and x86_64),
+.I dli_fname
+and
+.I dli_fbase
+may end up pointing back at the object from which you called
+.BR dladdr (),
+even if the function used as an argument should come from
+a dynamically linked library.
+.PP
+The problem is that the function pointer will still be resolved
+at compile time, but merely point to the
+.I plt
+(procedure linkage table)
+section of the original object (which dispatches the call after
+asking the dynamic linker to resolve the symbol).
+To work this around, you can try to compile the code to be
+position-independent
+.RI ( "cc -fPIC" ): then, the compiler cannot prepare the pointer
+at compile time anymore and today's
+.BR gcc (1)
+will just load the final symbol address from the
+.I GOT
+(Global Offset Table) at run time before passing it to
+.BR dladdr ().
 .SH EXAMPLE
 Load the math library, and print the cosine of 2.0:
 .nf

@@ -26,7 +26,7 @@
 .\" 2006-05-13, mtk, removed much material that is redundant with select.2
 .\"             various other changes
 .\"
-.TH SELECT_TUT 2 2007-12-18 "Linux" "Linux Programmer's Manual"
+.TH SELECT_TUT 2 2008-12-05 "Linux" "Linux Programmer's Manual"
 .SH NAME
 select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO \-
 synchronous I/O multiplexing
@@ -639,21 +639,21 @@ connect_socket(int connect_port, char *address)
     return s;
 }
 
-#define SHUT_FD1 {                      \\
-        if (fd1 >= 0) {                 \\
-            shutdown(fd1, SHUT_RDWR);   \\
-            close(fd1);                 \\
-            fd1 = \-1;                   \\
-        }                               \\
-    }
+#define SHUT_FD1 do {                                \\
+                     if (fd1 >= 0) {                 \\
+                         shutdown(fd1, SHUT_RDWR);   \\
+                         close(fd1);                 \\
+                         fd1 = \-1;                   \\
+                     }                               \\
+                 } while (0)
 
-#define SHUT_FD2 {                      \\
-        if (fd2 >= 0) {                 \\
-            shutdown(fd2, SHUT_RDWR);   \\
-            close(fd2);                 \\
-            fd2 = \-1;                   \\
-        }                               \\
-    }
+#define SHUT_FD2 do {                                \\
+                     if (fd2 >= 0) {                 \\
+                         shutdown(fd2, SHUT_RDWR);   \\
+                         close(fd2);                 \\
+                         fd2 = \-1;                   \\
+                     }                               \\
+                 } while (0)
 
 #define BUF_SIZE 1024
 
@@ -738,9 +738,9 @@ main(int argc, char **argv)
                 buf2_avail = buf2_written = 0;
                 fd1 = r;
                 fd2 = connect_socket(forward_port, argv[3]);
-                if (fd2 < 0) {
+                if (fd2 < 0)
                     SHUT_FD1;
-                } else
+                else
                     printf("connect from %s\\n",
                             inet_ntoa(client_address.sin_addr));
             }
@@ -753,9 +753,9 @@ main(int argc, char **argv)
                 char c;
                 errno = 0;
                 r = recv(fd1, &c, 1, MSG_OOB);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD1;
-                } else
+                else
                     send(fd2, &c, 1, MSG_OOB);
             }
         if (fd2 > 0)
@@ -763,45 +763,45 @@ main(int argc, char **argv)
                 char c;
                 errno = 0;
                 r = recv(fd2, &c, 1, MSG_OOB);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD1;
-                } else
+                else
                     send(fd1, &c, 1, MSG_OOB);
             }
         if (fd1 > 0)
             if (FD_ISSET(fd1, &rd)) {
                 r = read(fd1, buf1 + buf1_avail,
                           BUF_SIZE \- buf1_avail);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD1;
-                } else
+                else
                     buf1_avail += r;
             }
         if (fd2 > 0)
             if (FD_ISSET(fd2, &rd)) {
                 r = read(fd2, buf2 + buf2_avail,
                           BUF_SIZE \- buf2_avail);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD2;
-                } else
+                else
                     buf2_avail += r;
             }
         if (fd1 > 0)
             if (FD_ISSET(fd1, &wr)) {
                 r = write(fd1, buf2 + buf2_written,
                            buf2_avail \- buf2_written);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD1;
-                } else
+                else
                     buf2_written += r;
             }
         if (fd2 > 0)
             if (FD_ISSET(fd2, &wr)) {
                 r = write(fd2, buf1 + buf1_written,
                            buf1_avail \- buf1_written);
-                if (r < 1) {
+                if (r < 1)
                     SHUT_FD2;
-                } else
+                else
                     buf1_written += r;
             }
         
@@ -815,12 +815,10 @@ main(int argc, char **argv)
         /* one side has closed the connection, keep
            writing to the other side until empty */
 
-        if (fd1 < 0 && buf1_avail \- buf1_written == 0) {
+        if (fd1 < 0 && buf1_avail \- buf1_written == 0)
             SHUT_FD2;
-        }
-        if (fd2 < 0 && buf2_avail \- buf2_written == 0) {
+        if (fd2 < 0 && buf2_avail \- buf2_written == 0)
             SHUT_FD1;
-        }
     }
     exit(EXIT_SUCCESS);
 }

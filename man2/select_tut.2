@@ -667,8 +667,7 @@ main(int argc, char **argv)
     int buf2_avail, buf2_written;
 
     if (argc != 4) {
-        fprintf(stderr,
-                 "Usage\\n\\tfwd <listen-port> "
+        fprintf(stderr, "Usage\\n\\tfwd <listen-port> "
                  "<forward-to-port> <forward-to-ip-address>\\n");
         exit(EXIT_FAILURE);
     }
@@ -727,6 +726,7 @@ main(int argc, char **argv)
         if (FD_ISSET(h, &rd)) {
             unsigned int l;
             struct sockaddr_in client_address;
+
             memset(&client_address, 0, l = sizeof(client_address));
             r = accept(h, (struct sockaddr *) &client_address, &l);
             if (r < 0) {
@@ -737,8 +737,7 @@ main(int argc, char **argv)
                 buf1_avail = buf1_written = 0;
                 buf2_avail = buf2_written = 0;
                 fd1 = r;
-                fd2 =
-                    connect_socket(forward_port, argv[3]);
+                fd2 = connect_socket(forward_port, argv[3]);
                 if (fd2 < 0) {
                     SHUT_FD1;
                 } else
@@ -746,7 +745,9 @@ main(int argc, char **argv)
                             inet_ntoa(client_address.sin_addr));
             }
         }
-/* NB: read oob data before normal reads */
+        
+	/* NB: read oob data before normal reads */
+
         if (fd1 > 0)
             if (FD_ISSET(fd1, &er)) {
                 char c;
@@ -769,8 +770,7 @@ main(int argc, char **argv)
             }
         if (fd1 > 0)
             if (FD_ISSET(fd1, &rd)) {
-                r =
-                    read(fd1, buf1 + buf1_avail,
+                r = read(fd1, buf1 + buf1_avail,
                           BUF_SIZE \- buf1_avail);
                 if (r < 1) {
                     SHUT_FD1;
@@ -779,8 +779,7 @@ main(int argc, char **argv)
             }
         if (fd2 > 0)
             if (FD_ISSET(fd2, &rd)) {
-                r =
-                    read(fd2, buf2 + buf2_avail,
+                r = read(fd2, buf2 + buf2_avail,
                           BUF_SIZE \- buf2_avail);
                 if (r < 1) {
                     SHUT_FD2;
@@ -789,8 +788,7 @@ main(int argc, char **argv)
             }
         if (fd1 > 0)
             if (FD_ISSET(fd1, &wr)) {
-                r =
-                    write(fd1, buf2 + buf2_written,
+                r = write(fd1, buf2 + buf2_written,
                            buf2_avail \- buf2_written);
                 if (r < 1) {
                     SHUT_FD1;
@@ -799,21 +797,24 @@ main(int argc, char **argv)
             }
         if (fd2 > 0)
             if (FD_ISSET(fd2, &wr)) {
-                r =
-                    write(fd2, buf1 + buf1_written,
+                r = write(fd2, buf1 + buf1_written,
                            buf1_avail \- buf1_written);
                 if (r < 1) {
                     SHUT_FD2;
                 } else
                     buf1_written += r;
             }
-/* check if write data has caught read data */
+        
+	/* check if write data has caught read data */
+
         if (buf1_written == buf1_avail)
             buf1_written = buf1_avail = 0;
         if (buf2_written == buf2_avail)
             buf2_written = buf2_avail = 0;
-/* one side has closed the connection, keep
-   writing to the other side until empty */
+
+        /* one side has closed the connection, keep
+           writing to the other side until empty */
+
         if (fd1 < 0 && buf1_avail \- buf1_written == 0) {
             SHUT_FD2;
         }

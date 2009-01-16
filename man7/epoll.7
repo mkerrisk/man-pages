@@ -30,32 +30,35 @@ is a variant of
 that can be used either as an edge-triggered or a level-triggered
 interface and scales well to large numbers of watched file descriptors.
 The following system calls are provided to
-set up and control an
+create and manage an
 .B epoll
-set:
-.BR epoll_create (2)
-(or
-.BR epoll_create1 (2)),
-.BR epoll_ctl (2),
-.BR epoll_wait (2).
-
+instance:
+.IP * 3
 An
 .B epoll
-set is connected to a file descriptor created by
-.BR epoll_create (2).
+instance created by
+.BR epoll_create (2),
+which returns a file descriptor referring to the epoll instance.
 (The more recent
 .BR epoll_create1 (2)
 extends the functionality of
 .BR epoll_create (2).)
-Interest for certain file descriptors is then registered via
+.IP *
+Interest in particular file descriptors is then registered via
 .BR epoll_ctl (2).
+The set of file decsriptors currently registered on an
+.B epoll
+instance is sometimes called an
+.I epoll
+set.
+.IP *
 Finally, the actual wait is started by
 .BR epoll_wait (2).
 .SS Level-Triggered and Edge-Triggered
 The
 .B epoll
 event distribution interface is able to behave both as edge-triggered
-(ET) and level-triggered (LT).
+(ET) and as level-triggered (LT).
 The difference between the two mechanisms
 can be described as follows.
 Suppose that
@@ -63,9 +66,9 @@ this scenario happens:
 .IP 1. 3
 The file descriptor that represents the read side of a pipe
 .RI ( rfd )
-is added inside the
+is registered on the
 .B epoll
-device.
+instance.
 .IP 2.
 A pipe writer writes 2 kB of data on the write side of the pipe.
 .IP 3.
@@ -150,8 +153,8 @@ is simply a faster
 and can be used wherever the latter is used since it shares the
 same semantics.
 
-Since even with the edge-triggered
-.B epoll
+Since even with edge-triggered
+.BR epoll ,
 multiple events can be generated upon receipt of multiple chunks of data,
 the caller has the option to specify the
 .B EPOLLONESHOT
@@ -289,7 +292,7 @@ with
 .SS Questions and Answers
 .TP 4
 .B Q0
-What is the key used to distinguish the file descriptors in an
+What is the key used to distinguish the file descriptors registered in an
 .B epoll
 set?
 .TP
@@ -300,9 +303,9 @@ the open file description
 the kernel's internal representation of an open file).
 .TP
 .B Q1
-What happens if you add the same file descriptor to an
+What happens if you register the same file descriptor on an
 .B epoll
-set twice?
+instance twice?
 .TP
 .B A1
 You will probably get
@@ -314,7 +317,7 @@ However, it is possible to add a duplicate
 .BR F_DUPFD )
 descriptor to the same
 .B epoll
-set.
+instance.
 .\" But a descriptor duplicated by fork(2) can't be added to the
 .\" set, because the [file *, fd] pair is already in the epoll set.
 .\" That is a somewhat ugly inconsistency.  On the one hand, a child process
@@ -338,7 +341,7 @@ masks.
 .B Q2
 Can two
 .B epoll
-sets wait for the same file descriptor?
+instances wait for the same file descriptor?
 If so, are events reported to both
 .B epoll
 file descriptors?
@@ -360,9 +363,9 @@ file descriptor has events waiting then it will
 indicate as being readable.
 .TP
 .B Q4
-What happens if the
+What happens if one attempts to put an
 .B epoll
-file descriptor is put into its own file descriptor set?
+file descriptor into its own file descriptor set?
 .TP
 .B A4
 The
@@ -524,7 +527,7 @@ previously removed and there will be no confusion.
 The
 .B epoll
 API was introduced in Linux kernel 2.5.44.
-Its interface should be finalized in Linux kernel 2.5.66.
+.\" Its interface should be finalized in Linux kernel 2.5.66.
 Support was added to glibc in version 2.3.2.
 .SH CONFORMING TO
 The

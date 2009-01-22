@@ -30,7 +30,7 @@
 .\"    for glibc specificities, provide an example.
 .\" 2009-01-14 mtk, many edits and changes, rewrote example program.
 .\"
-.TH GETIFADDRS 3 2009-01-14 "GNU" "Linux Programmer's Manual"
+.TH GETIFADDRS 3 2009-01-23 "GNU" "Linux Programmer's Manual"
 .\" FIXME Make a link for freeifaddrs.3
 .\" FIXME Check other changes in Petr's mail
 .SH NAME
@@ -233,7 +233,7 @@ eth0    address family: 10 (AF_INET6)
 int
 main(int argc, char *argv[])
 {
-    struct ifaddrs *ifaddr;
+    struct ifaddrs *ifaddr, *ifa;
     struct net_device_stats *ndsp;
     int family, s;
     char host[NI_MAXHOST];
@@ -243,14 +243,17 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    while (ifaddr != NULL) {    /* Walk through linked list */
-        family = ifaddr\->ifa_addr\->sa_family;
+    /* Walk through linked list, maintaining head pointer so we
+       can free list later */
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa\->ifa_next;) {
+        family = ifa\->ifa_addr\->sa_family;
 
         /* Display interface name and family (including symbolic
            form of the latter for the common families) */
 
         printf("%\-6s  address family: %d%s\\n",
-                ifaddr\->ifa_name, family,
+                ifa\->ifa_name, family,
                 (family == AF_PACKET) ? " (AF_PACKET)" :
                 (family == AF_INET) ?   " (AF_INET)" :
                 (family == AF_INET6) ?  " (AF_INET6)" : "");
@@ -258,7 +261,7 @@ main(int argc, char *argv[])
         /* For an AF_INET* interface address, display the address */
 
         if (family == AF_INET || family == AF_INET6) {
-            s = getnameinfo(ifaddr\->ifa_addr,
+            s = getnameinfo(ifa\->ifa_addr,
                     (family == AF_INET) ? sizeof(struct sockaddr_in) :
                                           sizeof(struct sockaddr_in6),
                     host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
@@ -268,8 +271,6 @@ main(int argc, char *argv[])
             }
             printf("\\taddress: <%s>\\n", host);
         }
-
-        ifaddr = ifaddr\->ifa_next;
     }
 
     freeifaddrs(ifaddr);

@@ -287,31 +287,55 @@ Our
 program would look like:
 .PP
 .nf
-int child_events = 0;
+static volatile sig_atomic_t got_SIGCHLD = 0;
 
-void
-child_sig_handler(int x)
+static void
+child_sig_handler(int sig)
 {
-    child_events++;
-    signal(SIGCHLD, child_sig_handler);
+    got_SIGCHLD = 1;
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char *argv[])
 {
-    sigset_t sigmask, orig_sigmask;
+    sigset_t sigmask, empty_mask;
+    struct sigaction sa;
+    fd_set readfds, writefds, exceptfds;
+    int r;
 
     sigemptyset(&sigmask);
     sigaddset(&sigmask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &sigmask, &orig_sigmask);
+    if (sigprocmask(SIG_BLOCK, &sigmask, NULL) == \-1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
 
-    signal(SIGCHLD, child_sig_handler);
+    sa.sa_flags = 0;
+    sa.sa_handler = child_sig_handler;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGCHLD, &sa, NULL) == \-1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
 
-    for (;;) { /* main loop */
-        for (; child_events > 0; child_events\-\-) {
-            /* do event work here */
+    sigemptyset(empty_mask);
+
+    for (;;) {          /* main loop */
+        /* Initialize readfds, writefds, and exceptfds
+           before the pselect() call. (Code omitted.) */
+
+        r = pselect(nfds, &readfds, &writefds, &exceptfds,
+                    NULL, &empty_mask);
+        if (r == \-1 && errno != EINTR) {
+            /* Handle error */
         }
-        r = pselect(nfds, &rd, &wr, &er, 0, &orig_sigmask);
+
+        if (got_SIGCHLD) {
+            got_SIGCHLD = 0;
+
+            /* Handle signalled event here; e.g., wait() for all
+               terminated children. (Code omitted.) */
+        }
 
         /* main body of program */
     }

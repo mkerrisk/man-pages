@@ -47,7 +47,7 @@
 .\" FIXME . Apr 08: The next POSIX revision has O_EXEC, O_SEARCH, and
 .\" O_TTYINIT.  Eventually these may need to be documented.  --mtk
 .\"
-.TH OPEN 2 2008-12-03 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2009-09-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, creat \- open and possibly create a file or device
 .SH SYNOPSIS
@@ -277,11 +277,16 @@ Try to minimize cache effects of the I/O to and from this file.
 In general this will degrade performance, but it is useful in
 special situations, such as when applications do their own caching.
 File I/O is done directly to/from user space buffers.
-The I/O is synchronous, that is, at the completion of a
-.BR read (2)
-or
-.BR write (2),
-data is guaranteed to have been transferred.
+The
+.B O_DIRECT
+flag on its own makes at an effort to transfer data synchronously,
+but does not give the guarantees of the
+.B O_SYNC
+that data and necessary metadata are transferred.
+To guarantee synchronous I/O the
+.B O_SYNC
+must be used in addition to
+.BR O_DIRECT .
 See
 .B NOTES
 below for further discussion.
@@ -660,9 +665,26 @@ amongst others
 .BR O_SYNC " and " O_NDELAY .
 
 POSIX provides for three different variants of synchronized I/O,
-corresponding to the flags \fBO_SYNC\fP, \fBO_DSYNC\fP and
-\fBO_RSYNC\fP.
-Currently (2.1.130) these are all synonymous under Linux.
+corresponding to the flags
+.BR O_SYNC ,
+.BR O_DSYNC ,
+and
+.BR O_RSYNC .
+Currently (2.6.31), Linux only implements
+.BR O_SYNC ,
+but glibc maps
+.B O_DSYNC
+and
+.B O_RSYNC
+to the same numerical value as
+.BR O_SYNC
+Most Linux filesystems don't actually implement the POSIX
+.B O_SYNC
+semantics, which require all metadata updates of a write
+to be on disk on returning to userspace, but only the
+.B O_DSYNC
+semantics, which require only actual file data and metadata necessary
+to retrieve it to be on disk by the time the system call returns.
 
 Note that
 .BR open ()

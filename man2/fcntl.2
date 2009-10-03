@@ -52,8 +52,11 @@
 .\" 2005-05-20, Johannes Nicolai <johannes.nicolai@hpi.uni-potsdam.de>,
 .\"	mtk: Noted F_SETOWN bug for socket file descriptor in Linux 2.4
 .\"	and earlier.  Added text on permissions required to send signal.
+.\" 2009-09-30, Michael Kerrisk
+.\"     Note obsolete F_SETOWN behavior with threads.
+.\"     Document F_SETOWN_EX and F_GETOWN_EX
 .\"
-.TH FCNTL 2 2009-07-25 "Linux" "Linux Programmer's Manual"
+.TH FCNTL 2 2009-10-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 fcntl \- manipulate file descriptor
 .SH SYNOPSIS
@@ -428,7 +431,13 @@ and
 The Linux implementation of mandatory locking is unreliable.
 See BUGS below.
 .SS "Managing signals"
-.BR F_GETOWN ", " F_SETOWN ", " F_GETSIG " and " F_SETSIG
+.BR F_GETOWN ,
+.BR F_SETOWN ,
+.BR F_GETOWN_EX ,
+.BR F_SETOWN_EX ,
+.BR F_GETSIG
+and
+.B F_SETSIG
 are used to manage I/O availability signals:
 .TP
 .BR F_GETOWN " (\fIvoid\fP)"
@@ -510,6 +519,10 @@ would report the socket as having an "exceptional condition".)
 .\" refers to a terminal device, then SIGIO
 .\" signals are sent to the foreground process group of the terminal.
 
+The following was true in 2.6.x kernels up to and including
+kernel 2.6.11:
+.RS
+.IP
 If a non-zero value is given to
 .B F_SETSIG
 in a multithreaded process running with a threading library
@@ -548,18 +561,90 @@ depending on the value given to
 .\" kill_fasync()/send_sigio()/send_sigio_to_task()
 .\" to directly call send_group_sig_info()
 .\"	-- MTK, Apr 2005 (kernel 2.6.11)
-Note also that Linux imposes a limit on the
-number of real-time signals that may be queued to a
-process (see
-.BR getrlimit (2)
+.RE
+.IP
+The above behavior was accidentally dropped in Linux 2.6.12,
+and won't be restored.
+From Linux 2.6.32 onwards, use
+.BR F_SETOWN_EX
+to target
+.B SIGIO
 and
-.BR signal (7))
-and if this limit is reached, then the kernel reverts to
-delivering
-.BR SIGIO ,
-and this signal is delivered to the entire
-process rather than to a specific thread.
-.\" See fs/fcntl.c::send_sigio_to_task() (2.4/2.6) sources -- MTK, Apr 05
+.B SIGURG
+signals at a particular thread.
+.TP
+.BR F_GETOWN_EX " (struct f_owner_ex *) (since Linux 2.6.32)"
+Return the current file descriptor owner settings
+as defined by a previous
+.BR F_SETOWN_EX
+operation.
+The information is returned in the structure pointed to by
+.IR arg ,
+which has the following form:
+.nf
+.in +4n
+
+struct f_owner_ex {
+    int   type;
+    pid_t pid;
+};
+
+.in
+.fi
+The
+.I type
+field will have one of the values
+.BR F_OWNER_TID ,
+.BR F_OWNER_PID ,
+or
+.BR F_OWNER_GID .
+The
+.I pid
+field is a positive integer representing a thread ID, process ID,
+or process group ID.
+See
+.B F_SETOWN_EX
+for more details.
+.TP
+.BR F_SETOWN_EX " (struct f_owner_ex *) (since Linux 2.6.32)"
+This operation performs a similar task to
+.BR F_SETOWN .
+It allows the caller to direct I/O availability signals
+to a specific thread, process, or process group.
+The caller specifies the target of signals via
+.IR arg ,
+which is a pointer to a
+.IR f_owner_ex
+structure.
+The
+.I type
+field has one of the following values, which define how
+.I pid
+is interpreted:
+.RS
+.TP
+.BR F_OWNER_TID
+Send the signal to the thread whose thread ID
+(the value returned by a call to
+.BR clone (2)
+or
+.BR gettid (2))
+is specified in
+.IR pid .
+.TP
+.BR F_OWNER_PID
+Send the signal to the process whose ID
+is specified in
+.IR pid .
+.TP
+.BR F_OWNER_GID
+Send the signal to the process group whose ID
+is specified in
+.IR pid .
+(Note that, unlike with
+.BR F_SETOWN ,
+a process group ID is specified as a positive value here.)
+.RE
 .TP
 .BR F_GETSIG " (\fIvoid\fP)"
 Return (as the function result)
@@ -588,14 +673,16 @@ Any other value (including
 is the signal to send instead, and in this case additional info
 is available to the signal handler if installed with
 .BR SA_SIGINFO .
-
-Additionally, passing a non-zero value to
-.B F_SETSIG
-changes the signal recipient from a whole process to a specific thread
-within a process.
-See the description of
-.B F_SETOWN
-for more details.
+.\" 
+.\" The following was true only up until 2.6.11:
+.\"
+.\" Additionally, passing a non-zero value to
+.\" .B F_SETSIG
+.\" changes the signal recipient from a whole process to a specific thread
+.\" within a process.
+.\" See the description of
+.\" .B F_SETOWN
+.\" for more details.
 
 By using
 .B F_SETSIG
@@ -633,6 +720,19 @@ Extra information is available
 if
 .B SA_SIGINFO
 is set for the signal handler, as above.
+
+Note that Linux imposes a limit on the
+number of real-time signals that may be queued to a
+process (see
+.BR getrlimit (2)
+and
+.BR signal (7))
+and if this limit is reached, then the kernel reverts to
+delivering
+.BR SIGIO ,
+and this signal is delivered to the entire
+process rather than to a specific thread.
+.\" See fs/fcntl.c::send_sigio_to_task() (2.4/2.6) sources -- MTK, Apr 05
 .PP
 Using these mechanisms, a program can implement fully asynchronous I/O
 without using
@@ -646,7 +746,9 @@ The use of
 .BR F_GETOWN ,
 .B F_SETOWN
 is specific to BSD and Linux.
-.B F_GETSIG
+.BR F_GETOWN_EX ,
+.BR F_SETOWN_EX ,
+.BR F_GETSIG ,
 and
 .B F_SETSIG
 are Linux-specific.
@@ -1007,6 +1109,8 @@ are specified in POSIX.1-2001.
 .B F_DUPFD_CLOEXEC
 is specified in POSIX.1-2008.
 
+.BR F_GETOWN_EX ,
+.BR F_SETOWN_EX ,
 .BR F_GETSIG ,
 .BR F_SETSIG ,
 .BR F_NOTIFY ,
@@ -1054,6 +1158,11 @@ that is, the return value of
 will be \-1, and
 .I errno
 will contain the (positive) process group ID.
+The Linux-specific
+.BR F_SETOWN_EX
+and
+.BR F_GETOWN_EX
+operations avoid this problem.
 .\" mtk, Dec 04: some limited testing on alpha and ia64 seems to
 .\" indicate that ANY negative PGID value will cause F_GETOWN
 .\" to misinterpret the return as an error. Some other architectures

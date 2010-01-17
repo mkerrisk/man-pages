@@ -26,7 +26,7 @@
 .\" 2006-07-05 Initial creation, Michael Kerrisk based on
 .\"     Andrew Morton's comments in fs/sync.c
 .\"
-.TH SYNC_FILE_RANGE 2 2008-05-27 "Linux" "Linux Programmer's Manual"
+.TH SYNC_FILE_RANGE 2 2010-01-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sync_file_range \- sync a file segment with disk
 .SH SYNOPSIS
@@ -80,12 +80,23 @@ after performing any write.
 Specifying
 .I flags
 as 0 is permitted, as a no-op.
-.SS Some details
-None of these operations write out the file's metadata.
+.SS Warning
+This system call is extremely dangerous and should not be used in portable
+programs.
+None of these operations writes out the file's metadata.
 Therefore, unless the application is strictly performing overwrites of
-already-instantiated disk blocks,
-there are no guarantees that the data will be available after a crash.
-
+already-instantiated disk blocks, there are no guarantees that the data will
+be available after a crash.
+There is no user interface to know if a write is purely an overwrite.
+On filesystem using copy-on-write semantics (e.g., 
+.IR btrfs )
+an overwrite of existing allocated blocks is impossible.
+When writing into preallocated space,
+many filesystems also require calls into the block
+allocator, which this system call does not sync out to disk.
+This system call does not flush disk write caches and thus does not provide
+any data integrity on systems with volatile disk write caches.
+.SS Some details
 .B SYNC_FILE_RANGE_WAIT_BEFORE
 and
 .B SYNC_FILE_RANGE_WAIT_AFTER

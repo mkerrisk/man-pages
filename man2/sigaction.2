@@ -39,8 +39,9 @@
 .\" 2004-12-09, mtk, added SI_TKILL + other minor changes
 .\" 2005-09-15, mtk, split sigpending(), sigprocmask(), sigsuspend()
 .\"	out of this page into separate pages.
++.\" 2010-06-10 Andi Kleen, add hwpoison signal extensions
 .\"
-.TH SIGACTION 2 2009-07-25 "Linux" "Linux Programmer's Manual"
+.TH SIGACTION 2 2010-06-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sigaction \- examine and change a signal action
 .SH SYNOPSIS
@@ -271,6 +272,8 @@ siginfo_t {
     void    *si_addr;     /* Memory location which caused fault */
     int      si_band;     /* Band event */
     int      si_fd;       /* File descriptor */
+    short    si_addr_lsb; /* Least signifcant bit of address
+                             (since kernel 2.6.32) */
 }
 .fi
 .in
@@ -344,6 +347,24 @@ and
 fill in
 .I si_addr
 with the address of the fault.
+Some suberrors of
+.I SIGBUS,
+in particular
+.B BUS_MCEERR_AO
+and
+.BR BUS_MCEERR_AR ,
+also fill in
+.IR si_addr_lsb .
+This field indicates the least significant bit of the reported address
+and therefore the extent of the corruption.
+For example, if a full page was corrupted,
+.I si_addr_lsb
+contains 
+.IR log2(sysconf(_SC_PAGESIZE)) .
+.B BUS_MCERR_*
+and
+.I si_addr_lsb
+are Linux-specific extensions.
 .B SIGPOLL
 fills in
 .IR si_band " and " si_fd .
@@ -483,6 +504,12 @@ nonexistent physical address
 .TP
 .B BUS_OBJERR
 object-specific hardware error
+.TP
+.BR BUS_MCEERR_AR " (since Linux 2.6.32)"
+Hardware memory error consumed on a machine check; action required.
+.TP
+.BR BUS_MCEERR_AO " (since Linux 2.6.32)"
+Hardware memory error detected in process but not consumed; action optional.
 .RE
 .PP
 The following values can be placed in

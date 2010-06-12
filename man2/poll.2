@@ -28,7 +28,7 @@
 .\" 2006-07-01, mtk, Added POLLRDHUP + various other wording and
 .\"	formatting changes.
 .\"
-.TH POLL 2 2009-09-15 "Linux" "Linux Programmer's Manual"
+.TH POLL 2 2010-06-12 "Linux" "Linux Programmer's Manual"
 .SH NAME
 poll, ppoll \- wait for some event on a file descriptor
 .SH SYNOPSIS
@@ -41,7 +41,7 @@ poll, ppoll \- wait for some event on a file descriptor
 .B #include <poll.h>
 .sp
 .BI "int ppoll(struct pollfd *" fds ", nfds_t " nfds ", "
-.BI "        const struct timespec *" timeout ", const sigset_t *" sigmask );
+.BI "        const struct timespec *" timeout_ts ", const sigset_t *" sigmask );
 .fi
 .SH DESCRIPTION
 .BR poll ()
@@ -186,14 +186,13 @@ like
 allows an application to safely wait until either a file descriptor
 becomes ready or until a signal is caught.
 .PP
-Other than the difference in the
-.I timeout
-argument, the following
+Other than the difference in the precision of the
+timeout argument, the following
 .BR ppoll ()
 call:
 .nf
 
-    ready = ppoll(&fds, nfds, timeout, &sigmask);
+    ready = ppoll(&fds, nfds, timeout_ts, &sigmask);
 
 .fi
 is equivalent to
@@ -202,7 +201,10 @@ executing the following calls:
 .nf
 
     sigset_t origmask;
+    int timeout;
 
+    timeout = (timeout_ts == NULL) ? -1 :
+              (timeout_ts.tv_sec * 1000 + timeout_ts.tv_nsec / 1000000);
     sigprocmask(SIG_SETMASK, &sigmask, &origmask);
     ready = poll(&fds, nfds, timeout);
     sigprocmask(SIG_SETMASK, &origmask, NULL);
@@ -222,12 +224,10 @@ no signal mask manipulation is performed
 .BR ppoll ()
 differs from
 .BR poll ()
-only in the precision of the
-.I timeout
-argument).
+only in the precision of the timeout argument).
 
 The
-.I timeout
+.I timeout_ts
 argument specifies an upper limit on the amount of time that
 .BR ppoll ()
 will block.
@@ -243,7 +243,7 @@ struct timespec {
 .in
 
 If
-.I timeout
+.I timeout_ts
 is specified as NULL, then
 .BR ppoll ()
 can block indefinitely.
@@ -304,13 +304,15 @@ is Linux-specific.
 Some implementations define the nonstandard constant
 .B INFTIM
 with the value \-1 for use as a
-.IR timeout .
+.IR timeout
+for
+.BR poll ()..
 This constant is not provided in glibc.
 .SS "Linux Notes"
 The Linux
 .BR ppoll ()
 system call modifies its
-.I timeout
+.I timeout_ts
 argument.
 However, the glibc wrapper function hides this behavior
 by using a local variable for the timeout argument that
@@ -318,7 +320,7 @@ is passed to the system call.
 Thus, the glibc
 .BR ppoll ()
 function does not modify its
-.I timeout
+.I timeout_ts
 argument.
 .SH BUGS
 See the discussion of spurious readiness notifications under the

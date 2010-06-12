@@ -1,0 +1,155 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright 2009 Intel Coporation
+.\"                Author: Andi Kleen
+.\" Based on the move_pages manpage which was
+.\" This manpage is Copyright (C) 2006 Silicon Graphics, Inc.
+.\"                               Christoph Lameter
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.TH MIGRATE_PAGES 2 2010-06-11 "Linux" "Linux Programmer's Manual"
+.SH NAME
+migrate_pages \- move all pages in a process to another set of nodes
+.SH SYNOPSIS
+.nf
+.B #include <numaif.h>
+.sp
+.BI "long migrate_pages(int " pid ", unsigned long " maxnode,
+.BI "                   const unsigned long * " old_nodes,
+.BI "                   const unsigned long * " new_nodes);
+.fi
+.sp
+Link with \fI\-lnuma\fP.
+.SH DESCRIPTION
+.BR migrate_pages ()
+moves all pages of the process
+.I pid
+that are in memory nodes
+.I old_nodes
+to the memory nodes in
+.I new_nodes.
+Pages not located in any node in
+.I old_nodes
+will not be migrated.
+As far as possible,
+the kernel maintains the relative topology relationship inside
+.I old_nodes
+during the migration to
+.IR new_nodes .
+
+The 
+.I old_nodes
+and
+.I new_nodes
+arguments are pointers to bit masks of node numbers, with up to
+.I maxnode
+bits in each mask.
+These masks are maintained as arrays of unsigned
+.I long
+integers (in the last
+.I long
+integer, the bits beyond those specified by
+.I maxnode
+are ignored).
+The
+.I maxnode
+argument is the maximum node number in the bit mask plus one (this is the same
+as in
+.BR mbind (2),
+but different from
+.BR select (2))
+
+The
+.I pid
+argument is the ID of the process whose pages are to be moved.
+To move pages in another process,
+the caller must be privileged
+.RB ( CAP_SYS_NICE )
+or the real or effective user ID of the calling process must match the
+real or saved-set user ID of the target process.
+If
+.I pid
+is 0, then
+.BR migrate_pages ()
+moves pages of the calling process.
+
+Pages shared with another process will only be moved if the initiating
+process has the
+.B CAP_SYS_NICE
+privilege.
+.SH "RETURN VALUE"
+On success
+.BR migrate_pages ()
+returns zero.
+On error, it returns \-1, and sets
+.I errno
+to indicate the error.
+.SH ERRORS
+.TP
+.B EPERM
+Insufficient privilege
+.RB ( CAP_SYS_NICE )
+to move pages of the process specified by
+.IR pid ,
+or insufficient privilege
+.RB ( CAP_SYS_NICE )
+to access the specified target nodes.
+.TP
+.B ESRCH
+No process matching
+.I pid
+could be found.
+.\" FIXME There are other errors
+.SH VERSIONS
+The
+.BR migrate_pages ()
+system call first appeared on Linux in version 2.6.16.
+.SH CONFORMING TO
+This system call is Linux-specific.
+.SH "NOTES"
+For information on library support, see
+.BR numa (7).
+
+Use
+.BR get_mempolicy (2)
+with the
+.B MPOL_F_MEMS_ALLOWED
+flag to obtain the set of nodes that are allowed by
+the calling process's cpuset.
+Note that this information is subject to change at any
+time by manual or automatic reconfiguration of the cpuset.
+
+Use of
+.BR migrate_pages ()
+may result in pages whose location
+(node) violates the memory policy established for the
+specified addresses (see
+.BR mbind (2))
+and/or the specified process (see
+.BR set_mempolicy (2)).
+That is, memory policy does not constrain the destination
+nodes used by
+.BR migrate_pages ().
+
+The
+.I <numaif.h>
+header is not included with glibc, but requires installing
+.I libnuma-devel
+or a similar package.
+.SH "SEE ALSO"
+.BR get_mempolicy (2),
+.BR mbind (2),
+.BR set_mempolicy (2),
+.BR numa (3),
+.BR numa_maps (5),
+.BR cpuset (7),
+.BR numa (7),
+.BR migratepages (8),
+.BR numa_stat (8)

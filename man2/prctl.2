@@ -37,6 +37,7 @@
 .\" 2008-06-13 Erik Bosman, <ejbosman@cs.vu.nl>
 .\"     Document PR_GET_TSC and PR_SET_TSC.
 .\" 2008-06-15 mtk, Document PR_SET_SECCOMP, PR_GET_SECCOMP
+.\" 2009-10-03 Andi Kleen, document PR_MCE_KILL_*
 .\"
 .TH PRCTL 2 2010-05-13 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -324,6 +325,52 @@ on unaligned user access.
 for information on versions and architectures)
 Return unaligned access control bits, in the location pointed to by
 .IR "(int\ *) arg2" .
+.TP
+.BR PR_MCE_KILL " (since Linux 2.6.32)"
+Set the machine check memory corruption kill policy for the current thread.
+If
+.I arg2
+is
+.BR PR_MCE_KILL_CLEAR ,
+clear the thread memory corruption kill policy and use the system-wide default.
+(The system-wide default is defined by
+.IR /proc/sys/vm/memory_failure_early_kill ;
+see
+.BR proc (5).)
+If
+.I arg2
+is
+.BR PR_MCE_KILL_SET ,
+use a thread-specific memory corruption kill policy.
+In this case,
+.I arg3
+defines whether the policy is
+.I early kill 
+.RB ( PR_MCE_KILL_EARLY ),
+.I late kill 
+.RB ( PR_MCE_KILL_LATE ),
+or the system-wide default
+.RB ( PR_MCE_KILL_DEFAULT ).
+Early kill means that the task receives a
+.B SIGBUS
+signal as soon as hardware memory corruption is detected inside
+its address space.
+In late kill mode, the process is only killed when it accesses a corrupted page.
+See
+.I sigaction(2)
+for more information on the
+.BR SIGBUS
+signal.
+The policy is inherited by children.
+The remaining unused
+.BR prctl ()
+arguments must be zero for future compatibility.
+.TP
+.BR PR_MCE_KILL_GET " (since Linux 2.6.32)"
+Return the current per-process machine check kill policy.
+All unused
+.BR prctl ()
+arguments must be zero.
 .SH "RETURN VALUE"
 On success,
 .BR PR_GET_DUMPABLE ,
@@ -331,6 +378,7 @@ On success,
 .BR PR_CAPBSET_READ ,
 .BR PR_GET_TIMING ,
 .BR PR_GET_SECUREBITS ,
+.BR PR_MCE_KILL_GET ,
 and (if it returns)
 .BR PR_GET_SECCOMP
 return the nonnegative values described above.
@@ -350,6 +398,16 @@ is an invalid address.
 The value of
 .I option
 is not recognized.
+.TP
+.B EINVAL
+.I option
+is
+.BR PR_MCE_KILL
+or
+.BR PR_MCE_KILL_GET ,
+and unused
+.BR prctl ()
+arguments were not specified as zero.
 .TP
 .B EINVAL
 .I arg2

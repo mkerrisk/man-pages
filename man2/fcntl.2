@@ -4,7 +4,7 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"                 and Copyright (C) 1993 Michael Haardt, Ian Jackson;
 .\"                 and Copyright (C) 1998 Jamie Lokier;
-.\"                 and Copyright (C) 2002 Michael Kerrisk.
+.\"                 and Copyright (C) 2002-2010 Michael Kerrisk.
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -55,6 +55,8 @@
 .\" 2009-09-30, Michael Kerrisk
 .\"     Note obsolete F_SETOWN behavior with threads.
 .\"     Document F_SETOWN_EX and F_GETOWN_EX
+.\" 2010-06-17, Michael Kerrisk
+.\"	Document F_SETPIPE_SZ and F_GETPIPE_SZ.
 .\"
 .TH FCNTL 2 2010-06-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -998,6 +1000,36 @@ which provides a much superior interface for obtaining notifications of
 file system events.
 See
 .BR inotify (7).
+.SS "Changing the capacity of a pipe"
+.TP
+.BR F_SETPIPE_SZ " (\fIlong\fP; since Linux 2.6.35)"
+Change the capacity of the pipe referred to by
+.I fd
+to be at least
+.I arg
+bytes.
+An unprivileged process can adjust the pipe capacity to any value
+between the system page size and the limit defined in
+.IR /proc/sys/fs/pipe-size-max
+(see
+.BR proc (5));
+a privileged process
+.RB ( CAP_SYS_RESOURCE )
+can override the limit.
+When allocating the buffer for the pipe,
+the kernel may use a capacity larger than
+.IR arg ,
+if that is convenient for the implementation.
+The
+.B F_GETPIPE_SZ
+operation returns the actual size used.
+Attempting to set the pipe capacity smaller than the amount 
+of buffer space currently used to store data produces the error
+.BR EBUSY .
+.TP
+.BR F_GETPIPE_SZ " (\fIvoid\fP; since Linux 2.6.35)"
+Return (as the function result) the capacity of the pipe referred to by
+.IR fd .
 .SH "RETURN VALUE"
 For a successful call, the return value depends on the operation:
 .TP 0.9i
@@ -1021,6 +1053,9 @@ Value of signal sent when read or write becomes possible, or zero
 for traditional
 .B SIGIO
 behavior.
+.TP
+.B F_GETPIPE_SZ
+The pipe capacity.
 .TP
 All other commands
 Zero.
@@ -1111,6 +1146,8 @@ is specified in POSIX.1-2008.
 
 .BR F_GETOWN_EX ,
 .BR F_SETOWN_EX ,
+.BR F_SETPIPE_SZ ,
+.BR F_GETPIPE_SZ ,
 .BR F_GETSIG ,
 .BR F_SETSIG ,
 .BR F_NOTIFY ,

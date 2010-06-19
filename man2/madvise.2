@@ -25,8 +25,9 @@
 .\" Based on comments from mm/filemap.c. Last modified on 10-06-2001
 .\" Modified, 25 Feb 2002, Michael Kerrisk, <mtk.manpages@gmail.com>
 .\"	Added notes on MADV_DONTNEED
+.\" 2010-06-19, mtk, Added documentation of MADV_MERGEABLE and
+.\"     MADV_UNMERGEABLE
 .\" FIXME
-.\" 2.6.32 added MADV_MERGEABLE, and MADV_UNMERGEABLE (only if CONFIG_KSM)
 .\" 2.6.33 added MADV_SOFT_OFFLINE (only if CONFIG_MEMORY_FAILURE)
 .\"
 .TH MADVISE 2 2008-04-22 "Linux" "Linux Programmer's Manual"
@@ -156,6 +157,42 @@ and the page being unmapped.
 This feature is intended for memory testing.
 This feature is only available if the kernel was configured with
 .BR CONFIG_MEMORY_FAILURE .
+.TP
+.BR MADV_MERGEABLE " (since Linux 2.6.32)"
+Enable Kernel Samepage Merging (KSM) for the pages in the range specified by
+.I addr
+and
+.IR len .
+The KSM daemon
+.RI ( ksmd )
+periodically scans those areas of user memory that have
+been marked as mergeable,
+looking for pages with identical content.
+These are replaced by a single write-protected page (which is automatically
+copied if a process later wants to update the content of the page).
+KSM only merges private anonymous pages (see
+.BR mmap (2)).
+The KSM feature is intended for applications that generate many
+instances of the same data (e.g., virtualization systems such as KVM).
+It can consume a lot of processing power; use with care.
+See the kernel source file
+.I Documentation/vm/ksm.txt
+for more details.
+The
+.BR MADV_MERGEABLE
+and
+.BR MADV_UNMERGEABLE
+operations are only available if the kernel was configured with
+.BR CONFIG_KSM.
+.TP
+.BR MADV_UNMERGEABLE " (since Linux 2.6.32)"
+Undo the effect of an earlier
+.BR MADV_MERGEABLE
+operation on the specified address range;
+KSM unmerges whatever pages it had merged in the address rnage specified by
+.IR addr
+and
+.IR length .
 .SH "RETURN VALUE"
 On success
 .BR madvise ()
@@ -189,6 +226,14 @@ is not a valid value
 .IP *
 The application is attempting to release locked or shared pages (with
 .BR MADV_DONTNEED ).
+.IP *
+.BR MADV_MERGEABLE
+or
+.BR MADV_UNMERGEABLE
+was specified in
+.IR advice ,
+but the kernel was not configured with
+.BR CONFIG_KSM .
 .RE
 .TP
 .B EIO
@@ -221,8 +266,10 @@ for file access.
 .BR MADV_REMOVE ,
 .BR MADV_DONTFORK ,
 .BR MADV_DOFORK ,
+.BR MAD_HWPOISON ,
+.BR MADVISE_MERGEABLE ,
 and
-.BR MAD_HWPOISON
+.BR MADVISE_UNMERGEABLE
 are Linux-specific.
 .SH NOTES
 .SS "Linux Notes"

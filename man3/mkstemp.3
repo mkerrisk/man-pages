@@ -30,7 +30,7 @@
 .\" Modified 990328, aeb
 .\" 2008-06-19, mtk, Added mkostemp(); various other changes
 .\"
-.TH MKSTEMP 3  2008-06-19 "GNU" "Linux Programmer's Manual"
+.TH MKSTEMP 3  2010-06-19 "GNU" "Linux Programmer's Manual"
 .SH NAME
 mkstemp, mkostemp \- create a unique temporary file
 .SH SYNOPSIS
@@ -40,6 +40,10 @@ mkstemp, mkostemp \- create a unique temporary file
 .BI "int mkstemp(char *" template );
 .sp
 .BI "int mkostemp (char *" template ", int " flags );
+.sp
+.BI "int mkstemps(char *" template ", int " suffixlen );
+.sp
+.BI "int mkostemps(char *" template ", int " suffixlen ", int " flags );
 .fi
 .sp
 .in -4n
@@ -51,6 +55,12 @@ Feature Test Macro Requirements for glibc (see
 _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500
 .br
 .BR mkostemp ():
+_GNU_SOURCE
+.br
+.BR mkstemps ():
+_BSD_SOURCE || _SVID_SOURCE
+.br
+.BR mkostemps ():
 _GNU_SOURCE
 .SH DESCRIPTION
 The
@@ -78,8 +88,9 @@ The file is opened with the
 .B O_EXCL
 flag, guaranteeing that the caller is the process that creates the file.
 
+The
 .BR mkostemp ()
-is like
+function is like
 .BR mkstemp (),
 with the difference that flags as for
 .BR open (2)
@@ -88,6 +99,31 @@ may be specified in
 (e.g.,
 .BR O_APPEND ,
 .BR O_SYNC ).
+
+The
+.BR mkstemps ()
+function is like
+.BR mkstemp (),
+except that the string in
+.I template
+contains a suffix of
+.I suffixlen
+characters.
+Thus,
+.I template
+is of the form
+.IR "prefixXXXXXXsuffix" ,
+and the string XXXXXX is modified as for
+.BR mkstemp ().
+
+The
+.BR mkostemps ()
+function is to
+.BR mkstemps ()
+as
+.BR mkostemp ()
+is to
+.BR mkstemp ().
 .SH "RETURN VALUE"
 On success, these functions return the file descriptor
 of the temporary file.
@@ -101,19 +137,46 @@ Could not create a unique temporary filename.
 Now the contents of \fItemplate\fP are undefined.
 .TP
 .B EINVAL
-The last six characters of \fItemplate\fP were not XXXXXX.
-Now \fItemplate\fP is unchanged.
+For
+.BR mkstemp ()
+and
+.BR mkostemp ():
+The last six characters of \fItemplate\fP were not XXXXXX;
+now \fItemplate\fP is unchanged.
+.sp
+For
+.BR mkstemps ()
+and
+.BR mkostemps ()
+.I template
+is less than
+.I "(6 + suffixlen)"
+characters long, or the last 6 characters before the suffix in
+.I template
+were not XXXXXX.
 .PP
 These functions may also fail with any of the errors described for
 .BR open (2).
 .SH VERSIONS
 .BR mkostemp ()
 is available since glibc 2.7.
+.BR mkstemps ()
+and
+.BR mkostemps ()
+are available since glibc 2.11.
 .SH "CONFORMING TO"
 .BR mkstemp ():
 4.3BSD, POSIX.1-2001.
-.BR mkostemp ():
-is a glibc extension.
+
+.BR mkstemps ():
+unstandardized, but appears on several other systems.
+.\" mkstemps() appears to be at least on the BSDs, Mac OS X, Solaris,
+.\" and Tru64.
+
+.BR mkostemp ()
+and
+.BR mkostemps ():
+are glibc extensions.
 .SH NOTES
 The old behavior of creating a file with mode 0666 may be
 a security risk, especially since other Unix flavors use 0600,

@@ -40,12 +40,11 @@
 .\"     added to the mainline kernel.
 .\" 2008-05-07, mtk; Rewrote and restructured various parts of the page to
 .\"     improve readability.
+.\" 2010-06-19, mtk, documented SCHED_RESET_ON_FORK
 .\"
 .\" Worth looking at: http://rt.wiki.kernel.org/index.php
 .\"
-.\" FIXME: 2.6.32 added SCHED_RESET_ON_FORK
-.\"
-.TH SCHED_SETSCHEDULER 2 2008-11-06 "Linux" "Linux Programmer's Manual"
+.TH SCHED_SETSCHEDULER 2 2010-06-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sched_setscheduler, sched_getscheduler \-
 set and get scheduling policy/parameters
@@ -264,6 +263,53 @@ priority (lower even than a +19 nice value with the
 or
 .B SCHED_BATCH
 policies).
+.\"
+.SS Resetting scheduling policy for child processes
+Since Linux 2.6.32, the
+.B SCHED_RESET_ON_FORK
+flag can be ORed in
+.I policy
+when calling
+.BR sched_setscheduler ().
+As a result of including this flag, children created by
+.BR fork (2)
+do not inherit privileged scheduling policies.
+This feature is intended for media-playback applications,
+and can be used to prevent applications evading the
+.BR RLIMIT_RTTIME
+resource limit (see
+.BR getrlimit (2))
+by creating multiple child processes.
+
+More precisely, if the
+.BR SCHED_RESET_ON_FORK
+flag is specified,
+the following rules apply for subsequently created children:
+.IP * 3
+If the calling process has a scheduling policy of
+.B SCHED_FIFO
+or
+.BR SCHED_RR ,
+the policy is reset to
+.BR SCHED_OTHER
+in child processes.
+.IP *
+If the calling processes has a negative nuce value,
+the nice value is reset to zero in child processes.
+.PP
+After the
+.BR SCHED_RESET_ON_FORK
+flag has been enabled,
+it can only be reset if the process has the
+.BR CAP_SYS_NICE
+capability.
+This flag is disabled in child processes created by
+.BR fork (2).
+
+The
+.B SCHED_RESET_ON_FORK
+flag is visible in the policy value returned by
+.BR sched_getscheduler ()
 .\"
 .SS Privileges and resource limits
 In Linux kernels before 2.6.12, only privileged

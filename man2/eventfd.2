@@ -18,7 +18,7 @@
 .\"
 .\" 2008-10-10, mtk: describe eventfd2(), and EFD_NONBLOCK and EFD_CLOEXEC
 .\"
-.TH EVENTFD 2 2010-08-29 Linux "Linux Programmer's Manual"
+.TH EVENTFD 2 2010-08-30 Linux "Linux Programmer's Manual"
 .SH NAME
 eventfd \- create a file descriptor for event notification
 .SH SYNOPSIS
@@ -36,12 +36,12 @@ counter that is maintained by the kernel.
 This counter is initialized with the value specified in the argument
 .IR initval .
 
-Starting with Linux 2.6.27, the following values may be bitwise ORed in
+The following values may be bitwise ORed in
 .IR flags
 to change the behaviour of
 .BR eventfd ():
 .TP
-.B EFD_CLOEXEC
+.BR EFD_CLOEXEC " (since Linux 2.6.27)"
 Set the close-on-exec
 .RB ( FD_CLOEXEC )
 flag on the new file descriptor.
@@ -51,13 +51,17 @@ flag in
 .BR open (2)
 for reasons why this may be useful.
 .TP
-.B EFD_NONBLOCK
+.BR EFD_NONBLOCK " (since Linux 2.6.27)"
 Set the
 .BR O_NONBLOCK
 file status flag on the new open file description.
 Using this flag saves extra calls to
 .BR fcntl (2)
 to achieve the same result.
+.TP
+.BR EFD_SEMAPHORE " (since Linux 2.6.30)"
+Provide semaphore-like semantics for reads from the new file descriptor.
+See below.
 .PP
 In Linux up to version 2.6.26, the
 .I flags
@@ -70,25 +74,52 @@ eventfd object.
 The following operations can be performed on the file descriptor:
 .TP
 .BR read (2)
-If the eventfd counter has a nonzero value, then a
+Each successful
 .BR read (2)
-returns 8 bytes containing that value,
-and the counter's value is reset to zero.
-(The returned value is in host byte order,
-i.e., the native byte order for integers on the host machine.)
-.IP
-If the counter is zero at the time of the
-.BR read (2),
-then the call either blocks until the counter becomes nonzero,
-or fails with the error
-.B EAGAIN
-if the file descriptor has been made nonblocking.
-.IP
+returns an 8-byte integer.
 A
 .BR read (2)
 will fail with the error
 .B EINVAL
 if the size of the supplied buffer is less than 8 bytes.
+.IP
+The value returned by
+.BR read (2)
+is in host byte order,
+i.e., the native byte order for integers on the host machine.
+.IP
+The semantics of
+.BR read (2)
+depend on whether the eventfd counter currently has a nonzero value
+and whether the
+.BR EFD_SEMAPHORE
+flag was specified when creating the eventfd file descriptor:
+.RS
+.IP * 3
+If
+.BR EFD_SEMAPHORE
+was not specified and the eventfd counter has a nonzero value, then a
+.BR read (2)
+returns 8 bytes containing that value,
+and the counter's value is reset to zero.
+.IP *
+If
+.BR EFD_SEMAPHORE
+was specified and the eventfd counter has a nonzero value, then a
+.BR read (2)
+returns 8 bytes containing the value 1,
+and the counter's value is decremented by 1.
+.IP *
+If the eventfd counter is zero at the time of the call to
+.BR read (2),
+then the call either blocks until the counter becomes nonzero
+(at which time, the
+.BR read (2)
+proceeds as described above)
+or fails with the error
+.B EAGAIN
+if the file descriptor has been made nonblocking.
+.RE
 .TP
 .BR write (2)
 A
@@ -198,11 +229,8 @@ is set to indicate the error.
 .SH ERRORS
 .TP
 .B EINVAL
-.I flags
-is invalid;
-or, in Linux 2.6.26 or earlier,
-.I flags
-is nonzero.
+An unsupported value was specified in
+.IR flags .
 .TP
 .B EMFILE
 The per-process limit on open file descriptors has been reached.

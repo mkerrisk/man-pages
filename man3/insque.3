@@ -1,5 +1,6 @@
 .\" peter memishian -- meem@gnu.ai.mit.edu
 .\" $Id: insque.3,v 1.2 1996/10/30 21:03:39 meem Exp meem $
+.\" and Copyright (c) 2010, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,7 +29,7 @@
 .\"
 .\" Changed to POSIX, 2003-08-11, aeb+wh
 .\"
-.TH INSQUE 3  2008-07-11 "" "Linux Programmer's Manual"
+.TH INSQUE 3  2010-09-09 "" "Linux Programmer's Manual"
 .SH NAME
 insque, remque \- insert/remove an item from a queue
 .SH SYNOPSIS
@@ -49,22 +50,42 @@ Feature Test Macro Requirements for glibc (see
 .BR remque ():
 _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500
 .SH DESCRIPTION
+The
 .BR insque ()
 and
 .BR remque ()
-are functions for manipulating
-doubly-linked lists.
+functions manipulate doubly-linked lists.
 Each element in the list is a structure of
-which the first two structure elements are a forward and a
+which the first two elements are a forward and a
 backward pointer.
+The linked list may be linear (i.e., NULL forward pointer at
+the end of the list and NULL backward pointer at the start of the list)
+or circular.
 
+The
 .BR insque ()
-inserts the element pointed to by \fIelem\fP
-immediately after the element pointed to by \fIprev\fP, which must
-not be NULL.
+function inserts the element pointed to by \fIelem\fP
+immediately after the element pointed to by \fIprev\fP.
 
+If the list is linear, then the call
+.I "insque(elem, NULL)"
+can be used to insert the initial list element,
+and the call sets the forward and backward pointers of
+.I elem
+to NULL.
+
+If the list is circular,
+the caller should ensure that the forward and backward pointers of the
+first element are initialized to point to that element,
+and the
+.I prev
+argument of the
+.BR insque ()
+call should also point to the element.
+
+The
 .BR remque ()
-removes the element pointed to by \fIelem\fP from the
+function removes the element pointed to by \fIelem\fP from the
 doubly-linked list.
 .SH "CONFORMING TO"
 POSIX.1-2001.
@@ -94,3 +115,110 @@ The above is the POSIX version.
 Some systems place them in \fI<string.h>\fP.
 Linux libc4 and libc 5 placed them
 in \fI<stdlib.h>\fP.
+.SH EXAMPLE
+The program below demonstrates the use of
+.BR insque ().
+Here is an example run of the program:
+.nf
+$ ./a.out -c a b c
+Traversing completed list:
+    a
+    b
+    c
+That was a circular list
+.fi
+.SS Program source
+\&
+.nf
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <search.h>
+
+struct element {
+    struct element *forward;
+    struct element *backward;
+    char *name;
+};
+
+static struct element *
+new_element(void)
+{
+    struct element *e;
+
+    e = malloc(sizeof(struct element));
+    if (e == NULL) {
+        fprintf(stderr, "malloc() failed\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return e;
+}
+
+int
+main(int argc, char *argv[])
+{
+    struct element *first, *elem, *prev;
+    int circular, opt, errfnd;
+
+    /* The "\-c" command\-line option can be used to specify that the
+       list is circular */
+
+    errfnd = 0;
+    circular = 0;
+    while ((opt = getopt(argc, argv, "c")) != \-1) {
+        switch (opt) {
+        case 'c':
+            circular = 1;
+            break;
+        default:
+            errfnd = 1;
+            break;
+        }
+    }
+
+    if (errfnd || optind >= argc) {
+        fprintf(stderr,  "Usage: %s [\-c] string...\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Create first element and place it in the linked list */
+
+    elem = new_element();
+    first = elem;
+
+    elem\->name = argv[optind];
+    
+    if (circular) {
+        elem\->forward = elem;
+        elem\->backward = elem;
+        insque(elem, elem);
+    } else {
+        insque(elem, NULL);
+    }
+
+    /* Add remaining command\-line arguments as list elements */
+
+    while (++optind < argc) {
+        prev = elem;
+
+        elem = new_element();
+        elem\->name = argv[optind];
+        insque(elem, prev);
+    }
+
+    /* Traverse the list from the start, printing element names */
+
+    printf("Traversing completed list:\\n");
+    elem = first;
+    do {
+        printf("    %s\\n", elem\->name);
+        elem = elem\->forward;
+    } while (elem != NULL && elem != first);
+
+    if (elem == first)
+        printf("That was a circular list\\n");
+
+    exit(EXIT_SUCCESS);
+}
+.fi

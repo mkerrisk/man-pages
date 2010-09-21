@@ -20,7 +20,7 @@
 .\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
-.TH TIMER_CREATE 2 2009-02-20 Linux "Linux Programmer's Manual"
+.TH TIMER_CREATE 2 2010-09-19 Linux "Linux Programmer's Manual"
 .SH NAME
 timer_create \- create a POSIX per-process timer
 .SH SYNOPSIS
@@ -90,37 +90,12 @@ argument points to a
 .I sigevent
 structure that specifies how the caller
 should be notified when the timer expires.
-This structure is defined something like the following:
+For the definition and general details of this structure, see
+.BR sigevent (7).
 
-.in +4n
-.nf
-union sigval {
-    int   sival_int;
-    void *sival_ptr;
-};
-
-struct sigevent {
-    int          sigev_notify;    /* Notification method */
-    int          sigev_signo;     /* Timer expiration signal */
-    union sigval sigev_value;     /* Value accompanying signal or
-                                     passed to thread function */
-    void       (*sigev_notify_function) (union sigval);
-                   /* Function used for thread
-                      notifications (SIGEV_THREAD) */
-    void        *sigev_notify_attributes;
-                   /* Attributes for notification thread
-                      (SIGEV_THREAD) */
-    pid_t        sigev_notify_thread_id;
-                   /* ID of thread to signal (SIGEV_THREAD_ID) */
-};
-.fi
-.in
-
-Some of these fields may be defined as part of a union:
-a program should only employ those fields relevant
-to the value specified in
-.IR sigev_notify .
-This field can have the following values:
+The
+.I evp.sigev_notify
+field can have the following values:
 .TP
 .BR SIGEV_NONE
 Don't asynchronously notify when the timer expires.
@@ -131,13 +106,15 @@ Progress of the timer can be monitored using
 Upon timer expiration, generate the signal
 .I sigev_signo
 for the process.
-If
-.I sigev_signo
-is a real-time signal,
-then it will be accompanied by the data specified in
-.IR sigev_value
-(like the signal-accompanying data for
-.BR sigqueue (2)).
+See
+.BR sigevent (7)
+for general details.
+The
+.I si_code
+field of the
+.I siginfo_t
+structure will be set to
+.BR SI_TIMER .
 At any point in time,
 at most one signal is queued to the process for a given timer; see
 .BR timer_getoverrun (2)
@@ -147,18 +124,9 @@ for more details.
 Upon timer expiration, invoke
 .I sigev_notify_function
 as if it were the start function of a new thread.
-(Among the implementation possibilities here are that
-each timer notification could result in the creation of a new thread,
-or that a single thread is created to receive all notifications.)
-The function is invoked with
-.I sigev_value
-as its sole argument.
-If
-.I sigev_notify_attributes
-is not NULL, it should point to a
-.I pthread_attr_t
-structure that defines attributes for the new thread (see
-.BR pthread_attr_init (3)).
+See
+.BR sigevent (7)
+for details.
 .TP
 .BR SIGEV_THREAD_ID " (Linux-specific)"
 As for
@@ -430,5 +398,6 @@ main(int argc, char *argv[])
 .BR clock_getcpuclockid (3),
 .BR pthread_getcpuclockid (3),
 .BR pthreads (7),
+.BR sigevent (7),
 .BR signal (7),
 .BR time (7)

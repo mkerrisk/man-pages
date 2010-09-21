@@ -23,7 +23,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH MQ_NOTIFY 3 2010-08-29 "Linux" "Linux Programmer's Manual"
+.TH MQ_NOTIFY 3 2010-09-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
 mq_notify \- register for notification when a message is available
 .SH SYNOPSIS
@@ -45,28 +45,9 @@ The
 .I notification
 argument is a pointer to a
 .I sigevent
-structure that is defined something like the following:
-.in +4n
-.nf
-
-union sigval {          /* Data passed with notification */
-    int     sival_int;         /* Integer value */
-    void   *sival_ptr;         /* Pointer value */
-};
-
-struct sigevent {
-    int          sigev_notify; /* Notification method */
-    int          sigev_signo;  /* Notification signal */
-    union sigval sigev_value;  /* Data passed with
-                                  notification */
-    void       (*sigev_notify_function) (union sigval);
-                               /* Function for thread
-                                  notification */
-    void        *sigev_notify_attributes;
-                               /* Thread function attributes */
-};
-.fi
-.in
+structure.
+For the definition and general details of this structure, see
+.BR sigevent (7).
 .PP
 If
 .I notification
@@ -77,7 +58,7 @@ The
 .I sigev_notify
 field of the
 .I sigevent
-to which
+structure to which
 .I notification
 points specifies how notification is to be performed.
 This field has one of the following values:
@@ -90,43 +71,30 @@ for notification, but when a message arrives, no notification is sent.
 .B SIGEV_SIGNAL
 Notify the process by sending the signal specified in
 .IR sigev_signo .
-If the signal is caught with a signal handler that
-was registered using the
-.BR sigaction (2)
-.B SA_SIGINFO
-flag, then the following fields are set in the
-.I siginfo_t
-structure that is passed as the second argument of the handler:
+See
+.BR sigevent (7)
+for general details.
+The
 .I si_code
-is set to
-.BR SI_MESGQ ;
-.I si_signo
-is set to the signal number;
-.I si_value
-is set to the value specified in
-.IR notification\->sigev_value ;
+field of the
+.I siginfo_t
+structure will be set to
+.BR SI_MESGQ .
+In addition,
 .\" I don't know of other implementations that set
 .\" si_pid and si_uid -- MTK
 .I si_pid
-is set to the PID of the process that sent the message; and
+will be set to the PID of the process that sent the message, and
 .I si_uid
-is set to the real user ID of the sending process.
-The same information is available if the signal is accepted using
-.BR sigwaitinfo (2).
+will be set to the real user ID of the sending process.
 .TP
 .B SIGEV_THREAD
-Deliver notification by invoking
-.I notification\->sigev_notify_function
-as the start function of a new thread.
-The function is invoked with
-.I notification\->sigev_value
-as its sole argument.
-If
-.I notification\->sigev_notify_attributes
-is not NULL, then it should point to a
-.I pthread_attr_t
-structure that defines attributes for the thread (see
-.BR pthread_attr_init (3)).
+Upon message delivery, invoke
+.I sigev_notify_function
+as if it were the start function of a new thread.
+See
+.BR sigevent (7)
+for details.
 .PP
 Only one process can be registered to receive notification
 from a message queue.
@@ -279,4 +247,5 @@ main(int argc, char *argv[])
 .BR mq_receive (3),
 .BR mq_send (3),
 .BR mq_unlink (3),
-.BR mq_overview (7)
+.BR mq_overview (7),
+.BR sigevent (7)

@@ -30,7 +30,7 @@ mq_notify \- register for notification when a message is available
 .nf
 .B #include <mqueue.h>
 .sp
-.BI "int mq_notify(mqd_t " mqdes ", const struct sigevent *" notification );
+.BI "int mq_notify(mqd_t " mqdes ", const struct sigevent *" sevp );
 .fi
 .sp
 Link with \fI\-lrt\fP.
@@ -42,7 +42,7 @@ the empty message queue referred to by the descriptor
 .IR mqdes .
 
 The
-.I notification
+.I sevp
 argument is a pointer to a
 .I sigevent
 structure.
@@ -50,7 +50,7 @@ For the definition and general details of this structure, see
 .BR sigevent (7).
 .PP
 If
-.I notification
+.I sevp
 is a non-NULL pointer, then
 .BR mq_notify ()
 registers the calling process to receive message notification.
@@ -59,7 +59,7 @@ The
 field of the
 .I sigevent
 structure to which
-.I notification
+.I sevp
 points specifies how notification is to be performed.
 This field has one of the following values:
 .TP
@@ -100,7 +100,7 @@ Only one process can be registered to receive notification
 from a message queue.
 
 If
-.I notification
+.I sevp
 is NULL, and the calling process is currently registered to receive
 notifications for this message queue, then the registration is removed;
 another process can then register to receive a message notification
@@ -149,13 +149,13 @@ Another process has already registered to receive notification
 for this message queue.
 .TP
 .B EINVAL
-.I notification\->sigev_notify
+.I sevp\->sigev_notify
 is not one of the permitted values; or
-.I notification\->sigev_notify
+.I sevp\->sigev_notify
 is
 .B SIGEV_SIGNAL
 and
-.I notification\->sigev_signo
+.I sevp\->sigev_signo
 is not a valid signal number.
 .TP
 .B ENOMEM
@@ -167,7 +167,7 @@ generate an
 .B EINVAL
 .\" Linux does not do this
 error if
-.I notification
+.I sevp
 is NULL, and the caller is not currently registered to receive
 notifications for the queue
 .IR mqdes .
@@ -219,7 +219,7 @@ int
 main(int argc, char *argv[])
 {
     mqd_t mqdes;
-    struct sigevent not;
+    struct sigevent sev;
 
     if (argc != 2) {
 	fprintf(stderr, "Usage: %s <mq-name>\\n", argv[0]);
@@ -230,11 +230,11 @@ main(int argc, char *argv[])
     if (mqdes == (mqd_t) \-1)
         handle_error("mq_open");
 
-    not.sigev_notify = SIGEV_THREAD;
-    not.sigev_notify_function = tfunc;
-    not.sigev_notify_attributes = NULL;
-    not.sigev_value.sival_ptr = &mqdes;   /* Arg. to thread func. */
-    if (mq_notify(mqdes, &not) == \-1)
+    sev.sigev_notify = SIGEV_THREAD;
+    sev.sigev_notify_function = tfunc;
+    sev.sigev_notify_attributes = NULL;
+    sev.sigev_value.sival_ptr = &mqdes;   /* Arg. to thread func. */
+    if (mq_notify(mqdes, &sev) == \-1)
         handle_error("mq_notify");
 
     pause();    /* Process will be terminated by thread function */

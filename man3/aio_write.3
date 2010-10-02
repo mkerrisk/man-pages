@@ -32,14 +32,21 @@ Link with \fI\-lrt\fP.
 .SH DESCRIPTION
 The
 .BR aio_write ()
-function requests an asynchronous "n = write(fd, buf, count)"
-with fd, buf, count given by
-.IR aiocbp\->aio_fildes ,
-.IR aiocbp\->aio_buf ,
-.IR aiocbp\->aio_nbytes ,
-respectively.
-The return status n can be retrieved upon completion using
-.BR aio_return (3).
+function queues the I/O request described by the buffer pointed to by
+.IR aiocb .
+This function is the asynchronous analog of
+.BR write (2).
+The arguments of the call
+
+    write(fd, buf, count)
+
+correspond (in order) to the fields
+.IR aio_fildes ,
+.IR aio_buf ,
+and
+.IR aio_nbytes
+of the structure pointed to by
+.IR aiocbp .
 (See
 .BR aio (7)
 for a description of the
@@ -51,17 +58,21 @@ If
 is not set, the data is written starting at the
 absolute file offset
 .IR aiocbp\->aio_offset ,
-regardless of the current file position.
+regardless of the current file offset.
 If
 .B O_APPEND
-is set, the data is written at the end of the file.
-After this request, the value of the current file position is unspecified.
+is set, data is written at the end of the file in the same order as
+.BR aio_write ()
+calls are made.
+After the call, the value of the current file offset is unspecified.
 .LP
 The "asynchronous" means that this call returns as soon as the
 request has been enqueued; the write may or may not have completed
 when the call returns.
 One tests for completion using
 .BR aio_error (3).
+The return status of a completed I/O operation can be obtained
+.BR aio_return (3).
 .LP
 If
 .B _POSIX_PRIORITIZED_IO
@@ -81,7 +92,7 @@ On error the request is not enqueued, \-1
 is returned, and
 .I errno
 is set appropriately.
-If an error is first detected later, it will
+If an error is only detected later, it will
 be reported via
 .BR aio_return (3)
 (returns status \-1) and
@@ -120,13 +131,16 @@ function is available since glibc 2.1.
 POSIX.1-2001, POSIX.1-2008.
 .SH NOTES
 It is a good idea to zero out the control block before use.
-This control block must not be changed while the write operation
+The control block must not be changed while the write operation
 is in progress.
 The buffer area being written out
 .\" or the control block of the operation
-must not be accessed during the operation or undefined results may
-occur.
+must not be accessed during the operation or undefined results may occur.
 The memory areas involved must remain valid.
+
+Simultaneous I/O operations specifying the same
+.I aiocb
+structure produce undefined results.
 .SH "SEE ALSO"
 .BR aio_cancel (3),
 .BR aio_error (3),

@@ -1,4 +1,5 @@
 .\" Copyright (c) 2003 Andries Brouwer (aeb@cwi.nl)
+.\" and Copyright (C) 2010 Michael kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -28,57 +29,72 @@ aio_suspend \- wait for asynchronous I/O operation or timeout
 .sp
 .B "#include <aio.h>"
 .sp
-.BI "int aio_suspend(const struct aiocb * const " cblist [],
+.BI "int aio_suspend(const struct aiocb * const " aiocb_list [],
 .br
-.BI "                int " n ", const struct timespec *" timeout );
+.BI "                int " nitems ", const struct timespec *" timeout );
 .sp
 Link with \fI\-lrt\fP.
 .fi
 .SH DESCRIPTION
 The
 .BR aio_suspend ()
-function suspends the calling process until at least one of the
-asynchronous I/O requests in the list
-.I cblist
-of length
-.I n
-have completed, a signal is delivered, or
+function suspends the calling thread until one of the following occurs:
+.IP * 3
+One or more of the asynchronous I/O requests in the list
+.I aiocb_list
+has completed.
+.IP *
+A signal is delivered.
+.IP *
 .I timeout
-is not NULL and the time interval it indicates has passed.
+is not NULL and the specified time interval has passed.
+(For details of the
+.I timespec
+structure, see
+.BR nanosleep (2).)
+.LP
+The
+.I nitems
+argument specifies the number of items in
+.IR aiocb_list .
+Each item in the list pointed to by
+.I aiocb_list
+must be either NULL (and then is ignored),
+or a pointer to a control block on which I/O was initiated using
+.BR aio_read (3),
+.BR aio_write (3),
+or
+.BR lio_listio (3).
 (See
 .BR aio (7)
 for a description of the
 .I aiocb
 structure.)
 .LP
-Each item in the list must either be NULL (and then is ignored),
-or a pointer to a control block on which I/O was initiated using
-.BR aio_read (3),
-.BR aio_write (3),
-or
-.BR lio_listio (3).
-.LP
 If
 .B CLOCK_MONOTONIC
 is supported, this clock is used to measure
-the timeout interval.
+the timeout interval (see
+.BR clock_gettime (3)).
 .SH "RETURN VALUE"
-If this function returns after completion of one of the indicated
-requests, it returns 0.
-Otherwise it returns \-1 and sets
+If this function returns after completion of one of the I/O
+requests specified in
+.IR aiocb_list ,
+0 is returned.
+Otherwise, \-1 is returned, and
 .I errno
-appropriately.
+is set to indicate the error.
 .SH ERRORS
 .TP
 .B EAGAIN
-The call was ended by timeout, before any of the indicated operations
+The call timed out before any of the indicated operations
 had completed.
 .TP
 .B EINTR
-The call was ended by signal; see
+The call was ended by signal
+(possibly the completion signal of one of the operations we were
+waiting for); see
 .BR signal (7).
-(Possibly the completion signal of one of the operations we were
-waiting for.)
 .SH VERSIONS
 The
 .BR aio_suspend ()
@@ -89,6 +105,22 @@ POSIX.1-2001, POSIX.1-2008.
 One can achieve polling by using a non-NULL
 .I timeout
 that specifies a zero time interval.
+
+If one or more of the asynchronous I/O operations specified in
+.IR aiocb_list
+has already completed at the time of the call to
+.BR aio_suspend (),
+then the call returns immediately.
+
+To determine which I/O operations have completed
+after a successful return from
+.BR aio_suspend (),
+use
+.BR aio_error (3)
+to scan the list of
+.I aiocb
+structures pointed to by
+.IR aiocb_list .
 .SH "SEE ALSO"
 .BR aio_cancel (3),
 .BR aio_error (3),

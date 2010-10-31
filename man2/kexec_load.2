@@ -21,97 +21,126 @@
 .\"
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
-.TH KEXEC_LOAD 2 2010-06-16 "Linux" "Linux Programmer's Manual"
+.TH KEXEC_LOAD 2 2010-10-31 "Linux" "Linux Programmer's Manual"
 .SH NAME
-kexec_load \- Load a new kernel for later execution.
+kexec_load \- load a new kernel for later execution
 .SH SYNOPSIS
 .b #include <linux/kexec.h>
 .br
 .BI "long kexec_load(unsigned long " entry ", unsigned long " nr_segments ","
 .br
-.BI       "struct kexec_segment *" segments ", unsigned long " flags ");"
+.BI "                struct kexec_segment *" segments \
+", unsigned long " flags ");"
 .SH DESCRIPTION
-.BR kexec_load 
-loads a new kernel that can be executed later
-by 
-.I reboot(2).
-An alternative approach is to specify
+The
+.BR kexec_load ()
+system call loads a new kernel that can be executed later by
+.BR reboot(2) .
+.PP
+The
+.I flags
+argument is a mask whose high-order bits control the operation of the call.
+The following values can be specified in
+.IR flags :
+.TP
 .B KEXEC_ON_CRASH
-in the 
+Execute the new kernel automatically on a system crash.
+.\" FIXME figure out how this is really used
+.TP
+.B KEXEC_PRESERVE_CONTEXT
+Preserve the system hardware and
+software states before executing the new kernel.
+This could be used for system suspend.
+This flag is only available if the kernel was configured with
+.BR CONFIG_KEXEC_JUMP ,
+and is only effective if
+.I nr_segments
+is greater than 0.
+.PP
+The low-order bits of
 .I flags
-argument and then the new kernel will be automatically executed on a 
-system crash. 
-.\" XXX figure out how this is really used 
-With 
-.B KEXEC_PRESERVE_CONTEXT 
-specified in 
-.I flags
-kexec will preserve the system hard and 
-software state before executing the kexec kernel. This 
-could be used for system suspend.
-
-.I flags
-also contains the architecture of the executed kernel or
-be 
-.I KEXEC_ARCH_DEFAULT
-for the current architecture.
-Valid architectures are 
-.I KEXEC_ARCH_I386,
-.I KEXEC_ARCH_X86_64,
-.I KEXEC_ARCH_PPC,
-.I KEXEC_ARCH_PPC64,
-.I KEXEC_ARCH_IA_64,
-.I KEXEC_ARCH_ARM,
-.I KEXEC_ARCH_S390,
-.I KEXEC_ARCH_SH,
-.I KEXEC_ARCH_MIPS,
-.I KEXEC_ARCH_MIPS_LE.
+contain the architecture of the to-be-executed kernel.
+Specify (OR) the constant
+.B KEXEC_ARCH_DEFAULT
+to use the current architecture,
+or one of the following architecture constants
+.BR KEXEC_ARCH_386 ,
+.BR KEXEC_ARCH_X86_64 ,
+.BR KEXEC_ARCH_PPC ,
+.BR KEXEC_ARCH_PPC64 ,
+.BR KEXEC_ARCH_IA_64 ,
+.BR KEXEC_ARCH_ARM ,
+.BR KEXEC_ARCH_S390 ,
+.BR KEXEC_ARCH_SH ,
+.BR KEXEC_ARCH_MIPS ,
+and
+.BR KEXEC_ARCH_MIPS_LE .
 The architecture must be executable on the CPU of the system.
 
-.I entry 
-is the virtual entry address in the kernel image.
+The
+.I entry
+argument is the virtual entry address in the kernel image.
+The
 .I nr_segments
-is the number of segments pointed to by the 
+argument is the number of segments pointed to by the
 .I segments
-pointer. 
-.I segments 
-is an array of 
-.I struct kexec_segment
+pointer.
+The
+.I segments
+argument is an array of
+.I kexec_segment
 structures which define the kernel layout:
 .in +4n
 .nf
 
 struct kexec_segment {
-	void   *buf;	/* Buffer in user space */
-	size_t  bufsz;	/* Buffer length in user space */
-	void   *mem;	/* Virtual address of kernel */
-	size_t  memsz;	/* Virtual address length */
+    void   *buf;        /* Buffer in user space */
+    size_t  bufsz;      /* Buffer length in user space */
+    void   *mem;        /* Virtual address of kernel */
+    size_t  memsz;      /* Virtual address length */
 };
 .fi
 .in
 .PP
-.\" XXX elaborate on this
+.\" FIXME elaborate on the following:
 The kernel image defined by
 .I segments
 is copied from the calling process into previously reserved memory.
-.SH CONFORMING TO
-This system call is Linux-specific.
+.SH RETURN VALUE
+On success,
+.BR kexec_load ()
+returns 0.
+On error, -1 is returned and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EBUSY
+Another crash kernel is already being loaded
+or a crash kernel is already in use.
+.TP
+.B EINVAL
+.I flags
+is invalid; of
+.IR nr_segments is too large
+.\" KEXEC_SEGMENT_MAX == 16
+.TP
+.B EPERM
+The caller does not have the
+.BR CAP_SYS_BOOT
+capability.
 .SH NOTES
-kexec_load is currently not defined in glibc. To call it use:
-.in +4n
-.nf
-#define _GNU_SOURCE
-#include <syscall.h>
-#include <asm/unistd.h>
-#include <linux/kexec.h>
-
-ret = syscall(__NR_kexec_load, entry, nr_segments, segments, flags);
-.fi
-.in
+Currently, there is no glibc support for
+.BR kexec_load ().
+Call it using
+.BR syscall (2).
 .PP
-.I linux/kexec.h as a exported header is only available in 2.6.38
-and later kernels, in earlier kernels the constants need to be copied
-out of the kernel source.
+The required constants are in the kernel source file
+.IR linux/kexec.h ,
+which is not currently exported to glibc.
+.\" FIXME Andi submitted a patch for this.
+.\" Check if it got accepted later.
+Therefore, these constants must be defined manually.
 .SH SEE ALSO
 .BR syscall (2),
 .BR reboot (2)

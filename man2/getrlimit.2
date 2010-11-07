@@ -1,7 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt, March 28, 1992
-.\" and Copyright (c) 2002, 2004, 2005, 2008 Michael Kerrisk
+.\" and Copyright (c) 2002, 2004, 2005, 2008. 2010 Michael Kerrisk
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -37,7 +37,7 @@
 .\" Modified 2002-06-13 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"     Added note on nonstandard behavior when SIGCHLD is ignored.
 .\" Modified 2002-07-09 by Michael Kerrisk <mtk.manpages@gmail.com>
-.\"	Enhanced descriptions of 'resource' values for [gs]etrlimit()
+.\"	Enhanced descriptions of 'resource' values
 .\" Modified 2003-11-28 by aeb, added RLIMIT_CORE
 .\" Modified 2004-03-26 by aeb, added RLIMIT_AS
 .\" Modified 2004-06-16 by Michael Kerrisk <mtk.manpages@gmail.com>
@@ -59,10 +59,11 @@
 .\" 2005-07-13, mtk, documented RLIMIT_MSGQUEUE limit.
 .\" 2005-07-28, mtk, Added descriptions of RLIMIT_NICE and RLIMIT_RTPRIO
 .\" 2008-05-07, mtk / Peter Zijlstra, Added description of RLIMIT_RTTIME
+.\" 2010-11-06, mtk: Added documentation of prlimit()
 .\"
-.TH GETRLIMIT 2 2010-09-26 "Linux" "Linux Programmer's Manual"
+.TH GETRLIMIT 2 2010-11-06 "Linux" "Linux Programmer's Manual"
 .SH NAME
-getrlimit, setrlimit \- get/set resource limits
+getrlimit, setrlimit, prlimit \- get/set resource limits
 .SH SYNOPSIS
 .B #include <sys/time.h>
 .br
@@ -71,7 +72,21 @@ getrlimit, setrlimit \- get/set resource limits
 .BI "int getrlimit(int " resource ", struct rlimit *" rlim );
 .br
 .BI "int setrlimit(int " resource ", const struct rlimit *" rlim );
+.sp
+.BI "int prlimit(pid_t "  pid ", int " resource \
+", const struct rlimit *" new_limit ,
+.br
+.BI "            struct rlimit *" old_limit );
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR prlimit ():
+_GNU_SOURCE
 .SH DESCRIPTION
+The
 .BR getrlimit ()
 and
 .BR setrlimit ()
@@ -361,43 +376,113 @@ Since Linux 2.6.23,
 this limit also determines the amount of space used for the process's
 command-line arguments and environment variables; for details, see
 .BR execve (2).
-.SH "RETURN VALUE"
-On success, zero is returned.
+.SS prlimit()
+.\" commit c022a0acad534fd5f5d5f17280f6d4d135e74e81
+.\" Author: Jiri Slaby <jslaby@suse.cz>
+.\" Date:   Tue May 4 18:03:50 2010 +0200
+The Linux-specific
+.BR prlimit ()
+system call combines and extends the functionality of
+.BR setrlimit ()
+and
+.BR getrlimit ().
+It can be used to both set and get the resource limits of an arbitrary process.
+
+The
+.I resource
+argument has the same meaning as for
+.BR setrlimit ()
+and
+.BR getrlimit ().
+
+If the
+.IR new_limit
+argument is a not NULL, then the
+.I rlimit
+structure to which it points is used to set new values for
+the soft and hard limits for
+.IR resource .
+If the
+.IR old_limit
+argument is a not NULL, then a successful call to
+.BR prlimit ()
+places the previous soft and hard limits for
+.I resource
+in the 
+.I rlimit
+structure pointed to by
+.IR old_limit .
+
+The
+.I pid
+argument specifies the ID of the process on which the call is to operate.
+If
+.I pid
+is 0, then the call applies to the calling process.
+To set or get the resources of a process other than itself,
+the caller must have the
+.B CAP_SYS_RESOURCE
+capability, or the
+real, effective, and saved set user IDs of the target process
+must match the real user ID of the caller
+.I and
+the real, effective, and saved set group IDs of the target process
+must match the real group ID of the caller.
+.\" FIXME this permission check is strange
+.\" Asked about this on LKML, 7 Nov 2010
+.\"     "Inconsistent credential checking in prlimit() syscall"
+.SH RETURN VALUE
+On success, these system calls return 0.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
 .SH ERRORS
 .TP
 .B EFAULT
-.I rlim
-points outside the accessible address space.
+A pointer argument points to a location
+outside the accessible address space.
 .TP
 .B EINVAL
+The value specified in
 .I resource
 is not valid;
+The value specified in
 or, for
-.BR setrlimit ():
+.BR setrlimit ()
+or
+.BR prlimit ():
 .I rlim\->rlim_cur
 was greater than
 .IR rlim\->rlim_max .
 .TP
 .B EPERM
-An unprivileged process tried to use
-.BR setrlimit ()
-to
-increase a soft or hard limit above the current hard limit; the
+An unprivileged process tried to raise the hard limit; the
 .B CAP_SYS_RESOURCE
 capability is required to do this.
-Or, the process tried to use
-.BR setrlimit ()
-to increase
-the soft or hard
+Or, the the caller tried to increase the hard
 .B RLIMIT_NOFILE
-limit above the current kernel
-maximum
+limit above the current kernel maximum
 .RB ( NR_OPEN ).
+Or, the calling process did not have permission to set limits
+for the process specified by
+.IR pid .
+.TP
+.B ESRCH
+Could not find a process with the ID specified in
+.IR pid .
+.SH VERSIONS
+.BR The
+.BR prlimit ()
+system call is available since Linux 2.6.36.
+Library support is available since glibc 2.13.
 .SH CONFORMING TO
+.BR getrlimit (),
+.BR setrlimit ():
 SVr4, 4.3BSD, POSIX.1-2001.
+.br
+.BR prlimit ():
+Linux-specific.
+
 .B RLIMIT_MEMLOCK
 and
 .B RLIMIT_NPROC
@@ -438,6 +523,9 @@ For backward compatibility, glibc also provides
 All new applications should be written using
 .BR setrlimit ().
 .SH BUGS
+.\" FIXME prlimit() does not suffer
+.\" https://bugzilla.kernel.org/show_bug.cgi?id=5042
+.\" http://sources.redhat.com/bugzilla/show_bug.cgi?id=12201
 In older Linux kernels, the
 .B SIGXCPU
 and

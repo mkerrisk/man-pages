@@ -517,6 +517,58 @@ For backward compatibility, glibc also provides
 .BR vlimit ().
 All new applications should be written using
 .BR setrlimit ().
+.SH EXAMPLE
+The program below demonstrates the use of
+.BR prlimit ().
+.PP
+.nf
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/resource.h>
+
+int
+main(int argc, char *argv[])
+{
+    struct rlimit64 old, new;
+    struct rlimit64 *newp;
+    pid_t pid;
+
+    if (!(argc == 2 || argc == 4)) {
+        fprintf(stderr, "Usage: %s <pid> [<new\-soft\-limit> "
+                "<new\-hard\-limit>]\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+        
+    pid = atoi(argv[1]);        /* PID of traget process */
+
+    newp = NULL;
+    if (argc == 4) {
+        new.rlim_cur = atoi(argv[2]);
+        new.rlim_max = atoi(argv[3]);
+        newp = &new;
+    }
+
+    /* Set CPU time limit of target prcess; retrieve and display
+       previous limit */
+
+    if (prlimit(pid, RLIMIT_CPU, newp, &old) == \-1) 
+        errExit("prlimit\-1");
+    printf("Previous limits: soft=%lld; hard=%lld\\n",
+            (long long) old.rlim_cur, (long long) old.rlim_max);
+
+    /* Retrieve and display new CPU time limit */
+
+    if (prlimit(pid, RLIMIT_CPU, NULL, &old) == \-1) 
+        errExit("prlimit\-2");
+    printf("New limits: soft=%lld; hard=%lld\\n",
+            (long long) old.rlim_cur, (long long) old.rlim_max);
+
+    exit(EXIT_FAILURE);
+}
+.fi
 .SH BUGS
 .\" FIXME prlimit() does not suffer
 .\" https://bugzilla.kernel.org/show_bug.cgi?id=5042

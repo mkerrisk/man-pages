@@ -26,9 +26,9 @@
 .\" 2007-04-30 mtk, A fairly major rewrite to fix errors and
 .\"     add more details.
 .\"
-.TH READV 2  2002-10-17 "Linux" "Linux Programmer's Manual"
+.TH READV 2  2010-11-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
-readv, writev \- read or write data into multiple buffers
+readv, writev, preadv, pwritev \- read or write data into multiple buffers
 .SH SYNOPSIS
 .nf
 .B #include <sys/uio.h>
@@ -36,7 +36,22 @@ readv, writev \- read or write data into multiple buffers
 .BI "ssize_t readv(int " fd ", const struct iovec *" iov ", int " iovcnt );
 .sp
 .BI "ssize_t writev(int " fd ", const struct iovec *" iov ", int " iovcnt );
+.sp
+.BI "ssize_t preadv(int " fd ", const struct iovec *" iov ", int " iovcnt , 
+.BI "               off_t " offset );
+.sp
+.BI "ssize_t pwritev(int " fd ", const struct iovec *" iov ", int " iovcnt ,
+.BI "                off_t " offset );
 .fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR preadv (),
+.BR pwritev ():
+_BSD_SOURCE
 .SH DESCRIPTION
 The
 .BR readv ()
@@ -125,19 +140,60 @@ regardless of read operations performed in other threads or processes
 that have file descriptors referring to the same open file description
 (see
 .BR open (2)).
+.SS preadv() and pwritev()
+The
+.BR preadv ()
+system call combines the functionality of
+.BR readv ()
+and
+.BR pread (2).
+It performs the same task as
+.BR readv (),
+but adds a fourth argument,
+.IR offset ,
+which specifies the file offset at which the input operation
+is to be performed.
+
+The
+.BR pwritev ()
+system call combines the functionality of
+.BR writev ()
+and
+.BR pwrite (2).
+It performs the same task as
+.BR writev (),
+but adds a fourth argument,
+.IR offset ,
+which specifies the file offset at which the output operation
+is to be performed.
+
+The file offset is not changed by these system calls.
+The file referred to by
+.I fd
+must be capable of seeking.
 .SH "RETURN VALUE"
 On success, the
 .BR readv ()
-function returns the number of bytes read; the
+and
+.BR preadv ()
+return the number of bytes read;
 .BR writev ()
-function returns the number of bytes written.
+and
+.BR pwritev ()
+return the number of bytes written.
 On error, \-1 is returned, and \fIerrno\fP is set appropriately.
 .SH ERRORS
 The errors are as given for
 .BR read (2)
 and
 .BR write (2).
-Additionally the following error is defined:
+Furthermore,
+.BR preadv ()
+and
+.BR pwritev ()
+can also fail for the same reasons as
+.BR lseek (2).
+Additionally, the following error is defined:
 .TP
 .B EINVAL
 The sum of the
@@ -147,16 +203,23 @@ values overflows an
 value.
 Or, the vector count \fIiovcnt\fP is less than zero or greater than the
 permitted maximum.
-.SH "CONFORMING TO"
-4.4BSD (the
-.BR readv ()
+.SH VERSIONS
+.BR preadv ()
 and
-.BR writev ()
-functions first appeared in 4.2BSD), POSIX.1-2001.
+.BR pwritev ()
+first appeared in Linux 2.6.30; library support was added in glibc 2.10.
+.SH "CONFORMING TO"
+.BR readv (),
+.BR writev ():
+4.4BSD (these functions first appeared in 4.2BSD), POSIX.1-2001.
 Linux libc5 used \fIsize_t\fP as the type of the \fIiovcnt\fP argument,
 and \fIint\fP as return type for these functions.
 .\" The readv/writev system calls were buggy before Linux 1.3.40.
 .\" (Says release.libc.)
+
+.BR preadv (),
+.BR pwritev ():
+nonstandard, but present also on the modern BSDs.
 .SH NOTES
 .SS Linux Notes
 POSIX.1-2001 allows an implementation to place a limit on
@@ -216,5 +279,6 @@ nwritten = writev(STDOUT_FILENO, iov, 2);
 .fi
 .in
 .SH "SEE ALSO"
+.BR pread (2),
 .BR read (2),
 .BR write (2)

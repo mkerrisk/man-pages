@@ -1,9 +1,9 @@
 .\" Copyright (C) 2011, Eric Biederman <ebiederm@xmission.com>
 .\" Licensed under the GPLv2
 .\"
-.TH SETNS 2 2011-09-08 "Linux" "Linux Programmer's Manual"
+.TH SETNS 2 2011-09-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-setns \- reassociate parts of the process execution context
+setns \- reassociate process with a namespace
 .SH SYNOPSIS
 .nf
 .BR "#define _GNU_SOURCE" "             /* See feature_test_macros(7) */"
@@ -15,52 +15,71 @@ setns \- reassociate parts of the process execution context
 Given a file descriptor referring to a namespace,
 reassociate the calling process with that namespace.
 
-.\" FIXME describe "fd" argument.
-.\" fds could come from UNIX domain sockets
+The
+.I fd
+argument is a file descriptor referring to one of the namespace entries in a
+.I /proc/[pid]/ns/
+directory; see
+.BR proc (5)
+for further information on 
+.IR /proc/[pid]/ns/ .
+The calling process will be reassociated with the corresponding namespace,
+subject to any constraints imposed by the
+.I nstype
+argument.
+
 The
 .I nstype
 argument specifies which type of namespace
 the calling process may be reassociated with.
 This argument can have one of the following values:
 .TP
-.\" FIXME "allow"?
 .BR 0
-Allow any namespace to be joined.
+Allow any type of namespace to be joined.
 .TP
 .BR CLONE_NEWIPC
-Only allow joining an IPC namespace.
+.I fd
+must refer to an IPC namespace.
 .TP
 .BR CLONE_NEWNET
-Only allow joining a network namespace.
+.I fd
+must refer to a network namespace.
 .TP
 .BR CLONE_NEWUTS
-Only allow joining a UTS namespace.
+.I fd
+must refer to a UTS namespace.
 .PP
-If
-.I flags
-is specified as zero, then
-.BR setns ()
-is a no-op;
-no changes are made to the calling process's execution context.
+Specifying
+.I nstype
+as 0 suffices if the caller knows (or does not care)
+what type of namespace is referred to by
+.IR fd .
+Specifying a nonzero value for
+.I nstype
+is useful if the caller does not know what type of namespace is referred to by
+.IR fd
+and wants to ensure that the namespace is of a particular type.
+(The caller might not know the type of the namespace referred to by
+.IR fd
+if the file descriptor was opened by another process and, for example,
+passed to the caller via a UNIX domain socket.)
 .SH RETURN VALUE
-On success, zero returned.
+On success,
+.IR setns ()
+returns 0.
 On failure, \-1 is returned and
 .I errno
 is set to indicate the error.
 .SH ERRORS
-.TP
 .TP
 .B EBADF
 .I fd
 is not a valid file descriptor.
 .TP
 .B EINVAL
-A file descriptor that does not match the specified
+.I fd
+refers to a namespace whose type does not match that specified in
 .IR nstype .
-
-.\" FIXME
-Attempted to change the mount namespace but the filesystem
-is shared between multiple tasks.
 .TP
 .B ENOMEM
 Cannot allocate sufficient memory to change the specified namespace.
@@ -95,4 +114,5 @@ in
 .BR clone (2),
 .BR fork (2),
 .BR vfork (2),
-.BR proc (5)
+.BR proc (5),
+.BR unix (7)

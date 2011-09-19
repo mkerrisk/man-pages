@@ -2,6 +2,9 @@
 .\" Written by Dave Chinner <dgc@sgi.com>
 .\" May be distributed as per GNU General Public License version 2.
 .\"
+.\" 2011-09-19: Added FALLOC_FL_PUNCH_HOLE
+.\" 2011-09-19: Substantial restructuring of the page
+.\"
 .TH FALLOCATE 2 2011-09-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
 fallocate \- manipulate file space
@@ -32,71 +35,77 @@ bytes.
 The
 .I mode
 argument determines the operation to be performed on the given range.
-The following flag values are supported for
-.IR mode :
-.TP
-.B FALLOC_FL_KEEP_SIZE
-This flag allocates and initializes to zero the disk space
+Details of the supported operations are given in the subsections below.
+.SS Allocating disk space
+The default operation (i.e.,
+.I mode
+is zero) of
+.BR fallocate ()
+allocates and initializes to zero the disk space
 within the range specified by
 .I offset
 and
 .IR len .
-After a successful call, subsequent writes into this range
-are guaranteed not to fail because of lack of disk space.
-Preallocating zeroed blocks beyond the end of the file
-is useful for optimizing append workloads.
-Preallocating blocks does not change
-the file size (as reported by
+The file size (as reported by
 .BR stat (2))
-even if it is less than
-.IR offset + len .
-.\"
-.\" Note from Amit Arora:
-.\" There were few more flags which were discussed, but none of
-.\" them have been finalized upon. Here are these flags:
-.\" FA_FL_DEALLOC, FA_FL_DEL_DATA, FA_FL_ERR_FREE, FA_FL_NO_MTIME,
-.\" FA_FL_NO_CTIME
-.\" All of the above flags were debated upon and we can not say
-.\" if any/which one of these flags will make it to the later kernels.
-.PP
-.TP
-.BR FALLOC_FL_PUNCH_HOLE " (since Linux 2.6.38)"
-Deallocate space (i.e., create a hole)
-in the byte range starting at
-.I offset
-and continuing for
-.I len
-bytes; partial file system blocks are zeroed,
-and whole file system blocks are removed from the file.
-After a successful call,
-subsequent reads from this range will return zeroes.
-The
-.BR FALLOC_FL_PUNCH_HOLE
-flag must be ORed with
-.BR FALLOC_FL_KEEP_SIZE
-in mode;
-in other words, even when punching off the end of the file, the file size
-(as reported by
-.BR stat (2))
-does not change.
-.PP
-If
-.B FALLOC_FL_KEEP_SIZE
-flag is not specified in
-.IR mode ,
-the default behavior is almost same as when this flag is specified.
-The only difference is that on success,
-the file size will be changed if
+will be changed if
 .I "offset + len"
 is greater than the file size.
 This default behavior closely resembles the behavior of the
 .BR posix_fallocate (3)
 library function,
 and is intended as a method of optimally implementing that function.
+
+After a successful call, subsequent writes into the range specified by
+.IR offset
+and
+.IR len
+are guaranteed not to fail because of lack of disk space.
+
+If the
+.B FALLOC_FL_KEEP_SIZE
+flag is specified in
+.IR mode ,
+the behavior of the call is similar,
+but the file size will not be changed even if
+.I "offset + len"
+is greater than the file size.
+Preallocating zeroed blocks beyond the end of the file in this manner
+is useful for optimizing append workloads.
 .PP
 Because allocation is done in block size chunks,
 .BR fallocate ()
-may allocate a larger range than that which was specified.
+may allocate a larger range of disk space than was specified.
+.SS Deallocating file space
+Specifying the
+.BR FALLOC_FL_PUNCH_HOLE
+flag (available since Linux 2.6.38) in
+.I mode
+deallocates space (i.e., creates a hole)
+in the byte range starting at
+.I offset
+and continuing for
+.I len
+bytes.
+Within the specified range, partial file system blocks are zeroed,
+and whole file system blocks are removed from the file.
+After a successful call,
+subsequent reads from this range will return zeroes.
+
+The
+.BR FALLOC_FL_PUNCH_HOLE
+flag must be ORed with
+.BR FALLOC_FL_KEEP_SIZE
+in
+.IR mode ;
+in other words, even when punching off the end of the file, the file size
+(as reported by
+.BR stat (2))
+does not change.
+
+Not all file systems support
+.BR FALLOC_FL_PUNCH_HOLE ;
+if a file system doesn't support the operation, an error is returned.
 .SH RETURN VALUE
 .BR fallocate ()
 returns zero on success, and \-1 on failure.

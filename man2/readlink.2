@@ -35,7 +35,7 @@
 .\" Modified Tue Jul  9 23:55:17 1996 by aeb
 .\" Modified Fri Jan 24 00:26:00 1997 by aeb
 .\"
-.TH READLINK 2 2011-04-20 "Linux" "Linux Programmer's Manual"
+.TH READLINK 2 2011-09-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 readlink \- read value of a symbolic link
 .SH SYNOPSIS
@@ -69,21 +69,6 @@ does not append a null byte to
 It will truncate the contents (to a length of
 .I bufsiz
 characters), in case the buffer is too small to hold all of the contents.
-
-Using a statically sized buffer might not give enough room for the
-symbolic link contents, which might end up getting truncated. The
-needed size for the buffer can be obtained from the symbolic link's
-.I stat
-structure
-.I st_size
-field with
-.BR lstat (),
-but the number of written characters should be checked to make sure the
-symbolic link did not change between both calls, and no truncation
-happened. This also fixes a common portability problem when using
-.I PATH_MAX
-for the buffer size, as this is not guaranteed to be defined per POSIX
-if the system does not have such limit.
 .SH "RETURN VALUE"
 On success,
 .BR readlink ()
@@ -145,12 +130,31 @@ was declared as
 Nowadays, the return type is declared as
 .IR ssize_t ,
 as (newly) required in POSIX.1-2001.
+
+Using a statically sized buffer might not provide enough room for the
+symbolic link contents.
+The required size for the buffer can be obtained from the
+.I stat.st_size
+value returned by a call to
+.BR lstat (2)
+on the link.
+However, the number of bytes written by
+.BR readlink ()
+should be checked to make sure that the size of the
+symbolic link did not increase between the calls.
+Dynamically allocating the buffer for
+.BR readlink ()
+also addresses a common portability problem when using
+.I PATH_MAX
+for the buffer size,
+as this constant is not guaranteed to be defined per POSIX
+if the system does not have such limit.
 .SH EXAMPLE
-The following program allocates the space needed by
+The following program allocates the buffer needed by
 .BR readlink ()
 dynamically from the information provided by
 .BR lstat (),
-making sure there's no race condition between both calls.
+making sure there's no race condition between the calls.
 .nf
 
 #include <sys/types.h>
@@ -183,13 +187,18 @@ main(int argc, char *argv[])
     }
 
     r = readlink(argv[1], linkname, sb.st_size + 1);
+    
     if (r < 0) {
         perror("lstat");
         exit(EXIT_FAILURE);
-    } else if (r != sb.st_size) {
-        fprintf(stderr, "symlink changed between lstat and readlink\\n");
+    } 
+
+    if (r != sb.st_size) {
+        fprintf(stderr, "symlink increased in size "
+                        "between lstat() and readlink()\\n");
         exit(EXIT_FAILURE);
     }
+
     linkname[sb.st_size] = '\\0';
 
     printf("'%s' points to '%s'\\n", argv[1], linkname);

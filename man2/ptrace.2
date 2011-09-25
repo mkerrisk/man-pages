@@ -65,8 +65,10 @@ Tracees first need to be attached to the tracer.
 Attachment and subsequent commands are per-thread: in
 multi-threaded process, every thread can be individually attached to a
 (potentially different) tracer, or left not attached and thus not
-debugged. Therefore, "tracee" always means "(one) thread", never "a
-(possibly multi-threaded) process". Ptrace commands are always sent to
+debugged.
+Therefore, "tracee" always means "(one) thread", never "a
+(possibly multi-threaded) process".
+Ptrace commands are always sent to
 a specific tracee using ptrace(PTRACE_foo, pid, ...), where pid is the
 thread ID of the corresponding Linux thread.
 .LP
@@ -386,7 +388,8 @@ The tracee is sent a
 but will not necessarily have stopped
 by the completion of this call; use
 .BR wait (2)
-to wait for the tracee to stop. See "Attaching and detaching" subsection
+to wait for the tracee to stop.
+See "Attaching and detaching" subsection
 for additional information.
 (\fIaddr\fP and \fIdata\fP are ignored.)
 .TP
@@ -408,30 +411,35 @@ tracing.
 .SS Death under ptrace
 When a (possibly multi-threaded) process receives a killing signal (a
 signal set to SIG_DFL and whose default action is to kill the process),
-all threads exit. Tracees report their death to their tracer(s). The
-notification about this event is delivered through waitpid API.
+all threads exit.
+Tracees report their death to their tracer(s).
+The notification about this event is delivered through waitpid API.
 .LP
 Note that killing signal will first cause signal-delivery-stop (on one
 tracee only), and only after it is injected by tracer (or after it was
 dispatched to a thread which isn't traced), death from signal will
 happen on ALL tracees within multi-threaded process.
 .LP
-SIGKILL operates similarly, with exceptions. No signal-delivery-stop is
-generated for SIGKILL and therefore tracer can't suppress it. SIGKILL
+SIGKILL operates similarly, with exceptions.
+No signal-delivery-stop is
+generated for SIGKILL and therefore tracer can't suppress it.
+SIGKILL
 kills even within syscalls (syscall-exit-stop is not generated prior to
-death by SIGKILL). The net effect is that SIGKILL always kills the
+death by SIGKILL).
+The net effect is that SIGKILL always kills the
 process (all its threads), even if some threads of the process are
 ptraced.
 .LP
-Tracer can kill a tracee with ptrace(PTRACE_KILL, pid, 0, 0). This
+Tracer can kill a tracee with ptrace(PTRACE_KILL, pid, 0, 0).
+This
 operation is deprecated, use kill(SIGKILL) or tgkill(SIGKILL) instead.
 The problem with this operation is that it requires tracee to be in
 signal-delivery-stop, otherwise it may not work (may complete
 successfully but won't kill the tracee), whereas tgkill(SIGKILL)
 has no such limitation.
-.LP
-[Note: deprecation suggested by Oleg Nesterov. He prefers to deprecate
-it instead of describing (and needing to support) PTRACE_KILL's quirks.]
+.\" .LP
+.\" [Note: deprecation suggested by Oleg Nesterov. He prefers to deprecate
+.\" it instead of describing (and needing to support) PTRACE_KILL's quirks.]
 .LP
 When tracee executes exit syscall, it reports its death to its tracer.
 Other threads are not affected.
@@ -440,21 +448,26 @@ When any thread executes exit_group syscall, every tracee in its thread
 group reports its death to its tracer.
 .LP
 If PTRACE_O_TRACEEXIT option is on, PTRACE_EVENT_EXIT will happen
-before actual death. This applies to exits on exit syscall, group_exit
+before actual death.
+This applies to exits on exit syscall, group_exit
 syscall, signal deaths (except SIGKILL), and when threads are torn down
 on execve in multi-threaded process.
 .LP
-Tracer cannot assume that ptrace-stopped tracee exists. There are many
+Tracer cannot assume that ptrace-stopped tracee exists.
+There are many
 scenarios when tracee may die while stopped (such as SIGKILL).
 Therefore, tracer must always be prepared to handle ESRCH error on any
-ptrace operation. Unfortunately, the same error is returned if tracee
+ptrace operation.
+Unfortunately, the same error is returned if tracee
 exists but is not ptrace-stopped (for commands which require stopped
 tracee), or if it is not traced by process which issued ptrace call.
 Tracer needs to keep track of stopped/running state, and interpret
 ESRCH as "tracee died unexpectedly" only if it knows that tracee has
-been observed to enter ptrace-stop. Note that there is no guarantee
+been observed to enter ptrace-stop.
+Note that there is no guarantee
 that waitpid(WNOHANG) will reliably report tracee's death status if
-ptrace operation returned ESRCH. waitpid(WNOHANG) may return 0 instead.
+ptrace operation returned ESRCH.
+waitpid(WNOHANG) may return 0 instead.
 IOW: tracee may be "not yet fully dead" but already refusing ptrace ops.
 .LP
 Tracer can not assume that tracee ALWAYS ends its life by reporting
@@ -465,17 +478,22 @@ WIFEXITED(status) or WIFSIGNALED(status).
 A tracee can be in two states: running or stopped.
 .LP
 There are many kinds of states when tracee is stopped, and in ptrace
-discussions they are often conflated. Therefore, it is important to use
+discussions they are often conflated.
+Therefore, it is important to use
 precise terms.
 .LP
 In this document, any stopped state in which tracee is ready to accept
-ptrace commands from the tracer is called ptrace-stop. Ptrace-stops can
+ptrace commands from the tracer is called ptrace-stop.
+Ptrace-stops can
 be further subdivided into signal-delivery-stop, group-stop,
-syscall-stop and so on. They are described in detail later.
+syscall-stop and so on.
+They are described in detail later.
 .LP
 When running tracee enters ptrace-stop, it notifies its tracer using
-waitpid API. Tracer should use waitpid family of syscalls to wait for
-tracee to stop. Most of this document assumes that tracer waits with:
+waitpid API.
+Tracer should use waitpid family of syscalls to wait for
+tracee to stop.
+Most of this document assumes that tracer waits with:
 .LP
 	pid = waitpid(pid_or_minus_1, &status, __WALL);
 .LP
@@ -495,35 +513,45 @@ of the tracee.
 .LP
 Use of WNOHANG bit in waitpid flags may cause waitpid return 0 ("no
 wait results available yet") even if tracer knows there should be a
-notification. Example: kill(tracee, SIGKILL); waitpid(tracee, &status,
+notification.
+Example: kill(tracee, SIGKILL); waitpid(tracee, &status,
 __WALL | WNOHANG);
 .\" waitid usage? WNOWAIT?
 .\" describe how wait notifications queue (or not queue)
 .LP
 The following kinds of ptrace-stops exist: signal-delivery-stops,
 group-stop, PTRACE_EVENT stops, syscall-stops [, SINGLESTEP, SYSEMU,
-SYSEMU_SINGLESTEP]. They all are reported as waitpid result with
-WIFSTOPPED(status) == true. They may be differentiated by checking
+SYSEMU_SINGLESTEP].
+They all are reported as waitpid result with
+WIFSTOPPED(status) == true.
+They may be differentiated by checking
 (status >> 8) value, and if looking at (status >> 8) value doesn't
-resolve ambiguity, by querying PTRACE_GETSIGINFO. (Note:
+resolve ambiguity, by querying PTRACE_GETSIGINFO.
+(Note:
 WSTOPSIG(status) macro returns ((status >> 8) & 0xff) value).
 .SS Signal-delivery-stop
 When (possibly multi-threaded) process receives any signal except
 SIGKILL, kernel selects a thread which handles the signal (if signal is
-generated with t[g]kill, thread selection is done by user). If selected
-thread is traced, it enters signal-delivery-stop. By this point, signal
+generated with t[g]kill, thread selection is done by user).
+If selected
+thread is traced, it enters signal-delivery-stop.
+By this point, signal
 is not yet delivered to the process, and can be suppressed by tracer.
 If tracer doesn't suppress the signal, it passes signal to tracee in
-the next ptrace request. This second step of signal delivery is called
-"signal injection" in this document. Note that if signal is blocked,
+the next ptrace request.
+This second step of signal delivery is called
+"signal injection" in this document.
+Note that if signal is blocked,
 signal-delivery-stop doesn't happen until signal is unblocked, with the
 usual exception that SIGSTOP can't be blocked.
 .LP
 Signal-delivery-stop is observed by tracer as waitpid returning with
-WIFSTOPPED(status) == true, WSTOPSIG(status) == signal. If
+WIFSTOPPED(status) == true, WSTOPSIG(status) == signal.
+If
 WSTOPSIG(status) == SIGTRAP, this may be a different kind of
 ptrace-stop - see "Syscall-stops" and "execve" sections below for
-details. If WSTOPSIG(status) == stopping signal, this may be a
+details.
+If WSTOPSIG(status) == stopping signal, this may be a
 group-stop - see below.
 .SS Signal injection and suppression
 After signal-delivery-stop is observed by tracer, tracer should restart
@@ -531,8 +559,10 @@ tracee with
 .LP
 	ptrace(PTRACE_rest, pid, 0, sig)
 .LP
-call, where PTRACE_rest is one of the restarting ptrace ops. If sig is
-0, then signal is not delivered. Otherwise, signal sig is delivered.
+call, where PTRACE_rest is one of the restarting ptrace ops.
+If sig is
+0, then signal is not delivered.
+Otherwise, signal sig is delivered.
 This operation is called "signal injection" in this document, to
 distinguish it from signal-delivery-stop.
 .LP
@@ -540,7 +570,8 @@ Note that sig value may be different from WSTOPSIG(status) value -
 tracer can cause a different signal to be injected.
 .LP
 Note that suppressed signal still causes syscalls to return
-prematurely. Restartable syscalls will be restarted (tracer will
+prematurely.
+Restartable syscalls will be restarted (tracer will
 observe tracee to execute restart_syscall(2) syscall if tracer uses
 PTRACE_SYSCALL), non-restartable syscalls (for example, nanosleep) may
 return with -EINTR even though no observable signal is injected to the
@@ -548,24 +579,30 @@ tracee.
 .LP
 Note that restarting ptrace commands issued in ptrace-stops other than
 signal-delivery-stop are not guaranteed to inject a signal, even if sig
-is nonzero. No error is reported, nonzero sig may simply be ignored.
+is nonzero.
+No error is reported, nonzero sig may simply be ignored.
 Ptrace users should not try to "create new signal" this way: use
 tgkill(2) instead.
 .LP
-This is a cause of confusion among ptrace users. One typical scenario
+This is a cause of confusion among ptrace users.
+One typical scenario
 is that tracer observes group-stop, mistakes it for
 signal-delivery-stop, restarts tracee with ptrace(PTRACE_rest, pid, 0,
 stopsig) with the intention of injecting stopsig, but stopsig gets
 ignored and tracee continues to run.
 .LP
 SIGCONT signal has a side effect of waking up (all threads of)
-group-stopped process. This side effect happens before
-signal-delivery-stop. Tracer can't suppress this side-effect (it can
+group-stopped process.
+This side effect happens before
+signal-delivery-stop.
+Tracer can't suppress this side-effect (it can
 only suppress signal injection, which only causes SIGCONT handler to
-not be executed in the tracee, if such handler is installed). In fact,
+not be executed in the tracee, if such handler is installed).
+In fact,
 waking up from group-stop may be followed by signal-delivery-stop for
 signal(s) *other than* SIGCONT, if they were pending when SIGCONT was
-delivered. IOW: SIGCONT may be not the first signal observed by the
+delivered.
+IOW: SIGCONT may be not the first signal observed by the
 tracee after it was sent.
 .LP
 Stopping signals cause (all threads of) process to enter group-stop.
@@ -573,31 +610,40 @@ This side effect happens after signal injection, and therefore can be
 suppressed by tracer.
 .LP
 PTRACE_GETSIGINFO can be used to retrieve siginfo_t structure which
-corresponds to delivered signal. PTRACE_SETSIGINFO may be used to
-modify it. If PTRACE_SETSIGINFO has been used to alter siginfo_t,
+corresponds to delivered signal.
+PTRACE_SETSIGINFO may be used to
+modify it.
+If PTRACE_SETSIGINFO has been used to alter siginfo_t,
 si_signo field and sig parameter in restarting command must match,
 otherwise the result is undefined.
 .SS Group-stop
 When a (possibly multi-threaded) process receives a stopping signal,
-all threads stop. If some threads are traced, they enter a group-stop.
+all threads stop.
+If some threads are traced, they enter a group-stop.
 Note that stopping signal will first cause signal-delivery-stop (on one
 tracee only), and only after it is injected by tracer (or after it was
 dispatched to a thread which isn't traced), group-stop will be
-initiated on ALL tracees within multi-threaded process. As usual, every
+initiated on ALL tracees within multi-threaded process.
+As usual, every
 tracee reports its group-stop separately to corresponding tracer.
 .LP
 Group-stop is observed by tracer as waitpid returning with
-WIFSTOPPED(status) == true, WSTOPSIG(status) == signal. The same result
+WIFSTOPPED(status) == true, WSTOPSIG(status) == signal.
+The same result
 is returned by some other classes of ptrace-stops, therefore the
 recommended practice is to perform
 .LP
 	ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo)
 .LP
-call. The call can be avoided if signal number is not SIGSTOP, SIGTSTP,
-SIGTTIN or SIGTTOU - only these four signals are stopping signals. If
-tracer sees something else, it can't be group-stop. Otherwise, tracer
-needs to call PTRACE_GETSIGINFO. If PTRACE_GETSIGINFO fails with
-EINVAL, then it is definitely a group-stop. (Other failure codes are
+call.
+The call can be avoided if signal number is not SIGSTOP, SIGTSTP,
+SIGTTIN or SIGTTOU - only these four signals are stopping signals.
+If tracer sees something else, it can't be group-stop.
+Otherwise, tracer
+needs to call PTRACE_GETSIGINFO.
+If PTRACE_GETSIGINFO fails with
+EINVAL, then it is definitely a group-stop.
+(Other failure codes are
 possible, such as ESRCH "no such process" if SIGKILL killed the tracee).
 .LP
 As of kernel 2.6.38, after tracer sees tracee ptrace-stop and until it
@@ -607,18 +653,22 @@ into another waitpid call.
 .LP
 Currently, it causes a problem with transparent handling of stopping
 signals: if tracer restarts tracee after group-stop, SIGSTOP is
-effectively ignored: tracee doesn't remain stopped, it runs. If tracer
+effectively ignored: tracee doesn't remain stopped, it runs.
+If tracer
 doesn't restart tracee before entering into next waitpid, future
-SIGCONT will not be reported to the tracer. Which would make SIGCONT to
+SIGCONT will not be reported to the tracer.
+Which would make SIGCONT to
 have no effect.
 .SS PTRACE_EVENT stops
 If tracer sets TRACE_O_TRACEfoo options, tracee will enter ptrace-stops
 called PTRACE_EVENT stops.
 .LP
 PTRACE_EVENT stops are observed by tracer as waitpid returning with
-WIFSTOPPED(status) == true, WSTOPSIG(status) == SIGTRAP. Additional bit
+WIFSTOPPED(status) == true, WSTOPSIG(status) == SIGTRAP.
+Additional bit
 is set in a higher byte of status word: value (status >> 8)
-will be (SIGTRAP | PTRACE_EVENT_foo << 8). The following events exist:
+will be (SIGTRAP | PTRACE_EVENT_foo << 8).
+The following events exist:
 .LP
 PTRACE_EVENT_VFORK - stop before return from vfork or clone+CLONE_VFORK.
 When tracee is continued after this stop, it will wait for child to
@@ -634,24 +684,29 @@ vfork or clone+CLONE_VFORK, but after vforked child unblocked this
 tracee by exiting or exec'ing.
 .LP
 For all four stops described above: stop occurs in parent, not in newly
-created thread. PTRACE_GETEVENTMSG can be used to retrieve new thread's
+created thread.
+PTRACE_GETEVENTMSG can be used to retrieve new thread's
 tid.
 .LP
 PTRACE_EVENT_EXEC - stop before return from execve.
 .LP
 PTRACE_EVENT_EXIT - stop before exit (including death from exit_group),
 signal death, or exit caused by execve in multi-threaded process.
-PTRACE_GETEVENTMSG returns exit status. Registers can be examined
-(unlike when "real" exit happens). The tracee is still alive, it needs
+PTRACE_GETEVENTMSG returns exit status.
+Registers can be examined
+(unlike when "real" exit happens).
+The tracee is still alive, it needs
 to be PTRACE_CONTed or PTRACE_DETACHed to finish exit.
 .LP
 PTRACE_GETSIGINFO on PTRACE_EVENT stops returns si_signo = SIGTRAP,
 si_code = (event << 8) | SIGTRAP.
 .SS Syscall-stops
 If tracee was restarted by PTRACE_SYSCALL, tracee enters
-syscall-enter-stop just prior to entering any syscall. If tracer
+syscall-enter-stop just prior to entering any syscall.
+If tracer
 restarts it with PTRACE_SYSCALL, tracee enters syscall-exit-stop when
-syscall is finished, or if it is interrupted by a signal. (That is,
+syscall is finished, or if it is interrupted by a signal.
+(That is,
 signal-delivery-stop never happens between syscall-enter-stop and
 syscall-exit-stop, it happens *after* syscall-exit-stop).
 .LP
@@ -663,32 +718,38 @@ this sutuation is discussed later).
 .LP
 Syscall-enter-stop and syscall-exit-stop are observed by tracer as
 waitpid returning with WIFSTOPPED(status) == true, WSTOPSIG(status) ==
-SIGTRAP. If PTRACE_O_TRACESYSGOOD option was set by tracer, then
+SIGTRAP.
+If PTRACE_O_TRACESYSGOOD option was set by tracer, then
 WSTOPSIG(status) == (SIGTRAP | 0x80).
 .LP
 Syscall-stops can be distinguished from signal-delivery-stop with
 SIGTRAP by querying PTRACE_GETSIGINFO: si_code <= 0 if SIGTRAP was sent by usual
 suspects like [tg]kill/sigqueue/etc; or = SI_KERNEL (0x80) if sent by
 kernel, whereas syscall-stops have si_code = SIGTRAP or (SIGTRAP |
-0x80). However, syscall-stops happen very often (twice per syscall),
+0x80).
+However, syscall-stops happen very often (twice per syscall),
 and performing PTRACE_GETSIGINFO for every syscall-stop may be somewhat
 expensive.
 .LP
 Some architectures allow to distinguish them by examining registers.
-For example, on x86 rax = -ENOSYS in syscall-enter-stop. Since SIGTRAP
+For example, on x86 rax = -ENOSYS in syscall-enter-stop.
+Since SIGTRAP
 (like any other signal) always happens *after* syscall-exit-stop, and
 at this point rax almost never contains -ENOSYS, SIGTRAP looks like
 "syscall-stop which is not syscall-enter-stop", IOW: it looks like a
-"stray syscall-exit-stop" and can be detected this way. But such
+"stray syscall-exit-stop" and can be detected this way.
+But such
 detection is fragile and is best avoided.
 .LP
 Using PTRACE_O_TRACESYSGOOD option is a recommended method, since it is
 reliable and does not incur performance penalty.
 .LP
 Syscall-enter-stop and syscall-exit-stop are indistinguishable from
-each other by tracer. Tracer needs to keep track of the sequence of
+each other by tracer.
+Tracer needs to keep track of the sequence of
 ptrace-stops in order to not misinterpret syscall-enter-stop as
-syscall-exit-stop or vice versa. The rule is that syscall-enter-stop is
+syscall-exit-stop or vice versa.
+The rule is that syscall-enter-stop is
 always followed by syscall-exit-stop, PTRACE_EVENT stop or tracee's
 death - no other kinds of ptrace-stop can occur in between.
 .LP
@@ -705,7 +766,8 @@ Most ptrace commands (all except ATTACH, TRACEME, KILL) require tracee
 to be in a ptrace-stop, otherwise they fail with ESRCH.
 .LP
 When tracee is in ptrace-stop, tracer can read and write data to tracee
-using informational commands. They leave tracee in ptrace-stopped state:
+using informational commands.
+They leave tracee in ptrace-stopped state:
 .LP
 .nf
 longv = ptrace(PTRACE_PEEKTEXT/PEEKDATA/PEEKUSER, pid, addr, 0);
@@ -718,34 +780,43 @@ longv = ptrace(PTRACE_PEEKTEXT/PEEKDATA/PEEKUSER, pid, addr, 0);
 	ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_flags);
 .fi
 .LP
-Note that some errors are not reported. For example, setting siginfo
+Note that some errors are not reported.
+For example, setting siginfo
 may have no effect in some ptrace-stops, yet the call may succeed
 (return 0 and don't set errno); querying GETEVENTMSG may succeed
 and return some random value if current ptrace-stop is not documented
 as returning meaningful event message.
 .LP
 ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_flags) affects one tracee.
-Current flags are replaced. Flags are inherited by new tracees created
+Current flags are replaced.
+Flags are inherited by new tracees created
 and "auto-attached" via active PTRACE_O_TRACE[V]FORK or
 PTRACE_O_TRACECLONE options.
 .LP
-Another group of commands makes ptrace-stopped tracee run. They have
+Another group of commands makes ptrace-stopped tracee run.
+They have
 the form:
 .LP
 	ptrace(PTRACE_cmd, pid, 0, sig);
 .LP
 where cmd is CONT, DETACH, SYSCALL, SINGLESTEP, SYSEMU, or
-SYSEMU_SINGLESTEP. If tracee is in signal-delivery-stop, sig is the
-signal to be injected. Otherwise, sig may be ignored (recommended
+SYSEMU_SINGLESTEP.
+If tracee is in signal-delivery-stop, sig is the
+signal to be injected.
+Otherwise, sig may be ignored (recommended
 practice is to always pass 0 in these cases).
 .SS Attaching and detaching
 A thread can be attached to tracer using ptrace(PTRACE_ATTACH, pid, 0,
-0) call. This also sends SIGSTOP to this thread. If tracer wants this
-SIGSTOP to have no effect, it needs to suppress it. Note that if other
+0) call.
+This also sends SIGSTOP to this thread.
+If tracer wants this
+SIGSTOP to have no effect, it needs to suppress it.
+Note that if other
 signals are concurrently sent to this thread during attach, tracer may
 see tracee enter signal-delivery-stop with other signal(s) first! The
 usual practice is to reinject these signals until SIGSTOP is seen, then
-suppress SIGSTOP injection. The design bug here is that attach and
+suppress SIGSTOP injection.
+The design bug here is that attach and
 concurrent SIGSTOP are racing and concurrent SIGSTOP may be lost.
 .\" Describe how to attach to a thread which is already group-stopped.
 .LP
@@ -754,7 +825,9 @@ may cause stray EINTR return from the currently executing syscall in
 the tracee, as described in "signal injection and suppression" section.
 .LP
 ptrace(PTRACE_TRACEME, 0, 0, 0) request turns current thread into a
-tracee. It continues to run (doesn't enter ptrace-stop). A common
+tracee.
+It continues to run (doesn't enter ptrace-stop).
+A common
 practice is to follow ptrace(PTRACE_TRACEME) with raise(SIGSTOP) and
 allow parent (which is our tracer now) to observe our
 signal-delivery-stop.
@@ -768,54 +841,69 @@ signal-delivery-stop after they exit syscall which created them.
 .LP
 Detaching of tracee is performed by ptrace(PTRACE_DETACH, pid, 0, sig).
 PTRACE_DETACH is a restarting operation, therefore it requires tracee
-to be in ptrace-stop. If tracee is in signal-delivery-stop, signal can
-be injected. Otherwise, sig parameter may be silently ignored.
+to be in ptrace-stop.
+If tracee is in signal-delivery-stop, signal can
+be injected.
+Otherwise, sig parameter may be silently ignored.
 .LP
 If tracee is running when tracer wants to detach it, the usual solution
 is to send SIGSTOP (using tgkill, to make sure it goes to the correct
 thread), wait for tracee to stop in signal-delivery-stop for SIGSTOP
-and then detach it (suppressing SIGSTOP injection). Design bug is that
-this can race with concurrent SIGSTOPs. Another complication is that
+and then detach it (suppressing SIGSTOP injection).
+Design bug is that
+this can race with concurrent SIGSTOPs.
+Another complication is that
 tracee may enter other ptrace-stops and needs to be restarted and
-waited for again, until SIGSTOP is seen. Yet another complication is to
+waited for again, until SIGSTOP is seen.
+Yet another complication is to
 be sure that tracee is not already ptrace-stopped, because no signal
 delivery happens while it is - not even SIGSTOP.
 .\" Describe how to detach from a group-stopped tracee so that it
 .\" doesn't run, but continues to wait for SIGCONT.
 .LP
 If tracer dies, all tracees are automatically detached and restarted,
-unless they were in group-stop. Handling of restart from group-stop is
+unless they were in group-stop.
+Handling of restart from group-stop is
 currently buggy, but "as planned" behavior is to leave tracee stopped
-and waiting for SIGCONT. If tracee is restarted from
+and waiting for SIGCONT.
+If tracee is restarted from
 signal-delivery-stop, pending signal is injected.
 .SS execve under ptrace
 During execve, kernel destroys all other threads in the process, and
-resets execve'ing thread tid to tgid (process id). This looks very
+resets execve'ing thread tid to tgid (process id).
+This looks very
 confusing to tracers:
 .LP
 All other threads stop in PTRACE_EXIT stop, if requested by active
-ptrace option. Then all other threads except thread group leader report
-death as if they exited via exit syscall with exit code 0. Then
+ptrace option.
+Then all other threads except thread group leader report
+death as if they exited via exit syscall with exit code 0.
+Then
 PTRACE_EVENT_EXEC stop happens, if requested by active ptrace option.
 .\" (on which tracee - leader? execve-ing one?)
 .LP
 The execve-ing tracee changes its pid while it is in execve syscall.
 (Remember, under ptrace 'pid' returned from waitpid, or fed into ptrace
-calls, is tracee's tid). That is, pid is reset to process id, which
+calls, is tracee's tid).
+That is, pid is reset to process id, which
 coincides with thread group leader tid.
 .LP
 If thread group leader has reported its death by this time, for tracer
-this looks like dead thread leader "reappears from nowhere". If thread
+this looks like dead thread leader "reappears from nowhere".
+If thread
 group leader was still alive, for tracer this may look as if thread
 group leader returns from a different syscall than it entered, or even
-"returned from syscall even though it was not in any syscall". If
+"returned from syscall even though it was not in any syscall".
+If
 thread group leader was not traced (or was traced by a different
 tracer), during execve it will appear as if it has become a tracee of
-the tracer of execve-ing tracee. All these effects are the artifacts of
+the tracer of execve-ing tracee.
+All these effects are the artifacts of
 pid change.
 .LP
 PTRACE_O_TRACEEXEC option is the recommended tool for dealing with this
-case. It enables PTRACE_EVENT_EXEC stop which occurs before execve
+case.
+It enables PTRACE_EVENT_EXEC stop which occurs before execve
 syscall returns.
 .LP
 Pid change happens before PTRACE_EVENT_EXEC stop, not after.
@@ -852,15 +940,18 @@ In this situation there is no way to know which execve succeeded.
 .LP
 If PTRACE_O_TRACEEXEC option is NOT in effect for the execve-ing
 tracee, kernel delivers an extra SIGTRAP to tracee after execve syscall
-returns. This is an ordinary signal (similar to one which can be
+returns.
+This is an ordinary signal (similar to one which can be
 generated by "kill -TRAP"), not a special kind of ptrace-stop.
-GETSIGINFO on it has si_code = 0 (SI_USER). It can be blocked by signal
+GETSIGINFO on it has si_code = 0 (SI_USER).
+It can be blocked by signal
 mask, and thus can happen (much) later.
 .LP
 Usually, tracer (for example, strace) would not want to show this extra
 post-execve SIGTRAP signal to the user, and would suppress its delivery
 to the tracee (if SIGTRAP is set to SIG_DFL, it is a killing signal).
-However, determining *which* SIGTRAP to suppress is not easy. Setting
+However, determining *which* SIGTRAP to suppress is not easy.
+Setting
 PTRACE_O_TRACEEXEC option and thus suppressing this extra SIGTRAP is
 the recommended approach.
 .SS Real parent
@@ -876,7 +967,8 @@ As of 2.6.38, the following is believed to work correctly:
 .LP
 * exit/death by signal is reported first to tracer, then, when tracer
 consumes waitpid result, to real parent (to real parent only when the
-whole multi-threaded process exits). If they are the same process, the
+whole multi-threaded process exits).
+If they are the same process, the
 report is sent only once.
 .SH "RETURN VALUE"
 On success,
@@ -1010,17 +1102,22 @@ Last confirmed on 2.6.38.6.
 If thread group leader is traced and exits by calling exit syscall,
 PTRACE_EVENT_EXIT stop will happen for it (if requested), but
 subsequent WIFEXITED notification will not be delivered until all other
-threads exit. As explained above, if one of other threads execve's,
-thread group leader death will *never* be reported. If execve-ed thread
+threads exit.
+As explained above, if one of other threads execve's,
+thread group leader death will *never* be reported.
+If execve-ed thread
 is not traced by this tracer, tracer will never know that execve
 happened.
 One possible workaround is to detach thread group leader instead of
-restarting it in this case. Last confirmed on 2.6.38.6.
+restarting it in this case.
+Last confirmed on 2.6.38.6.
 .\" ^^^ need to test/verify this scenario
 .LP
 SIGKILL signal may still cause PTRACE_EVENT_EXIT stop before actual
-signal death. This may be changed in the future - SIGKILL is meant to
-always immediately kill tasks even under ptrace. Last confirmed on
+signal death.
+This may be changed in the future - SIGKILL is meant to
+always immediately kill tasks even under ptrace.
+Last confirmed on
 2.6.38.6.
 .SH "SEE ALSO"
 .BR gdb (1),

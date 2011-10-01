@@ -44,7 +44,7 @@
 .\"
 .\" FIXME (later): Linux 3.1 adds PTRACE_SEIZE, PTRACE_INTERRUPT, and PTRACE_LISTEN.
 .\"
-.TH PTRACE 2 2011-09-26 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2011-10-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -63,7 +63,7 @@ and examine and change the tracee's memory and registers.
 It is primarily used to implement breakpoint debugging and system
 call tracing.
 .LP
-A tracee first need to be attached to the tracer.
+A tracee first needs to be attached to the tracer.
 Attachment and subsequent commands are per thread:
 in a multithreaded process,
 every thread can be individually attached to a
@@ -79,6 +79,12 @@ a specific tracee using a call of the form
 where
 .I pid
 is the thread ID of the corresponding Linux thread.
+.LP
+(Note that in this page, a "multithreaded process"
+means a thread group consisting of threads created using the
+.BR clone (2)
+.B CLONE_THREAD
+flag.)
 .LP
 A process can initiate a trace by calling
 .BR fork (2)
@@ -96,8 +102,12 @@ even if the signal is being ignored.
 which has its usual effect.)
 The tracer will be notified at its next call to
 .BR waitpid (2)
-(or one of the related "wait" system calls)
-and may inspect and modify the tracee while it is stopped.
+(or one of the related "wait" system calls); that call will return a
+.I status
+value containing information that indicates
+the cause of the stop in the tracee.
+While the tracee is stopped,
+the tracer can use various ptrace requests to inspect and modify the tracee.
 The tracer then causes the tracee to continue,
 optionally ignoring the delivered signal
 (or even delivering a different signal instead).
@@ -270,16 +280,6 @@ This makes it easy for the tracer to distinguish
 normal traps from those caused by a system call.
 .RB ( PTRACE_O_TRACESYSGOOD
 may not work on all architectures.)
-.\" FIXME Please check. In the following paragraphs, I substituted language
-.\" such as:
-.\"     Stop tracee at next fork(2) call with SIGTRAP|PTRACE_EVENT_FORK<<8
-.\" with:
-.\"     Stop tracee at next fork(2) call... A subsequent PTRACE_GETSIGINFO
-.\"     on the stopped tracee will return a siginfo_t structure with si_code
-.\"     set to SIGTRAP|PTRACE_EVENT_FORK<<8.
-.\"
-.\" Is this change correct?
-.\"
 .TP
 .BR PTRACE_O_TRACEFORK " (since Linux 2.5.46)"
 Stop the tracee at the next
@@ -287,14 +287,13 @@ Stop the tracee at the next
 and automatically start tracing the newly forked process,
 which will start with a
 .BR SIGSTOP .
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_FORK<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_FORK<<8
+as the
+.I status
+of the tracee.
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
@@ -304,14 +303,13 @@ Stop the tracee at the next
 and automatically start tracing the newly vforked process,
 which will start with a
 .BR SIGSTOP .
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_VFORK<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_VFORK<<8 
+as the
+.I status
+of the tracee.
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
@@ -321,14 +319,13 @@ Stop the tracee at the next
 and automatically start tracing the newly cloned process,
 which will start with a
 .BR SIGSTOP .
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_CLONE<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_CLONE<<8 
+as the
+.I status
+of the tracee.
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .IP
@@ -356,39 +353,36 @@ is set.
 .BR PTRACE_O_TRACEEXEC " (since Linux 2.5.46)"
 Stop the tracee at the next
 .BR execve (2).
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_EXEC<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_EXEC<<8 
+as the
+.I status
+of the tracee.
 .TP
 .BR PTRACE_O_TRACEVFORKDONE " (since Linux 2.5.60)"
 Stop the tracee at the completion of the next
 .BR vfork (2).
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_VFORK_DONE<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_VFORK_DONE<<8 
+as the
+.I status
+of the tracee.
 The PID of the new process can (since Linux 2.6.18) be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
 .BR PTRACE_O_TRACEEXIT " (since Linux 2.5.60)"
 Stop the tracee at exit.
-A subsequent
-.B PTRACE_GETSIGINFO
-on the stopped tracee will return a
-.I siginfo_t
-structure with
-.I si_code
-set to
-.IR SIGTRAP|PTRACE_EVENT_EXIT<<8 .
+A
+.BR waitpid (2)
+by the tracer will return
+.IR SIGTRAP|PTRACE_EVENT_EXIT<<8 
+as the
+.I status
+of the tracee.
 The tracee's exit status can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .IP
@@ -428,6 +422,8 @@ If
 is nonzero,
 it is interpreted as the number of a signal to be delivered to the tracee;
 otherwise, no signal is delivered.
+.\" FIXME It looks like somehwere near here, we need to add a note
+.\" that SIGSTOP could not be injected in Linux 2.4 and earlier.
 Thus, for example, the tracer can control
 whether a signal sent to the tracee is delivered or not.
 .RI ( addr
@@ -499,20 +495,17 @@ otherwise it may not work
 By contrast, sending a
 .B SIGKILL
 directly has no such limitation.
-.\" mtk: Commented out the following. It doesn't belong in the man page.
-.\" .LP
-.\" [Note: deprecation suggested by Oleg Nesterov. He prefers to deprecate
-.\" it instead of describing (and needing to support) PTRACE_KILL's quirks.]
+.\" [Note from Denys Vlasenko:
+.\"     deprecation suggested by Oleg Nesterov. He prefers to deprecate it
+.\"     instead of describing (and needing to support) PTRACE_KILL's quirks.]
 .TP
 .B PTRACE_ATTACH
 Attach to the process specified in
 .IR pid ,
 making it a tracee of the calling process.
-.\" FIXME So, was the following EVER true? IF it was,
-.\"       we should reinstate the text and add mention of
-.\"       the kernel version where the behaviour changed.
-.\"
-.\" Not true: (removed by dv)
+.\" No longer true (removed by Denys Vlasenko, 2011, who remarks:
+.\"        "I think it isn't true in non-ancient 2.4 and in 2.6/3.x.
+.\"         Basically, it's not true for any Linux in practical use.
 .\" ; the behavior of the tracee is as if it had done a
 .\" .BR PTRACE_TRACEME .
 .\" The calling process actually becomes the parent of the tracee
@@ -635,13 +628,14 @@ The tracer can't assume that the tracee
 ends its life by reporting
 .I WIFEXITED(status)
 or
-.IR WIFSIGNALED(status) .
-.LP
-.\"     or can it? Do we include such a promise into ptrace API?
-.\"
-.\" FIXME: The preceding comment seems to be unresolved?
-.\"        Do you want to add anything?
-.\"
+.IR WIFSIGNALED(status) ;
+there are cases where this does not occur.
+For example, if a thread other than thread group leader does an
+.BR execve (2),
+it disappears;
+its PID will never be seen again,
+and any subsequent ptrace stops will be reported under
+the thread group leader's PID.
 .SS Stopped states
 A tracee can be in two states: running or stopped.
 .LP
@@ -672,16 +666,13 @@ Ptrace-stopped tracees are reported as returns with
 greater than 0 and
 .I WIFSTOPPED(status)
 true.
-.LP
-.\" FIXME: mtk: the following comment seems to be unresolved?
-.\"        Do you want to add anything?
-.\"
-.\"     Do we require __WALL usage, or will just using 0 be ok? Are the
+.\" Denys Vlasenko:
+.\"     Do we require __WALL usage, or will just using 0 be ok? (With 0,
+.\"     I am not 100% sure there aren't ugly corner cases.) Are the
 .\"     rules different if user wants to use waitid? Will waitid require
 .\"     WEXITED?
 .\"
 .LP
-.\" FIXME: Is the following comment "__WALL... implies" true?
 The
 .B __WALL
 flag does not include the
@@ -732,14 +723,11 @@ They may be differentiated by examining the value
 .IR status>>8 ,
 and if there is ambiguity in that value, by querying
 .BR PTRACE_GETSIGINFO .
-.\"
-.\" FIXME What is the purpose of the following sentence? Is it to warn
-.\"       the reader not to use WSTOPSIG()? If so, we should make that
-.\"       point more explicitly.
 (Note: the
 .I WSTOPSIG(status)
-macro returns the value
-.IR "(status>>8)\ &\ 0xff)" .)
+macro cani't be used to perform this examination,
+because it returns the value
+(\fIstatus\>>8)\ \fB&\ 0xff\fP\fP.)
 .SS Signal-delivery-stop
 When a (possibly multithreaded) process receives any signal except
 .BR SIGKILL ,
@@ -751,8 +739,6 @@ If the selected thread is traced, it enters signal-delivery-stop.
 At this point, the signal is not yet delivered to the process,
 and can be suppressed by the tracer.
 If the tracer doesn't suppress the signal,
-.\"
-.\" FIXME: I added the word "restart" to the following line. Okay?
 it passes the signal to the tracee in the next ptrace restart request.
 This second step of signal delivery is called
 .I "signal injection"
@@ -795,7 +781,7 @@ This operation is called
 .I "signal injection"
 in this manual page, to distinguish it from signal-delivery-stop.
 .LP
-Note that the
+The
 .I sig
 value may be different from the
 .I WSTOPSIG(status)
@@ -812,7 +798,7 @@ non-restartable system calls may fail with
 .B EINTR
 even though no observable signal is injected to the tracee.
 .LP
-Note that restarting ptrace commands issued in ptrace-stops other than
+Restarting ptrace commands issued in ptrace-stops other than
 signal-delivery-stop are not guaranteed to inject a signal, even if
 .I sig
 is nonzero.
@@ -823,10 +809,10 @@ Ptrace users should not try to "create a new signal" this way: use
 .BR tgkill (2)
 instead.
 .LP
-.\"
-.\" FIXME: the referrent of "This" in the next line is not clear.
-.\"        What does "This" refer to?
-This is a cause of confusion among ptrace users.
+The fact that signal injection requests may be ignored
+when restarting the tracee after
+ptrace stops that are not signal-delivery-stops
+is a cause of confusion among ptrace users.
 One typical scenario is that the tracer observes group-stop,
 mistakes it for signal-delivery-stop, restarts the tracee with
 
@@ -938,7 +924,7 @@ call.
 Currently, it causes a problem with transparent handling of stopping
 signals: if the tracer restarts the tracee after group-stop,
 .B SIGSTOP
-is effectively ignored: the tracee doesn't remain stopped, it runs.
+is effectively ignored\(emthe tracee doesn't remain stopped, it runs.
 If the tracer doesn't restart the tracee before entering into the next
 .BR waitpid (2),
 future
@@ -1095,12 +1081,16 @@ for the following cases:
 .IR si_code " <= 0"
 .B SIGTRAP
 .\" FIXME: Please confirm this is okay: I changed
-.\"        "the usual suspects" to "by a system call". Okay?
-.\"        Shouldn't we also add kill(2) here?
-was sent by a system call
+.\"        "the usual suspects" to the following new text.
+was delivered as a result of a userspace action,
+for example, a system call
 .RB ( tgkill (2),
+.BR kill (2),
 .BR sigqueue (3),
-etc.)
+etc.),
+expiration of a POSIX timer,
+change of state on a POSIX message queue,
+or completion of an asynchronous I/O request.
 .TP
 .IR si_code " == SI_KERNEL (0x80)"
 .B SIGTRAP
@@ -1114,9 +1104,6 @@ and performing
 .B PTRACE_GETSIGINFO
 for every syscall-stop may be somewhat expensive.
 .LP
-.\"
-.\" FIXME referrent of "them" in next line ???
-.\"       What does "them" refer to?
 Some architectures allow the cases to be distinguished
 by examining registers.
 For example, on x86,
@@ -1233,7 +1220,7 @@ options.
 Another group of commands makes the ptrace-stopped tracee run.
 They have the form:
 .LP
-    ptrace(PTRACE_cmd, pid, 0, sig);
+    ptrace(cmd, pid, 0, sig);
 .LP
 where
 .I cmd
@@ -1251,7 +1238,9 @@ is the signal to be injected (if it is nonzero).
 Otherwise,
 .I sig
 may be ignored.
-(Recommended practice is to always pass 0 in these cases.)
+(When restarting a tracee from a ptrace-stop other than signal-delivery-stop,
+recommended practice is to always pass 0 in
+.I sig .)
 .SS Attaching and detaching
 A thread can be attached to the tracer using the call
 
@@ -1272,9 +1261,6 @@ The usual practice is to reinject these signals until
 is seen, then suppress
 .B SIGSTOP
 injection.
-.\"
-.\" FIXME I significantly rewrote the following sentence to try to make it
-.\" clearer. Is the meaning still preserved?
 The design bug here is that a ptrace attach and a concurrently delivered
 .B SIGSTOP
 may race and the concurrent
@@ -1388,50 +1374,35 @@ the pending signal is injected.
 .\"     then all threads other than the thread group leader are terminated,
 .\"     and the new program is executed in the thread group leader.  
 .\"
-.\" FIXME mtk-addition:  please check: I added the following piece to
-.\"       clarify that multithreaded here means clone()+CLONE_THREAD
-.\"
-When one thread in a multithreaded process
-(i.e., a thread group consisting of threads created using the
-.BR clone (2)
-.B CLONE_THREAD
-flag) calls
-.\" FIXME end-mtk-addition
-.\"
+When one thread in a multithreaded process calls
 .BR execve (2),
 the kernel destroys all other threads in the process,
 .\" In kernel 3.1 sources, see fs/exec.c::de_thread()
 and resets the thread ID of the execing thread to the
 thread group ID (process ID).
-.\"
-.\" FIXME mtk-addition:  please check: I added the following piece:
 (Or, to put things another way, when a multithreaded process does an
 .BR execve (2),
-the kernel makes it look as though the
+at completion of the call, it appears as though the
 .BR execve (2)
 occurred in the thread group leader, regardless of which thread did the
 .BR execve (2).)
-.\" FIXME end-mtk-addition
-.\"
 This resetting of the thread ID looks very confusing to tracers:
 .IP * 3
 All other threads stop in
-.\" FIXME: mtk: What is "PTRACE_EXIT stop"?
-.\"        Should that be "PTRACE_EVENT_EXIT stop"?
-.B PTRACE_EXIT
+.B PTRACE_EVENT_EXIT
 stop,
-.\" FIXME: mtk: In the next line, "by active ptrace option" is unclear.
-.\"        What does it mean?
-if requested by active ptrace option.
+if the
+.BR PTRACE_O_TRACEEXIT
+option was turned on.
 Then all other threads except the thread group leader report
 death as if they exited via
 .BR _exit (2)
 with exit code 0.
-Then
+Then a
 .B PTRACE_EVENT_EXEC
-.\" FIXME: mtk: In the next line, "by active ptrace option" is unclear
-.\"        What does it mean?
-stop happens, if requested by active ptrace option.
+stop happens, if the
+.BR PTRACE_O_TRACEEXEC
+option was turned on.
 .\" FIXME: mtk: the following comment seems to be unresolved?
 .\"       (on which tracee - leader? execve-ing one?)
 .\" 
@@ -1677,7 +1648,8 @@ might not entirely match with the definition of
 .LP
 The size of a "word" is determined by the operating-system variant
 (e.g., for 32-bit Linux it is 32 bits, etc.).
-.\" FIXME So, can we just remove the following text?
+.\" FIXME So, can we just remove the following text (rather than
+.\" just commenting it out)?
 .\"
 .\" Covered in more details above: (removed by dv)
 .\" .LP
@@ -1726,11 +1698,17 @@ if that is defined.
 Group-stop notifications are sent to the tracer, but not to real parent.
 Last confirmed on 2.6.38.6.
 .LP
-.\" 
-.\" FIXME Does "exits" in the following mean
-.\" just "_exit(2)" or or both "_exit(2) and exit_group(2)"?
 If a thread group leader is traced and exits by calling
 .BR _exit (2),
+.\" Note from Denys Vlasenko:
+.\"     Here "exits" means any kind of death - _exit, exit_group,
+.\"     signal death. Signal death and exit_group cases are trivial,
+.\"     though: since signal death and exit_group kill all other threads
+.\"     too, "until all other threads exit" thing happens rather soon
+.\"     in these cases. Therefore, only _exit presents observably
+.\"     puzzling behavior to ptrace users: thread leader _exit's,
+.\"     but WIFEXITED isn't reported! We are trying to explain here
+.\"     why it is so.
 a
 .B PTRACE_EVENT_EXIT
 stop will happen for it (if requested), but the subsequent

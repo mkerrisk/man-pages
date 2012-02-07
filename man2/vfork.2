@@ -169,6 +169,44 @@ remaining blocked until the child either terminates or calls
 and cannot rely on any specific behavior with respect to shared memory.
 .\" In AIXv3.1 vfork is equivalent to fork.
 .SH NOTES
+.PP
+Some consider the semantics of
+.BR vfork ()
+to be an architectural blemish, and the 4.2BSD man page stated:
+"This system call will be eliminated when proper system sharing mechanisms
+are implemented.
+Users should not depend on the memory sharing semantics of
+.BR vfork ()
+as it will, in that case, be made synonymous to
+.BR fork (2).\c
+"
+However, even though modern memory management hardware 
+has decreased the performance difference between
+.BR fork ()
+and
+.BR vfork (2),
+there are various reasons why Linux and other systems have retained
+.BR vfork ():
+.IP * 3
+Some performance-critical applications require the small performance
+advantage conferred by
+.BR vfork ().
+.IP *
+.BR vfork (2)
+can be implemented on systems that lack a memory-management unit (MMU), but
+.BR fork (2)
+can't be implemented on such systems.
+(POSIX.1-2008 removed
+.BR vfork ()
+from the standard; the POSIX rationale for the
+.BR posix_spawn (3)
+function notes that that function,
+which provides functionality equivalent to
+.BR fork (2)+ exec (3),
+is designed to be implementable on systems that lack an MMU.)
+.\" http://stackoverflow.com/questions/4259629/what-is-the-difference-between-fork-and-vfork
+.\" http://developers.sun.com/solaris/articles/subprocess/subprocess.html
+.\" http://mailman.uclinux.org/pipermail/uclinux-dev/2009-April/000684.html
 .SS Linux Notes
 Fork handlers established using
 .BR pthread_atfork (3)
@@ -208,16 +246,7 @@ Since 2.2.0-pre9 (on i386, somewhat later on
 other architectures) it is an independent system call.
 Support was added in glibc 2.0.112.
 .SH BUGS
-It is rather unfortunate that Linux revived this specter from the past.
-The BSD man page states:
-"This system call will be eliminated when proper system sharing mechanisms
-are implemented.
-Users should not depend on the memory sharing semantics of
-.BR vfork ()
-as it will, in that case, be made synonymous to
-.BR fork (2).\c
-"
-
+.PP
 Details of the signal handling are obscure and differ between systems.
 The BSD man page states:
 "To avoid a possible deadlock situation, processes that are children

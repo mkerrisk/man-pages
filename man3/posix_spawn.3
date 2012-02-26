@@ -1,0 +1,438 @@
+.\" Copyright (c) 2009 Bill O. Gallmeister (bgallmeister@gmail.com)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" References consulted:
+.\"     Linux glibc source code
+.\"     POSIX 1003.1-2004 documentation (http://www.opengroup.org/onlinepubs/009695399)
+.\"
+.TH "POSIX_SPAWN" 3 2009-09-22 "GNU" "Linux Programmer's Manual"
+.\" posix_spawn
+.SH NAME
+posix_spawn, posix_spawnp \- spawn a process
+.SH SYNOPSIS
+.nf
+.B #include <spawn.h>
+
+.BI "int posix_spawn(pid_t *" pid ", const char *" path ,
+.BI "                const posix_spawn_file_actions_t *" file_actions ,
+.BI "                const posix_spawnattr_t *" attrp ,
+.BI "                char *const " argv[] ", char *const " envp[] );
+
+.BI "int posix_spawnp(pid_t *" pid ", const char *" file ,
+.BI "                const posix_spawn_file_actions_t *" file_actions ,
+.BI "                const posix_spawnattr_t *" attrp ,
+.BI "                char *const " argv[] ", char *const " envp[] );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.ad l
+.BR posix_spawn ()
+and
+.BR posix_spawnp ():
+(_POSIX_C_SOURCE\ >=\ 200112L)\ &&\ (_POSIX_SPAWN)
+.ad b
+
+.SH DESCRIPTION
+.BR Posix_spawn ()
+and
+.BR posix_spawnp ()
+are used to create a new child process from the specified
+process image.  Think of these functions as a combined
+.BR fork ()/ exec ().
+This page documents the behavior of the GNU/Linux implementations of these functions.
+.LP
+.BR Posix_spawn ()
+and
+.BR posix_spawnp ()
+are not meant to replace
+.BR fork ()
+and
+.BR exec ().
+In fact, these functions provide only a subset of the functionality that can be achieved by
+using the more common system calls.
+These functions were specified by POSIX provide the standardized capability
+to create new processes on machines that lack the capability
+to support the
+.BR fork ()
+system call.
+These machines are generally small, embedded systems lacking MMU support.
+.SH DESCRIPTION
+.BR Posix_spawn ()
+and
+.BR posix_spawnp ()
+provide the functionality of a combined
+.BR fork ()
+and
+.BR exec (),
+with some optional housekeeping steps in the child process before the
+.BR exec ().
+These functions will be described
+in terms of a three step process:  the fork step, the pre-exec step, and the exec step.
+.SS FORK step
+Each function executes a
+.BR fork (),
+or possibly a
+.BR vfork ()
+(more on
+.BR vfork ()
+below).
+In the parent, the
+.I pid
+argument is dereferenced and the pid of the child is stored there.  The parent then returns from
+the
+.BR spawn ()
+function.
+.BR Wait (),
+.BR wait3 (),
+or
+.BR waitpid ()
+can be used to check the status of the child process after this point.  If the child fails
+in any of its housekeeping or fails to execute the desired file, the child will exit with the exit value of 127.
+.IP "WHEN IS VFORK USED?" 2
+.BR vfork ()
+is used instead of
+.BR fork ()
+when:
+.IP *
+the
+.I spawn-flags
+element of *attrp contains the value POSIX_SPAWN_USEVFORK and does \fInot\fP
+contain
+POSIX_SPAWN_SETSIGMASK,
+POSIX_SPAWN_SETSIGDEF,
+POSIX_SPAWN_SETSCHEDPARAM,
+POSIX_SPAWN_SETSCHEDULER,
+POSIX_SPAWN_SETPGROUP, or
+POSIX_SPAWN_RESETIDS.
+.IP *
+.I file_actions
+is NULL.
+.LP
+In essence,
+.BR vfork ()
+is used only if the caller requests it,
+and if there is no cleanup expected in the child before it
+.BR execs
+the requested file.
+
+.SS PRE-EXEC STEP: GENERAL PROCESSING
+In between the
+.BR fork ()
+and the
+.BR exec (),
+a child process has a certain set of hosekeeping operations it may need to perform.
+.BR Posix_spawn ()
+and
+.BR posix_spawnp ()
+support a small, well-defined set of system tasks that the child
+process can accomplish before it executes the executable file.  These operations are controlled by the
+attributes structure pointed to by attrp, as well as the vector
+.I file_actions.
+In the child, processing is done in the following sequence:
+.IP 1. 5
+General processing:  signal mask, signal default handlers, scheduling algorithm and parameters,
+process group, UID and GID
+are changed as specified by the
+.I attrp
+argument.
+.IP 2. 5
+File actions, as specified in the
+.I file_actions
+argument, are performed in order, starting with
+.I file_actions[0]
+and continuing to the end of the list.
+.IP 3. 5
+Files with the FD_CLOEXEC flag are closed.
+.LP
+The general processing operations are:
+.IP * 2
+set signal mask and default actions.
+.IP *
+set effective group and user ID
+.IP *
+set process group
+.IP *
+set scheduling algorithm and/or scheduling parameters (if POSIX_PROCESS_SCHEDULING is in effect)
+.IP *
+a sequence of
+.BR open (),
+.BR close (),
+and
+.BR dup2 ()
+actions
+.LP
+In addition, standard operations that occur on
+.BR fork ()
+and
+.BR exec (),
+can also be expected to occur, including:
+closing of files based on the FD_CLOEXEC flag.
+effect on threads in the forked process (including
+.BR pthread_atfork ()).
+.LP
+The housekeeping activities in the child are controlled by the object pointed to by
+.I attrp
+(for non-file actions), and by the array of
+.I file_actions
+(described in the section following this one).
+In POSIX parlance, these objects are not referred to as structures, and their elements are not specified by name.
+For portable coding, you should initialize and set values in these structures only using the POSIX-specified functions.
+.LP
+Based on the
+.I spawn-flags
+specified in the structure pointed to by
+.I attrp,
+the child process can:
+.IP [POSIX_SPAWN_SETSIGMASK] 2
+Set its signal mask as if using
+.BI sigprocmask( SIG_SETMASK )
+and the signal set specified in
+the
+.I spawn-sigmask
+element.
+.IP [POSIX_SPAWN_SETSIGDEF]
+Reset the handler for all signals specified in
+the
+.I spawn-sigdefault
+element back to default state.
+.IP [POSIX_SPAWN_SETSCHEDPARAM]
+Set the scheduling parameters (POSIX_PRIORITY_SCHEDULING only)
+to the parameters specified in the
+.I spawn-schedparam
+element.
+.IP [POSIX_SPAWN_SETSCHEDULER]
+Set the scheduling algorithm and parameters according to
+the
+.I spawn-schedpolicy
+element of
+.I *attrp
+(If
+.I POSIX_SPAWN_SETSCHEDPARAM
+is also set, then the scheduling parameters are set according to the corresponding element;
+otherwise, the effect is as if a NULL was passed as the
+.I param
+argument to
+.BR sched_setscheduler ()).
+.IP [POSIX_SPAWN_RESETIDS]
+Set the effective UID and GID to the real UID and GID of the parent process.
+If this flag is not set, then the child gets the effective UID and GID of the parent.
+In either case, the setuid and setgid bits of the executable file themselves take precedence.
+.IP [POSIX_SPAWN_SETPGROUP]
+Set the process group to the value specified in
+the
+.I spawn-pgroup
+element
+.LP
+If any of these actions fails (due to bogus values being passed or other reasons why signal handling,
+process scheduling, and process ID functions might fail), the child process exits with exit value 127.
+.LP
+To set these flags, use
+.BR posix_spawnattr_init ()
+and
+.BR posix_spawnattr_setflags ().
+Additionally, you should call
+.BR posix_spawnattr_destroy ()
+when you are done with the structure
+pointed to by
+.I attrp.
+The POSIX standard tells you to call
+this function to de-initialize the structure pointed to by attrp when you are done with it;
+however, on Linux systems this operation is a no-op.
+.LP
+To set the various elements in the
+.I posix_spawnattr_t
+object, use:
+.IP \fIspawn-sigmask\fP 2
+.BR posix_spawnattr_setsigmask ()
+.IP \fIspawn-sigdefault\fP
+.BR posix_spawnattr_setsigdefault ()
+.IP \fIspawn-schedpolicy\fP
+.BR posix_spawnattr_setschedpolicy ()
+.IP \fIspawn-schedparam\fP
+.BR posix_spawnattr_setschedparam ()
+.IP \fIspawn-pgroup\fP
+.BR posix_spawnattr_setproup ()
+.LP
+There are "get" variants of all of the above functions as well.
+.SS PRE-EXEC STEP: FILE PROCESSING
+The argument
+.I file_actions
+specifies a sequence of file operations which are performed in the child process after
+the general processing described above, and before it
+.I execs .
+If
+.I file_actions
+is NULL, then no special action is taken, and standard
+.BR exec ()
+sematics apply--files open before the exec remain open in the new process, except those
+for which the FD_CLOEXEC flag has been set.  File locks remain in place.
+.LP
+If
+.I file_actions
+is not NULL, then
+it contains an ordered set of requests to
+.BR open (),
+.BR close (),
+and
+.BR dup2 ()
+files.
+These requests are added to the
+.I file_actions
+by
+.BR posix_spawn_file_actions_addopen (),
+.BR posix_spawn_file_actions_addclose (),
+and
+.BR posix_spawn_file_actions_adddup2 ().
+The requested operations are performed in the order they were added to
+.I file_actions .
+Note that you can specify file descriptors in
+.I posix_spawn_file_actions_adddup2 ()
+which would not be usable if you called
+.BR dup2 ()
+at that time--I.E. file descriptors that are opened or closed by the earlier operations
+added to
+.I file_actions .
+.SS EXEC Step
+Once the child has successfully forked and performed all requested pre-exec steps,
+the child runs the requested executable.
+.LP
+.BR Posix_spawn ()
+requires the user to specify the full path of the file to be executed, similar to
+.BR execl ().
+.BR Posix_spawnp ()
+allows the user to specify an executable file name, and uses the PATH environment variable
+to look up the executable program, like
+.BR execlp ().
+Other than that, the two functions are identical.
+.LP
+The child process takes its environment from the
+.I envp
+argument,
+which is interpreted as if it had been passed to
+.BR execle ().
+The arguments to the created process come from the
+.I argv
+argument, which is processed as for any of the
+.BR exec ()
+family.
+.SH RETURN VALUE
+.LP
+Upon successful completion,
+.BR posix_spawn ()
+and
+.BR posix_spawnp ()
+set the PID of the child process in
+.I pid,
+and return 0.
+If there is an error before (or in the process of) the
+.BR fork (),
+then no child is created, and these functions return an error value as
+described below.
+.LP
+If the parent is able to successfully
+.BR fork ()
+the child, but the child fails to perform any of the requested
+actions prior to
+.BR exec (),
+or if the
+.BR exec ()
+itself fails,
+then the child will exit with status 127.
+.SH ERRORS
+.LP
+.BR posix_spawn ()
+and
+.BR posix_spawnp ()
+fail only in the case where the underlying
+.BR fork ()
+or
+.BR vfork ()
+call fail;  in these cases, the error return will be the errno value set by
+.BR fork ()
+or
+.BR vfork ().
+.LP
+If the child process is successfully forked, then
+.BR posix_spawn ()
+and
+.BR posix_spawnp ()
+both return success.  However, the child process may still fail for a plethora of reasons related to its
+pre-\fBexec\fR() initialization.
+In all of these cases, the child process will exit with the exit value of 127.
+.LP
+In addition,
+these functions fail if:
+.TP
+.B ENOSYS
+Function not supported on this system.
+.SH NOTES
+POSIX does not specify the names of any internal elements within the
+.I posix_spawnattr_t
+structure;  in fact, it does not specify that it is a structure at all.
+Portable programs should refrain from directly referencing fields within this
+structure.  In these man pages we refer to the internal parts of the
+.I posix_spawnattr_t
+as elements.
+.SH CONFORMING TO
+.LP
+POSIX.1-2004.
+.SH SEE ALSO
+.LP
+.BR close (2),
+.BR dup2 (2),
+.BR execl (2),
+.BR execlp (2),
+.BR fork (2),
+.BR open (2),
+.BR sched_setparam (2),
+.BR sched_setscheduler (2),
+.BR setpgid (2),
+.BR setuid (2),
+.BR sigaction (2),
+.BR sigprocask (2),
+.BR posix_spawnattr_destroy (3),
+.BR posix_spawnattr_getflags (3),
+.BR posix_spawnattr_getpgroup (3),
+.BR posix_spawnattr_getschedparam (3),
+.BR posix_spawnattr_getschedpolicy (3),
+.BR posix_spawnattr_getsigdefault (3),
+.BR posix_spawnattr_getsigmask (3),
+.BR posix_spawnattr_init (3),
+.BR posix_spawnattr_setflags (3),
+.BR posix_spawnattr_setpgroup (3),
+.BR posix_spawnattr_setschedparam (3),
+.BR posix_spawnattr_setschedpolicy (3),
+.BR posix_spawnattr_setsigdefault (3),
+.BR posix_spawnattr_setsigmask (3),
+.BR posix_spawn_file_actions_addclose (3),
+.BR posix_spawn_file_actions_adddup2 (3),
+.BR posix_spawn_file_actions_addopen (3),
+.BR posix_spawn_file_actions_destroy (3),
+.BR posix_spawn_file_actions_init (3),
+.BR pthread_atfork (3),
+.BR <spawn.h>,
+Base Definitions volume of POSIX.1-2004,
+.I http://www.opengroup.org/unix/online.html

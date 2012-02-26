@@ -42,9 +42,10 @@
 .\"    (Thanks to Blaisorblade, Daniel Jacobowitz and others who helped.)
 .\" 2011-09, major update by Denys Vlasenko <vda.linux@googlemail.com>
 .\"
-.\" FIXME (later): Linux 3.1 adds PTRACE_SEIZE, PTRACE_INTERRUPT, and PTRACE_LISTEN.
+.\" FIXME (later): Linux 3.1 adds PTRACE_SEIZE, PTRACE_INTERRUPT,
+.\"                and PTRACE_LISTEN.
 .\"
-.TH PTRACE 2 2011-10-03 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2012-02-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -289,11 +290,14 @@ which will start with a
 .BR SIGSTOP .
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_FORK<<8
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_FORK<<8))
+.fi
+
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
@@ -305,11 +309,14 @@ which will start with a
 .BR SIGSTOP .
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_VFORK<<8 
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK<<8))
+.fi
+
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
@@ -321,11 +328,14 @@ which will start with a
 .BR SIGSTOP .
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_CLONE<<8 
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_CLONE<<8))
+.fi
+
 The PID of the new process can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .IP
@@ -355,22 +365,28 @@ Stop the tracee at the next
 .BR execve (2).
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_EXEC<<8 
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_EXEC<<8))
+.fi
+
 .TP
 .BR PTRACE_O_TRACEVFORKDONE " (since Linux 2.5.60)"
 Stop the tracee at the completion of the next
 .BR vfork (2).
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_VFORK_DONE<<8 
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK_DONE<<8))
+.fi
+
 The PID of the new process can (since Linux 2.6.18) be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .TP
@@ -378,11 +394,14 @@ The PID of the new process can (since Linux 2.6.18) be retrieved with
 Stop the tracee at exit.
 A
 .BR waitpid (2)
-by the tracer will return
-.IR SIGTRAP|PTRACE_EVENT_EXIT<<8 
-as the
+by the tracer will return a
 .I status
-of the tracee.
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_EXIT<<8))
+.fi
+
 The tracee's exit status can be retrieved with
 .BR PTRACE_GETEVENTMSG .
 .IP
@@ -422,8 +441,6 @@ If
 is nonzero,
 it is interpreted as the number of a signal to be delivered to the tracee;
 otherwise, no signal is delivered.
-.\" FIXME It looks like somehwere near here, we need to add a note
-.\" that SIGSTOP could not be injected in Linux 2.4 and earlier.
 Thus, for example, the tracer can control
 whether a signal sent to the tracee is delivered or not.
 .RI ( addr
@@ -709,7 +726,7 @@ Example:
 The following kinds of ptrace-stops exist: signal-delivery-stops,
 group-stop, PTRACE_EVENT stops, syscall-stops
 .\"
-.\" FIXME: mtk: the following text appears to be incomplete.
+.\" FIXME: mtk: the following text ("[, PTRACE_SINGLESTEP...") is incomplete.
 .\"        Do you want to add anything?
 .\"
 [, PTRACE_SINGLESTEP, PTRACE_SYSEMU,
@@ -725,7 +742,7 @@ and if there is ambiguity in that value, by querying
 .BR PTRACE_GETSIGINFO .
 (Note: the
 .I WSTOPSIG(status)
-macro cani't be used to perform this examination,
+macro can't be used to perform this examination,
 because it returns the value
 (\fIstatus\>>8)\ \fB&\ 0xff\fP\fP.)
 .SS Signal-delivery-stop
@@ -848,6 +865,16 @@ Stopping signals cause (all threads of) a process to enter group-stop.
 This side effect happens after signal injection, and therefore can be
 suppressed by the tracer.
 .LP
+In Linux 2.4 and earlier, the
+.B SIGSTOP
+signal can't be injected.
+.\" In the Linux 2.4 sources, in arch/i386/kernel/signal.c::do_signal(),
+.\" there is:
+.\" 
+.\"             /* The debugger continued.  Ignore SIGSTOP.  */
+.\"             if (signr == SIGSTOP)
+.\"                     continue;
+.LP
 .B PTRACE_GETSIGINFO
 can be used to retrieve a
 .I siginfo_t
@@ -918,12 +945,13 @@ death) to the tracer, even if the tracer enters into another
 .BR waitpid (2)
 call.
 .LP
-.\"
-.\" FIXME ??? referrent of "it" in the next line is unclear
-.\"        What does "it" refer to?
-Currently, it causes a problem with transparent handling of stopping
-signals: if the tracer restarts the tracee after group-stop,
-.B SIGSTOP
+.\" FIXME It is unclear what "this kernel behavior" refers to.
+.\" Can show me exactly which piece of text above or below is
+.\" referred to when you say "this kernel behavior"?
+Currently, this kernel behavior
+causes a problem with transparent handling of stopping signals:
+if the tracer restarts the tracee after group-stop,
+the stopping signal
 is effectively ignored\(emthe tracee doesn't remain stopped, it runs.
 If the tracer doesn't restart the tracee before entering into the next
 .BR waitpid (2),
@@ -1080,8 +1108,6 @@ for the following cases:
 .TP
 .IR si_code " <= 0"
 .B SIGTRAP
-.\" FIXME: Please confirm this is okay: I changed
-.\"        "the usual suspects" to the following new text.
 was delivered as a result of a userspace action,
 for example, a system call
 .RB ( tgkill (2),
@@ -1164,7 +1190,9 @@ or
 .SS PTRACE_SINGLESTEP, PTRACE_SYSEMU, PTRACE_SYSEMU_SINGLESTEP stops
 .\"
 .\" FIXME The following TODO is unresolved
-.\"       Do you want to add anything?
+.\"       Do you want to add anything, or (less good) do we just
+.\"       convert this into a comment in the source indicating
+.\"       that these points still need to be documented?
 .\"
 (TODO: document stops occurring with PTRACE_SINGLESTEP, PTRACE_SYSEMU,
 PTRACE_SYSEMU_SINGLESTEP)
@@ -1363,7 +1391,8 @@ unless they were in group-stop.
 Handling of restart from group-stop is
 .\" FIXME: Define currently
 currently buggy, but the
-.\" FIXME: Planned for when?
+.\" FIXME: Planned for when? And should applications be designed
+.\" in some way so as to allow for this future change?
 "as planned" behavior is to leave tracee stopped and waiting for
 .BR SIGCONT .
 If the tracee is restarted from signal-delivery-stop,
@@ -1546,8 +1575,8 @@ exist; see BUGS below.
 .LP
 As of Linux 2.6.38, the following is believed to work correctly:
 .IP * 3
-exit/death by signal is reported first to the tracer, then, when the tracer
-consumes the
+exit/death by signal is reported first to the tracer, then,
+when the tracer consumes the
 .BR waitpid (2)
 result, to the real parent (to the real parent only when the
 whole multithreaded process exits).
@@ -1605,8 +1634,9 @@ unprivileged processes cannot trace processes that they
 cannot send signals to or those running
 set-user-ID/set-group-ID programs, for obvious reasons.
 .\" 
-.\" FIXME I reworked the mention of init here to note
-.\" when the behavior changed for tracing init(8). Okay?
+.\" FIXME I reworked the discussion of init below to note
+.\" the kernel version (2.6.26) when the behavior changed for
+.\" tracing init(8). Okay?
 Alternatively, the process may already be being traced,
 or (on kernels before 2.6.26) be
 .BR init (8)

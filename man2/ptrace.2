@@ -45,7 +45,7 @@
 .\" FIXME (later): Linux 3.1 adds PTRACE_SEIZE, PTRACE_INTERRUPT,
 .\"                and PTRACE_LISTEN.
 .\"
-.TH PTRACE 2 2012-02-27 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2012-03-06 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -717,20 +717,16 @@ Example:
     kill(tracee, SIGKILL);
     waitpid(tracee, &status, __WALL | WNOHANG);
 .fi
-.\" FIXME: mtk: the following comment seems to be unresolved?
-.\"        Do you want to add anything?
-.\"
+.\" FIXME:
 .\"     waitid usage? WNOWAIT?
 .\"     describe how wait notifications queue (or not queue)
 .LP
 The following kinds of ptrace-stops exist: signal-delivery-stops,
 group-stop, PTRACE_EVENT stops, syscall-stops
-.\"
-.\" FIXME: mtk: the following text ("[, PTRACE_SINGLESTEP...") is incomplete.
-.\"        Do you want to add anything?
-.\"
-[, PTRACE_SINGLESTEP, PTRACE_SYSEMU,
-PTRACE_SYSEMU_SINGLESTEP].
+.BR PTRACE_SINGLESTEP ,
+.BR PTRACE_SYSEMU ,
+and
+.BE PTRACE_SYSEMU_SINGLESTEP .
 They all are reported by
 .BR waitpid (2)
 with
@@ -945,22 +941,19 @@ death) to the tracer, even if the tracer enters into another
 .BR waitpid (2)
 call.
 .LP
-.\" FIXME It is unclear what "this kernel behavior" refers to.
-.\" Can show me exactly which piece of text above or below is
-.\" referred to when you say "this kernel behavior"?
-Currently, this kernel behavior
-causes a problem with transparent handling of stopping signals:
-if the tracer restarts the tracee after group-stop,
+The kernel behavior described in the previous paragraph
+causes a problem with transparent handling of stopping signals.
+If the tracer restarts the tracee after group-stop,
 the stopping signal
 is effectively ignored\(emthe tracee doesn't remain stopped, it runs.
 If the tracer doesn't restart the tracee before entering into the next
 .BR waitpid (2),
 future
 .B SIGCONT
-signals will not be reported to the tracer.
-This would cause
+signals will not be reported to the tracer;
+this would cause the
 .B SIGCONT
-to have no effect.
+signals to have no effect on the tracee.
 .SS PTRACE_EVENT stops
 If the tracer sets
 .B PTRACE_O_TRACE_*
@@ -1155,9 +1148,8 @@ But such detection is fragile and is best avoided.
 .LP
 Using the
 .B PTRACE_O_TRACESYSGOOD
-.\"
-.\" FIXME Below: "is the recommended method" for WHAT?
-option is the recommended method,
+option is the recommended method to distinquish syscall-stops
+from other kinds of ptrace-stops,
 since it is reliable and does not incur a performance penalty.
 .LP
 Syscall-enter-stop and syscall-exit-stop are
@@ -1188,14 +1180,11 @@ set to
 or
 .IR (SIGTRAP|0x80) .
 .SS PTRACE_SINGLESTEP, PTRACE_SYSEMU, PTRACE_SYSEMU_SINGLESTEP stops
+[Details of these kinds of stops are yet to be documented.]
 .\"
-.\" FIXME The following TODO is unresolved
-.\"       Do you want to add anything, or (less good) do we just
-.\"       convert this into a comment in the source indicating
-.\"       that these points still need to be documented?
-.\"
-(TODO: document stops occurring with PTRACE_SINGLESTEP, PTRACE_SYSEMU,
-PTRACE_SYSEMU_SINGLESTEP)
+.\" FIXME 
+.\" document stops occurring with PTRACE_SINGLESTEP, PTRACE_SYSEMU,
+.\" PTRACE_SYSEMU_SINGLESTEP
 .SS Informational and restarting ptrace commands
 Most ptrace commands (all except
 .BR PTRACE_ATTACH ,
@@ -1295,10 +1284,8 @@ may race and the concurrent
 .B SIGSTOP
 may be lost.
 .\"
-.\" FIXME: mtk: the following comment seems to be unresolved?
-.\"	   Do you want to add any text?
-.\"
-.\"      Describe how to attach to a thread which is already group-stopped.
+.\" FIXME: Describe how to attach to a thread which is already
+.\"        group-stopped.
 .LP
 Since attaching sends
 .B SIGSTOP
@@ -1379,21 +1366,13 @@ Yet another complication is to be sure that
 the tracee is not already ptrace-stopped,
 because no signal delivery happens while it is\(emnot even
 .BR SIGSTOP .
-.\" FIXME: mtk: the following comment seems to be unresolved?
-.\"       Do you want to add anything?
-.\"
-.\"     Describe how to detach from a group-stopped tracee so that it
-.\"     doesn't run, but continues to wait for SIGCONT.
-.\"
+.\" FIXME: Describe how to detach from a group-stopped tracee so that it
+.\"        doesn't run, but continues to wait for SIGCONT.
 .LP
 If the tracer dies, all tracees are automatically detached and restarted,
 unless they were in group-stop.
-Handling of restart from group-stop is
-.\" FIXME: Define currently
-currently buggy, but the
-.\" FIXME: Planned for when? And should applications be designed
-.\" in some way so as to allow for this future change?
-"as planned" behavior is to leave tracee stopped and waiting for
+Handling of restart from group-stop is currently buggy,
+but the "as planned" behavior is to leave tracee stopped and waiting for
 .BR SIGCONT .
 If the tracee is restarted from signal-delivery-stop,
 the pending signal is injected.
@@ -1419,25 +1398,19 @@ This resetting of the thread ID looks very confusing to tracers:
 .IP * 3
 All other threads stop in
 .B PTRACE_EVENT_EXIT
-stop,
-if the
+stop, if the
 .BR PTRACE_O_TRACEEXIT
 option was turned on.
 Then all other threads except the thread group leader report
 death as if they exited via
 .BR _exit (2)
 with exit code 0.
+.IP *
 Then a
 .B PTRACE_EVENT_EXEC
 stop happens, if the
 .BR PTRACE_O_TRACEEXEC
 option was turned on.
-.\" FIXME: mtk: the following comment seems to be unresolved?
-.\"       (on which tracee - leader? execve-ing one?)
-.\" 
-.\" FIXME: Please check: at various places in the following,
-.\"        I have changed "pid" to "[the tracee's] thead ID"
-.\"        Is that okay?
 .IP *
 The execing tracee changes its thread ID while it is in the
 .BR execve (2).
@@ -1472,13 +1445,21 @@ It enables
 stop, which occurs before
 .BR execve (2)
 returns.
-.\" FIXME Following on from the previous sentences,
-.\"       can/should we add a few more words on how
-.\"       PTRACE_EVENT_EXEC stop helps us deal with this situation?
-.LP
-The thread ID change happens before
-.B PTRACE_EVENT_EXEC
-stop, not after.
+First, it enables
+.BR PTRACE_EVENT_EXEC -stop,
+which occurs before
+.BR execve(2)
+returns.
+In this stop, the tracer can use
+.B PTRACE_GETEVENTMSG
+to retrieve the tracee's former thread ID.
+(This feature was introduced in Linux 3.0).
+Second, the
+.B PTRACE_O_TRACEEXEC
+option disables legacy
+.B SIGTRAP
+generation on
+.BR execve (2).
 .LP
 When the tracer receives
 .B PTRACE_EVENT_EXEC
@@ -1580,9 +1561,6 @@ when the tracer consumes the
 .BR waitpid (2)
 result, to the real parent (to the real parent only when the
 whole multithreaded process exits).
-.\"
-.\" FIXME mtk: Please check: In the next line, 
-.\" I changed "they" to "the tracer and the real parent". Okay?
 If the tracer and the real parent are the same process,
 the report is sent only once.
 .SH "RETURN VALUE"
@@ -1633,10 +1611,6 @@ tracer has insufficient privileges (the required capability is
 unprivileged processes cannot trace processes that they
 cannot send signals to or those running
 set-user-ID/set-group-ID programs, for obvious reasons.
-.\" 
-.\" FIXME I reworked the discussion of init below to note
-.\" the kernel version (2.6.26) when the behavior changed for
-.\" tracing init(8). Okay?
 Alternatively, the process may already be being traced,
 or (on kernels before 2.6.26) be
 .BR init (8)
@@ -1661,8 +1635,6 @@ This means that unneeded trailing arguments may be omitted,
 though doing so makes use of undocumented
 .BR gcc (1)
 behavior.
-.\" FIXME Please review. I reinstated the following, noting the
-.\" kernel version number where it ceased to be true
 .LP
 In Linux kernels before 2.6.26,
 .\" See commit 00cd5c37afd5f431ac186dd131705048c0a11fdb
@@ -1678,34 +1650,7 @@ might not entirely match with the definition of
 .LP
 The size of a "word" is determined by the operating-system variant
 (e.g., for 32-bit Linux it is 32 bits, etc.).
-.\" FIXME So, can we just remove the following text (rather than
-.\" just commenting it out)?
-.\"
-.\" Covered in more details above: (removed by dv)
-.\" .LP
-.\" Tracing causes a few subtle differences in the semantics of
-.\" traced processes.
-.\" For example, if a process is attached to with
-.\" .BR PTRACE_ATTACH ,
-.\" its original parent can no longer receive notification via
-.\" .BR waitpid (2)
-.\" when it stops, and there is no way for the new parent to
-.\" effectively simulate this notification.
-.\" .LP
-.\" When the parent receives an event with
-.\" .B PTRACE_EVENT_*
-.\" set,
-.\" the tracee is not in the normal signal delivery path.
-.\" This means the parent cannot do
-.\" .BR ptrace (PTRACE_CONT)
-.\" with a signal or
-.\" .BR ptrace (PTRACE_KILL).
-.\" .BR kill (2)
-.\" with a
-.\" .B SIGKILL
-.\" signal can be used instead to kill the tracee
-.\" after receiving one of these messages.
-.\" .LP
+.LP
 This page documents the way the
 .BR ptrace ()
 call works currently in Linux.
@@ -1757,9 +1702,7 @@ One possible workaround is to
 .B PTRACE_DETACH
 the thread group leader instead of restarting it in this case.
 Last confirmed on 2.6.38.6.
-.\"        ^^^ need to test/verify this scenario
-.\" FIXME: mtk: the preceding comment seems to be unresolved?
-.\"        Do you want to add anything?
+.\"  FIXME: ^^^ need to test/verify this scenario
 .LP
 A
 .B SIGKILL

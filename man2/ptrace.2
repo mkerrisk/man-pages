@@ -723,11 +723,7 @@ Example:
 .\"     describe how wait notifications queue (or not queue)
 .LP
 The following kinds of ptrace-stops exist: signal-delivery-stops,
-group-stop, PTRACE_EVENT stops, syscall-stops
-.BR PTRACE_SINGLESTEP ,
-.BR PTRACE_SYSEMU ,
-and
-.BE PTRACE_SYSEMU_SINGLESTEP .
+group-stop, PTRACE_EVENT stops, syscall-stops.
 They all are reported by
 .BR waitpid (2)
 with
@@ -767,9 +763,9 @@ Signal-delivery-stop is observed by the tracer as
 .BR waitpid (2)
 returning with
 .I WIFSTOPPED(status)
-true, with the stopping signal returned by
+true, with the signal returned by
 .IR WSTOPSIG(status) .
-If the stopping signal is
+If the signal is
 .BR SIGTRAP ,
 this may be a different kind of ptrace-stop;
 see the "Syscall-stops" and "execve" sections below for details.
@@ -803,12 +799,17 @@ value: the tracer can cause a different signal to be injected.
 .LP
 Note that a suppressed signal still causes system calls to return
 prematurely.
-Restartable system calls will be restarted (the tracer will
-observe the tracee to execute
+In this case system calls will be restarted: the tracer will
+observe the tracee to re-execute interrupted system call (or
 .BR restart_syscall(2)
-if the tracer uses
-.BR PTRACE_SYSCALL );
-non-restartable system calls may fail with
+system call for a few syscalls which use a different mechanism
+for restarting) if the tracer uses
+.BR PTRACE_SYSCALL .
+Even system calls (such as
+.BR poll(2) )
+which are not restartable after signal are restarted after
+signal is suppressed; however, kernel bugs exist which cause
+some syscalls to fail with
 .B EINTR
 even though no observable signal is injected to the tracee.
 .LP
@@ -1407,12 +1408,6 @@ death as if they exited via
 .BR _exit (2)
 with exit code 0.
 .IP *
-Then a
-.B PTRACE_EVENT_EXEC
-stop happens, if the
-.BR PTRACE_O_TRACEEXEC
-option was turned on.
-.IP *
 The execing tracee changes its thread ID while it is in the
 .BR execve (2).
 (Remember, under ptrace, the "pid" returned from
@@ -1421,9 +1416,22 @@ or fed into ptrace calls, is the tracee's thread ID.)
 That is, the tracee's thread ID is reset to be the same as its process ID,
 which is the same as the thread group leader's thread ID.
 .IP *
-If the thread group leader has reported its death by this time,
+Then a
+.B PTRACE_EVENT_EXEC
+stop happens, if the
+.BR PTRACE_O_TRACEEXEC
+option was turned on.
+.IP *
+If the thread group leader has reported its
+.B PTRACE_EVENT_EXIT
+stop by this time,
 it appears to the tracer that
 the dead thread leader "reappears from nowhere".
+(Note: thread group leader does not report death via
+.I WIFEXITED(status)
+until there is at least one other live thread.
+This eliminates possibility that tracer will see
+it dying and then reappearing.)
 If the thread group leader was still alive,
 for the tracer this may look as if thread group leader
 returns from a different system call than it entered,
@@ -1441,11 +1449,6 @@ the thread ID change in the tracee.
 The
 .B PTRACE_O_TRACEEXEC
 option is the recommended tool for dealing with this situation.
-It enables
-.B PTRACE_EVENT_EXEC
-stop, which occurs before
-.BR execve (2)
-returns.
 First, it enables
 .BR PTRACE_EVENT_EXEC -stop,
 which occurs before
@@ -1476,13 +1479,7 @@ data structures describing the threads of this process,
 and retain only one data structure\(emone which
 describes the single still running tracee, with
 
-    thread ID == thread group ID == process id.
-.LP
-Currently, there is no way to retrieve the former
-thread ID of the execing tracee.
-If the tracer doesn't keep track of its tracees' thread group relations,
-it may be unable to know which tracee execed and therefore no longer
-exists under the old thread ID due to a thread ID change.
+    thread ID == thread group ID == process ID.
 .LP
 Example: two threads call
 .BR execve (2)
@@ -1499,10 +1496,6 @@ PID2 execve("/bin/bar", "bar" <unfinished ...>
 *** we get syscall-exit-stop for PID0: **
 PID0 <... execve resumed> )             = 0
 .fi
-.LP
-In this situation, there is no way to know which
-.BR execve (2)
-succeeded.
 .LP
 If the
 .B PTRACE_O_TRACEEXEC
@@ -1714,6 +1707,17 @@ This may be changed in the future;
 .B SIGKILL
 is meant to always immediately kill tasks even under ptrace.
 Last confirmed on 2.6.38.6.
+.LP
+Some syscalls return with
+.B EINTR
+if a signal was sent to a tracee, but delivery was suppressed
+by the tracer. (This is very typical operation: it is usually
+done by debuggers on every attach, in order to not introduce
+a bogus SIGSTOP).
+As of linux 3.2.9, the following syscalls are affected:
+.BR epoll_wait (2),
+.BR read (2)
+from inotify file descriptor. The list is likely incomplete.
 .SH "SEE ALSO"
 .BR gdb (1),
 .BR strace (1),

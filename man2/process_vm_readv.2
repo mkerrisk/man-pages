@@ -1,5 +1,6 @@
 .\" Copyright (C) 2011 Christopher Yeoh <cyeoh@au1.ibm.com>
-.\" Copyright (C) 2012 Mike Frysinger <vapier@gentoo.org>
+.\" and Copyright (C) 2012 Mike Frysinger <vapier@gentoo.org>
+.\" and Copyright (C) 2012 Michael Kerrisk <mtk.man-pages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -21,78 +22,83 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PROCESS_VM_READV 2 2012-03-09 "Linux" "Linux Programmer's Manual"
+.\" Commit fcf634098c00dd9cd247447368495f0b79be12d1
+.\"	
+.TH PROCESS_VM_READV 2 2012-03-25 "Linux" "Linux Programmer's Manual"
 .SH NAME
-process_vm_readv, process_vm_writev \- read/write from/to another processes' address space
+process_vm_readv, process_vm_writev \- transfer data between process address spaces
 .SH SYNOPSIS
 .B #include <sys/uio.h>
-.sp
+.nf
 .BI "ssize_t process_vm_readv(pid_t " pid ,
-.br
-.BI "                         const struct iovec *" lvec ,
-.br
+.BI "                         const struct iovec *" local_iov ,
 .BI "                         unsigned long " liovcnt ,
-.br
-.BI "                         const struct iovec *" rvec ,
-.br
+.BI "                         const struct iovec *" remote_iov ,
 .BI "                         unsigned long " riovcnt ,
-.br
 .BI "                         unsigned long " flags ");"
 
 .BI "ssize_t process_vm_writev(pid_t " pid ,
-.br
-.BI "                          const struct iovec *" lvec ,
-.br
+.BI "                          const struct iovec *" local_iov ,
 .BI "                          unsigned long " liovcnt ,
-.br
-.BI "                          const struct iovec *" rvec ,
-.br
+.BI "                          const struct iovec *" remote_iov ,
 .BI "                          unsigned long " riovcnt ,
-.br
 .BI "                          unsigned long " flags ");"
+.fi
 .SH DESCRIPTION
+These system calls transfer data between the address space
+of the calling process ("the local process") and the process identified by
+.IR pid
+("the remote process").
+The data moves directly between the address spaces of the two processes,
+without passing through kernel space.
+
 The
 .BR process_vm_readv ()
-function reads from the memory locations described by the 
-.I riovcnt
-buffers from 
-.I rvec
-in the process identified by 
+system call transfers data from the process
 .I pid
-into
-.I liovcnt
-buffers described by 
-.I lvec
-in the current process. 
+to the calling process.
+The data to be transferred is identified by
+.IR remote_vec
+and
+.IR riovcnt :
+.IR remote_vec
+is a pointer to an array describing address ranges in the process
+.IR pid ,
+and
+.IR riovcnt
+specifies the number of items in
+.IR remote_vec .
+The data is transferred to the locations specified by
+.IR local_vec
+and
+.IR liovcnt :
+.IR local_vec
+is a pointer to an array describing address ranges in the calling process,
+and
+.IR liovcnt
+specifies the specifies the number of items in
+.IR local_vec .
 
 The
 .BR process_vm_writev ()
-function is the inverse of
+system call is the converse of
 .BR process_vm_readv ()\(emit
-writes into the memory locations described by 
-.I riovcnt
-buffers
-from 
-.I rvec
-in the process identified by 
-.I pid
-into 
-.I liovcnt
-buffers described by 
-.I lvec
-in the current process.
+transfers data from the calling process to the process
+.IR pid .
+Other than the direction of the transfer, the arguments
+.IR liovcnt ,
+.IR local_vec ,
+.IR liovcnt ,
+and
+.IR remote_vec
+have the same meaning as for
+.BR process_vm_readv ().
 
-The count values might be individually capped according to
-.BR UIO_MAXIOV .
-If the Linux kernel is capped at smaller values, the C library will take care
-of emulating the limit it exposes (if it is bigger) so the user only needs to
-care about that (what the C library defines).
-
-The pointers 
-.I lvec
+The
+.I local_iov
 and 
-.I rvec
-point to an array of
+.I remote_iov
+arguments point to an array of
 .I iovec
 structures, defined in
 .IR <sys/uio.h>
@@ -107,75 +113,102 @@ struct iovec {
 .fi
 .in
 
-Buffers are processed in array order.  This means that
+Buffers are processed in array order.
+This means that
 .BR process_vm_readv ()
 completely fills 
-.I lvec[0]
+.I local_iov[0]
 before proceeding to 
-.IR lvec[1] ,
-and
-so on.
-Along those lines, 
-.I rvec[0]
+.IR local_iov[1] ,
+and so on.
+Likewise,
+.I remote_iov[0]
 is completely read before proceeding to 
-.I rvec[1]
+.IR remote_iov[1] ,
 and so on.
 
 Similarly,
 .BR process_vm_writev ()
 writes out the entire contents of 
-.I lvec[0]
+.I local_iov[0]
 before proceeding to
-.IR lvec[1] ,
+.IR local_iov[1] ,
 and it completely fills 
-.I revc[0]
-before proceeding
-to 
-.IR rvec[1] .
+.I remote_vec[0]
+before proceeding to 
+.IR remote_iov[1] .
 
 The lengths of 
-.I rvec[i]
+.I remote_iov[i].iov_len
 and 
-.I lvec[i]
+.I local_iov[i].iov_len
 do not have to be the same.
-This allows you to split a single local buffer into multiple remote buffers,
-or vice versa.
-
-The data transfers of
-.BR process_vm_readv ()
-and
-.BR process_vm_writev ()
-are not guaranteed to be atomic in any way.
-
-The counts and vectors are checked before doing any transfers.  So if the
-counts are too big, or the vectors invalid, or the addresses refer to regions
-that are inaccessible, none of the previous vectors will be processed and an
-error will be returned immediately.  Keep this in mind when attempting to
-extract data of unknown length (such as C strings which are NULL terminated)
-by avoiding spanning memory pages (typically 4KiB).
+Thus, it is possible to split a single local buffer
+into multiple remote buffers, or vice versa.
 
 The 
 .I flags
-parameter is currently unused and must be set to 0.
+argument is currently unused and must be set to 0.
 
-In order to read or write from or to another process you must have
-the capability
-.BR CAP_SYS_PTRACE
-or have the same uid and gid of the target process.  The permission
-required is exactly the same as being able to perform a
+The values specified in the
+.I liovcnt
+and
+.I riovcnt
+arguments must be less than or equal to
+.BR IOV_MAX
+(defined in
+.I <limits.h>
+or accessible via the call
+.IR sysconf(_SC_IOV_MAX) ).
+.\" In time, glibc might provide a wrapper that works around this limit,
+.\" as is done for readv()/writev()
+
+The count arguments and
+.IR local_vec
+are checked before doing any transfers.
+If the counts are too big, or
+.I local_vec
+is invalid,
+or the addresses refer to regions that are inaccessible in the local process,
+none of the vectors will be processed and an
+error will be returned immediately.
+.\" FIXME: What does the following sentence mean?
+Keep this in mind when attempting to
+extract data of unknown length (such as C strings which are null-terminated)
+by avoiding spanning memory pages (typically 4KiB).
+
+Note, however, that these system calls do not check the memory regions
+in the remote process until just before doing the read/write.
+Consequently, a partial read/write may result if one of the
+.I remote_vec
+elements points to an invalid memory region in the remote process.
+No further reads/writes will be attempted beyond that point.
+
+In order to read from or write to another process,
+either the caller must have the capability
+.BR CAP_SYS_PTRACE ,
+or
+the real, effective, and saved set user IDs
+of the target process must match the real user ID of the caller
+.I and
+the real, effective, and saved set group IDs
+of the target process must match the real group ID of the caller.
+(The permission required is exactly the same as that required to perform a
 .BR ptrace (2)
-ptrace with
 .BR PTRACE_ATTACH
-on the target process.
+on the target process.)
 .SH "RETURN VALUE"
 On success,
 .BR process_vm_readv ()
-returns the number of bytes read while
+returns the number of bytes read and
 .BR process_vm_writev ()
 returns the number of bytes written.
+(This return value may be less than the total number of requested bytes,
+if a partial read/write occurred.
+The caller should check the return value to determine whether
+a partial read/write occurred.)
 
-On error, the number of bytes read or written is returned, or -1 is
-returned if it was unable to read/write any bytes; in either case,
+On error, \-1 is returned and
 .I errno
 is set appropriately.
 .SH ERRORS
@@ -184,51 +217,64 @@ is set appropriately.
 The sum of the 
 .I iov_len
 values of either 
-.I lvec
+.I local_iov
 or 
-.I rvec
+.I remote_iov
 overflows a
 .I ssize_t
 value.
 .TP
 .B EINVAL
-The value of the 
 .I flags
-parameter is not 0.
+is not 0.
+.TP
+.B EINVAL
+.I liovcnt
+or
+.I riovcnt
+is too large.
 .TP
 .B EFAULT
 The memory described by 
-.I lvec
-is outside your accessible address space.
+.I local_iov
+is outside the caller's accessible address space.
 .TP
 .B EFAULT
 The memory described by 
-.I rvec
-is outside the accessible address space
-of process 
+.I remote_iov
+is outside the accessible address space of the process 
 .IR pid .
 .TP
 .B ENOMEM
 Out of memory.
 .TP
 .B EPERM
-.RB ( process_vm_readv ())
-You do not have permission to read from process 
-.IR pid .
-
-.TP
-.B EPERM
-.RB ( process_vm_writev ())
-You do not have permission to write to process 
+The caller does not have permission to access the address space of the process
 .IR pid .
 .TP
 .B ESRCH
+No process with ID
 .I pid
-does not exist.
+exists.
 .SH VERSIONS
-These functions are available since glibc 2.15 and Linux 3.2.
+These system calls were added in Linux 3.2.
+Support is provided in glibc since version 2.15.
 .SH "CONFORMING TO"
-These functions are Linux extensions, not in C or POSIX.  
+These system calls are nonstandard Linux extensions.
+.SH NOTES
+The data transfers performed by
+.BR process_vm_readv ()
+and
+.BR process_vm_writev ()
+are not guaranteed to be atomic in any way.
+
+These system calls were designed to permit fast message passing
+by allowing messages to be exchanged with a single copy operation
+(rather than the double copy that would be required
+when using, for example, shared memory or pipes).
+.\" Original user is MPI, http://www.mcs.anl.gov/research/projects/mpi/
+.\" See also some benchmarks at http://lwn.net/Articles/405284/
+.\" and http://marc.info/?l=linux-mm&m=130105930902915&w=2
 .SH EXAMPLE
 The following code sample demonstrates the use of
 .BR process_vm_readv ().

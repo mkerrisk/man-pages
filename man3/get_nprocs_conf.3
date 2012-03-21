@@ -1,4 +1,5 @@
 .\" Copyright (c) 2012, Petr Benas
+.\" and Copyright (c) 2012, Michael Kerrisk <mtk.man-pages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -22,8 +23,7 @@
 
 .TH GET_NPROCS 3   2012-03-20 "GNU" "Linux Programmer's Manual"
 .SH NAME
-get_nprocs, get_nprocs_conf \- get number of processors available /
-configured by the operating system
+get_nprocs, get_nprocs_conf \- get number of processors
 .SH SYNOPSIS
 .B #include <sys/sysinfo.h>
 .sp
@@ -32,16 +32,38 @@ configured by the operating system
 .BI "int get_nprocs_conf(void);"
 .SH DESCRIPTION
 The function
-.BR get_nprocs ()
-returns the number of processors currently available in the system.
-The number returned can be affected by CPU logical hotplug.
-.sp
-The function
 .BR get_nprocs_conf ()
 returns the number of processors configured by the operating system.
-The number returned is not affected by CPU logical hotplug.
+
+The function
+.BR get_nprocs ()
+returns the number of processors currently available in the system.
+This may be less than the number returned by
+.BR get_nprocs_conf ()
+because processors may be offline (e.g., on hotpluggable systems).
+.SH RETURN VALUE
+As given in DESCRIPTION.
+.SH CONFORMING TO
+These functions are GNU extensions.
+.SH NOTES
+The current
+.\" glibc 2.15
+implementation of these functions is rather expensive,
+since they open and parse files in the
+.I /sys
+file system each time they are called.
+
+The following
+.BR sysconf (3)
+calls make use of the functions documented on this page
+to return the same information.
+.nf
+
+    np = sysconf(_SC_NPROCESSORS_CONF);     /* processors configured */
+    np = sysconf(_SC_NPROCESSORS_ONLN);     /* processors available */
+.fi
 .SH EXAMPLE
-Following is an example how
+The following example shows how
 .BR get_nprocs ()
 and
 .BR get_nprocs_conf ()
@@ -51,10 +73,12 @@ can be used.
 #include <stdio.h>
 #include <sys/sysinfo.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    printf("This sytem has %d processors available and %d processors " \\
-        "configured.\\n", get_nprocs(), get_nprocs_conf());
+    printf("This system has %d processors configured and "
+            "%d processors available.\\n",
+            get_nprocs_conf(), get_nprocs());
     return 0;
 }
 .fi

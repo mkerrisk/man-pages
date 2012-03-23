@@ -472,7 +472,7 @@ The
 .I data
 argument is treated as for
 .BR PTRACE_CONT .
-.RI (addr
+.RI ( addr
 is ignored.)
 .TP
 .BR PTRACE_SYSEMU ", " PTRACE_SYSEMU_SINGLESTEP " (since Linux 2.6.14)"
@@ -720,7 +720,9 @@ Example:
 .\"     describe how wait notifications queue (or not queue)
 .LP
 The following kinds of ptrace-stops exist: signal-delivery-stops,
-group-stop, PTRACE_EVENT stops, syscall-stops.
+group-stops,
+.B PTRACE_EVENT
+stops, syscall-stops.
 They all are reported by
 .BR waitpid (2)
 with
@@ -734,7 +736,7 @@ and if there is ambiguity in that value, by querying
 .I WSTOPSIG(status)
 macro can't be used to perform this examination,
 because it returns the value
-(\fIstatus\>>8)\ \fB&\ 0xff\fP\fP.)
+.IR "(status\>>8)\ &\ 0xff" .)
 .SS Signal-delivery-stop
 When a (possibly multithreaded) process receives any signal except
 .BR SIGKILL ,
@@ -798,12 +800,12 @@ Note that a suppressed signal still causes system calls to return
 prematurely.
 In this case system calls will be restarted: the tracer will
 observe the tracee to reexecute the interrupted system call (or
-.BR restart_syscall(2)
+.BR restart_syscall (2)
 system call for a few syscalls which use a different mechanism
 for restarting) if the tracer uses
 .BR PTRACE_SYSCALL .
 Even system calls (such as
-.BR poll(2) )
+.BR poll (2))
 which are not restartable after signal are restarted after
 signal is suppressed;
 however, kernel bugs exist which cause some syscalls to fail with
@@ -841,7 +843,7 @@ The
 signal has a side effect of waking up (all threads of)
 a group-stopped process.
 This side effect happens before signal-delivery-stop.
-The tracer can't suppress this side-effect (it can
+The tracer can't suppress this side effect (it can
 only suppress signal injection, which only causes the
 .BR SIGCONT
 handler to not be executed in the tracee, if such a handler is installed).
@@ -1001,7 +1003,7 @@ with the exit signal set to
 .TP
 .B PTRACE_EVENT_CLONE
 Stop before return from
-.BR clone (2)
+.BR clone (2).
 .TP
 .B PTRACE_EVENT_VFORK_DONE
 Stop before return from
@@ -1251,7 +1253,7 @@ is
 .BR PTRACE_SINGLESTEP ,
 .BR PTRACE_SYSEMU ,
 or
-.BR PTRACE_SYSEMU_SINGLESTEP.
+.BR PTRACE_SYSEMU_SINGLESTEP .
 If the tracee is in signal-delivery-stop,
 .I sig
 is the signal to be injected (if it is nonzero).
@@ -1260,7 +1262,7 @@ Otherwise,
 may be ignored.
 (When restarting a tracee from a ptrace-stop other than signal-delivery-stop,
 recommended practice is to always pass 0 in
-.I sig .)
+.IR sig .)
 .SS Attaching and detaching
 A thread can be attached to the tracer using the call
 
@@ -1293,9 +1295,9 @@ may be lost.
 Since attaching sends
 .B SIGSTOP
 and the tracer usually suppresses it, this may cause a stray
-.I EINTR
+.B EINTR
 return from the currently executing system call in the tracee,
-as described in the "signal injection and suppression" section.
+as described in the "Signal injection and suppression" section.
 .LP
 The request
 
@@ -1451,9 +1453,10 @@ The
 .B PTRACE_O_TRACEEXEC
 option is the recommended tool for dealing with this situation.
 First, it enables
-.BR PTRACE_EVENT_EXEC -stop,
+.BR PTRACE_EVENT_EXEC
+stop,
 which occurs before
-.BR execve(2)
+.BR execve (2)
 returns.
 In this stop, the tracer can use
 .B PTRACE_GETEVENTMSG
@@ -1487,10 +1490,10 @@ Example: two threads call
 at the same time:
 .LP
 .nf
-*** we get syscall-entry-stop in thread 1: **
+*** we get syscall-enter-stop in thread 1: **
 PID1 execve("/bin/foo", "foo" <unfinished ...>
 *** we issue PTRACE_SYSCALL for thread 1 **
-*** we get syscall-entry-stop in thread 2: **
+*** we get syscall-enter-stop in thread 2: **
 PID2 execve("/bin/bar", "bar" <unfinished ...>
 *** we issue PTRACE_SYSCALL for thread 2 **
 *** we get PTRACE_EVENT_EXEC for PID0, we issue PTRACE_SYSCALL **

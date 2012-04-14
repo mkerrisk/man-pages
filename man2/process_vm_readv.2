@@ -24,7 +24,7 @@
 .\"
 .\" Commit fcf634098c00dd9cd247447368495f0b79be12d1
 .\"	
-.TH PROCESS_VM_READV 2 2012-04-14 "Linux" "Linux Programmer's Manual"
+.TH PROCESS_VM_READV 2 2012-04-25 "Linux" "Linux Programmer's Manual"
 .SH NAME
 process_vm_readv, process_vm_writev \- transfer data between process address spaces
 .SH SYNOPSIS
@@ -86,7 +86,7 @@ transfers data from the local process to the remote process.
 Other than the direction of the transfer, the arguments
 .IR liovcnt ,
 .IR local_iov ,
-.IR liovcnt ,
+.IR riovcnt ,
 and
 .IR remote_iov
 have the same meaning as for
@@ -170,23 +170,26 @@ is invalid,
 or the addresses refer to regions that are inaccessible to the local process,
 none of the vectors will be processed
 and an error will be returned immediately.
-Keep this in mind when attempting to
-extract data of unknown length (such as C strings that are null-terminated)
-by avoiding spanning memory pages (typically 4KiB) in a single
-.I iovec
-element.
-(Instead, split the remote read array into two 
-.I iovec
-elements and have them merge back into a single write array entry.
-The first read entry goes up to the page boundary,
-while the second starts on the next page boundary.)
 
 Note, however, that these system calls do not check the memory regions
 in the remote process until just before doing the read/write.
-Consequently, a partial read/write may result if one of the
+Consequently, a partial read/write (see RETURN VALUE)
+may result if one of the
 .I remote_iov
 elements points to an invalid memory region in the remote process.
 No further reads/writes will be attempted beyond that point.
+Keep this in mind when attempting to read data of unknown length
+(such as C strings that are null-terminated) from a remote process,
+by avoiding spanning memory pages (typically 4KiB) in a single remote
+.I iovec
+element.
+(Instead, split the remote read into two 
+.I remote_iov
+elements and have them merge back into a single write
+.I local_iov
+entry.
+The first read entry goes up to the page boundary,
+while the second starts on the next page boundary.)
 
 In order to read from or write to another process,
 either the caller must have the capability

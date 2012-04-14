@@ -24,12 +24,13 @@
 .\"
 .\" Commit fcf634098c00dd9cd247447368495f0b79be12d1
 .\"	
-.TH PROCESS_VM_READV 2 2012-03-25 "Linux" "Linux Programmer's Manual"
+.TH PROCESS_VM_READV 2 2012-04-14 "Linux" "Linux Programmer's Manual"
 .SH NAME
 process_vm_readv, process_vm_writev \- transfer data between process address spaces
 .SH SYNOPSIS
-.B #include <sys/uio.h>
 .nf
+.B #include <sys/uio.h>
+
 .BI "ssize_t process_vm_readv(pid_t " pid ,
 .BI "                         const struct iovec *" local_iov ,
 .BI "                         unsigned long " liovcnt ,
@@ -54,43 +55,40 @@ without passing through kernel space.
 
 The
 .BR process_vm_readv ()
-system call transfers data from the process
-.I pid
-to the calling process.
+system call transfers data from the remote process to the local process.
 The data to be transferred is identified by
-.IR remote_vec
+.IR remote_iov
 and
 .IR riovcnt :
-.IR remote_vec
+.IR remote_iov
 is a pointer to an array describing address ranges in the process
 .IR pid ,
 and
 .IR riovcnt
-specifies the number of items in
-.IR remote_vec .
+specifies the number of elements in
+.IR remote_iov .
 The data is transferred to the locations specified by
-.IR local_vec
+.IR local_iov
 and
 .IR liovcnt :
-.IR local_vec
+.IR local_iov
 is a pointer to an array describing address ranges in the calling process,
 and
 .IR liovcnt
-specifies the specifies the number of items in
-.IR local_vec .
+specifies the number of elements in
+.IR local_iov .
 
 The
 .BR process_vm_writev ()
 system call is the converse of
 .BR process_vm_readv ()\(emit
-transfers data from the calling process to the process
-.IR pid .
+transfers data from the local process to the remote process.
 Other than the direction of the transfer, the arguments
 .IR liovcnt ,
-.IR local_vec ,
+.IR local_iov ,
 .IR liovcnt ,
 and
-.IR remote_vec
+.IR remote_iov
 have the same meaning as for
 .BR process_vm_readv ().
 
@@ -134,7 +132,7 @@ writes out the entire contents of
 before proceeding to
 .IR local_iov[1] ,
 and it completely fills 
-.I remote_vec[0]
+.I remote_iov[0]
 before proceeding to 
 .IR remote_iov[1] .
 
@@ -164,23 +162,29 @@ or accessible via the call
 .\" as is done for readv()/writev()
 
 The count arguments and
-.IR local_vec
+.IR local_iov
 are checked before doing any transfers.
 If the counts are too big, or
-.I local_vec
+.I local_iov
 is invalid,
-or the addresses refer to regions that are inaccessible in the local process,
-none of the vectors will be processed and an
-error will be returned immediately.
-.\" FIXME: What does the following sentence mean?
+or the addresses refer to regions that are inaccessible to the local process,
+none of the vectors will be processed
+and an error will be returned immediately.
 Keep this in mind when attempting to
-extract data of unknown length (such as C strings which are null-terminated)
-by avoiding spanning memory pages (typically 4KiB).
+extract data of unknown length (such as C strings that are null-terminated)
+by avoiding spanning memory pages (typically 4KiB) in a single
+.I iovec
+element.
+(Instead, split the remote read array into two 
+.I iovec
+elements and have them merge back into a single write array entry.
+The first read entry goes up to the page boundary,
+while the second starts on the next page boundary.)
 
 Note, however, that these system calls do not check the memory regions
 in the remote process until just before doing the read/write.
 Consequently, a partial read/write may result if one of the
-.I remote_vec
+.I remote_iov
 elements points to an invalid memory region in the remote process.
 No further reads/writes will be attempted beyond that point.
 
@@ -188,25 +192,31 @@ In order to read from or write to another process,
 either the caller must have the capability
 .BR CAP_SYS_PTRACE ,
 or
-the real, effective, and saved set user IDs
-of the target process must match the real user ID of the caller
+the real user ID, effective user ID, and saved set-user-ID
+of the remote process must match the real user ID of the caller
 .I and
-the real, effective, and saved set group IDs
-of the target process must match the real group ID of the caller.
+the real group ID, effective group ID, and saved set-group-ID
+of the remote process must match the real group ID of the caller.
 (The permission required is exactly the same as that required to perform a
 .BR ptrace (2)
 .BR PTRACE_ATTACH
-on the target process.)
+on the remote process.)
 .SH "RETURN VALUE"
 On success,
 .BR process_vm_readv ()
 returns the number of bytes read and
 .BR process_vm_writev ()
 returns the number of bytes written.
-(This return value may be less than the total number of requested bytes,
+This return value may be less than the total number of requested bytes,
 if a partial read/write occurred.
+(Partial transfers apply at the granularity of 
+.I iovec
+elements.
+These system calls won't perform a partial transfer that splits a single
+.I iovec
+element.)
 The caller should check the return value to determine whether
-a partial read/write occurred.)
+a partial read/write occurred.
 
 On error, \-1 is returned and
 .I errno
@@ -246,7 +256,9 @@ is outside the accessible address space of the process
 .IR pid .
 .TP
 .B ENOMEM
-Out of memory.
+Could not allocate memory for internal copies of the
+.I iovec
+structures.
 .TP
 .B EPERM
 The caller does not have permission to access the address space of the process
@@ -295,7 +307,7 @@ main(void)
     char buf1[10];
     char buf2[10];
     ssize_t nread;
-    pid_t pid = 10; /* PID of target process */
+    pid_t pid = 10;             /* PID of remote process */
 
     local[0].iov_base = buf1;
     local[0].iov_len = 10;

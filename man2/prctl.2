@@ -380,131 +380,141 @@ All unused
 arguments must be zero.
 .TP
 .BR PR_SET_MM " (since Linux 3.3)"
-Allows a user to modify certain kernel memory map descriptor fields
+Modify certain kernel memory map descriptor fields
 of the calling process.
 Usually these fields are set by the kernel and dynamic loader (see
 .BR ld.so (8)
 for more information) and a regular application should not use this feature.
-Still there are cases such as self-modifying programs, where a program might
-find it useful to change its own memory map.
-The kernel must be built with
+However, there are cases, such as self-modifying programs,
+where a program might find it useful to change its own memory map.
+This feature is available only if the kernel is built with the 
 .BR CONFIG_CHECKPOINT_RESTORE
-option turned on, otherwise this feature will not be accessible
-from a user space level.
-The calling process must have
+option enabled.
+The calling process must have the
 .BR CAP_SYS_RESOURCE
-(see
-.BR capabilities (7)
-for details) capability granted.
+capability.
 The value in
 .I arg2
 is one of the options below, while
 .I arg3
-provides a new value for this option.
-
+provides a new value for the option.
+.RS
+.TP
 .BR PR_SET_MM_START_CODE
-to set the address above which program text can run.
+Set the address above which the program text can run.
 The corresponding memory area must be readable and executable,
-but not writable or shareable (see
+but not writable or sharable (see
 .BR mprotect (2)
 and
 .BR mmap (2)
 for more information).
-
+.TP
 .BR PR_SET_MM_END_CODE
-to set the address below which program text can run.
+Set the address below which the program text can run.
 The corresponding memory area must be readable and executable,
-but not writable or shareable.
-
+but not writable or sharable.
+.TP
 .BR PR_SET_MM_START_DATA
-to set the address above which program data+bss is placed.
+Set the address above which initialized and
+uninitialized (bss) data are placed.
 The corresponding memory area must be readable and writable,
-but not executable or shareable.
-
+but not executable or sharable.
+.TP
 .B PR_SET_MM_END_DATA
-to set the address below which program data+bss is placed.
+Set the address below which initialized and
+uninitialized (bss) data are placed.
 The corresponding memory area must be readable and writable,
-but not executable or shareable.
-
+but not executable or sharable.
+.TP
 .BR PR_SET_MM_START_STACK
-to set the start address of the stack.
+Set the start address of the stack.
 The corresponding memory area must be readable and writable.
-
+.TP
 .BR PR_SET_MM_START_BRK
-to set the address above which program heap can be expanded with
+Set the address above which the program heap can be expanded with
 .BR brk (2)
 call.
-The address must not be greater than ending address of
-the current program data segment, neither it may exceed
-resource limit for data (see
-.BR setrlimit (2)
-for more information).
-
+.\" FIXME In the next sentence, shouldn't "not be greater" be "be greater"?
+The address must not be greater than the ending address of
+the current program data segment.
+.\" FIXME I completely rewrote the following sentence. Is it okay?
+.\" FIXME Is the following error documented in ERRORS?
+In addition, the combined size of the resulting heap and
+the size of the data segment can't exceed the
+.BR RLIMIT_DATA
+resource limit (see
+.BR setrlimit (2)).
+.TP
 .BR PR_SET_MM_BRK
-to set the current
+Set the current
 .BR brk (2)
 value.
-The requirements for address are the same as for
+The requirements for the address are the same as for the
 .BR PR_SET_MM_START_BRK
 option.
-
+.\" FIXME Delete or comment out the following? (until ========)
+.\" None of the following constants exist in current kernel source
+.\" What is the state of the kernel patches for these?
+.TP
 .BR PR_SET_MM_ARG_START
-to set the address above which program command line is placed.
-
+Set the address above which the program command line is placed.
+.TP
 .BR PR_SET_MM_ARG_END
-to set the address below which program command line is placed.
-
+Set the address below which the program command line is placed.
+.TP
 .BR PR_SET_MM_ENV_START
-to set the address above which program environment is placed.
-
+Set the address above which the program environment is placed.
+.TP
 .BR PR_SET_MM_ENV_END
-to set the address below which program environment is placed.
-
+Set the address below which the program environment is placed.
+.IP
 The address passed with
 .BR PR_SET_MM_ARG_START ,
 .BR PR_SET_MM_ARG_END ,
 .BR PR_SET_MM_ENV_START ,
-.BR PR_SET_MM_ENV_END ,
-should belong to a process stack area, thus corresponding memory area
-must be readable, writable and (depending on the kernel
-configuration) has
+and
+.BR PR_SET_MM_ENV_END
+should belong to a process stack area.
+Thus, the corresponding memory area must be readable, writable, and
+(depending on the kernel configuration) have the
 .BR MAP_GROWSDOWN
 attribute set (see
-.BR mmap (2)
-for details).
-
+.BR mmap (2)).
+.TP
 .BR PR_SET_MM_AUXV
-to set a new auxiliary vector.
+Set a new auxiliary vector.
 The
 .I arg3
 argument should provide the address of the vector.
 The
 .I arg4
 is the size of the vector.
-
+.TP
 .BR PR_SET_MM_EXE_FILE
-to supersede
+Supersede the
 .IR /proc/pid/exe
 symbolic link with a new one pointing to a new executable file
-which descriptor is provided provided in the
+identified by the file descriptor provided in
 .I arg3
 argument.
-The file descriptor should be obtaned with a regular
+The file descriptor should be obtained with a regular
 .BR open (2)
 call.
-
-To change the symlink, one needs to unmap all existing
-executable memory areas being created by the kernel itself
+.IP
+To change the symbolic link, one needs to unmap all existing
+executable memory areas, including those created by the kernel itself
 (for example the kernel usually creates at least one executable
-memory area for Elf file
+memory area for the ELF
 .IR \.text
 section).
-
-The second limitation is that such transition can be done once
+.IP
+The second limitation is that such transitions can be done only once
 in a process life time.
-Any furter attempts will be rejected.
+Any further attempts will be rejected.
 This should help system administrators to monitor the unusual
-symlinks transitions over all process running in a system.
+symbolic-link transitions over all process running in a system.
+.\" ========== END FIXME
+.RE
 .\"
 .SH "RETURN VALUE"
 On success,
@@ -559,6 +569,48 @@ or
 .BR PR_SET_SECCOMP ,
 and the kernel was not configured with
 .BR CONFIG_SECCOMP .
+.\" FIXME I added the following lengthy EINVAL entry. Is it correct?
+.TP
+.B EINVAL
+.I option
+is
+.BR PR_SET_MM ,
+and one of the following is true
+.RS
+.IP * 3
+.I arg4
+or
+.I arg5
+is nonzero;
+.IP *
+.I arg3
+is greater than
+.B TASK_SIZE
+(the limit on the size of the user address space for this architecture);
+.IP *
+.I arg2
+is
+.BR PR_SET_MM_START_CODE ,
+.BR PR_SET_MM_END_CODE ,
+.BR PR_SET_MM_START_DATA ,
+.BR PR_SET_MM_END_DATA ,
+or
+.BR PR_SET_MM_START_STACK,
+and the permissions of the corresponding memory area are not as required;
+.IP *
+.I arg2
+is
+.BR PR_SET_MM_START_BRK
+or
+.BR PR_SET_MM_BRK ,
+and
+.I arg3
+.\" FIXME Is the following correct (see earlier comment)
+is less than or equal to the end of the data segment
+or specifies a value that would cause the
+.B RLIMIT_DATA
+resource limit to be exceeded.
+.RE
 .TP
 .B EPERM
 .I option
@@ -602,35 +654,36 @@ capability.
 .I option
 is
 .BR PR_SET_MM ,
-and the
+and
 .I arg3
 is
+.\" FIXME PR_SET_MM_EXE_FILE is not in the kernel sources
 .BR PR_SET_MM_EXE_FILE ,
-the file is not executable one.
+the file is not executable.
 .TP
 .B EBUSY
 .I option
 is
 .BR PR_SET_MM ,
-and the
 .I arg3
 is
+.\" FIXME PR_SET_MM_EXE_FILE is not in the kernel sources
 .BR PR_SET_MM_EXE_FILE ,
-the second attempt to change
+and this the second attempt to change the
 .I /proc/pid/exe
-symlink is prohibited.
+symbolic link, which is prohibited.
 .TP
 .B EBADF
 .I option
 is
 .BR PR_SET_MM ,
-and the
 .I arg3
 is
+.\" FIXME PR_SET_MM_EXE_FILE is not in the kernel sources
 .BR PR_SET_MM_EXE_FILE ,
-the file descriptor passed in
+and the file descriptor passed in
 .I arg4
-is not found.
+is not valid.
 .\" The following can't actually happen, because prctl() in
 .\" seccomp mode will cause SIGKILL.
 .\" .TP

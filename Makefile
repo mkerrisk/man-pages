@@ -17,7 +17,7 @@ allgz: gz all
 allbz: bz2 all
 
 screen:
-	-mkdir not_installed
+	mkdir -p not_installed
 	for i in man?/*; do \
 		if [ $(MANDIR)/"$$i" -nt "$$i" ]; then \
 			cmp -s $(MANDIR)/"$$i" "$$i" > /dev/null 2>&1; \

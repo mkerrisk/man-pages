@@ -25,7 +25,7 @@ screen:
 		fi; \
 	done
 
-remove:
+uninstall remove:
 	for i in man?/*; do \
 		rm -f $(MANDIR)/"$$i" $(MANDIR)/"$$i".gz $(MANDIR)/"$$i".bz2; \
 	done

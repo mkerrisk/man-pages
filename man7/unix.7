@@ -1,6 +1,8 @@
 .\" This man page is Copyright (C) 1999 Andi Kleen <ak@muc.de>.
+.\" and Copyright (C) 2008-2014, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM_ONE_PARA)
+.\" and Copyright (C) 2008, 2012 Michael Kerrisk <mtk.manpages@gmail.com>
 .\" Permission is granted to distribute possibly modified copies
 .\" of this page provided the header is included verbatim,
 .\" and in case of nontrivial modification author and date
@@ -38,9 +40,9 @@ or bound to a filesystem pathname (marked as being of type socket).
 Linux also supports an abstract namespace which is independent of the
 filesystem.
 
-Valid types are:
+Valid socket types in the UNIX domain are:
 .BR SOCK_STREAM ,
-for a stream-oriented socket and
+for a stream-oriented socket;
 .BR SOCK_DGRAM ,
 for a datagram-oriented socket that preserves message boundaries
 (as on most UNIX implementations, UNIX domain datagram
@@ -66,21 +68,37 @@ struct sockaddr_un {
 .fi
 .in
 .PP
+The
 .I sun_family
-always contains
+field always contains
 .BR AF_UNIX .
 
-Three types of address are distinguished in this structure:
+Various systems calls (for example,
+.BR bind (2),
+.BR connect (2),
+and
+.BR sendto (2))
+take a
+.I sockaddr_un 
+argument as input.
+Some other system calls (for example,
+.BR getsockname (2),
+.BR getpeername (2),
+.BR recvfrom (2),
+and
+.BR accept (2))
+return an argument of this type.
+
+Three types of address are distinguished in the
+.I sockaddr_un
+structure:
 .IP * 3
 .IR pathname :
 a UNIX domain socket can be bound to a null-terminated
 filesystem pathname using
 .BR bind (2).
-When the address of the socket is returned by
-.BR getsockname (2),
-.BR getpeername (2),
-and
-.BR accept (2),
+When the address of a pathname socket is returned
+(by one of the system calls noted above),
 its length is
 
     offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1
@@ -88,6 +106,17 @@ its length is
 and
 .I sun_path
 contains the null-terminated pathname.
+(On Linux, the above
+.BR offsetof ()
+expression equates to the same value as
+.IR sizeof(sa_family_t) ,
+but some other implementations include other fields before
+.IR sun_path ,
+so the
+.BR offsetof ()
+expression more portably describes the size of the address structure.)
+.IP
+For further details of pathname sockets, see below.
 .IP *
 .IR unnamed :
 A stream socket that has not been bound to a pathname using
@@ -96,11 +125,7 @@ has no name.
 Likewise, the two sockets created by
 .BR socketpair (2)
 are unnamed.
-When the address of an unnamed socket is returned by
-.BR getsockname (2),
-.BR getpeername (2),
-and
-.BR accept (2),
+When the address of an unnamed socket is returned,
 its length is
 .IR "sizeof(sa_family_t)" ,
 and
@@ -110,7 +135,8 @@ should not be inspected.
 .\" says the length is 16 bytes, HP-UX 11 says it's zero bytes.
 .IP *
 .IR abstract :
-an abstract socket address is distinguished by the fact that
+an abstract socket address is distinguished (from a pathname socket)
+by the fact that
 .IR sun_path[0]
 is a null byte (\(aq\\0\(aq).
 The socket's address in this namespace is given by the additional
@@ -119,11 +145,7 @@ bytes in
 that are covered by the specified length of the address structure.
 (Null bytes in the name have no special significance.)
 The name has no connection with filesystem pathnames.
-When the address of an abstract socket is returned by
-.BR getsockname (2),
-.BR getpeername (2),
-and
-.BR accept (2),
+When the address of an abstract socket is returned,
 the returned
 .I addrlen
 is greater than
@@ -134,6 +156,67 @@ the first
 bytes of
 .IR sun_path .
 The abstract socket namespace is a nonportable Linux extension.
+.SS Pathname sockets
+When binding a socket to a pathname, a few rules should be observed
+for maximum portability and ease of coding:
+.IP * 3
+The pathname in
+.I sun_path
+should be null-terminated.
+.IP *
+The length of the pathname, including the terminating null byte,
+should not exceed the size of
+.IR sun_path .
+.IP *
+The
+.I addrlen
+argument that describes the enclosing
+.I sockaddr_un
+structure should have a value of at least:
+
+.nf
+    offsetof(struct sockaddr_un, sun_path)+strlen(addr.sun_path)+1
+.fi
+.IP
+or, more simply, 
+.I addrlen
+can be specified as
+.IR "sizeof(struct sockaddr_un)" .
+.PP
+There is some variation in how implementations handle UNIX domain
+socket addresses that do not follow the above rules.
+For example, some (but not all) implementations
+.\" Linux does this, including for the case where the supplied path
+.\" is 108 bytes
+append a null terminator if none is present in the supplied
+.IR sun_path .
+
+When coding portable applications,
+keep in mind that some implementations
+.\" HP-UX
+have
+.I sun_path
+as short as 92 bytes.
+.\" Modern BSDs generally have 104, Tru64 and AIX have 104,
+.\" Solaris and Irix have 108
+
+Various system calls
+.RB ( accept (2),
+.BR recvfrom (2),
+.BR getsockname (2),
+.BR getpeername (2))
+return socket address structures.
+When applied to UNIX domain sockets, the value-result
+.I addrlen
+argument supplied to the call should be initialized as above.
+Upon return, the argument is set to indicate the
+.I actual
+size of the address structure.
+The caller should check the value returned in this argument:
+if the output value exceeds the input value,
+then there is no guarantee that a null terminator is present in
+.IR sun_path .
+(See BUGS.)
 .SS Socket options
 For historical reasons these socket options are specified with a
 .B SOL_SOCKET
@@ -329,7 +412,7 @@ object already exists.
 The remote address specified by
 .BR connect (2)
 was not a listening socket.
-This error can also occur if the target filename is not a socket.
+This error can also occur if the target pathname is not a socket.
 .TP
 .B ECONNRESET
 Remote socket was unexpectedly closed.
@@ -407,7 +490,7 @@ but the implementation details differ.)
 .SH NOTES
 In the Linux implementation, sockets which are visible in the
 filesystem honor the permissions of the directory they are in.
-Their owner, group and their permissions can be changed.
+Their owner, group, and permissions can be changed.
 Creation of a new socket will fail if the process does not have write and
 search (execute) permission on the directory the socket is created in.
 Connecting to the socket object requires read/write permission.
@@ -434,6 +517,94 @@ or
 call.
 
 UNIX domain stream sockets do not support the notion of out-of-band data.
+.\"
+.SH BUGS
+When binding a socket to an address,
+Linux is one of the implementations that appends a null terminator
+if none is supplied in
+.IR sun_path .
+In most cases this is unproblematic:
+when the socket address is retrieved,
+it will be one byte longer than that supplied when the socket was bound.
+However, there is one case where confusing behavior can result:
+if 108 non-null bytes are supplied when a socket is bound,
+then the addition of the null terminator takes the length of
+the pathname beyond
+.IR sizeof(sun_path) .
+Consequently, when retrieving the socket address
+(for example, via
+.BR accept (2)),
+.\" The behavior on Solaris is quite similar.
+if the input
+.I addrlen
+argument for the retrieving call is specified as
+.IR "sizeof(struct sockaddr_un)" ,
+then the returned address structure
+.I won't
+have a null terminator in
+.IR sun_path .
+
+In addition, some implementations
+.\" i.e., traditional BSD
+don't require a null terminator when binding a socket (the
+.I addrlen
+argument is used to determine the length of
+.IR sun_path )
+and when the socket address is retrieved on these implementations,
+there is no null terminator in
+.IR sun_path .
+
+Applications that retrieve socket addresses can (portably) code 
+to handle the possibility that there is no null terminator in
+.IR sun_path
+by respecting the fact that the number of valid bytes in the pathname is:
+
+    strnlen(addr.sun_path, addrlen \- offsetof(sockaddr_un, sun_path))
+.\" The following patch to amend kernel behavior was rejected:
+.\" http://thread.gmane.org/gmane.linux.kernel.api/2437
+.\" Subject: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
+.\" 2012-04-17
+.\" And there was a related discussion in the Austin list:
+.\" http://thread.gmane.org/gmane.comp.standards.posix.austin.general/5735
+.\" Subject: Having a sun_path with no null terminator
+.\" 2012-04-18
+.\"
+.\" FIXME . Track http://austingroupbugs.net/view.php?id=561
+
+Alternatively, an application can retrieve
+the socket address by allocating a buffer of size
+.I "sizeof(struct sockaddr_un)+1"
+that is zeroed out before the retrieval.
+The retrieving call can specify
+.I addrlen
+as
+.IR "sizeof(struct sockaddr_un)" ,
+and the extra zero byte ensures that there will be
+a null terminator for the string returned in
+.IR sun_path :
+
+.nf
+.in +3
+void *addrp;
+
+addrlen = sizeof(struct sockaddr_un);
+addrp = malloc(addrlen + 1);
+if (addrp == NULL)
+    /* Handle error */ ;
+memset(addrp, 0, addrlen + 1);
+
+if (getsockname(sfd, (struct sockaddr *) addrp, &addrlen)) != \-1)
+    /* handle error */ ;
+
+printf("sun_path = %s\\n", ((struct sockaddr_un *) addrp)\->sun_path);
+.in
+.fi
+
+This sort of messiness can be avoided if it is guaranteed
+that the applications that
+.I create
+pathname sockets follow the rules outlined above under
+.IR "Pathname sockets" .
 .SH EXAMPLE
 See
 .BR bind (2).

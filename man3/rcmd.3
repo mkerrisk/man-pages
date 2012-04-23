@@ -40,7 +40,8 @@
 .\"
 .TH RCMD 3 2012-04-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
-rcmd, rresvport, iruserok, ruserok \- routines for returning a
+rcmd, rresvport, iruserok, ruserok, rcmd_af,
+rresvport_af, iruserok_af, ruserok_af \- routines for returning a
 stream to a remote command
 .SH SYNOPSIS
 .nf
@@ -56,6 +57,20 @@ stream to a remote command
 .sp
 .BI "int ruserok(const char *" rhost ", int " superuser ", "
 .BI "            const char *" ruser ", const char *" luser );
+.sp
+.BI "int rcmd_af(char **" ahost ", int " inport ", const char *" locuser ", "
+.BI "            const char *" remuser ", const char *" cmd ", int *" fd2p , 
+.BI "            sa_family_t " af );
+.sp
+.BI "int rresvport_af(int *" port ", sa_family_t " af );
+.sp
+.BI "int iruserok_af(uint32_t " raddr ", int " superuser ", "
+.BI "                const char *" ruser ", const char *" luser \
+", sa_family_t " af );
+.sp
+.BI "int ruserok_af(const char *" rhost ", int " superuser ", "
+.BI "               const char *" ruser ", const char *" luser \
+", sa_family_t " af );
 .fi
 .sp
 .in -4n
@@ -64,8 +79,13 @@ Feature Test Macro Requirements for glibc (see
 .in
 .sp
 .BR rcmd (),
+.BR rcmd_af (),
 .BR rresvport (),
-.BR ruserok ():
+.BR rresvport_af (),
+.BR iruserok (),
+.BR iruserok_af (),
+.BR ruserok (),
+.BR ruserok_af ():
 _BSD_SOURCE
 .SH DESCRIPTION
 The
@@ -85,10 +105,10 @@ and
 functions are used by servers
 to authenticate clients requesting service with
 .BR rcmd ().
-All four functions are present in the same file and are used
-by the
+All four functions are used by the
 .BR rshd (8)
 server (among others).
+.SS rcmd()
 .PP
 The
 .BR rcmd ()
@@ -136,6 +156,7 @@ although you may be able to get its attention by using out-of-band data.
 .PP
 The protocol is described in detail in
 .BR rshd (8).
+.SS rresvport()
 .PP
 The
 .BR rresvport ()
@@ -156,6 +177,8 @@ argument is value-result:
 the value it supplies to the call is used as the starting point
 for a circular search of the port range;
 on (successful) return, it contains the port number that was bound to.
+.\"
+.SS iruserok() and ruserok()
 .PP
 The
 .BR iruserok ()
@@ -195,6 +218,22 @@ If the IP address of the remote host is known,
 should be used in preference to
 .BR ruserok (),
 as it does not require trusting the DNS server for the remote host's domain.
+.SS *_af() variants
+All of the functions described above work with IPv4
+.RB ( AF_INET )
+sockets.
+The "_af" variants take an extra argument that allows the
+socket address family to be specified.
+For these functions, the
+.I af
+argument can be specified as
+.BR AF_INET
+or
+.BR AF_INET6 .
+In addition,
+.BR rcmd_af ()
+supports the use of
+.BR AF_UNSPEC .
 .SH RETURN VALUE
 The
 .BR rcmd ()
@@ -212,15 +251,33 @@ set according to the reason for failure.
 The error code
 .BR EAGAIN
 is overloaded to mean "All network ports in use."
+
+For information on the return from
+.BR ruserok ()
+and
+.BR iruserok (),
+see above.
+.SH VERSIONS
+The functions
+.BR iruserok_af (),
+.BR rcmd_af (),
+.BR rresvport_af (),
+and
+.BR ruserok_af ()
+functions are provide in glibc since version 2.2.
 .SH "CONFORMING TO"
 Not in POSIX.1-2001.
 Present on the BSDs, Solaris, and many other systems.
 These
 functions appeared in
 4.2BSD.
+The "_af" variants are more recent additions,
+and are not present on as wide a range of systems.
 .SH BUGS
 .BR iruserok ()
-is declared in glibc headers only since version 2.12.
+and
+.BR iruserok_af ()
+are declared in glibc headers only since version 2.12.
 .\" Bug filed 25 Nov 2007:
 .\" http://sources.redhat.com/bugzilla/show_bug.cgi?id=5399
 .SH SEE ALSO

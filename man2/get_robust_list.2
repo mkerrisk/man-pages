@@ -21,10 +21,12 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
+.\" FIXME Something could be added to this page (or exit(2))
+.\"       about exit_robust_list processing
 .\"
-.TH GET_ROBUST_LIST 2 "8 August 2006" Linux "Linux System Calls"
+.TH GET_ROBUST_LIST 2 "2012-05-03" Linux "Linux System Calls"
 .SH NAME
-get_robust_list, set_robust_list \- get/set the list of robust futexes
+get_robust_list, set_robust_list \- get/set list of robust futexes
 .SH SYNOPSIS
 .nf
 .B #include <linux/futex.h>
@@ -37,80 +39,91 @@ get_robust_list, set_robust_list \- get/set the list of robust futexes
 .SH DESCRIPTION
 The robust futex implementation needs to maintain per-thread lists of robust
 futexes which are unlocked when the thread exits.
-These lists are managed in user space, the kernel is only notified about
+These lists are managed in user space; the kernel is only notified about
 the location of the head of the list.
 
-.B get_robust_list
-returns the head of the robust futex list of the thread with TID defined
-by the
-.I pid 
-argument. If
-.I pid
-is 0, the returned head belongs to the current thread.
-.I head_ptr
-is the pointer to the head of the list of robust futexes. 
 The
-.B get_robust_list 
-function stores the address of the head of the list here.
-.I len_ptr 
-is the pointer to the length variable. 
-.B get_robust_list 
-stores \fBsizeof(**\fIhead_ptr\fB)\fR here.
+.BR get_robust_list ()
+system call returns the head of the robust futex list of the thread
+whose thread ID is specified in
+.IR pid .
+If
+.I pid
+is 0,
+the head of the list for the calling thread is returned.
+The list head is stored in the location pointed to by
+.IR head_ptr .
+The size of the object pointed to by
+.I **head_ptr
+is stored in
+.IR len_ptr .
 
-.B set_robust_list
-sets the head of the list of robust futexes owned by the current thread to 
-\fIhead\fR.
+The
+.BR set_robust_list ()
+system call requests the kernel to record the head of the list of
+robust futexes owned by the calling thread.
+The
+.I head
+argument is the list head to record.
+The
 .I len
-is the size of \fB*\fIhead\fR. 
-
+argument should be
+.IR sizeof(*head) .
 .SH "RETURN VALUE"
 The
-.B set_robust_list
+.BR set_robust_list ()
 and 
-.B get_robust_list
-functions return zero when the operation is successful,
+.BR get_robust_list ()
+system calls return zero when the operation is successful,
 an error code otherwise.
-
 .SH ERRORS
 The
-.B set_robust_list
-function fails with
+.BR set_robust_list ()
+system call can fail with the following errors:
+.TP
 .B EINVAL 
-if the 
 .I len
-value does not match the size of structure
+does not match the size of structure
 .B struct robust_list_head 
 expected by kernel.
-
+.PP
 The
-.B get_robust_list
-function fails with
+.BR get_robust_list ()
+system call can fail with the following errors:
+.TP
 .B EPERM 
-if the current process does not have permission to see the robust futex list of
-the thread with the TID
-\fIpid\fR, 
+The calling process does not have permission to see the robust futex list of
+the thread with the thread ID
+.IR pid ,
+and does not have the
+.BR CAP_SYS_PTRACE
+capability.
+.TP
 .B ESRCH 
-if a thread with the TID
+No thread with the thread ID
 .I pid
-does not exist, or
+could be found.
+.TP
 .B EFAULT
-if the head of the robust futex list can't be stored in the space specified by
-the
-.I head 
-argument.
+The head of the robust futex list can't be stored at the location
+.IR head .
+.SH VERSIONS
+These system calls were added in Linux 2.6.17.
+No library support is provided; use
+.BR syscall (2).
+.SH NOTES
+These system calls are not needed by normal applications.
+No support for them is provided in glibc.
 
-.SH APPLICATION USAGE
-A thread can have only one robust futex list; therefore applications that wish
-to use this functionality should use robust mutexes provided by glibc.
-
-The system call is only available for debugging purposes and 
-is not needed for normal operations. 
-
-Both system calls are not available to application programs as functions;
-they can be called using the
-.BR syscall (3)
-function.
-
+A thread can have only one robust futex list;
+therefore applications that wish
+to use this functionality should use the robust mutexes provided by glibc.
 .SH "SEE ALSO"
-.BR futex (2),
-.BR pthread_mutexattr_setrobust_np (3)
+.BR futex (2)
+.\" .BR pthread_mutexattr_setrobust_np (3)
+.br
+The kernel source files
+.IR Documentation/robust-futexes.txt
+and
+.IR Documentation/robust-futex-ABI.txt .
+.\" http://lwn.net/Articles/172149/

@@ -1,0 +1,116 @@
+.\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
+.\" Written by Ivana Varekova <varekova@redhat.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\"
+.TH GET_ROBUST_LIST 2 "8 August 2006" Linux "Linux System Calls"
+.SH NAME
+get_robust_list, set_robust_list \- get/set the list of robust futexes
+.SH SYNOPSIS
+.nf
+.B #include <linux/futex.h>
+.B #include <syscall.h>
+.sp
+.BI "long get_robust_list(int " pid ", struct robust_list_head **" head_ptr ,
+.BI "			  size_t *" len_ptr );
+.BI "long set_robust_list(struct robust_list_head *" head ", size_t " len );
+.fi
+.SH DESCRIPTION
+The robust futex implementation needs to maintain per-thread lists of robust
+futexes which are unlocked when the thread exits.
+These lists are managed in user space, the kernel is only notified about
+the location of the head of the list.
+
+.B get_robust_list
+returns the head of the robust futex list of the thread with TID defined
+by the
+.I pid 
+argument. If
+.I pid
+is 0, the returned head belongs to the current thread.
+.I head_ptr
+is the pointer to the head of the list of robust futexes. 
+The
+.B get_robust_list 
+function stores the address of the head of the list here.
+.I len_ptr 
+is the pointer to the length variable. 
+.B get_robust_list 
+stores \fBsizeof(**\fIhead_ptr\fB)\fR here.
+
+.B set_robust_list
+sets the head of the list of robust futexes owned by the current thread to 
+\fIhead\fR.
+.I len
+is the size of \fB*\fIhead\fR. 
+
+.SH "RETURN VALUE"
+The
+.B set_robust_list
+and 
+.B get_robust_list
+functions return zero when the operation is successful,
+an error code otherwise.
+
+.SH ERRORS
+The
+.B set_robust_list
+function fails with
+.B EINVAL 
+if the 
+.I len
+value does not match the size of structure
+.B struct robust_list_head 
+expected by kernel.
+
+The
+.B get_robust_list
+function fails with
+.B EPERM 
+if the current process does not have permission to see the robust futex list of
+the thread with the TID
+\fIpid\fR, 
+.B ESRCH 
+if a thread with the TID
+.I pid
+does not exist, or
+.B EFAULT
+if the head of the robust futex list can't be stored in the space specified by
+the
+.I head 
+argument.
+
+.SH APPLICATION USAGE
+A thread can have only one robust futex list; therefore applications that wish
+to use this functionality should use robust mutexes provided by glibc.
+
+The system call is only available for debugging purposes and 
+is not needed for normal operations. 
+
+Both system calls are not available to application programs as functions;
+they can be called using the
+.BR syscall (3)
+function.
+
+.SH "SEE ALSO"
+.BR futex (2),
+.BR pthread_mutexattr_setrobust_np (3)

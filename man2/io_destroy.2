@@ -3,26 +3,26 @@
 .\" See the file COPYING in the top level source directory for details.
 .\"
 .\" ..
-.TH IO_DESTROY 2 2008-06-18 "Linux" "Linux Programmer's Manual"
+.TH IO_DESTROY 2 2012-05-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 io_destroy \- destroy an asynchronous I/O context
 .SH "SYNOPSIS"
 .nf
-.B #include <libaio.h>
-.\" #include <linux/aio.h>
-.sp
-.BI "int io_destroy(aio_context_t " ctx );
-.sp
-Link with \fI\-laio\fP.
+.BR "#include <linux/aio_abi.h>" "          /* Defines needed types */"
+
+.BI "int io_destroy(aio_context_t " ctx_id );
 .fi
 .SH "DESCRIPTION"
 .PP
+The
 .BR io_destroy ()
-removes the asynchronous I/O context from the list of
+system call
+removes the asynchronous I/O context specified by
+.I ctx_id
+from the list of
 I/O contexts and then destroys it.
-.BR io_destroy ()
-can also cancel any outstanding asynchronous I/O
-actions on \fIctx\fP and block on completion.
+It can also cancel any outstanding asynchronous I/O
+actions on \fIctx_id\fP and block on completion.
 .SH "RETURN VALUE"
 On success,
 .BR io_destroy ()
@@ -34,14 +34,14 @@ For the failure return, see NOTES.
 The context pointed to is invalid.
 .TP
 .B EINVAL
-The AIO context specified by \fIctx\fP is invalid.
+The AIO context specified by \fIctx_id\fP is invalid.
 .TP
 .B ENOSYS
 .BR io_destroy ()
 is not implemented on this architecture.
 .SH "VERSIONS"
 .PP
-The asynchronous I/O system calls first appeared in Linux 2.5, August 2002.
+The asynchronous I/O system calls first appeared in Linux 2.5.
 .SH "CONFORMING TO"
 .PP
 .BR io_destroy ()
@@ -49,12 +49,26 @@ is Linux-specific and should not be used in programs
 that are intended to be portable.
 .SH NOTES
 Glibc does not provide a wrapper function for this system call.
-
-The wrapper provided in
-.I libaio
-for
+You could invoke it using
+.BR syscall (2).
+But instead, you probably want to use the
 .BR io_destroy ()
-does not follow the usual C library conventions for indicating error:
+wrapper function provided by
+.\" http://git.fedorahosted.org/git/?p=libaio.git
+.IR libaio .
+
+Note that the
+.I libaio
+wrapper function uses a different type
+.RI ( io_context_t )
+.\" But glibc is confused, since <libaio.h> uses 'io_context_t' to declare
+.\" the system call.
+for the
+.I ctx_id
+argument.
+Note also that the
+.I libaio
+wrapper does not follow the usual C library conventions for indicating errors:
 on error it returns a negated error number
 (the negative of one of the values listed in ERRORS).
 If the system call is invoked via
@@ -69,10 +83,5 @@ set to a (positive) value that indicates the error.
 .BR io_setup (2),
 .BR io_submit (2),
 .BR aio (7)
-.\" .SH "NOTES"
-.\"
-.\" .PP
-.\" The asynchronous I/O system calls were written by Benjamin LaHaise.
-.\"
 .\" .SH AUTHOR
 .\" Kent Yoder.

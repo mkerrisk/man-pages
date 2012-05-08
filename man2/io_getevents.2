@@ -2,28 +2,28 @@
 .\" This file is distributed according to the GNU General Public License.
 .\" See the file COPYING in the top level source directory for details.
 .\"
-.TH IO_GETEVENTS 2 2008-07-04 "Linux" "Linux Programmer's Manual"
+.TH IO_GETEVENTS 2 2012-05-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 io_getevents \- read asynchronous I/O events from the completion queue
 .SH "SYNOPSIS"
 .nf
-.B #include <linux/time.h>
-.B #include <libaio.h>
-.\" #include <linux/aio.h>
+.BR "#include <linux/aio_abi.h>" "         /* Defines needed types */"
+.BR "#include <linux/time.h>" "            /* Defines 'struct timespec' */"
+
 .sp
 .BI "int io_getevents(aio_context_t " ctx_id ", long " min_nr ", long " nr ,
 .BI "                 struct io_event *" events \
 ", struct timespec *" timeout );
-.sp
-Link with \fI\-laio\fP.
 .fi
 .SH "DESCRIPTION"
 .PP
+The
 .BR io_getevents ()
+system call
 attempts to read at least \fImin_nr\fP events and
 up to \fInr\fP events from the completion queue of the AIO context
 specified by \fIctx_id\fP.
-\fItimeout\fP specifies the amount of time to wait for events,
+The \fItimeout\fP argument specifies the amount of time to wait for events,
 where a NULL timeout waits until at least \fImin_nr\fP events
 have been seen.
 Note that \fItimeout\fP is relative and will be updated if not NULL
@@ -53,7 +53,7 @@ Interrupted by a signal handler; see
 is not implemented on this architecture.
 .SH "VERSIONS"
 .PP
-The asynchronous I/O system calls first appeared in Linux 2.5, August 2002.
+The asynchronous I/O system calls first appeared in Linux 2.5.
 .SH "CONFORMING TO"
 .PP
 .BR io_getevents ()
@@ -61,12 +61,26 @@ is Linux-specific and should not be used in
 programs that are intended to be portable.
 .SH NOTES
 Glibc does not provide a wrapper function for this system call.
-
-The wrapper provided in
-.I libaio
-for
+You could invoke it using
+.BR syscall (2).
+But instead, you probably want to use the
 .BR io_getevents ()
-does not follow the usual C library conventions for indicating error:
+wrapper function provided by
+.\" http://git.fedorahosted.org/git/?p=libaio.git
+.IR libaio .
+
+Note that the
+.I libaio
+wrapper function uses a different type
+.RI ( io_context_t )
+.\" But glibc is confused, since <libaio.h> uses 'io_context_t' to declare
+.\" the system call.
+for the
+.I ctx_id
+argument.
+Note also that the
+.I libaio
+wrapper does not follow the usual C library conventions for indicating errors:
 on error it returns a negated error number
 (the negative of one of the values listed in ERRORS).
 If the system call is invoked via
@@ -83,10 +97,5 @@ set to a (positive) value that indicates the error.
 .BR io_submit (2),
 .BR aio (7),
 .BR time (7)
-.\" .SH "NOTES"
-.\"
-.\" .PP
-.\" The asynchronous I/O system calls were written by Benjamin LaHaise.
-.\"
 .\" .SH AUTHOR
 .\" Kent Yoder.

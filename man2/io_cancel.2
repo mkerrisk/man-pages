@@ -2,25 +2,26 @@
 .\" This file is distributed according to the GNU General Public License.
 .\" See the file COPYING in the top level source directory for details.
 .\"
-.TH IO_CANCEL 2 2008-06-18 "Linux" "Linux Programmer's Manual"
+.TH IO_CANCEL 2 2012-05-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 io_cancel \- cancel an outstanding asynchronous I/O operation
 .SH "SYNOPSIS"
 .nf
-.B #include <libaio.h>
-.\"#include <linux/aio.h>
-.sp
+.BR "#include <linux/aio_abi.h>" "          /* Defines needed types */"
+
 .BI "int io_cancel(aio_context_t " ctx_id ", struct iocb *" iocb ,
 .BI "              struct io_event *" result );
-.sp
-Link with \fI\-laio\fP.
 .fi
 .SH "DESCRIPTION"
 .PP
+The
 .BR io_cancel ()
+system call
 attempts to cancel an asynchronous I/O operation previously submitted with
 .BR io_submit (2).
-\fIctx_id\fP is the AIO context ID of the operation to be canceled.
+The
+.I ctx_id
+argument is the AIO context ID of the operation to be canceled.
 If the AIO context is found, the event will be canceled and then copied
 into the memory pointed to by \fIresult\fP without being placed
 into the completion queue.
@@ -45,7 +46,7 @@ The AIO context specified by \fIctx_id\fP is invalid.
 is not implemented on this architecture.
 .SH "VERSIONS"
 .PP
-The asynchronous I/O system calls first appeared in Linux 2.5, August 2002.
+The asynchronous I/O system calls first appeared in Linux 2.5.
 .SH "CONFORMING TO"
 .PP
 .BR io_cancel ()
@@ -53,12 +54,26 @@ is Linux-specific and should not be used
 in programs that are intended to be portable.
 .SH NOTES
 Glibc does not provide a wrapper function for this system call.
-
-The wrapper provided in
-.I libaio
-for
+You could invoke it using
+.BR syscall (2).
+But instead, you probably want to use the
 .BR io_cancel ()
-does not follow the usual C library conventions for indicating error:
+wrapper function provided by
+.\" http://git.fedorahosted.org/git/?p=libaio.git
+.IR libaio .
+
+Note that the
+.I libaio
+wrapper function uses a different type
+.RI ( io_context_t )
+.\" But glibc is confused, since <libaio.h> uses 'io_context_t' to declare
+.\" the system call.
+for the
+.I ctx_id
+argument.
+Note also that the
+.I libaio
+wrapper does not follow the usual C library conventions for indicating errors:
 on error it returns a negated error number
 (the negative of one of the values listed in ERRORS).
 If the system call is invoked via
@@ -73,10 +88,5 @@ set to a (positive) value that indicates the error.
 .BR io_setup (2),
 .BR io_submit (2),
 .BR aio (7)
-.\" .SH "NOTES"
-.\"
-.\" .PP
-.\" The asynchronous I/O system calls were written by Benjamin LaHaise.
-.\"
 .\" .SH AUTHOR
 .\" Kent Yoder.

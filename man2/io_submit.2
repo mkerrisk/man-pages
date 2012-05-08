@@ -2,25 +2,26 @@
 .\" This file is distributed according to the GNU General Public License.
 .\" See the file COPYING in the top level source directory for details.
 .\"
-.TH IO_SUBMIT 2 2008-06-18 "Linux" "Linux Programmer's Manual"
+.TH IO_SUBMIT 2 2012-05-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
 io_submit \- submit asynchronous I/O blocks for processing
 .SH "SYNOPSIS"
 .nf
-.B #include <libaio.h>
-.\" #include <linux/aio.h>
-.sp
+.BR "#include <linux/aio_abi.h>" "          /* Defines needed types */"
+
 .BI "int io_submit(aio_context_t " ctx_id ", long " nr \
 ", struct iocb **" iocbpp );
-.sp
-Link with \fI\-laio\fP.
 .fi
 .SH "DESCRIPTION"
 .PP
+The
 .BR io_submit ()
+system call
 queues \fInr\fP I/O request blocks for processing in
 the AIO context \fIctx_id\fP.
-\fIiocbpp\fP should be an array of \fInr\fP AIO control blocks,
+The
+.I iocbpp
+argument should be an array of \fInr\fP AIO control blocks,
 which will be submitted to context \fIctx_id\fP.
 .SH "RETURN VALUE"
 On success,
@@ -40,9 +41,11 @@ The file descriptor specified in the first \fIiocb\fP is invalid.
 One of the data structures points to invalid data.
 .TP
 .B EINVAL
-The \fIaio_context\fP specified by \fIctx_id\fP is invalid.
+The AIO context specified by \fIctx_id\fP is invalid.
 \fInr\fP is less than 0.
-The \fIiocb\fP at *iocbpp[0] is not properly initialized,
+The \fIiocb\fP at
+.I *iocbpp[0]
+is not properly initialized,
 or the operation specified is invalid for the file descriptor
 in the \fIiocb\fP.
 .TP
@@ -51,7 +54,7 @@ in the \fIiocb\fP.
 is not implemented on this architecture.
 .SH "VERSIONS"
 .PP
-The asynchronous I/O system calls first appeared in Linux 2.5, August 2002.
+The asynchronous I/O system calls first appeared in Linux 2.5.
 .SH "CONFORMING TO"
 .PP
 .BR io_submit ()
@@ -59,12 +62,26 @@ is Linux-specific and should not be used in
 programs that are intended to be portable.
 .SH NOTES
 Glibc does not provide a wrapper function for this system call.
-
-The wrapper provided in
-.I libaio
-for
+You could invoke it using
+.BR syscall (2).
+But instead, you probably want to use the
 .BR io_submit ()
-does not follow the usual C library conventions for indicating error:
+wrapper function provided by
+.\" http://git.fedorahosted.org/git/?p=libaio.git
+.IR libaio .
+
+Note that the
+.I libaio
+wrapper function uses a different type
+.RI ( io_context_t )
+.\" But glibc is confused, since <libaio.h> uses 'io_context_t' to declare
+.\" the system call.
+for the
+.I ctx_id
+argument.
+Note also that the
+.I libaio
+wrapper does not follow the usual C library conventions for indicating errors:
 on error it returns a negated error number
 (the negative of one of the values listed in ERRORS).
 If the system call is invoked via
@@ -79,8 +96,5 @@ set to a (positive) value that indicates the error.
 .BR io_getevents (2),
 .BR io_setup (2),
 .BR aio (7)
-.\" .SH "NOTES"
-.\" .PP
-.\" The asynchronous I/O system calls were written by Benjamin LaHaise.
 .\" .SH AUTHOR
 .\" Kent Yoder.

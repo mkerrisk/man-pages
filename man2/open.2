@@ -769,12 +769,40 @@ Under Linux 2.4, transfer sizes, and the alignment of the user buffer
 and the file offset must all be multiples of the logical block size
 of the file system.
 Under Linux 2.6, alignment to 512-byte boundaries suffices.
-However, if the user buffer is not page-aligned and the direct read
-runs in parallel with a
+.LP
+.B O_DIRECT
+I/Os should never be run concurrently with the
 .BR fork (2)
-of the reader process, it may happen that the read data is split between
-pages owned by the original process and its child.
-Thus the read data is effectively corrupted.
+system call,
+if the memory buffer is a private mapping
+(i.e., any mapping created with the
+.BR mmap(2)
+.BR MAP_PRIVATE
+flag; 
+this includes memory allocated on the heap and statically allocated buffers).
+Any such I/Os, whether submitted via an asynchronous I/O interface or from
+another thread in the process,
+should be completed before
+.BR fork (2)
+is called.
+Failure to do so can result in data corruption and undefined behavior in
+parent and child processes.
+This restriction does not apply when the memory buffer for the
+.B O_DIRECT
+I/Os was created using
+.BR shmat (2)
+or
+.BR mmap (2)
+with the
+.B MAP_SHARED
+flag.
+Nor does this restriction apply when the memory buffer has been advised as
+.B MADV_DONTFORK
+with 
+.BR madvise(2),
+ensuring that it will not be available
+to the child after
+.BR fork (2).
 .LP
 The
 .B O_DIRECT

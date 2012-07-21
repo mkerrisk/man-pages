@@ -20,7 +20,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH SIGWAITINFO 2 2012-05-02 "Linux" "Linux Programmer's Manual"
+.TH SIGWAITINFO 2 2012-07-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sigwaitinfo, sigtimedwait \- synchronously wait for queued signals
 .SH SYNOPSIS
@@ -45,28 +45,30 @@ _POSIX_C_SOURCE\ >=\ 199309L
 .BR sigwaitinfo ()
 suspends execution of the calling thread until one of the signals in
 .I set
-is delivered.
+is pending
 (If one of the signals in
 .I set
 is already pending for the calling thread,
 .BR sigwaitinfo ()
-will return immediately with information about that signal.)
+will return immediately.)
 
 .BR sigwaitinfo ()
-removes the delivered signal from the set of pending
+removes the signal from the set of pending
 signals and returns the signal number as its function result.
 If the
 .I info
 argument is not NULL,
-then it returns a structure of type
+then the buffer that it points to is used to return a structure of type
 .I siginfo_t
 (see
 .BR sigaction (2))
 containing information about the signal.
 .PP
-Signals returned via
+If multiple signals in
+.I set
+are pending for the caller, the signal that is retrieved by
 .BR sigwaitinfo ()
-are delivered in the usual order; see
+is determined according to the usual ordering rules; see
 .BR signal (7)
 for further details.
 .PP
@@ -112,7 +114,7 @@ set to indicate the error.
 .B EAGAIN
 No signal in
 .I set
-was delivered within the
+was became pending within the
 .I timeout
 period specified to
 .BR sigtimedwait ().
@@ -134,14 +136,15 @@ In normal usage, the calling program blocks the signals in
 via a prior call to
 .BR sigprocmask (2)
 (so that the default disposition for these signals does not occur if they
-are delivered between successive calls to
+become pending between successive calls to
 .BR sigwaitinfo ()
 or
 .BR sigtimedwait ())
 and does not establish handlers for these signals.
 In a multithreaded program,
-the signal should be blocked in all threads to prevent
-the signal being delivered to a thread other than the one calling
+the signal should be blocked in all threads, in order to prevent
+the signal being treated according to its default disposition in
+a thread other than the one calling
 .BR sigwaitinfo ()
 or
 .BR sigtimedwait ()).
@@ -163,7 +166,7 @@ waiting for the same signal(s) in
 or
 .BR sigtimedwait (),
 then exactly one of the threads will actually receive the
-signal if it is delivered to the process as a whole;
+signal if it becomes pending for the process as a whole;
 which of the threads receives the signal is indeterminate.
 
 POSIX leaves the meaning of a NULL value for the

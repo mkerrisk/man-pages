@@ -22,7 +22,7 @@
 .\" with various additions by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\"
-.TH IOPRIO_SET 2 2012-07-13 "Linux" "Linux Programmer's Manual"
+.TH IOPRIO_SET 2 2012-07-29 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ioprio_get, ioprio_set \- get/set I/O scheduling class and priority
 .SH SYNOPSIS
@@ -39,13 +39,13 @@ The
 and
 .BR ioprio_set ()
 system calls respectively get and set the I/O scheduling class and
-priority of one or more processes.
+priority of one or more threads.
 
 The
 .I which
 and
 .I who
-arguments identify the process(es) on which the system
+arguments identify the thread(s) on which the system
 calls operate.
 The
 .I which
@@ -55,7 +55,7 @@ is interpreted, and has one of the following values:
 .TP
 .B IOPRIO_WHO_PROCESS
 .I who
-is a process ID identifying a single process.
+is a process ID or thread ID identifying a single process or thread.
 .TP
 .B IOPRIO_WHO_PGRP
 .I who
@@ -191,6 +191,25 @@ These system calls are Linux-specific.
 .SH NOTES
 Glibc does not provide wrapper for these system calls; call them using
 .BR syscall (2).
+
+Two or more processes or threads can share an I/O context.
+This will be the case when
+.BR clone (2)
+was called with the
+.B CLONE_IO
+flag.
+However, by default, the distinct threads of a process will
+.B not
+share the same I/O context.
+This means that if you want to change the I/O
+priority of all threads in a process, you may need to call
+.BR ioprio_set ()
+on each of the threads.
+The thread ID that you would need for this operation
+is the one that is returned by
+.BR gettid (2)
+or
+.BR clone (2).
 
 These system calls only have an effect when used
 in conjunction with an I/O scheduler that supports I/O priorities.

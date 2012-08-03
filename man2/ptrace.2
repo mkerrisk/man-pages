@@ -46,7 +46,7 @@
 .\" FIXME Linux 3.1 adds PTRACE_SEIZE, PTRACE_INTERRUPT,
 .\"                and PTRACE_LISTEN.
 .\"
-.TH PTRACE 2 2012-04-26 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2012-08-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -593,10 +593,8 @@ tracees within a multithreaded process.
 (The term "signal-delivery-stop" is explained below.)
 .LP
 .B SIGKILL
-operates similarly, with exceptions.
-No signal-delivery-stop is generated for
-.B SIGKILL
-and therefore the tracer can't suppress it.
+does not generate signal-delivery-stop and
+therefore the tracer can't suppress it.
 .B SIGKILL
 kills even within system calls
 (syscall-exit-stop is not generated prior to death by
@@ -728,8 +726,13 @@ even if the tracer knows there should be a notification.
 Example:
 .nf
 
-    kill(tracee, SIGKILL);
-    waitpid(tracee, &status, __WALL | WNOHANG);
+    errno = 0;
+    ptrace(PTRACE_CONT, pid, 0L, 0L);
+    if (errno == ESRCH) {
+        /* tracee is dead */
+        r = waitpid(tracee, &status, __WALL | WNOHANG);
+        /* r can still be 0 here! */
+    }
 .fi
 .\" FIXME:
 .\"     waitid usage? WNOWAIT?
@@ -1645,10 +1648,12 @@ glibc currently declares
 as a variadic function with only the
 .I request
 argument fixed.
-This means that unneeded trailing arguments may be omitted,
-though doing so makes use of undocumented
-.BR gcc (1)
-behavior.
+It is recommended to always supply four arguments,
+even if the requested operation does not use them,
+setting unused/ignored arguments to
+.I 0L
+or
+.IR "(void\ *)\ 0".
 .LP
 In Linux kernels before 2.6.26,
 .\" See commit 00cd5c37afd5f431ac186dd131705048c0a11fdb
@@ -1743,6 +1748,51 @@ and
 from an
 .BR inotify (7)
 file descriptor.
+The usual symptom of this bug is that when you attach to
+a quiescent process with the command
+    
+    strace -p <process-ID>
+
+then, instead of the usual
+and expected one-line output such as
+.nf
+
+    restart_syscall(<... resuming interrupted call ...>_
+
+.fi
+or
+.nf
+
+    select(6, [5], NULL, [5], NULL_
+
+.fi
+('_' denotes the cursor position), you observe more than one line.
+For example:
+.nf
+
+    clock_gettime(CLOCK_MONOTONIC, {15370, 690928118}) = 0
+    epoll_wait(4,_
+
+.fi
+What is not visible here is that the process was blocked in
+.BR epoll_wait (2)
+before
+.BR strace (1)
+has attached to it.
+Attaching caused
+.BR epoll_wait (2)
+to return to userspace with the error
+.BR EINTR .
+In this particular case, the program reacted to
+.B EINTR
+by checking ithe current time, and then executing
+.BR epoll_wait (2)
+again.
+(Programs which do not expect such "stray"
+.BR EINTR
+errors may behave in an unintended way upon an
+.BR strace (1)
+attach.)
 .SH "SEE ALSO"
 .BR gdb (1),
 .BR strace (1),

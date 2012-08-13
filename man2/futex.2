@@ -14,7 +14,7 @@
 .\" material in the kernel source file Documentation/pi-futex.txt.
 .\" 2.6.25 adds FUTEX_WAKE_BITSET, FUTEX_WAIT_BITSET
 .\"
-.TH FUTEX 2 2012-08-05 "Linux" "Linux Programmer's Manual"
+.TH FUTEX 2 2012-08-13 "Linux" "Linux Programmer's Manual"
 .SH NAME
 futex \- Fast Userspace Locking system call
 .SH SYNOPSIS
@@ -165,18 +165,24 @@ but first checks whether the location
 .I uaddr
 still contains the value
 .IR val3 .
+If not, the operation fails with the error
+.BR EAGAIN .
 The argument
 .I timeout
 is ignored.
 .SH "RETURN VALUE"
 .PP
-Depending on which operation was executed,
-the returned value for a successful call can have differing meanings.
+In the event of an error, all operations return \-1, and set
+.I errno
+to indicate the error.
+The return value on success depends on the operation,
+as described in the following list:
 .TP
 .B FUTEX_WAIT
 Returns 0 if the process was woken by a
 .B FUTEX_WAKE
 call.
+See ERRORS for the various possible error returns.
 .TP
 .B FUTEX_WAKE
 Returns the number of processes woken up.
@@ -189,10 +195,6 @@ Returns the number of processes woken up.
 .TP
 .B FUTEX_CMP_REQUEUE
 Returns the number of processes woken up.
-.PP
-In the event of an error, all operations return \-1, and set
-.I errno
-to indicate the error.
 .SH ERRORS
 .TP
 .B EACCES
@@ -200,7 +202,7 @@ No read access to futex memory.
 .TP
 .B EAGAIN
 .B FUTEX_CMP_REQUEUE
-detect that the value at
+detected that the value pointed to by
 .I uaddr
 is not equal to the expected value
 .IR val3 .
@@ -210,18 +212,19 @@ use the safe
 now.)
 .TP
 .B EFAULT
-Error in getting
+Error retrieving
 .I timeout
 information from userspace.
 .TP
 .B EINTR
+A
 .B FUTEX_WAIT
-operation was interrupted by signal (see
-.BR signal (7)
-) or by other spurious wakeup.
+operation was interrupted by a signal (see
+.BR signal (7))
+or a spurious wakeup.
 .TP
 .B EINVAL
-An operation was not defined or error in page alignment.
+An operation was not defined or there was error in page alignment.
 .TP
 .B ENFILE
 The system limit on the total number of open files has been reached.
@@ -236,13 +239,14 @@ Timeout during the
 operation.
 .TP
 .B EWOULDBLOCK
-The value, pointed to by
+.I op
+was
+.BR FUTEX_WAIT
+and the value pointed to by
 .I uaddr
 was not equal to the expected value
 .I val
-at the moment of calling
-.B FUTEX_WAIT
-operation.
+at the time of the call.
 .SH "VERSIONS"
 .PP
 Initial futex support was merged in Linux 2.5.7 but with different semantics

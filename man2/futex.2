@@ -165,8 +165,6 @@ but first checks whether the location
 .I uaddr
 still contains the value
 .IR val3 .
-If not, the operation fails with the error
-.BR EAGAIN .
 The argument
 .I timeout
 is ignored.
@@ -179,18 +177,6 @@ the returned value for a successful call can have differing meanings.
 Returns 0 if the process was woken by a
 .B FUTEX_WAKE
 call.
-In case of timeout,
-the operation fails with the error
-.BR ETIMEDOUT .
-If the futex was not equal to the expected value,
-the operation fails with the error
-.BR EWOULDBLOCK .
-Signals (see
-.BR signal (7))
-or other spurious wakeups cause
-.B FUTEX_WAIT
-to fail with the error
-.BR EINTR .
 .TP
 .B FUTEX_WAKE
 Returns the number of processes woken up.
@@ -214,7 +200,10 @@ No read access to futex memory.
 .TP
 .B EAGAIN
 .B FUTEX_CMP_REQUEUE
-found an unexpected futex value.
+detect that the value at
+.I uaddr
+is not equal to the expected value
+.IR val3 .
 (This probably indicates a race;
 use the safe
 .B FUTEX_WAKE
@@ -225,6 +214,12 @@ Error in getting
 .I timeout
 information from userspace.
 .TP
+.B EINTR
+.B FUTEX_WAIT
+operation was interrupted by signal (see
+.BR signal (7)
+) or by other spurious wakeup.
+.TP
 .B EINVAL
 An operation was not defined or error in page alignment.
 .TP
@@ -234,6 +229,20 @@ The system limit on the total number of open files has been reached.
 .B ENOSYS
 Invalid operation specified in
 .IR op .
+.TP
+.B ETIMEDOUT
+Timeout during the
+.B FUTEX_WAIT
+operation.
+.TP
+.B EWOULDBLOCK
+The value, pointed to by
+.I uaddr
+was not equal to the expected value
+.I val
+at the moment of calling
+.B FUTEX_WAIT
+operation.
 .SH "VERSIONS"
 .PP
 Initial futex support was merged in Linux 2.5.7 but with different semantics

@@ -1,5 +1,5 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
-.\" and Copyright (C) 2007 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2007, 2012 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" Permission is granted to make and distribute verbatim copies of this
 .\" manual provided the copyright notice and this permission notice are
@@ -28,15 +28,25 @@
 .\" Modified Sat Jul 24 19:30:29 1993 by Rik Faith (faith@cs.unc.edu)
 .\" Modified Fri Feb 14 21:47:50 1997 by Andries Brouwer (aeb@cwi.nl)
 .\"
-.TH GETENV 3  2008-03-17 "GNU" "Linux Programmer's Manual"
+.TH GETENV 3  2012-08-14 "GNU" "Linux Programmer's Manual"
 .SH NAME
-getenv \- get an environment variable
+getenv, secure_getenv \- get an environment variable
 .SH SYNOPSIS
 .nf
 .B #include <stdlib.h>
 .sp
 .BI "char *getenv(const char *" name );
+
+.BI "char *secure_getenv(const char *" name );
 .fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR secure_setenv ():
+_GNU_SOURCE
 .SH DESCRIPTION
 The
 .BR getenv ()
@@ -46,13 +56,47 @@ environment variable
 and returns a pointer to the corresponding
 .I value
 string.
+
+The GNU-specific
+.BR secure_getenv ()
+function is just like
+.BR getenv ()
+except that it returns NULL in cases where "secure execution" is required.
+Secure execution is required if one of the following conditions
+was true when the program run by the calling process was loaded:
+.IP * 3
+the process's effective user ID did not match its real user ID or
+the process's effective group ID did not match its real group ID
+(typically this is the result of executing a set-user-ID or
+set-group-ID program);
+.IP *
+the effective capability bit was set on the executable file; or
+.IP *
+the process has a nonempty permitted capability set.
+.PP
+Secure execution may also required if triggered
+by some Linux security modules.
+
+The
+.BR secure_getenv ()
+function is intended for use in general-purpose libraries
+to avoid vulnerabilities that could occur if
+set-user-ID or set-group-ID programs accidentally
+trusted the environment.
 .SH "RETURN VALUE"
 The
 .BR getenv ()
 function returns a pointer to the value in the
 environment, or NULL if there is no match.
 .SH "CONFORMING TO"
+.BR getenv ():
 SVr4, POSIX.1-2001, 4.3BSD, C89, C99.
+
+.BR secure_getenv ()
+is a GNU extension.
+.SH VERSIONS
+.BR secure_getenv ()
+first appeared in glibc 2.17.
 .SH NOTES
 The strings in the environment list are of the form \fIname=value\fP.
 
@@ -74,9 +118,17 @@ and can be modified by a subsequent call to
 .BR setenv (3),
 or
 .BR unsetenv (3).
+
+The "secure execution" mode of
+.BR secure_getenv ()
+is controlled by the
+.B AT_SECURE
+flag contained in the auxiliary vector passed from the kernel to user space.
 .SH "SEE ALSO"
 .BR clearenv (3),
+.\" FIXME getauxval (3)
 .BR putenv (3),
 .BR setenv (3),
 .BR unsetenv (3),
+.BR capabilities (7),
 .BR environ (7)

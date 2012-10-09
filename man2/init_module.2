@@ -6,7 +6,7 @@
 .\" 2006-02-09, some reformatting by Luc Van Oostenryck; some
 .\" reformatting and rewordings by mtk
 .\"
-.TH INIT_MODULE 2 2006-02-09 "Linux" "Linux Programmer's Manual"
+.TH INIT_MODULE 2 2012-10-09 "Linux" "Linux Programmer's Manual"
 .SH NAME
 init_module \- load a kernel module
 .SH SYNOPSIS
@@ -19,8 +19,10 @@ init_module \- load a kernel module
 There is no glibc wrapper for this system call; see NOTES.
 .SH DESCRIPTION
 .BR init_module ()
-loads a kernel module, performs any necessary symbol relocations,
-and runs the module's
+loads an ELF image into kernel space,
+performs any necessary symbol relocations,
+initializes module parameters to values provided by the caller,
+and then runs the module's
 .I init
 function.
 This system call requires privilege.
@@ -31,12 +33,15 @@ argument points to a buffer containing the binary image
 to be loaded;
 .I len
 specifies the size of that buffer.
+The module image should be a valid ELF image, built for the running kernel.
 
 The
 .I param_values
 argument is a string containing space-delimited specifications of the
 values for module parameters.
-Each of these specifications has the form:
+The kernel parses this string and initializes the specified
+parameters
+Each of the parameter specifications has the form:
 
 .RI "        " name [ =value [ ,value ...]]
 
@@ -61,7 +66,7 @@ is set appropriately.
 The module's initialization routine failed.
 .TP
 .B EEXIST
-A module by this name is already loaded.
+A module with this name is already loaded.
 .TP
 .B EFAULT
 An address argument referred to an location that
@@ -69,7 +74,9 @@ is outside the process's accessible address space.
 .TP
 .BR EINVAL " (Linux 2.6 onward)"
 .I param_values
-is invalid.
+is invalid, or some part of the ELF image in
+.IR module_image
+contains inconsistencies.
 .TP
 .BR EINVAL " (Linux 2.4 and earlier)"
 Some
@@ -81,11 +88,21 @@ does not correspond to the original module name, some
 entry does not correspond to a loaded module,
 or some other similar inconsistency.
 .TP
+.B ENOEXEC
+The ELF image in
+.I module_image
+is too small or has corrupted segments.
+.TP
 .B EPERM
 The caller was not privileged
 (did not have the
 .B CAP_SYS_MODULE
-capability).
+capability),
+or module loading is disabled
+(see
+.IR /proc/sys/kernel/modules_disabled
+in
+.BR proc (5)).
 .SH "CONFORMING TO"
 .BR init_module ()
 is Linux-specific.

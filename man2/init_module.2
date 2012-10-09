@@ -1,4 +1,5 @@
 .\" Copyright (C) 1996 Free Software Foundation, Inc.
+.\" and Copyright (C) 2012 Michael Kerrisk <mtk.manpages@gmail.com>
 .\" This file is distributed according to the GNU General Public License.
 .\" See the file COPYING in the top level source directory for details.
 .\"
@@ -7,19 +8,117 @@
 .\"
 .TH INIT_MODULE 2 2006-02-09 "Linux" "Linux Programmer's Manual"
 .SH NAME
-init_module \- initialize a loadable module entry
+init_module \- load a kernel module
 .SH SYNOPSIS
 .nf
-.B #include <linux/module.h>
-.sp
-.BI "int init_module(const char *" name ", struct module *" image );
+.BI "int init_module(void *" module_image ", unsigned long " len , 
+.BI "                const char *" param_values );
 .fi
+
+.IR Note :
+There is no glibc wrapper for this system call; see NOTES.
 .SH DESCRIPTION
 .BR init_module ()
-loads the relocated module image into kernel space and runs the
-module's
+loads a kernel module, performs any necessary symbol relocations,
+and runs the module's
 .I init
 function.
+This system call requires privilege.
+
+The
+.I module_image
+argument points to a buffer containing the binary image
+to be loaded;
+.I len
+specifies the size of that buffer.
+
+The
+.I param_values
+argument is a string containing space-delimited specifications of the
+values for module parameters.
+Each of these specifications has the form:
+
+.RI "        " name [ =value [ ,value ...]]
+
+The parameter name is one of those defined within the module using
+.IR module_param ()
+(see the Linux kernel source file
+.IR include/linux/moduleparam.h ).
+The parameter value is optional in the case of
+.I bool
+and
+.I invbool
+parameters.
+Values for array parameters are specified as a comma-separated list.
+.SH "RETURN VALUE"
+On success, zero is returned.
+On error, \-1 is returned and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EBUSY
+The module's initialization routine failed.
+.TP
+.B EEXIST
+A module by this name is already loaded.
+.TP
+.B EFAULT
+An address argument referred to an location that
+is outside the process's accessible address space.
+.TP
+.BR EINVAL " (Linux 2.6 onward)"
+.I param_values
+is invalid.
+.TP
+.BR EINVAL " (Linux 2.4 and earlier)"
+Some
+.I image
+slot is filled in incorrectly,
+.I image\->name
+does not correspond to the original module name, some
+.I image\->deps
+entry does not correspond to a loaded module,
+or some other similar inconsistency.
+.TP
+.B EPERM
+The caller was not privileged
+(did not have the
+.B CAP_SYS_MODULE
+capability).
+.SH "CONFORMING TO"
+.BR init_module ()
+is Linux-specific.
+.SH NOTES
+Glibc does not provide a wrapper for this system call; call it using
+.BR syscall (2).
+
+Information about currently loaded modules can be found in
+.IR /proc/modules
+and in the file trees under the per-module subdirectories under
+.IR /sys/module .
+
+See the Linux kernel source file
+.I include/linux/module.h
+for some useful background information.
+.SS Linux 2.4 and earlier
+.PP
+In Linux 2.4 and earlier, this system call was rather different:
+
+.B "    #include <linux/module.h>"
+
+.BI "    int init_module(const char *" name ", struct module *" image );
+
+This version of the system call
+loads the relocated module image pointed to by
+.I image
+into kernel space and runs the module's
+.I init
+function.
+The caller is responsible for providing the relocated image (since
+Linux 2.6, the
+.BR init_module ()
+system call does the relocation).
 .PP
 The module image begins with a module structure and is followed by
 code and data as appropriate.
@@ -57,46 +156,8 @@ and
 are expected to point within the module body and be
 initialized as appropriate for kernel space, that is, relocated with
 the rest of the module.
-.PP
-This system call requires privilege.
-.SH "RETURN VALUE"
-On success, zero is returned.
-On error, \-1 is returned and
-.I errno
-is set appropriately.
-.SH ERRORS
-.TP
-.B EBUSY
-The module's initialization routine failed.
-.TP
-.B EFAULT
-.I name
-or
-.I image
-is outside the program's accessible address space.
-.TP
-.B EINVAL
-Some
-.I image
-slot is filled in incorrectly,
-.I image\->name
-does not correspond to the original module name, some
-.I image\->deps
-entry does not correspond to a loaded module,
-or some other similar inconsistency.
-.TP
-.B ENOENT
-No module by that name exists.
-.TP
-.B EPERM
-The caller was not privileged
-(did not have the
-.B CAP_SYS_MODULE
-capability).
-.SH "CONFORMING TO"
-.BR init_module ()
-is Linux-specific.
 .SH "SEE ALSO"
 .BR create_module (2),
 .BR delete_module (2),
-.BR query_module (2)
+.BR query_module (2),
+.BR modprobe (8)

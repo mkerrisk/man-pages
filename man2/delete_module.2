@@ -6,7 +6,7 @@
 .\" 2006-02-09, some reformatting by Luc Van Oostenryck; some
 .\" reformatting and rewordings by mtk
 .\"
-.TH DELETE_MODULE 2 2012-10-09 "Linux" "Linux Programmer's Manual"
+.TH DELETE_MODULE 2 2012-10-12 "Linux" "Linux Programmer's Manual"
 .SH NAME
 delete_module \- unload a kernel module
 .SH SYNOPSIS
@@ -17,76 +17,94 @@ delete_module \- unload a kernel module
 .IR Note :
 There is no glibc wrapper for this system call; see NOTES.
 .SH DESCRIPTION
+The
 .BR delete_module ()
-attempts to remove the unused loadable module entry
+system call attempts to remove the unused loadable module entry
 identified by
 .IR name .
+If the module has an
+.I exit
+function, then that function is executed before unloading the module.
+The
+.IR flags
+argument is used to modify the behavior of the system call,
+as described below.
 This system call requires privilege.
 
+Module removal is attempted according to the following rules:
+.IP 1. 4
 If there are other loaded modules that depend on
 (i.e., refer to symbols defined in) this module,
 then the call fails.
-Otherwise, by default, 
-.BR delete_module ()
-marks a module so that no new references are permitted.
-If the module's reference count
-(i.e., the number of processes currently using the module) is nonzero,
-it then places the caller in an uninterruptible sleep
-state until all reference count is zero,
-at which point the call unblocks.
-When the reference count reaches zero, the module is unloaded.
-When the module is unloaded, the kernel executes its
-.I exit
-function.
-
-The
-.IR flags
-argument can be used to modify the behavior of the system call.
-The following values can be ORed in this argument:
+.IP 2.
+Otherwise, if the reference count for the module
+(i.e., the  number  of processes currently using the module)
+is zero, then the module is immediately unloaded.
+.IP 3.
+If a module has a nonzero reference count,
+then the behavior depends on the bits set in
+.IR flags .
+In normal usage (see NOTES), the
+.BR O_NONBLOCK
+flag is always specified, and the
+.BR O_TRUNC
+flag may additionally be specified.
+.\"  	O_TRUNC == KMOD_REMOVE_FORCE in kmod library
+.\"  	O_NONBLOCK == KMOD_REMOVE_NOWAIT in kmod library
+The various combinations for
+.I flags
+have the following effect:
+.RS 4
 .TP
-.B O_TRUNC
-.\"  	KMOD_REMOVE_FORCE in kmod library
-Force unloading of the module, even if the following conditions are true:
+.B flags == O_NONBLOCK
+The call returns immediately, with an error.
+.TP
+.B flags == (O_NONBLOCK | O_TRUNC)
+The module is unloaded immediately,
+regardless of whether it has a nonzero reference count.
+.TP
+.B flags == 0
+If
+.I flags
+does not specify
+.BR O_NONBLOCK ,
+the following steps occur:
 .RS
 .IP * 3
-The module has no
-.I exit
-function.
-By default, attempting to unload a module that has no
-.I exit
-function fails.
+The module is marked so that no new references are permitted.
 .IP *
-The reference count for (i.e., the number of processes currently using)
-this module is nonzero.
-See the description of
-.BR O_NONBLOCK .
+If the module's reference count is nonzero,
+the caller is placed in an uninterruptible sleep state
+.RB ( TASK_UNINTERRUPTIBLE )
+until the reference count is zero, at which point the call unblocks.
+.IP *
+The module is unloaded in the usual way.
 .RE
-.IP
-Using this flag taints the kernel (TAINT_FORCED_RMMOD).
-.IP
-.IR "Using this flag is dangerous!"
+.RE
+.PP
+The
+.B O_TRUNC
+flag has one further effect on the rules described above.
+By default,
+attempting to remove a module that has an
+.I init
+function but no
+.I exit 
+function fails.
+However, if
+.BR O_TRUNC
+was specified, this requirement is bypassed.
+.PP
+Using the 
+.B O_TRUNC
+flag is dangerous!
 If the kernel was not built with
 .BR CONFIG_MODULE_FORCE_UNLOAD ,
 this flag is silently ignored.
-.TP
-.B O_NONBLOCK
-.\"  	KMOD_REMOVE_NOWAIT in kmod library
-If both
-.B O_NONBLOCK
-and
-.B O_TRUNC 
-are specified in
-.IR flags
-(and the kernel was built with
-.BR CONFIG_MODULE_FORCE_UNLOAD ),
-then the module is unloaded immediately,
-regardless of whether it has a nonzero reference count.
-If
-.B O_NONBLOCK
-was specified, but
-.B O_TRUNC
-was not, then an error is returned
-if the module has a nonzero reference count.
+(Normally ,
+.BR CONFIG_MODULE_FORCE_UNLOAD
+is enabled.)
+Using this flag taints the kernel (TAINT_FORCED_RMMOD).
 .SH "RETURN VALUE"
 On success, zero is returned.
 On error, \-1 is returned and
@@ -97,9 +115,12 @@ is set appropriately.
 .B EBUSY
 The module is not "live"
 (i.e., it is still being initialized or is already marked for removal);
-or, the module has no
+or, the module has
+an
+.I init
+function but has no
 .I exit
-function and
+function, and
 .B O_TRUNC
 was not specified in
 .IR flags .
@@ -107,11 +128,7 @@ was not specified in
 .TP
 .B EFAULT
 .I name
-is outside the program's accessible address space.
-.TP
-.B EINVAL
-.I name
-was an empty string.
+refers to a location outside the process's accessible address space.
 .TP
 .B ENOENT
 No module by that name exists.
@@ -144,10 +161,15 @@ is Linux-specific.
 Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
 
-See the Linux kernel source file
-.I include/linux/module.h
-for some useful background information.
-
+The unininterruptible sleep that may occur if
+.BR O_NONBLOCK
+is omitted from
+.IR flags
+is considered undesirable, because the sleeping process is left
+in an unkillable state.
+As at Linux 3.7, specifying
+.BR O_NONBLOCK
+is optional, but in future kernels it is likely to become mandatory.
 .SS Linux 2.4 and earlier
 In Linux 2.4 and earlier, the system call took only one argument:
 
@@ -166,4 +188,5 @@ currently explained in this manual page.
 .BR create_module (2),
 .BR init_module (2),
 .BR query_module (2),
+.BR lsmod (8),
 .BR rmmod (8)

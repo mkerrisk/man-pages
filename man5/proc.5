@@ -2033,6 +2033,55 @@ To determine the rounded-up value,
 display the contents of this file after assigning a value to it.
 The minimum value that can be assigned to this file is the system page size.
 .TP
+.IR /proc/sys/fs/protected_hardlinks " (since Linux 3.6)"
+.\" commit 800179c9b8a1e796e441674776d11cd4c05d61d7
+When the value in this file is 0,
+no restrictions are placed the creation of hard links
+(i.e., this is the historical behaviour before Linux 3.6).
+When the value in this file is 1,
+a hard link can be created to a target file
+only if one of the following conditions is true:
+.RS
+.IP * 3
+The caller has the
+.BR CAP_FOWNER
+capability.
+.IP *
+The file system UID of the process creating the link matches
+the owner (UID) of the target file
+(as described in
+.BR credentials (7),
+a process's file system UID is normally the same as its effective UID).
+.IP *
+All of the following conditions are true:
+.RS 4
+.IP \(bu 3
+the target is a regular file;
+.IP \(bu
+the target file does not have its set-user-ID permission bit enabled;
+.IP \(bu
+the target file does not have both its set-group-ID and
+group-executable permission bits enabled; and
+.IP \(bu
+the caller has permission to read and write the target file
+(either via the file's permissions mask or because it has
+suitable capabilities).
+.RE
+.RE
+.IP 
+The default value in this file is 1.
+This setting prevents a longstanding class of security issues caused by
+the hard-link-based time-of-check, time-of-use races,
+most commonly seen in world-writable directories such as
+.IR /tmp .
+The common method of exploiting this flaw
+is to cross privilege boundaries when following a given hard link
+(i.e., a root process follows a hard link created by another user).
+Additionally, on systems without separated partitions,
+this stops unauthorized users from "pinning" vulnerable set-user-ID and
+set-group-ID files against being upgraded by
+the administrator, or linking to special files.
+.TP
 .IR /proc/sys/fs/suid_dumpable " (since Linux 2.6.13)"
 .\" The following is based on text from Documentation/sysctl/kernel.txt
 The value in this file determines whether core dump files are

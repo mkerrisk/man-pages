@@ -10,26 +10,240 @@ The following people contributed patches/fixes or (noted in brackets
 in the changelog below) reports, notes, and ideas that have been
 incorporated in changes in this release:
 
+Adrian Bunk <bunk@kernel.org>
+Anatoli Klassen <anatoli@aksoft.net>
+Andreas Schwab <schwab@linux-m68k.org>
+Bjarni Ingi Gislason <bjarniig@rhi.hi.is>
+David Prévot <taffit@debian.org>
+Eric Dumazet <edumazet@google.com>
+Florian Weimer <fweimer@redhat.com>
+Frédéric Brière <fbriere@fbriere.net>
+Fredrik Arnerup <arnerup@kth.se>
+Guillem Jover <guillem@hadrons.org>
+Jan Engelhardt <jengelh@inai.de>
+Michael Kerrisk <mtk.manpages@gmail.com>
+Simon Josefsson <simon@josefsson.org>
+Stephane Fillod <fillods@users.sf.net>
+Trevor Woerner <twoerner@gmail.com>
+Yuri Kozlov <yuray@komyakino.ru>
 
 Apologies if I missed anyone!
-
-
-New and rewritten pages
------------------------
 
 
 Newly documented interfaces in existing pages
 ---------------------------------------------
 
+getenv.3
+    Michael Kerrisk  [Florian Weimer, Andreas Schwab]
+        Document secure_getenv(3)
+
 
 New and changed links
 ---------------------
+
+phys.2
+    Michael Kerrisk
+        New link to unimplemented.2
+
+secure_getenv.3
+    Michael Kerrisk
+        New link to getenv.3
 
 
 Global changes
 --------------
 
+Various pages
+    Michael Kerrisk
+        Global fix: s/-/\\-/ when real hyphen is required (e.g., in code)
+
+Various pages
+    David Prévot [Michael Kerrisk]
+        Global fix: Various consistency fixes for SEE ALSO
+
+Various pages
+    Michael Kerrisk
+        Global fix: use "Linux kernel source" consistently
+            Rather than "kernel source".
+
+Various pages
+    Michael Kerrisk
+        Global fix: disable justification and hyphenation in SEE ALSO
+            For a better visual result, disable justification and hyphenation
+            in SEE ALSO where page names are long.
+
 
 Changes to individual pages
 ---------------------------
 
+epoll_wait.2
+    Michael Kerrisk  [Fredrik Arnerup]
+        Describe timeout limitation in kernels < 2.6.37
+            As reported by Fredrik (and as far as I can tell the problem
+            went back to 2.6.0):
+
+            The timeout argument has an upper limit. Any values above that
+            limit are treated the same as -1, i.e. to wait indefinitely.
+            The limit is given by:
+
+                #define EP_MAX_MSTIMEO min(1000ULL * MAX_SCHEDULE_TIMEOUT / HZ, \
+            	(LONG_MAX - 999ULL) / HZ)
+
+            That is, the limit depends on the size of a long and the timer
+            frequency.  Assuming the a long is never smaller than 32 bits
+            and HZ never larger than 1000, the worst case is 35 minutes.
+            I think this should be mentioned under "BUGS".
+
+            Although this is likely to be fixed in the future
+            (http://lkml.org/lkml/2010/8/8/144), the problem exists in
+            at least 2.6.14 - 2.6.35. I don't know if select(2) and poll(2)
+            are affected.
+
+            https://bugzilla.kernel.org/show_bug.cgi?id=20762
+    Michael Kerrisk
+        Add pointer to select(2) for discussion of close in another thread
+
+getitimer.2
+    Michael Kerrisk  [Trevor Woerner]
+        Note Linux's odd handling of the new_value==NULL case
+    Michael Kerrisk  [Trevor Woerner]
+        Fix types used to declare fields in timeval struct
+
+keyctl.2
+    David Prévot
+        Reorder SEE ALSO, without .br
+
+poll.2
+    Michael Kerrisk
+        Add pointer to select(2) for discussion of close in another thread
+
+select.2
+    Michael Kerrisk  [Stephane Fillod]
+        Note behavior if monitored file descriptor is closed in another thread
+            Executive summary: a sane application can't rely on any
+            particular behavior if another thread closes a file descriptor
+            being monitored by select().
+
+            See https://bugzilla.kernel.org/show_bug.cgi?id=40852
+    Michael Kerrisk
+        Clarify equivalent pselect() code in terms of threads
+            s/sigprogmask/pthread_sigmask/
+
+semop.2
+    Michael Kerrisk
+        Recast discussion of blocking behavior in terms of threads
+            semop() blocks the calling thread, not the process.
+    Michael Kerrisk
+        SEE ALSO: Add clone(2)
+            Give reader a clue about CLONE_SYSVSEM.
+
+shutdown.2
+    Michael Kerrisk  [Eric Dumazet]
+        Document EINVAL error (and associated bug)
+            Eric Dumazet noted that EINVAL was not documented. Some further
+            digging shows that it's also not diagnosed consistently.
+            See https://bugzilla.kernel.org/show_bug.cgi?id=47111.
+
+sigaction.2
+    Michael Kerrisk
+        Tweak SA_RESETHAND description
+
+syscalls.2, uname.2, boot.7
+    Michael Kerrisk
+        Global fix: s/OS/operating system/
+
+timer_settime.2
+    Michael Kerrisk
+        Small rewording around discussion of pointer arguments
+
+wait4.2
+    Adrian Bunk
+        Note that these functions are nonstandard and recommend alternatives
+            Some edits to Adrian's path by mtk.
+    Michael Kerrisk
+        CONFORMING TO: Note SUS details for wait3()
+
+gnu_get_libc_version.3
+    Michael Kerrisk
+        Remove unneeded "#define _GNU_SOURCE" from SYNOPSIS
+
+pthread_kill.3, pthread_sigqueue.3
+    Michael Kerrisk
+        Remove wording "another"
+            Writing "another thread" in these pages implies that these
+            functions can't be used to send a signal to the calling thread
+            itself, which is of course untrue.
+
+sigvec.3
+    Michael Kerrisk
+        Add "int" arg to sv_handler definition in sigvec structure
+    Michael Kerrisk
+        Fix small error in discussion of blocking of signals
+            The signal that causes the handler to be invoked is blocked,
+            but saying "by default" implies that this can be changed via
+            the API. It cannot. (One needs sigaction(2) for that.)
+
+syslog.3
+    Simon Josefsson
+        Remove (apparently bogus) text claiming LOG_AUTH is deprecated
+            LOG_AUTH is in POSIX, and widely available. There
+            seems to be no basis to the claim it is deprecated.
+
+            Quoting Simon:
+                I cannot find any other source that claim LOG_AUTH is
+                deprecated in any way.  LOG_AUTH is distinct from
+                LOG_AUTHPRIV.  The GNU C Library manual only documents
+                LOG_AUTH.  The header files contains both without any
+                comment.  Common systems like Debian appear to refer to
+                both auth and authpriv facilities in syslog configurations.
+                Popular daemons appear to use both facilities.
+                Both facilities are discussed in several RFCs.
+
+            See https://bugzilla.kernel.org/show_bug.cgi?id=46091
+
+ttyname.3
+    Michael Kerrisk
+        SEE ALSO: Add ctermid(3)
+
+proc.5
+    Michael Kerrisk
+        Clarify header file related to 'flags' field of /proc/PID/stat
+    Michael Kerrisk  [Frédéric Brière]
+        Update description of 'starttime' field of /proc/PID/stat
+            The unit of measurement changed from jiffies to clock ticks in
+            Linux 2.6.
+
+            See http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=675891
+    Michael Kerrisk
+        Document /proc/sys/kernel/kptr_restrict
+    Michael Kerrisk [Kees Cook]
+        Document /proc/sys/fs/protected_symlinks
+            Based on text in Documentation/sysctl/fs.txt by Kees Cook
+    Michael Kerrisk [Kees Cook]
+        Document /proc/sys/fs/protected_hardlinks
+            Based on text in Documentation/sysctl/fs.txt by Kees Cook
+
+capabilities.7
+    Michael Kerrisk
+        Document interaction of CAP_SYSLOG and /proc/sys/kernel/kptr_restrict
+
+ip.7
+    Michael Kerrisk
+        SEE ALSO: Add ipv6(7)
+        SEE ALSO: Add icmp(7)
+
+man-pages.7
+    Michael Kerrisk
+        Add some advice about disabling hyphenation in SEE ALSO
+
+ld.so.8
+    Michael Kerrisk
+        Describe interpretation of slashes in dependency strings
+    Michael Kerrisk
+        Repeat note that LD_LIBRARY_PATH is ignored in privileged programs
+            This point is already noted when discussing search order for
+            libraries, but it's worth repeating under the specific discussion
+            of LD_LIBRARY_PATH further down the page.
+    Michael Kerrisk
+        Add some details for LD_PRELOAD
+        Note that LD_PRELOAD list separator can be space or colon

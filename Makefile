@@ -55,5 +55,18 @@ install:
 		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 	done; \
 
+# Check if groff reports warnings (may be words of sentances not displayed)
+# from http://lintian.debian.org/tags/manpage-has-errors-from-man.html 
+GROFF_LOG := $(shell mktemp /tmp/manpages-checksXXXX)
+check-groff-warnings:
+	for i in man?/*.[1-9]; \
+	do \
+		if grep -q 'SH.*NAME' $$i; then \
+			LC_ALL=en_US.UTF-8 MANWIDTH=80 man --warnings -E UTF-8 -l $$i > /dev/null 2>$(GROFF_LOG); \
+			[ -s $(GROFF_LOG) ] && ( echo "$$i: " ; cat $(GROFF_LOG) ; echo "" ); \
+			rm $(GROFF_LOG) 2>/dev/null; \
+		fi \
+	done
+
 # someone might also want to look at /var/catman/cat2 or so ...
 # a problem is that the location of cat pages varies a lot

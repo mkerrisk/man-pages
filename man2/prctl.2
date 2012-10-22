@@ -41,11 +41,12 @@
 .\" 2012-04 Cyrill Gorcunov, Document PR_SET_MM
 .\" 2012-04-25 Michael Kerrisk, Document PR_TASK_PERF_EVENTS_DISABLE and
 .\"				PR_TASK_PERF_EVENTS_ENABLE
+.\" 2012-09-20 Kees Cook, update PR_SET_SECCOMP for mode 2
 .\"
 .\" FIXME: Document PR_SET_TIMERSLACK and PR_GET_TIMERSLACK (new in 2.6.28)
 .\"		commit 6976675d94042fbd446231d1bd8b7de71a980ada
 .\"
-.TH PRCTL 2 2012-04-23 "Linux" "Linux Programmer's Manual"
+.TH PRCTL 2 2012-10-22 "Linux" "Linux Programmer's Manual"
 .SH NAME
 prctl \- operations on a process
 .SH SYNOPSIS
@@ -235,11 +236,17 @@ in the location pointed to by
 .\" See http://thread.gmane.org/gmane.linux.kernel/542632
 .\" [PATCH 0 of 2] seccomp updates
 .\" andrea@cpushare.com
-Set the secure computing mode for the calling thread.
-In the current implementation,
+Set the secure computing mode for the calling thread, to limit
+the available syscalls.
+The seccomp mode is selected via
+.IR arg2 .
+(The seccomp constants are defined in
+.IR <linux/seccomp.h> .)
+
+With
 .IR arg2
-must be 1.
-After the secure computing mode has been set to 1,
+set to
+.BR SECCOMP_MODE_STRICT
 the only system calls that the thread is permitted to make are
 .BR read (2),
 .BR write (2),
@@ -249,22 +256,35 @@ and
 Other system calls result in the delivery of a
 .BR SIGKILL
 signal.
-Secure computing mode is useful for number-crunching applications
+Strict secure computing mode is useful for number-crunching applications
 that may need to execute untrusted byte code,
 perhaps obtained by reading from a pipe or socket.
 This operation is only available
 if the kernel is configured with CONFIG_SECCOMP enabled.
+
+With
+.IR arg2
+set to
+.BR SECCOMP_MODE_FILTER " (since Linux 3.5)"
+the system calls allowed are
+defined by a pointer passed in
+.IR arg3
+to a Berkeley Packet Filter, which can be designed to filter
+arbitrary syscalls and syscall arguments.
+This mode is only available if the kernel is configured with
+CONFIG_SECCOMP_FILTER enabled.
+
 .TP
 .BR PR_GET_SECCOMP " (since Linux 2.6.23)"
 Return the secure computing mode of the calling thread.
-Not very useful for the current implementation (mode equals 1),
-but may be useful for other possible future modes:
-if the caller is not in secure computing mode, this operation returns 0;
-if the caller is in secure computing mode, then the
+If the caller is not in secure computing mode, this operation returns 0;
+if the caller is in strict secure computing mode, then the
 .BR prctl ()
 call will cause a
 .B SIGKILL
 signal to be sent to the process.
+If the caller is in filter mode, and this syscall is allowed by the
+seccomp filters, it returns 2.
 This operation is only available
 if the kernel is configured with CONFIG_SECCOMP enabled.
 .TP

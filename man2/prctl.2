@@ -43,11 +43,11 @@
 .\"				PR_TASK_PERF_EVENTS_ENABLE
 .\" 2012-09-20 Kees Cook, update PR_SET_SECCOMP for mode 2
 .\" 2012-09-20 Kees Cook, document PR_SET_NO_NEW_PRIVS, PR_GET_NO_NEW_PRIVS
+.\" 2012-10-25 Michael Kerrisk, Document PR_SET_TIMERSLACK and
+.\"                             PR_GET_TIMERSLACK
 .\"
-.\" FIXME: Document PR_SET_TIMERSLACK and PR_GET_TIMERSLACK (new in 2.6.28)
-.\"		commit 6976675d94042fbd446231d1bd8b7de71a980ada
 .\"
-.TH PRCTL 2 2012-10-22 "Linux" "Linux Programmer's Manual"
+.TH PRCTL 2 2012-10-25 "Linux" "Linux Programmer's Manual"
 .SH NAME
 prctl \- operations on a process
 .SH SYNOPSIS
@@ -361,6 +361,69 @@ Return (as the function result)
 the "securebits" flags of the calling thread.
 See
 .BR capabilities (7).
+.TP
+.BR PR_SET_TIMERSLACK " (since Linux 2.6.28)"
+.\" See https://lwn.net/Articles/369549/
+.\" commit 6976675d94042fbd446231d1bd8b7de71a980ada
+Set the current timer slack for the calling thread to the nanosecond value
+supplied in
+.IR arg2 .
+If
+.I arg2
+is less than or equal to zero,
+.\" It seems that it's not possible to set the timer slack to zero;
+.\" The minimum value is 1? Seems a little strange.
+reset the current timer slack to the thread's default timer slack value.
+The timer slack is used by the kernel to group timer expirations
+for the calling thread that are close to one another;
+as a consequence, timer expirations for the thread may be
+up to the specified number of nanoseconds late (but will never expire early).
+Grouping timer expirations can help reduce system power consumption
+by minimizing CPU wake-ups.
+
+The timer expirations affected by timer slack are those set by
+.BR select (2),
+.BR pselect (2),
+.BR poll (2),
+.BR ppoll (2),
+.BR epoll_wait (2),
+.BR epoll_pwait (2),
+.BR clock_nanosleep (2),
+.BR nanosleep (2),
+and
+.BR futex (2)
+(and thus the library functions implemented via futexes, including
+.\" List obtained by grepping for futex usage in glibc source
+.BR pthread_cond_timedwait (3),
+.BR pthread_mutex_timedlock (3),
+.BR pthread_rwlock_timedrdlock (3),
+.BR pthread_rwlock_timedwrlock (3),
+and
+.BR sem_timedwait (3)).
+
+Timer slack is not applied to threads that are scheduled under
+a realtime scheduling policy (see
+.BR sched_setscheduler (2)).
+
+Each thread has two associated timer slack values:
+a "default" value, and a "current" value.
+The current value is the one that governs grouping
+of timer expirations.
+When a new thread is created,
+the two timer slack values are made the same as the current value
+of the creating thread.
+Thereafter, a thread can adjust its current timer slack value via
+.BR PR_SET_TIMERSLACK
+(the default value can't be changed).
+The timer slack values of
+.IR init
+(PID 1), the ancestor of all processes,
+is 50,000 nanoseconds (50 microseconds).
+The timer slack values are preserved across
+.BR execve (2).
+.TP
+.BR PR_GET_TIMERSLACK " (since Linux 2.6.28)"
+Return the current timer slack value of the calling thread.
 .TP
 .BR PR_SET_TIMING " (since Linux 2.6.0-test4)"
 Set whether to use (normal, traditional) statistical process timing or

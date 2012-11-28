@@ -52,13 +52,28 @@ The system call of this name is about controlling the kernel
 .IR printk ()
 buffer, and the glibc wrapper function is called
 .BR klogctl ().
-
+.SS The kernel log buffer
+The kernel has a cyclic buffer of length
+.B LOG_BUF_LEN
+in which messages given as arguments to the kernel function
+.BR printk ()
+are stored (regardless of their loglevel).
+In early kernels,
+.B LOG_BUF_LEN
+had the value 4096;
+from kernel 1.3.54, it was 8192;
+from kernel 2.1.113 it was 16384;
+since 2.4.23/2.6 the value is a kernel configuration option.
+.\" Under "General setup" ==> "Kernel log buffer size"
+.\" For 2.6, precisely the option seems to have appeared in 2.5.55.
+In recent kernels the size can be queried with command type 10 (see below).
+.SS Commands
 The \fItype\fP argument determines the action taken by this function.
 The list below specifies the values for
 .IR type .
 The symbolic names are defined in the kernel source,
 but are not exported to user space;
-you will either need to use the numbers, or define the names yourself.)
+you will either need to use the numbers, or define the names yourself.
 .TP
 .BR SYSLOG_ACTION_CLOSE " (0)"
 Close the log.  Currently a NOP.
@@ -68,34 +83,87 @@ Open the log. Currently a NOP.
 .TP
 .BR SYSLOG_ACTION_READ " (2)"
 Read from the log.
+The call
+waits until the kernel log buffer is nonempty, and then reads
+at most \fIlen\fP bytes into the buffer pointed to by
+.IR bufp .
+The call returns the number of bytes read.
+Bytes read from the log disappear from the log buffer:
+the information can only be read once.
+This is the function executed by the kernel when a user program reads
+.IR /proc/kmsg .
 .TP
 .BR SYSLOG_ACTION_READ_ALL " (3)"
 Read all messages remaining in the ring buffer.
+The call reads the last \fIlen\fP
+bytes from the log buffer (nondestructively),
+but will not read more than was written into the buffer since the
+last "clear ring buffer" command (which does not clear the buffer at all).
+The call returns the number of bytes read.
 .TP
 .BR SYSLOG_ACTION_READ_CLEAR " (4)"
-Read and clear all messages remaining in the ring buffer
+Read and clear all messages remaining in the ring buffer.
+The call does precisely the same as for a
+.I type
+of 3, but also executes the "clear ring buffer" command.
 .TP
 .BR SYSLOG_ACTION_CLEAR " (5)"
-Clear ring buffer.
+The call executes just the "clear ring buffer" command.
+The
+.I bufp
+and
+.I len
+arguments are ignored.
 .TP
 .BR SYSLOG_ACTION_CONSOLE_OFF " (6)"
-Disable printk to console
+Disable printk to console.
+The call sets the console log level to the minimum,
+so that no messages are printed to the console.
+The
+.I bufp
+and
+.I len
+arguments are ignored.
 .TP
 .BR SYSLOG_ACTION_CONSOLE_ON " (7)"
-Enable printk to console
+The call sets the console log level to the default,
+so that messages are printed to the console.
+The
+.I bufp
+and
+.I len
+arguments are ignored.
 .TP
 .BR SYSLOG_ACTION_CONSOLE_LEVEL " (8)"
-Set level of messages printed to console
+The call sets the console log level to the value given in
+.IR len ,
+which must be an integer between 1 and 8 (inclusive).
+See the
+.B loglevel
+section for details.
+The
+.I bufp
+argument is ignored.
 .TP
-.BR SYSLOG_ACTION_SIZE_UNREAD " (9)"
-Return number of unread characters in the log buffer
+.BR SYSLOG_ACTION_SIZE_UNREAD " (9) (since Linux 2.4.10)"
+The call
+returns the number of bytes currently available to be read
+on the kernel log buffer.
+The
+.I bufp
+and
+.I len
+arguments are ignored.
 .TP
-.BR SYSLOG_ACTION_SIZE_BUFFER " (10)"
-Return size of the log buffer
+.BR SYSLOG_ACTION_SIZE_BUFFER " (10) (since Linux 2.6.6)"
+This command returns the total size of the kernel log buffer.
+The
+.I bufp
+and
+.I len
+arguments are ignored.
 .fi
 .PP
-Type 9 was added in Linux 2.4.10; type 10 in Linux 2.6.6.
-
 All commands except 3 and 10 require privilege.
 In Linux kernels before 2.6.37,
 command types 3 and 10 are allowed to unprivileged processes;
@@ -112,81 +180,6 @@ Since Linux 2.6.37,
 capability (now deprecated for this purpose) or the (new)
 .BR CAP_SYSLOG
 capability.
-.SS The kernel log buffer
-The kernel has a cyclic buffer of length
-.B LOG_BUF_LEN
-in which messages given as arguments to the kernel function
-.BR printk ()
-are stored (regardless of their loglevel).
-In early kernels,
-.B LOG_BUF_LEN
-had the value 4096;
-from kernel 1.3.54, it was 8192;
-from kernel 2.1.113 it was 16384;
-since 2.4.23/2.6 the value is a kernel configuration option.
-.\" Under "General setup" ==> "Kernel log buffer size"
-.\" For 2.6, precisely the option seems to have appeared in 2.5.55.
-In recent kernels the size can be queried with command type 10.
-
-The call
-.I "syslog(2,buf,len)"
-waits until this kernel log buffer is nonempty, and then reads
-at most \fIlen\fP bytes into the buffer \fIbuf\fP.
-It returns
-the number of bytes read.
-Bytes read from the log disappear from
-the log buffer: the information can only be read once.
-This is the function executed by the kernel when a user program
-reads
-.IR /proc/kmsg .
-
-The call
-.I syslog(3,buf,len)
-will read the last \fIlen\fP bytes from the log buffer (nondestructively),
-but will not read more than was written into the buffer since the
-last "clear ring buffer" command (which does not clear the buffer at all).
-It returns the number of bytes read.
-
-The call
-.I syslog(4,buf,len)
-does precisely the same, but also executes the "clear ring buffer" command.
-
-The call
-.I syslog(5,dummy,dummy)
-executes just the "clear ring buffer" command.
-(In each call where
-.I buf
-or
-.I len
-is shown as "dummy", the value of the argument is ignored by the call.)
-
-The call
-.I syslog(6,dummy,dummy)
-sets the console log level to minimum, so that no messages are printed
-to the console.
-
-The call
-.I syslog(7,dummy,dummy)
-sets the console log level to default, so that messages are printed
-to the console.
-
-The call
-.I syslog(8,dummy,level)
-sets the console log level to
-.IR level ,
-which must be an integer between 1 and 8 (inclusive).
-See the
-.B loglevel
-section for details.
-
-The call
-.I syslog(9,dummy,dummy)
-returns the number of bytes currently available to be read
-on the kernel log buffer.
-
-The call
-.I syslog(10,dummy,dummy)
-returns the total size of the kernel log buffer.
 .SS The loglevel
 The kernel routine
 .BR printk ()
@@ -198,11 +191,16 @@ This variable initially has the value
 (7), but is set to 10 if the
 kernel command line contains the word "debug", and to 15 in case
 of a kernel fault (the 10 and 15 are just silly, and equivalent to 8).
-This variable is set (to a value in the range 1-8) by the call
-.IR syslog(8,dummy,value) .
-The calls
-.I syslog(type,dummy,dummy)
-with \fItype\fP equal to 6 or 7, set it to 1 (kernel panics only)
+This variable is set (to a value in the range 1-8) by a
+.BR syslog ()
+call with a
+.I type
+of 8.
+Calls to
+.BR syslog ()
+with
+.I type
+equal to 6 or 7 set the variable to 1 (kernel panics only)
 or 7 (all except debugging messages), respectively.
 
 Every text line in a message has its own loglevel.

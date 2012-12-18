@@ -1,58 +1,107 @@
-.TH KCMP 2 2012-02-01 "Linux" "Linux Programmer's Manual"
+.\" Kernel commit d97b46a64674a267bc41c9e16132ee2a98c3347d
+.\"
+.TH KCMP 2 2012-12-19 "Linux" "Linux Programmer's Manual"
 
 .SH NAME
-kcmp \- compare if two processes do share a particular kernel resource
+kcmp \- compare two processes to determine if they share a kernel resource
 
 .SH SYNOPSIS
 .nf
-.BR "#define _GNU_SOURCE" "         /* See feature_test_macros(7) */"
-.B #include <unistd.h>
 .B #include <linux/kcmp.h>
-.BR "#include <sys/syscall.h>   "  "/* For SYS_xxx definitions */"
 
-.BI "int syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);"
+.BI "int kcmp(pid_t " pid1 ", pid_t " pid2 ", int " type , 
+.BI "         unsigned long " idx1 ", unsigned long "  idx2 );
+
 .fi
 
-.SH DESCRIPTION
+.IR Note :
+There is no glibc wrapper for this system call; see NOTES.
 
+.SH DESCRIPTION
+The
 .BR kcmp ()
-allows to find out if two processes identified by
+system call can be used to check whether the two processes identified by
 .I pid1
 and
 .I pid2
-share kernel resources such as virtual memory, file descriptors, file system etc.
+share a kernel resource such as virtual memory, file descriptors,
+and so on.
 
-The comparison
+The
 .I type
-is one of the following
+argument specifies which resource is to be compared in the two processes.
+It has one of the following values:
 
+.TP
 .BR KCMP_FILE
-determines whether a file descriptor
+Check whether a file descriptor
 .I idx1
-in the first process is the same as another descriptor
+in the process
+.I pid1
+refers to the same open file description (see
+.BR open (2))
+as file descriptor
 .I idx2
-in the second process
+in the process
+.IR pid2 . 
 
-.BR KCMP_VM
-compares whether processes share address space
-
+.TP
 .BR KCMP_FILES
-compares the file descriptor arrays to see whether the processes share all files
+Check whether the process share the same set of open file descriptors.
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
 
+.TP
 .BR KCMP_FS
-compares whether processes share the file system information (the current umask,
-working directory, namespace root, etc)
+Check whether the processes share the same file system information
+(i.e., file mode creation mask, working directory, and file system root).
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
 
-.BR KCMP_SIGHAND
-compares whether processes share a signal handlers table
-
+.TP
 .BR KCMP_IO
-compares whether processes do share I/O context,
-used mainly for block I/O scheduling
+Check whether the processes share I/O context.
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
 
+.TP
+.BR KCMP_SIGHAND
+Check whether the processes share the same table of signal dispositions.
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
+
+.TP
 .BR KCMP_SYSVSEM
-compares the list of undo operations associated with SYSV semaphores
+Check whether the processes share the same
+list of System V semaphore undo operations.
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
 
+.TP
+.BR KCMP_VM
+Check whether the processes share the same address space.
+The arguments
+.I idx1
+and
+.I idx2
+are ignored.
+
+.PP
 Note the
 .BR kcmp ()
 is not protected against false positives which may have place if tasks are
@@ -61,53 +110,111 @@ Which means one should stop tasks being inspected with this syscall to obtain
 meaningful results.
 
 .SH "RETURN VALUE"
-.B kcmp
-was designed to return values suitable for sorting.
-This is particularly handy when one have to compare
-a large number of file descriptors.
-
-The return value is merely a result of simple arithmetic comparison
-of kernel pointers (when kernel compares resources, it uses their
+The return value of a successful call to
+.BR kcmp ()
+is simply the result of arithmetic comparison
+of kernel pointers (when the kernel compares resources, it uses their
 memory addresses).
 
 The easiest way to explain is to consider an example.
-Lets say
+Suppose that
 .I v1
 and
 .I v2
 are the addresses of appropriate resources, then the return value
-is one of the following
+is one of the following:
 
-.B 0
-\-
+.RS 4
+.IP 0 4
 .I v1
 is equal to
-.IR v2 ,
-in other words we have a shared resource here
+.IR v2 ;
+in other words, the two processes share the resource.
 
-.B 1
-\-
+.IP 1
 .I v1
 is less than
-.I v2
+.IR v2 .
 
-.B 2
-\-
+.IP 2
 .I v1
 is greater than
-.I v2
+.IR v2 .
 
-.B 3
-\-
+.IP 3
 .I v1
 is not equal to
 .IR v2 ,
 but ordering information is unavailable.
+.RE
 
-On error, \-1 is returned, and errno is set appropriately.
+.PP
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+
+.B kcmp ()
+was designed to return values suitable for sorting.
+This is particularly handy if one needs to compare
+a large number of file descriptors.
+
+.SH ERRORS
+
+.TP
+.B EBADF
+.I type
+is
+.B KCMP_FILE
+and
+.I fd1
+or
+.I fd2
+is not an open file descriptor.
+.TP
+.B EINVAL
+.I type
+is invalid.
+.TP
+.B EPERM
+Insufficient permission to inspect process resources.
+The
+.B CAP_SYS_PTRACE
+capability is required to inspect processes that you do not own.
+.TP
+.B ESRCH
+Process
+.I pid1
+or
+.I pid2
+does not exist.
+
+.SH VERSIONS
+The
+.BR kcmp ()
+system call first appeared in Linux 3.5.
 
 .SH "CONFORMING TO"
 .BR kcmp ()
 is Linux specific and should not be used in programs intended to be portable.
-.SH "SEE ALSO"
+
+.SH NOTES
+Glibc does not provide a wrapper for this system call; call it using
+.BR syscall (2).
+
+This system call is available only if the kernel was configured with
+.BR CONFIG_CHECKPOINT_RESTORE .
+The main use of the system call is for the
+checkpoint/restore in user space (CRIU) feature.
+The alternative to this system call would have been to expose suitable
+process information via the
+.BR proc (5)
+file system; this was deemed to be unsuitable for security reasons.
+
+See
 .BR clone (2)
+for some background information on the shared resources
+referred to on this page.
+
+.SH "SEE ALSO"
+.BR clone (2),
+.BR unshare (2)

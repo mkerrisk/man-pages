@@ -22,17 +22,20 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH INIT_MODULE 2 2012-12-21 "Linux" "Linux Programmer's Manual"
+.TH INIT_MODULE 2 2013-01-07 "Linux" "Linux Programmer's Manual"
 .SH NAME
-init_module \- load a kernel module
+init_module, finit_module \- load a kernel module
 .SH SYNOPSIS
 .nf
 .BI "int init_module(void *" module_image ", unsigned long " len ,
 .BI "                const char *" param_values );
+
+.BI "int finit_module(int " fd ", const char *" param_values ,
+.BI "                 int flags );
 .fi
 
 .IR Note :
-There is no glibc wrapper for this system call; see NOTES.
+There are no glibc wrappers for these system calls; see NOTES.
 .SH DESCRIPTION
 .BR init_module ()
 loads an ELF image into kernel space,
@@ -81,22 +84,73 @@ and
 .I invbool
 parameters.
 Values for array parameters are specified as a comma-separated list.
+
+.SS finit_module()
+The
+.BR finit_module ()
+.\" commit 34e1169d996ab148490c01b65b4ee371cf8ffba2
+.\" https://lwn.net/Articles/519010/
+system call is like
+.BR init_module (),
+but reads the module to be loaded from the file descriptor
+.IR fd .
+It is useful when the authenticity of a kernel module
+can be determined from its location in the file system;
+in cases where that is possible,
+the overhead of using cryptographically signed modules to
+determine the authenticity of a module can be avoided.
+The
+.I param_values
+argument is as for
+.BR init_module ().
+
+The
+.I flags
+argument modifies the operation of
+.BR finit_module ().
+It is a bit mask value created by ORing
+together zero or more of the following flags:
+.\" commit 2f3238aebedb243804f58d62d57244edec4149b2
+.TP
+.B MODULE_INIT_IGNORE_MODVERSIONS
+Ignore module versions.
+.TP 
+.B MODULE_INIT_IGNORE_VERMAGIC
+Ignore kernel version magic.
 .SH "RETURN VALUE"
-On success, zero is returned.
+On success, these system calls return 0.
 On error, \-1 is returned and
 .I errno
 is set appropriately.
+
 .SH ERRORS
 .TP
 .B EBUSY
 Timeout while trying to resolve a symbol reference by this module.
 .TP
-.B EEXIST
-A module with this name is already loaded.
-.TP
 .B EFAULT
 An address argument referred to a location that
 is outside the process's accessible address space.
+.TP
+.B ENOMEM
+Out of memory.
+.TP
+.B EPERM
+The caller was not privileged
+(did not have the
+.B CAP_SYS_MODULE
+capability),
+or module loading is disabled
+(see
+.IR /proc/sys/kernel/modules_disabled
+in
+.BR proc (5)).
+.PP
+The following errors may additionally occur for
+.BR init_module ():
+.TP
+.B EEXIST
+A module with this name is already loaded.
 .TP
 .B EINVAL
 .I param_values
@@ -119,32 +173,50 @@ The binary image supplied in
 .I module_image
 is not an ELF image,
 or is an ELF image that is invalid or for a different architecture.
+.PP
+The following errors may additionally occur for
+.BR finit_module ():
 .TP
-.B EPERM
-The caller was not privileged
-(did not have the
-.B CAP_SYS_MODULE
-capability),
-or module loading is disabled
-(see
-.IR /proc/sys/kernel/modules_disabled
-in
-.BR proc (5)).
+.B EBADF
+The file referred to by
+.I fd
+is not opened for reading.
+.TP
+.B EFBIG
+The file referred to by
+.I fd
+is too large.
+.TP
+.B EINVAL
+.I flags
+is invalid.
+.TP
+.B ENOEXEC
+.I fd
+does not refer to an open file.
 .PP
 In addition to the above errors, if the module's
 .I init
 function is executed and returns an error, then
 .BR init_module ()
+or
+.BR finit_module ()
 fails and
 .I errno
 is set to the value returned by the
 .I init
 function.
+.SH VERSIONS
+.B finit_module ()
+is available since Linux 3.8.
+
 .SH "CONFORMING TO"
 .BR init_module ()
-is Linux-specific.
+and
+.BR finit_module ()
+are Linux-specific.
 .SH NOTES
-Glibc does not provide a wrapper for this system call; call it using
+Glibc does not provide a wrapper for these system calls; call them using
 .BR syscall (2).
 
 Information about currently loaded modules can be found in
@@ -157,7 +229,9 @@ See the Linux kernel source file
 for some useful background information.
 .SS Linux 2.4 and earlier
 .PP
-In Linux 2.4 and earlier, this system call was rather different:
+In Linux 2.4 and earlier, the
+.BR init_module ()
+system call was rather different:
 
 .B "    #include <linux/module.h>"
 

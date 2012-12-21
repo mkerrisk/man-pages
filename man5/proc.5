@@ -585,6 +585,9 @@ setting.
 A process must be privileged
 .RB ( CAP_SYS_RESOURCE )
 to update this file.
+.IP
+Since Linux 2.6.36, use of this file is deprecated in favor of
+.IR /proc/[pid]/oom_score_adj .
 .TP
 .IR /proc/[pid]/oom_score " (since Linux 2.6.11)"
 .\" See mm/oom_kill.c::badness() in the 2.6.25 sources
@@ -616,9 +619,80 @@ whether the process is making direct hardware access (\-).
 .IP
 The
 .I oom_score
-also reflects the bit-shift adjustment specified by the
+also reflects the adjustment specified by the
+.I oom_score_adj
+or
 .I oom_adj
 setting for the process.
+.TP
+.IR /proc/[pid]/oom_score_adj " (since Linux 2.6.36)"
+.\" Text taken from 3.7 Documentation/filesystems/proc.txt
+This file can be used to adjust the badness heuristic used to select which
+process gets killed in out-of-memory conditions.
+
+The badness heuristic assigns a value to each candidate task ranging from 0
+(never kill) to 1000 (always kill) to determine which process is targeted.
+The units are roughly a proportion along that range of
+allowed memory the process may allocate from,
+based on an estimation of its current memory and swap use.
+For example, if a task is using all allowed memory,
+its badness score will be 1000.
+If it is using half of its allowed memory, its score will be 500.
+
+There is an additional factor included in the badness score: root
+processes are given 3% extra memory over other tasks.
+
+The amount of "allowed" memory depends on the context
+in which the OOM killer was called.
+If it is due to the memory assigned to the allocating task's cpuset
+being exhausted,
+the allowed memory represents the set of mems assigned to that
+cpuset (see
+.BR cpuset (7)).
+If it is due to a mempolicy's node(s) being exhausted,
+the allowed memory represents the set of mempolicy nodes.
+If it is due to a memory limit (or swap limit) being reached,
+the allowed memory is that configured limit.
+Finally, if it is due to the entire system being out of memory, the
+allowed memory represents all allocatable resources.
+
+The value of
+.I /oom_score_adj
+is added to the badness score before it
+is used to determine which task to kill.
+Acceptable values range from \-1000
+(OOM_SCORE_ADJ_MIN) to +1000 (OOM_SCORE_ADJ_MAX).
+This allows user space to control the preference for OOM killing,
+ranging from always preferring a certain
+task or completely disabling it from OOM killink.
+The lowest possible value, \-1000, is
+equivalent to disabling OOM killing entirely for that task,
+since it will always report a badness score of 0.
+
+Consequently, it is very simple for user space to define
+the amount of memory to consider for each task.
+Setting a
+.I oom_score_adj
+value of +500, for example,
+is roughly equivalent to allowing the remainder of tasks sharing the
+same system, cpuset, mempolicy, or memory controller resources
+to use at least 50% more memory.
+A value of \-500, on the other hand, would be roughly
+equivalent to discounting 50% of the task's
+allowed memory from being considered as scoring against the task.
+
+For backwards compatibility with previous kernels,
+.I /proc/[pid]/oom_adj
+can still be used to tune the badness score.
+Its value is
+scaled linearly with 
+.IR oom_score_adj .
+
+Writing to
+.IR /proc/[pid]/oom_score_adj
+or
+.IR /proc/[pid]/oom_adj
+will change the other with its scaled value.
 .\" FIXME Describe /proc/[pid]/pagemap
 .\"       Added in 2.6.25
 .\"       CONFIG_PROC_PAGE_MONITOR

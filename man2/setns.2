@@ -1,7 +1,8 @@
 .\" Copyright (C) 2011, Eric Biederman <ebiederm@xmission.com>
+.\" and Copyright (C) 2011, 2012, Michael Kerrisk <mtk.manpages@gamil.com>
 .\" Licensed under the GPLv2
 .\"
-.TH SETNS 2 2012-05-04 "Linux" "Linux Programmer's Manual"
+.TH SETNS 2 2013-01-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
 setns \- reassociate thread with a namespace
 .SH SYNOPSIS
@@ -105,14 +106,95 @@ a new thread is created using
 .BR clone (2)
 can be changed using
 .BR setns ().
-.SH BUGS
-The PID namespace and the mount namespace are not currently supported.
-(See the descriptions of
-.BR CLONE_NEWPID
-and
-.BR CLONE_NEWNS
-in
-.BR clone (2).)
+
+.SH EXAMPLE
+The program below takes two or more arguments.
+The first argument specifies the pathname of a namespace file in an existing
+.I /proc/[pid]/ns/
+directory.
+The remaining arguments specify a command and its arguments.
+The program opens the namespace file, joins that namespace using
+.BR setns (),
+and executes the specified command inside that namespace.
+
+The following shell session demonstrates the use of this program
+(compiled as a binary named
+.IR t_setns )
+in conjunction with the
+.BR CLONE_NEWUTS
+example program in the
+.BR clone (2)
+man page (complied as a binary named
+.IR newuts ).
+
+We begin by executing the example program in
+.BR clone (2)
+in the background.
+That program creates a child in a separate UTS namespace.
+The child changes the hostname in its namesapce,
+and then both processes display the hostnames in their UTS namespaces,
+so that we can see that they are different.
+
+.nf
+.in +4n
+$ \fBsu\fP                   # Need privilege for namespace operations
+Password: 
+# \fB./newuts bizarro &\fP
+[1] 3549
+clone() returned 3550
+uts.nodename in child:  bizarro
+uts.nodename in parent: antero
+# \fBuname -n\fP             # Verify hostname in the shell
+antero
+.in
+.fi
+
+We then run the program shown below,
+using it to execute a shell.
+Inside that shell, we verify that the hostname is the one
+set by the child created by the first program:
+
+.nf
+.in +4n
+# \fB./t_setns /proc/3550/ns/uts /bin/bash\fP
+# \fBuname -n\fP             # Executed in shell started by t_setns
+bizarro
+.in
+.fi
+
+.SS Program source
+.nf
+#define _GNU_SOURCE
+#include <fcntl.h>
+#include <sched.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int fd;
+
+    if (argc < 3) {
+        fprintf(stderr, "%s /proc/PID/ns/FILE cmd args...\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    fd = open(argv[1], O_RDONLY);   /* Get descriptor for namespace */
+    if (fd == \-1)
+        errExit("open");
+
+    if (setns(fd, 0) == \-1)         /* Join that namespace */
+        errExit("setns");
+
+    execvp(argv[2], &argv[2]);      /* Execute a command in namespace */
+    errExit("execvp");
+}
+.fi
 .SH SEE ALSO
 .BR clone (2),
 .BR fork (2),

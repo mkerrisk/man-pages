@@ -1,7 +1,7 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
 .\" Copyright (c) 1992 Drew Eckhardt <drew@cs.colorado.edu>, March 28, 1992
-.\" and Copyright (c) Michael Kerrisk, 2001, 2002, 2005
+.\" and Copyright (c) Michael Kerrisk, 2001, 2002, 2005, 2013
 .\" May be distributed under the GNU General Public License.
 .\" Modified by Michael Haardt <michael@moria.de>
 .\" Modified 24 Jul 1993 by Rik Faith <faith@cs.unc.edu>
@@ -40,7 +40,7 @@
 .\" FIXME Document CLONE_NEWUSER, which is new in 2.6.23
 .\"       (also supported for unshare()?)
 .\"
-.TH CLONE 2 2012-11-30 "Linux" "Linux Programmer's Manual"
+.TH CLONE 2 2013-01-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
 clone, __clone2 \- create a child process
 .SH SYNOPSIS
@@ -1026,6 +1026,104 @@ To get the truth, it may be necessary to use code such as the following:
 .\" See also the following bug reports
 .\" https://bugzilla.redhat.com/show_bug.cgi?id=417521
 .\" http://sourceware.org/bugzilla/show_bug.cgi?id=6910
+.SH EXAMPLE
+.SS Create a child that executes in a separate UTS namespace
+The following program demonstrates the use of
+.BR clone (2)
+to create a child process that executes in a separate UTS namespace.
+The child changes the hostname in its UTS namespace.
+Both parent and child then display the system hostname,
+making it possible to see that the hostname
+differs in the UTS namespaces of the parent and child.
+For an example of the use of this program, see
+.BR setns (2).
+
+.nf
+#define _GNU_SOURCE
+#include <sys/wait.h>
+#include <sys/utsname.h>
+#include <sched.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+static int              /* Start function for cloned child */
+childFunc(void *arg)
+{
+    struct utsname uts;
+
+    /* Change hostname in UTS namespace of child */
+
+    if (sethostname(arg, strlen(arg)) == \-1)
+        errExit("sethostname");
+
+    /* Retrieve and display nodename */
+
+    if (uname(&uts) == \-1)
+        errExit("uname");
+    printf("uts.nodename in child:  %s\\n", uts.nodename);
+
+    /* Keep the namespace open for a while, by sleeping.
+       This allows some experimentation\-\-for example, another
+       process might join the namespace. */
+     
+    sleep(200);
+
+    return 0;           /* Child terminates now */
+}
+
+#define STACK_SIZE (1024 * 1024)    /* Stack size for cloned child */
+
+int
+main(int argc, char *argv[])
+{
+    char *stack;                    /* Start of stack buffer */
+    char *stackTop;                 /* End of stack buffer */
+    pid_t pid;
+    struct utsname uts;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <child\-hostname>\\n", argv[0]);
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Allocate stack for child */
+
+    stack = malloc(STACK_SIZE);
+    if (stack == NULL)
+        errExit("malloc");
+    stackTop = stack + STACK_SIZE;  /* Assume stack grows downward */
+
+    /* Create child that has its own UTS namespace;
+       child commences execution in childFunc() */
+
+    pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
+    if (pid == \-1)
+        errExit("clone");
+    printf("clone() returned %ld\\n", (long) pid);
+
+    /* Parent falls through to here */
+
+    sleep(1);           /* Give child time to change its hostname */
+
+    /* Display hostname in parent\(aqs UTS namespace. This will be 
+       different from hostname in child\(aqs UTS namespace. */
+
+    if (uname(&uts) == \-1)
+        errExit("uname");
+    printf("uts.nodename in parent: %s\\n", uts.nodename);
+
+    if (waitpid(pid, NULL, 0) == \-1)    /* Wait for child */
+        errExit("waitpid");
+    printf("child has terminated\\n");
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH "SEE ALSO"
 .BR fork (2),
 .BR futex (2),

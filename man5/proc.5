@@ -1890,30 +1890,63 @@ file exposes the mapping of user IDs from the user namespace
 of the process
 .IR pid
 to the user namespace of the process that opened
-.IR uid_map .
-(In other words, processes that are in different user namespaces
+.IR uid_map
+(but see a qualification to this point below).
+In other words, processes that are in different user namespaces
 will potentially see different values when reading from a particular
 .I uid_map
 file, depending on the user ID mappings for the user namespaces
-of the reading processes.)
+of the reading processes.
 
 
 Each line in the file specifies a 1-to-1 mapping of a range of contiguous
-user IDs from the user namespace of the process
-.IR pid
-to the user namespace of the process that opened
-.IR uid_map .
-
-Each line contains three numbers delimited by white space:
+between two user namespaces.
+The specification in each line takes the form of
+three numbers delimited by white space.
+The first two numbers specify the starting user ID in 
+each user namespace.
+The third number specifies the length of the mapped range.
+In detail, the fields are interpreted as follows:
 .RS
 .IP (1) 4
 The start of the range of user IDs in
 the user namespace of the process
 .IR pid .
 .IP (2)
-The start of the range of user IDs in the user namespace of the process that
-opened
+The start of the range of user
+IDs to which the user IDs specified by field one map.
+How field two is interpreted depends on whether the process that opened
+.I uid_map
+and the process
+.IR pid
+are in the same user namespace, as follows:
+.RS
+.IP a) 3
+If the two processes are in different user namespaces:
+field two is the start of a range of
+user IDs in the user namespace of the process that opened
 .IR uid_map .
+.IP b)
+If the two processes are in the same user namespace:
+field two is the start of the range of
+user IDs in the parent user namespace of the process
+.IR pid .
+(The "parent user namespace"
+is the user namespace of the process that created a user namespace
+via a call to
+.BR unshare (2)
+or
+.BR clone (2)
+with the 
+.BR CLONE_NEWUSER
+flag.)
+This case enables the opener of
+.I uid_map
+(the common case here is opening
+.IR /proc/self/uid_map )
+to see the mapping of user IDs into the user namespace of the process
+that created this user namespace.
+.RE
 .IP (3)
 The length of the range of user IDs that is mapped between the two
 user namespaces.
@@ -1951,14 +1984,28 @@ in ascending numerical order.
 Writes that violate the above rules fail with the error
 .BR EINVAL .
 
-In order to write to the
+In order for a process to write to the
 .I /proc/[pid]/uid_map
 .RI ( /proc/[pid]/gid_map )
-file, a process must have the
+file, the following requirements must be met:
+.RS
+.IP * 3
+The process must have the
 .BR CAP_SETUID
 .RB ( CAP_SETGID )
 capability in the user namespace of the process
 .IR pid .
+.IP *
+The process must have the
+.BR CAP_SETUID
+.RB ( CAP_SETGID )
+capability in the parent user namespace.
+.IP *
+The process must be in either the user namespace of the process
+.I pid
+or inside the parent user namespace of the process
+.IR pid .
+.RE
 .TP
 .IR /proc/[pid]/wchan " (since Linux 2.6.0)"
 The symbolic name corresponding to the location

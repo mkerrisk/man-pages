@@ -113,10 +113,39 @@ together zero or more of the following flags:
 .\" commit 2f3238aebedb243804f58d62d57244edec4149b2
 .TP
 .B MODULE_INIT_IGNORE_MODVERSIONS
-Ignore module versions.
+Ignore symbol version hashes.
 .TP 
 .B MODULE_INIT_IGNORE_VERMAGIC
 Ignore kernel version magic.
+.PP
+There are some safety checks built into a module to ensure that
+it matches the kernel against which it is loaded.
+.\" http://www.tldp.org/HOWTO/Module-HOWTO/basekerncompat.html
+.\" is dated, but informative
+These checks are recorded when the module is built and
+verified when the module is loaded.
+First, the module records a "vermagic" string containing
+the kernel version number and prominent features (such as the CPU type).
+Second, if the module was built with the
+.B CONFIG_MODVERSIONS
+configuration option enabled,
+a version hash is recorded for each symbol the module uses.
+This hash is based on the types of the arguments and return value
+for the function named by the symbol.
+In this case, the kernel version number within the
+"vermagic" string is ignored,
+as the symbol version hashes are assumed to be sufficiently reliable.
+
+Using the
+.B MODULE_INIT_IGNORE_VERMAGIC
+flag indicates that the "vermagic" string is to be ignored, and the
+.B MODULE_INIT_IGNORE_MODVERSIONS
+flag indicates that the symbol version hashes are to be ignored.
+If the kernel is built to permit forced loading (i.e., configured with
+.BR CONFIG_MODULE_FORCE_LOAD ),
+then loading will continue, otherwise it will fail with
+.B ENOEXEC
+as expected for malformed modules.
 .SH "RETURN VALUE"
 On success, these system calls return 0.
 On error, \-1 is returned and

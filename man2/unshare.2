@@ -1,5 +1,5 @@
 .\" Copyright (C) 2006, Janak Desai <janak@us.ibm.com>
-.\" and Copyright (C) 2006, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2006, 2012 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPL_NOVERSION_ONELINE)
 .\" Licensed under the GPL
@@ -298,6 +298,93 @@ Such functionality may be added in the future, if required.
 .\"be incrementally added to unshare without affecting legacy
 .\"applications using unshare.
 .\"
+.SH EXAMPLE
+The program below provides a simple implementation of the
+.BR unshare (1)
+command, which unshares one or more namespaces and executes the
+command supplied in its command line arguments.
+Here's an example of the use of this program,
+running a shell in a new mount namespace,
+and verifying that the original shell and the
+new shell are in separate mount namespaces:
+.in +4n
+.nf
+
+$ \fBreadlink /proc/$$/ns/mnt\fP
+mnt:[4026531840]
+$ \fBsudo ./unshare -m /bin/bash\fP
+[sudo] password for cecilia:
+# \fBreadlink /proc/$$/ns/mnt\fP
+mnt:[4026532325]
+.fi
+.in
+
+The differing output of the two
+.BR readlink (1)
+commands shows that the two shells are in different mount namespaces.
+.SS Program source
+\&
+.nf
+/* unshare.c 
+
+   A simple implementation of the unshare(1) command: unshare
+   namespaces and execute a command.
+*/
+#define _GNU_SOURCE
+#include <sched.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+/* A simple error\-handling function: print an error message based
+   on the value in \(aqerrno\(aq and terminate the calling process */
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+static void
+usage(char *pname)
+{
+    fprintf(stderr, "Usage: %s [options] program [arg...]\\n", pname);
+    fprintf(stderr, "Options can be:\\n");
+    fprintf(stderr, "    \-i   unshare IPC namespace\\n");
+    fprintf(stderr, "    \-m   unshare mount namespace\\n");
+    fprintf(stderr, "    \-n   unshare network namespace\\n");
+    fprintf(stderr, "    \-p   unshare PID namespace\\n");
+    fprintf(stderr, "    \-u   unshare UTS namespace\\n");
+    fprintf(stderr, "    \-U   unshare user namespace\\n");
+    exit(EXIT_FAILURE);
+}
+
+int
+main(int argc, char *argv[])
+{
+    int flags, opt;
+
+    flags = 0;
+
+    while ((opt = getopt(argc, argv, "imnpuU")) != \-1) {
+        switch (opt) {
+        case \(aqi\(aq: flags |= CLONE_NEWIPC;        break;
+        case \(aqm\(aq: flags |= CLONE_NEWNS;         break;
+        case \(aqn\(aq: flags |= CLONE_NEWNET;        break;
+        case \(aqp\(aq: flags |= CLONE_NEWPID;        break;
+        case \(aqu\(aq: flags |= CLONE_NEWUTS;        break;
+        case \(aqU\(aq: flags |= CLONE_NEWUSER;       break;
+        default:  usage(argv[0]);
+        }
+    }
+
+    if (optind >= argc)
+        usage(argv[0]);
+
+    if (unshare(flags) == \-1)
+        errExit("unshare");
+
+    execvp(argv[optind], &argv[optind]);  
+    errExit("execvp");
+}
+.fi
 .SH SEE ALSO
 .BR unshare (1),
 .BR clone (2),

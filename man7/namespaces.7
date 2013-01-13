@@ -1,0 +1,184 @@
+.\" Copyright (c) 2013 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\"
+.TH NAMESPACES 7 2013-01-14 "Linux" "Linux Programmer's Manual"
+.SH NAME
+namespaces \- overview of Linux namespaces
+.SH DESCRIPTION
+A namespace wraps a global system resource in an abstraction that
+makes it appear to the processes within the namespace that they
+have their own isolated instance of the global resource.
+Changes to the global resource are visible to other processes
+that are members of the namespace, but are invisible to other processes.
+One use of namespaces is to implement containers.
+
+This page describes the various namespaces and the associated
+.I /proc
+files, and summarizes the APIs for working with namespaces.
+
+.SS The namespaces API
+
+As well as various
+.I /proc
+files described below,
+the namespaces API comprises the following system calls:
+
+.TP
+.BR clone (2)
+The
+.BR clone (2)
+system call creates a new process.
+If the
+.I flags
+argument of the call specifies one or more of the
+.B CLONE_NEW*
+flags listed below, then new namespaces are created for each flag,
+and the child process is made a member of those namespaces.
+(This system call also implements a number of features
+unrelated to namespaces.)
+
+.TP
+.BR setns (2)
+The
+.BR setns (2)
+system call allows the calling process to join an existing namespace.
+The namespace to join is specified via a file descriptor that refers to
+one of the
+.IR /proc/[pid]/ns
+files described below.
+
+.TP
+.BR unshare (2)
+The
+.BR unshare (2)
+system call moves the calling process to a new namespace.
+If the
+.I flags
+argument of the call specifies one or more of the
+.B CLONE_NEW*
+flags listed below, then new namespaces are created for each flag,
+and the calling process is made a member of those namespaces.
+(This system call also implements a number of features
+unrelated to namespaces.)
+
+Leaving aside the other effects of the
+.BR clone (2)
+system call, the following call:
+
+    clone(..., CLONE_NEWXXX, ...);
+
+is equivalent in namespace terms to:
+
+    if (fork() == 0)            /* if child */
+        unshare(CLONE_NEWXXX);
+
+.SS Mount namespaces (CLONE_NEWNS)
+
+Mount namespaces isolate the set of file system mount points,
+meaning that processes in different mount namespaces can
+have different views of the file system hierarchy.
+The set of mounts in a mount namespace is modified using
+.BR mount (2)
+and
+.BR umount (2).
+
+.SS IPC namespaces (CLONE_NEWIPC)
+
+IPC namespaces isolate certain IPC resources,
+namely, System V IPC objects (see
+.BR svipc (7))
+and (since Linux 2.6.30) POSIX message queues (see
+.BR mq_overview (7).
+Each IPC namespace has its own set of System V IPC identifiers and
+its own POSIX message queue file system.
+
+.SS Network namespaces (CLONE_NEWNET)
+
+Network namespaces provide isolation of the system resources associated
+with networking: network devices, IP addresses, IP routing tables,
+.I /proc/net
+directory,
+.I /sys/class/net 
+directory, port numbers, and so on.
+
+.SS PID namespaces (CLONE_NEWPID)
+
+PID namespaces isolate the process ID number space,
+meaning that processes in different PID namespaces can have the same PID.
+PID namespaces allow containers to migrate to a new hosts
+while the processes inside the container maintain the same PIDs.
+Each PID namespace has its own init (PID 1, see
+.BR init (1)),
+the "ancestor of all processes" that
+manages various system initialization tasks and
+reaps orphaned child processes when they terminate.
+
+From the point of view of a particular PID namespace instance,
+a process has two PIDs: the PID inside the namespace,
+and the PID outside the namespace on the host system.
+PID namespaces can be nested:
+a process will have one PID for each of the layers of the hierarchy
+starting from the PID namespace in which it resides
+through to the root PID namespace.
+A process can see (e.g., send signals with
+.BR kill(2))
+only processes contained in its own PID namespace
+and the namespaces nested below that PID namespace.
+
+.SS User namespaces (CLONE_NEWUSER)
+
+User namespaces isolate the user and group ID number spaces.
+In other words, a process's user and group IDs can be different
+inside and outside a user namespace.
+A process can have a normal unprivileged user ID outside a user namespace
+while at the same time having a user ID of 0 inside the namespace;
+in other words,
+the process has full privileges for operations inside the user namespace,
+but is unprivileged for operations outside the namespace.
+
+Starting in Linux 3.8, unprivileged processes can create user namespaces.
+
+.SS UTS namespaces (CLONE_NEWUTS)
+
+UTS namespaces provide isolation of two system identifiers:
+the hostname and the NIS domain name.
+These identifiers are set using
+.BR sethostname (2)
+and
+.BR setdomainname (2),
+and can be retrieved using
+.BR uname (2),
+.BR gethostname (2),
+and
+.BR getdomainname (2).
+
+.SH CONFORMING TO
+Namespaces are a Linux-specific feature.
+.SH SEE ALSO
+.BR readlink (1),
+.BR clone (2),
+.BR setns (2),
+.BR unshare (2),
+.BR proc (5),
+.BR credentials (7),
+.BR capabilities (7)

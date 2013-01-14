@@ -387,6 +387,28 @@ then it isn't necessary to change the root directory:
 a new procfs instance can be mounted directly over
 .IR /proc .)
 
+Every thread in a process must be in the same PID namespace.
+For this reason, the two following call sequences will fail:
+
+.in +4n
+.nf
+    unshare(CLONE_NEWPID);
+    clone(..., CLONE_VM, ...);    /* Fails */
+
+    setns(fd, CLONE_NEWPID);
+    clone(..., CLONE_VM, ...);    /* Fails */
+.fi
+.in
+
+Because the above
+.BR unshare (2)
+and
+.BR setns (2)
+calls only change the PID namespace for created children, the 
+.BR clone (2)
+calls necessarily put the new thread in a different PID namespace from
+the calling thread.
+
 Use of PID namespaces requires a kernel that is configured with the
 .B CONFIG_PID_NS
 option.

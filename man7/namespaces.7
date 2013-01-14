@@ -292,27 +292,88 @@ PID namespaces isolate the process ID number space,
 meaning that processes in different PID namespaces can have the same PID.
 PID namespaces allow containers to migrate to a new hosts
 while the processes inside the container maintain the same PIDs.
-Each PID namespace has its own init (PID 1, see
-.BR init (1)),
-the "ancestor of all processes" that
-manages various system initialization tasks and
-reaps orphaned child processes when they terminate.
 
-From the point of view of a particular PID namespace instance,
-a process has two PIDs: the PID inside the namespace,
-and the PID outside the namespace on the host system.
-PID namespaces can be nested:
-a process will have one PID for each of the layers of the hierarchy
+PIDs in a new PID namespace start at 1,
+somewhat like a standalone system, and calls to
+.BR fork (2),
+.BR vfork (2),
+or
+.BR clone (2)
+will produce processes with PIDs that are unique within the namespace.
+
+The first process created in a new namespace
+(i.e., the process created using
+.BR clone (2)
+with the
+.BR CLONE_NEWPID
+flag, or the first child created by a process after a call to
+.BR unshare (2)
+using the
+.BR CLONE_NEWPID
+flag) has the PID 1, and is the "init" process for the namespace (see
+.BR init (1)).
+Children that are orphaned within the namespace will be reparented
+to this process rather than
+.BR init (8).
+Unlike the traditional
+.B init
+process, the "init" process of a PID namespace can terminate,
+and if it does, all of the processes in the namespace are terminated.
+
+PID namespaces can be nested.
+When a new PID namespace is created,
+the processes in that namespace are visible
+in the PID namespace of the process that created the new namespace;
+analogously, if the parent PID namespace is itself
+the child of another PID namespace,
+then processes in the child and parent PID namespaces will both be
+visible in the grandparent PID namespace.
+Conversely, the processes in the "child" PID namespace do not see
+the processes in the parent namespace.
+More succinctly: a process can see (e.g., send signals with
+.BR kill(2))
+only to processes contained in its own PID namespace
+and the namespaces nested below that PID namespace.
+
+A process will have one PID for each of the layers of the hierarchy
 starting from the PID namespace in which it resides
 through to the root PID namespace.
-A process can see (e.g., send signals with
-.BR kill(2))
-only processes contained in its own PID namespace
-and the namespaces nested below that PID namespace.
+A call to
+.BR getpid (2)
+always returns the PID associated with the namespace in which
+the process resides.
+
+After creating a new PID namespace,
+it is useful for the child to change its root directory
+and mount a new procfs instance at
+.I /proc
+so that tools such as
+.BR ps (1)
+work correctly.
+.\" mount -t proc proc /proc
+(If
+.BR CLONE_NEWNS
+is also included in the
+.IR flags 
+argument of
+.BR clone (2)
+or
+.BR unshare (2)),
+then it isn't necessary to change the root directory:
+a new procfs instance can be mounted directly over
+.IR /proc .)
+
+Use of PID namespaces requires a kernel that is configured with the
+.B CONFIG_PID_NS
+option.
 
 .SS User namespaces (CLONE_NEWUSER)
 
-User namespaces isolate the user and group ID number spaces.
+User namespaces isolate
+security related identifiers, in particular,
+user IDs, group IDs, keys (see
+.BR keyctl (2)),
+and capabilities.
 In other words, a process's user and group IDs can be different
 inside and outside a user namespace.
 A process can have a normal unprivileged user ID outside a user namespace
@@ -321,7 +382,58 @@ in other words,
 the process has full privileges for operations inside the user namespace,
 but is unprivileged for operations outside the namespace.
 
-Starting in Linux 3.8, unprivileged processes can create user namespaces.
+When a user namespace is created,
+it starts out without a mapping of user IDs (group IDs)
+to the parent user namespace.
+The desired mapping of user IDs (group IDs) to the parent user namespace
+may be set by writing into  
+.IR /proc/[pid]/uid_map
+.RI ( /proc/[pid]/gid_map );
+see below.
+
+The first process in a user namespace starts out with a complete set
+of capabilities with respect to the new user namespace.  
+
+System calls that return user IDs (group IDs) will return
+either the user ID (group ID) mapped into the current
+user namespace if there is a mapping, or the overflow user ID (group ID);
+the default value for the overflow user ID (group ID) is 65534.
+See the descriptions of
+.IR /proc/sys/kernel/overflowuid
+and
+.IR /proc/sys/kernel/overflowgid
+in
+.BR proc (5).
+
+Starting in Linux 3.8, unprivileged processes can create user namespaces,
+and mount, PID, IPC, network, and UTS namespaces can be created with just the
+.B CAP_SYS_ADMIN
+capability in the caller's user namespace.
+
+If
+.BR CLONE_NEWUSER
+is specified along with other
+.B CLONE_NEW*
+flags in a single
+.BR clone (2)
+or
+.BR unshare (2)
+call, the user namespace is guaranteed to be created first,
+giving the caller privileges over the remaining
+namespaces created by the call.
+Thus, it possible for an unprivileged caller to specify this combination
+of flags.
+
+Use of user namespaces requires a kernel that is configured with the
+.B CONFIG_USER_NS
+option.
+
+Over the years, there have been a lot of features that have been added
+to the Linux kernel that are only available to privileged users
+because of their potential to confuse set-user-ID-root applications.
+In general, it becomes safe to allow the root user in a user namespace to
+use those features because it is impossible, while in a user namespace,
+to gain more privilege than the root user of a user namespace has.
 
 The
 .IR /proc/[pid]/uid_map

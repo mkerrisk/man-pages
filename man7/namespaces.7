@@ -92,6 +92,78 @@ is equivalent in namespace terms to:
     if (fork() == 0)            /* if child */
         unshare(CLONE_NEWXXX);
 
+.SS The /proc/[pid]/ns/ directory
+
+Each process has a 
+.IR /proc/[pid]/ns/
+.\" See commit 6b4e306aa3dc94a0545eb9279475b1ab6209a31f
+subdirectory containing one entry for each namespace that
+supports being manipulated by
+.BR setns (2).
+
+Bind mounting (see
+.BR mount (2))
+one of the files in this directory
+to somewhere else in the file system keeps
+the corresponding namespace of the process specified by
+.I pid
+alive even if all processes currently in the namespace terminate.
+
+Opening one of the files in this directory
+(or a file that is bind mounted to one of these files)
+returns a file handle for
+the corresponding namespace of the process specified by
+.IR pid .
+As long as this file descriptor remains open,
+the namespace will remain alive,
+even if all processes in the namespace terminate.
+The file descriptor can be passed to
+.BR setns (2).
+
+In Linux 3.7 and earlier, these files were visible as hard links.
+Since Linux 3.8, they appear as symbolic links.
+If two processes are in the same namespace, then the inode numbers of their
+.IR /proc/[pid]/ns/xxx
+symbolic links will be the same; an application can check this using the
+.I stat.st_ino
+field returned by
+.BR stat (2).
+The content of this symbolic link is a string containing
+the namespace type and inode number as in the following example:
+
+.in +4n
+.nf
+$ \fBreadlink /proc/$$/ns/uts\fP
+uts:[4026531838]
+.fi
+.in
+
+The files in this subdirectory are as follows:
+.TP
+.IR /proc/[pid]/ns/ipc " (since Linux 3.0)"
+This file is a handle for the IPC namespace of the process.
+
+.TP
+.IR /proc/[pid]/ns/mnt " (since Linux 3.8)"
+This file is a handle for the mount namespace of the process.
+
+.TP
+.IR /proc/[pid]/ns/net " (since Linux 3.0)"
+This file is a handle for the network namespace of the process.
+
+.TP
+.IR /proc/[pid]/ns/pid " (since Linux 3.8)"
+This file is a handle for the PID namespace of the process.
+
+.TP
+.IR /proc/[pid]/ns/user " (since Linux 3.8)"
+This file is a handle for the user namespace of the process.
+
+.TP
+.IR /proc/[pid]/ns/uts " (since Linux 3.0)"
+This file is a handle for the IPC namespace of the process.
+
+
 .SS IPC namespaces (CLONE_NEWIPC)
 
 IPC namespaces isolate certain IPC resources,

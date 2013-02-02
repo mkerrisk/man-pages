@@ -20,7 +20,7 @@
 .\" Formatted or processed versions of this manual, if unaccompanied by
 .\" the source, must acknowledge the copyright and authors of this work.
 .\"
-.TH PTHREAD_SETNAME_NP 3 2012-10-24 "Linux" "Linux Programmer's Manual"
+.TH PTHREAD_SETNAME_NP 3 2013-02-04 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pthread_setname_np, pthread_getname_np \- set/get the name of a thread
 .SH SYNOPSIS
@@ -28,62 +28,66 @@ pthread_setname_np, pthread_getname_np \- set/get the name of a thread
 .BR "#define _GNU_SOURCE" "             /* See feature_test_macros(7) */"
 .B #include <pthread.h>
 .BI "int pthread_setname_np(pthread_t *" thread ", const char *" name ");
-.BI "int pthread_getname_np(pthread_t *" thread ", const char *" name
-", size_t" len);
+.BI "int pthread_getname_np(pthread_t *" thread ,
+.BI "                       const char *" name ", size_t " len );
 .fi
 .sp
 Compile and link with \fI\-pthread\fP.
 .SH DESCRIPTION
 By default, all the threads created using
-.BR pthread_create (3)
+.BR pthread_create ()
 inherit the program name.
-Using
-.BR pthread_setname_np (3),
-users can specify a unique name for a thread,
-which can be particularly useful for debugging complicated
+The
+.BR pthread_setname_np ()
+fuction can be used to set a unique name for a thread,
+which can be useful for debugging
 multi-threaded applications.
 The thread name is a meaningful C language string, whose length is
 restricted to 16 characters.
-Anything greater than this would lead to an error.
 
 The
-.BR pthread_getname_np (3)
-can be used to retrieve the name of the thread.
-The buffer specified by name must be at least 16 characters in length.
+.BR pthread_getname_np ()
+function can be used to retrieve the name of the thread.
+The buffer specified by
+.I name
+must be at least 16 characters in length.
 The returned thread name in the output buffer will be null terminated.
 .SH RETURN VALUE
 On success, these functions return 0;
 on error, they return a nonzero error number.
 .SH ERRORS
-If the functions fail to open /proc/self/task/<TID>/comm, then the
-call may fail with one of
-the errors described in
-.BR open (2).
 .TP
 .B ERANGE
-The length of the string specified as second argument exceeds the allowed limit.
-
+.RB ( pthread_setname_np ())
+The length of the string specified pointed to by
+.I name
+exceeds the allowed limit.
+.PP
+If either of these functions fails to open
+.IR /proc/self/task/[tid]/comm ,
+then the call may fail with one of the errors described in
+.BR open (2).
 .SH NOTES
-.BR pthread_setname_np (3)
+.BR pthread_setname_np ()
 internally writes to the thread specific comm file under
 .IR /proc
 filesystem:
-.IR /proc/self/task/<tid>/comm.
-.BR pthread_getname_np (3)
+.IR /proc/self/task/[tid]/comm .
+.BR pthread_getname_np ()
 retreives it from the same location.
 
 .SH EXAMPLE
 .PP
 The program below demonstrates the use of
-.BR pthread_setname_np (),
-as well as
+.BR pthread_setname_np ()
+and
 .BR pthread_getname_np ().
 
 The following shell session shows a sample run of the program:
 .in +4n
 .nf
 
-.RB "$" " ./a.out 1 2 4 7 14"
+.RB "$" " ./a.out"
 Created a thread. Default name is: a.out
 The thread name after setting it is THREADFOO.
 Done
@@ -123,17 +127,22 @@ int main(int argc, char **argv)
 
     rc = pthread_create(&thread, NULL, threadfunc, NULL);
     errExitEN(rc, "pthread_create");
+
     rc = pthread_getname_np(thread, thread_name, NAMELEN);
     errExitEN(rc, "pthread_getname_np");
     printf("Created a thread. Default name is: %s\\n", thread_name);
     rc = pthread_setname_np(thread, "THREADFOO");
     errExitEN(rc, "pthread_setname_np");
+
     sleep(2);
+
     rc = pthread_getname_np(thread, thread_name, NAMELEN);
     errExitEN(rc, "pthread_getname_np");
     printf("The thread name after setting it is %s.\\n", thread_name);
+
     rc = pthread_join(thread, NULL);
     errExitEN(rc, "pthread_join");
+
     printf("Done\\n");
     exit(EXIT_SUCCESS);
 }

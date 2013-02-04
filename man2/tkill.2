@@ -59,6 +59,29 @@ It only allows the target thread ID to be specified,
 which may result in the wrong thread being signaled if a thread
 terminates and its thread ID is recycled.
 Avoid using this system call.
+.\" FIXME: Maybe say something about the following:
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=12889
+.\"     Rich Felker <bugdal@aerifal.cx>
+.\"     There is a race condition in pthread_kill: it is possible that,
+.\"     between the time pthread_kill reads the pid/tid from the target
+.\"     thread descriptor and the time it makes the tgkill syscall,
+.\"     the target thread terminates and the same tid gets assigned
+.\"     to a new thread in the same process.
+.\"     
+.\"     (The tgkill syscall was designed to eliminate a similar race
+.\"     condition in tkill, but it only succeeded in eliminating races
+.\"     where the tid gets reused in a different process, and does not
+.\"     help if the same tid gets assigned to a new thread in the
+.\"     same process.)
+.\"     
+.\"     The only solution I can see is to introduce a mutex that ensures
+.\"     that a thread cannot exit while pthread_kill is being called on it.
+.\"     
+.\"     Note that in most real-world situations, like almost all race
+.\"     conditions, this one will be extremely rare. To make it
+.\"     measurable, one could exhaust all but 1-2 available pid values,
+.\"     possibly by lowering the max pid parameter in /proc, forcing
+.\"     the same tid to be reused rapidly.
 
 If
 .I tgid

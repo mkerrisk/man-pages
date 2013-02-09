@@ -1,0 +1,91 @@
+.\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
+.\" Written by Marcela Maslanova <mmaslano@redhat.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\"
+.TH GETUNWIND 2 "29 August 2006" Linux "Linux System Calls"
+.SH NAME
+getunwind \- copy the unwind data to caller's buffer
+
+.SH SYNOPSIS
+.nf
+.B #include <syscall.h>
+.B #include <linux/unwind.h>
+.sp
+.BI "long getunwind (void " *buf ", size_t " buf_size );
+.fi
+.SH DESCRIPTION
+The
+.B sys_getunwind
+function returns size of unwind table, which describes gate page (kernel code that
+is mapped into user space).
+
+The unwind data is copied to the buffer \fIbuf\fR, which has size \fIbuf_size\fR.
+The data is copied
+only if \fIbuf_size\fR is greater than or equal to the size of the 
+unwind data and \fIbuf\fR is not NULL.
+The system call returns the size of the unwind data in both cases.
+
+The first part of the unwind data contains an unwind table. 
+The rest contains the associated unwind info in random order.
+The unwind table contains a table looking like:
+
+.nf
+	u64 start;      (64-bit address of start of function)
+	u64 end;        (64-bit address of start of function)
+	u64 info;       (BUF-relative offset to unwind info)
+.fi
+
+An entry with a START address of zero is the end of table.
+For more information about the format you can see the IA-64 
+Software Conventions and Runtime Architecture.
+
+.SH "RETURN VALUE"
+The
+.B sys_getunwind
+function returns size of unwind table.
+
+.SH ERRORS
+The
+.B sys_getunwind
+function fails with
+.B EFAULT
+if the unwind info can't be stored in the space specified by
+the
+.I buf 
+argument.
+
+.SH AVAILABILITY
+This system call is available only on the IA-64 architecture.
+
+.SH APPLICATION USAGE
+This system call has been deprecated. It's highly recommended to get at the kernel's
+unwind info by the gate DSO. The address of the ELF header for this DSO
+is passed to user level via AT_SYSINFO_EHDR.
+
+The system call is not available to application programs as a function;
+it can be called using the
+.BR syscall (2)
+function.
+
+.SH "SEE ALSO"
+.BR syscall(2),

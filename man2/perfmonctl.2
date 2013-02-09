@@ -1,0 +1,160 @@
+.\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
+.\" Written by Ivana Varekova <varekova@redhat.com>
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\"
+.TH PERFMONCTL 2 "28 August 2006" Linux "Linux System Calls"
+.SH NAME
+perfmonctl \- interface to PMU 
+.SH SYNOPSIS
+.nf
+.B #include <syscall.h>
+.B #include <perfmon.h>
+.sp
+.BI "long perfmonctl(int " fd ", int " cmd ", void *" arg ", int " narg ");
+.fi
+.SH DESCRIPTION
+.B perfmonctl
+system call provides an interface to PMU (performance monitoring unit).
+PMU consists of PMD (performance monitoring data) registers and
+PMC (performance monitoring control) registers, where are
+gathered the hardware statistic.
+
+.B perfmonctl
+will apply a function
+.I cmd
+to input arguments 
+.I arg.
+The number of arguments is defined by input variable \fInarg\fR.
+.I fd
+specifies the perfmon context to operate on.
+
+The implemented commands 
+.I cmd
+are:
+
+.TP
+.B PFM_CREATE_CONTEXT  	
+set up a context 
+.nf
+.BI  "perfmonctl(int " fd ", PFM_CREATE_CONTEXT , pfarg_context_t *" ctxt ", 1);
+.fi
+
+The
+.I fd
+parameter is ignored.  A new context is created as specified in
+.I ctxt
+and its file descriptor is returned in \fIctxt->ctx_fd\fR.
+
+The file descriptor, apart from passing it to \fBperfmonctl\fR,
+can be used to read event notifications (type
+\fBpfm_msg_t\fR) using the
+.BR read (2)
+system call.
+Both
+.BR select (2)
+and
+.BR poll (2)
+can be used to wait for event notifications.
+
+The context can be destroyed using the
+.BR close (2)
+system call.
+.TP
+.B PFM_WRITE_PMCS
+set PMC registers
+.nf
+.BI  "perfmonctl(int " fd ", PFM_WRITE_PMCS , pfarg_pmc_t *" pmcs ", n);
+.fi
+.TP 
+.B PFM_WRITE_PMDS  	
+set PMD registers
+.nf
+.BI  "perfmonctl(int " fd ", PFM_WRITE_PMDS , pfarg_pmd_t *" pmds ", n);
+.fi
+.TP
+.B PFM_READ_PMDS 	
+read PMD registers
+.nf
+.BI  "perfmonctl(int " fd ", PFM_READ_PMDS , pfarg_pmd_t *" pmds ", n);
+.fi
+.TP
+.B PFM_START 	
+start monitoring
+.nf
+.BI  "perfmonctl(int " fd ", PFM_START , arg , 1);
+.BI  "perfmonctl(int " fd ", PFM_START , NULL , 0);
+.fi
+.TP
+.B PFM_STOP 	
+stop monitoring
+.nf
+.BI  "perfmonctl(int " fd ", PFM_START , NULL , 0);
+.fi
+.TP
+.B PFM_LOAD_CONTEXT 	
+attach the context to a thread
+.nf
+.BI  "perfmonctl(int " fd ", PFM_LOAD_CONTEXT ,pfarg_load_t *" largs , 1);
+.fi
+.TP
+.B PFM_UNLOAD_CONTEXT 	
+detach the context from a thread
+.nf
+.BI  "perfmonctl(int " fd ", PFM_UNLOAD_CONTEXT , NULL , 0);
+.fi
+.TP
+.B PFM_RESTART 	
+restart monitoring after receiving an overflow notification
+.nf
+.BI  "perfmonctl(int " fd ", PFM_RESTART , NULL , 0);
+.fi
+.TP
+.B PFM_CREATE_EVTSETS 	
+create or modify event sets
+.nf
+.BI  "perfmonctl(int " fd ", PFM_CREATE_EVTSETS, pfarg_setdesc_t *desc , n);
+.fi
+.TP
+.B PFM_DELETE_EVTSETS 	
+delete event sets
+.nf
+.BI  "perfmonctl(int " fd ", PFM_DELETE_EVTSET, pfarg_setdesc_t *desc , n);
+.fi
+.TP
+.B PFM_GETINFO_EVTSETS 	
+get information about event sets 
+.nf
+.BI  "perfmonctl(int " fd ", PFM_GETINFO_EVTSETS, pfarg_setinfo_t *info, n);
+.fi
+
+.SH "RETURN VALUE"
+.B performctl
+returns zero when the operation is successful.
+On error -1 is returned and an error code is set in \fBerrno\fR.
+
+.SH AVAILABILITY
+This syscall is implemented only on the IA-64 architecture since kernel 2.6.
+
+.SH "SEE ALSO"
+.BR gprof(1),
+The perfmon2 interface specification

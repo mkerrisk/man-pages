@@ -31,7 +31,7 @@
 .\"     various sections.
 .\" 2008-07-11, mtk: rewrote and expanded portability discussion.
 .\"
-.TH SIGNAL 2 2012-05-05 "Linux" "Linux Programmer's Manual"
+.TH SIGNAL 2 2013-02-09 "Linux" "Linux Programmer's Manual"
 .SH NAME
 signal \- ANSI C signal handling
 .SH SYNOPSIS
@@ -185,6 +185,12 @@ was invoked by the delivery of a signal,
 the disposition of the signal would be reset to
 .BR SIG_DFL ,
 and the system did not block delivery of further instances of the signal.
+This is equivalent to calling
+.BR sigaction (2)
+with the following flags:
+
+    sa.sa_flags = SA_RESETHAND | SA_NODEFER;
+
 System V also provides these semantics for
 .BR signal ().
 This was bad because the signal might be delivered again
@@ -192,15 +198,22 @@ before the handler had a chance to reestablish itself.
 Furthermore, rapid deliveries of the same signal could
 result in recursive invocations of the handler.
 
-BSD improved on this situation by changing the semantics of
-signal handling
-(but, unfortunately, silently changed the semantics
-when establishing a handler with
-.BR signal ()).
+BSD improved on this situation, but unfortunately also
+changed the semantics of the existing
+.BR signal ()
+interface while doing so.
 On BSD, when a signal handler is invoked,
 the signal disposition is not reset,
 and further instances of the signal are blocked from
 being delivered while the handler is executing.
+Furthermore, certain blocking system calls are automatically
+restarted if interrupted by a signal handler (see
+.BR signal (7)).
+The BSD semantics are equivalent to calling
+.BR sigaction (2)
+with the following flags:
+
+    sa.sa_flags = SA_RESTART;
 
 The situation on Linux is as follows:
 .IP * 2

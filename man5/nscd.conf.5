@@ -17,7 +17,7 @@
 .\" write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 .\" Boston, MA 02111-1307, USA.
 .\"
-.TH NSCD.CONF 5 1999-10-01 "GNU" "Linux Programmer's Manual"
+.TH NSCD.CONF 5 2013-02-12 "GNU" "Linux Programmer's Manual"
 .SH NAME
 /etc/nscd.conf \- name service cache daemon configuration file
 .SH DESCRIPTION
@@ -34,7 +34,8 @@ A \(aq#\(aq (number sign) indicates the beginning of a
 comment; following characters, up to the end of the line,
 are not interpreted by nscd.
 
-Valid services are \fIpasswd\fP, \fIgroup\fP, or \fIhosts\fP.
+Valid services are \fIpasswd\fP, \fIgroup\fP, \fIhosts\fP, \fIservices\fP
+or \fInetgroup\fP.
 
 .B logfile
 .I debug-file-name
@@ -46,6 +47,7 @@ Specifies name of the file to which debug info should be written.
 .I value
 .RS
 Sets the desired debug level.
+The default is 0.
 .RE
 
 .B threads
@@ -56,12 +58,53 @@ requests.
 At least five threads will always be created.
 .RE
 
+.B max-threads
+.I number
+.RS
+Specifies the maximum number of threads.
+The default is 32.
+.RE
+
 .B server-user
 .I user
 .RS
 If this option is set, nscd will run as this user and not as root.
 If a separate cache for every user is used (\-S parameter), this
 option is ignored.
+.RE
+
+.B stat-user
+.I user
+.RS
+Specifies the user who is allowed to request statistics.
+.RE
+
+.B reload-count
+unlimited |
+.I number
+.RS
+Limit on the number of times a cached entry gets reloaded without being used
+before it gets removed.
+The default is 5.
+.RE
+
+.B paranoia
+.I <yes|no>
+.RS
+Enabling paranoia mode causes nscd to restart itself periodically.
+The default is no.
+.RE
+
+.B restart-interval
+.I time
+.RS
+Sets the restart interval to
+.I time
+seconds
+if periodic restart is enabled by enabling
+.B paranoia
+mode.
+The default is 3600.
 .RE
 
 .B enable-cache
@@ -71,6 +114,7 @@ option is ignored.
 Enables or disables the specified
 .I service
 cache.
+The default is no.
 .RE
 
 .B positive-time-to-live
@@ -108,6 +152,7 @@ to reduce cache coherency problems.
 This is the internal hash table size,
 .I value
 should remain a prime number for optimum efficiency.
+The default is 211.
 .RE
 
 .B check-files
@@ -120,46 +165,11 @@ for changes.
 The files are
 .IR /etc/passwd ,
 .IR /etc/group ,
+.IR /etc/hosts ,
+.I /etc/services
 and
-.IR /etc/hosts .
-.RE
-
-.B max-threads
-.I threads
-.RS
-Specifies the maximum number of threads to be started.
-.RE
-
-.B stat-user
-.I username
-.RS
-Specifies the user who is allowed to request statistics.
-.RE
-
-.B reload-count
-unlimited |
-.I number
-.RS
-Limit on the number of times a cached entry gets reloaded without being used
-before it gets removed.
-The default is 5.
-.RE
-
-.B paranoia
-.I <yes|no>
-.RS
-Enabling paranoia mode causes nscd to restart itself periodically.
-.RE
-
-.B restart-interval
-.I time
-.RS
-Sets the restart interval to
-.I time
-seconds
-if periodic restart is enabled by enabling
-.B paranoia
-mode.
+.IR /etc/netgroup .
+The default is yes.
 .RE
 
 .B persistent
@@ -171,6 +181,7 @@ Keep the content of the cache for
 over server restarts; useful when
 .B paranoia
 mode is set.
+The default is no.
 .RE
 
 .B shared
@@ -182,7 +193,32 @@ The memory mapping of the nscd databases for
 is shared with the clients so
 that they can directly search in them instead of having to ask the
 daemon over the socket each time a lookup is performed.
+The default is no.
 .RE
+
+.B max-db-size
+.I service
+.I bytes
+.RS
+The maximum allowable size of the database files in bytes for the
+.IR service .
+The default is 33554432.
+.RE
+
+.B auto-propagate
+.I service
+.I <yes|no>
+.RS
+When set to
+.IR no " for " passwd " or " group " service, then the " .byname
+requests are not added to
+.IR passwd.byuid " or " group.bygid
+cache.
+This can help with tables containing multiple records for the same id.
+The default is yes. This option is valid only for services
+.IR passwd " and " group ".
+.RE
+
 .SH "SEE ALSO"
 .BR nscd (8)
 .\" .SH AUTHOR

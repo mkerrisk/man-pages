@@ -657,32 +657,36 @@ Writes that violate the above rules fail with the error
 In order for a process to write to the
 .I /proc/[pid]/uid_map
 .RI ( /proc/[pid]/gid_map )
-file, the following requirements must be met:
-.IP * 3
-The process must have the
+file, all of the following requirements must be met:
+.IP 1. 3
+The writing process must have the
 .BR CAP_SETUID
 .RB ( CAP_SETGID )
 capability in the user namespace of the process
 .IR pid .
-.IP *
-The process must have the
-.BR CAP_SETUID
-.RB ( CAP_SETGID )
-capability in the parent user namespace.
-This prevents an unprivileged process from mapping to arbitrary UIDs (GIDs)
-in the parent user namespace.
-There is an exception to this requirement:
-a process writing to
-.I uid_map
-.RI ( gid_map )
-is allowed to map any single UID (GID) in it user namespace
-to the caller's file system UID (GID)
-in the parent user namespace.
-.IP *
-The process must be in either the user namespace of the process
+.IP 2.
+The writing process must be in either the user namespace of the process
 .I pid
 or inside the parent user namespace of the process
 .IR pid .
+.IP 3.
+One of the following is true:
+.RS
+.IP * 3
+The data written to
+.I uid_map
+.RI ( gid_map )
+consists of a single line that maps the writing process's file system user ID
+(group ID) in the parent user namespace to a user ID (group ID)
+in the user namespace.
+.IP * 3
+The process has the
+.BR CAP_SETUID
+.RB ( CAP_SETGID )
+capability in the parent user namespace.
+Thus, a privileged process can make mappings to arbitrary user ID (group ID)
+in the parent user namespace.
+.RE
 .PP
 Writes that violate the above rules fail with the error
 .BR EPERM .

@@ -28,7 +28,7 @@ pid_namespaces \- overview of Linux PID namespaces
 .SH DESCRIPTION
 For an overview of namespaces, see
 .BR namespaces (7).
-.SS PID namespaces (CLONE_NEWPID)
+
 PID namespaces isolate the process ID number space,
 meaning that processes in different PID namespaces can have the same PID.
 PID namespaces allow containers to migrate to a new host
@@ -42,6 +42,10 @@ or
 .BR clone (2)
 will produce processes with PIDs that are unique within the namespace.
 
+Use of PID namespaces requires a kernel that is configured with the
+.B CONFIG_PID_NS
+option.
+.SS The namespace "init" process
 The first process created in a new namespace
 (i.e., the process created using
 .BR clone (2)
@@ -100,7 +104,7 @@ these signals are forcibly delivered when sent from an ancestor PID namespace.
 Neither of these signals can be caught by the "init" process,
 and so will result in the usual actions associated with those signals
 (respectively, terminating and stopping the process).
-
+.SS Nesting PID namespaces
 PID namespaces can be nested.
 When a new PID namespace is created,
 the processes in that namespace are visible
@@ -140,26 +144,7 @@ Calls to
 .BR getppid (2)
 for such processes return 0.
 
-After creating a new PID namespace,
-it is useful for the child to change its root directory
-and mount a new procfs instance at
-.I /proc
-so that tools such as
-.BR ps (1)
-work correctly.
-.\" mount -t proc proc /proc
-(If
-.BR CLONE_NEWNS
-is also included in the
-.IR flags 
-argument of
-.BR clone (2)
-or
-.BR unshare (2)),
-then it isn't necessary to change the root directory:
-a new procfs instance can be mounted directly over
-.IR /proc .)
-
+.SS setns(2) and unshare(2) semantics
 Calls to
 .BR setns (2)
 that specify a PID namespace file descriptor
@@ -198,6 +183,26 @@ calls only change the PID namespace for created children, the
 .BR clone (2)
 calls necessarily put the new thread in a different PID namespace from
 the calling thread.
+.SS Miscellaneous
+After creating a new PID namespace,
+it is useful for the child to change its root directory
+and mount a new procfs instance at
+.I /proc
+so that tools such as
+.BR ps (1)
+work correctly.
+.\" mount -t proc proc /proc
+(If a new mount namespace is simultaneously created by including
+.BR CLONE_NEWNS
+in the
+.IR flags 
+argument of
+.BR clone (2)
+or
+.BR unshare (2)),
+then it isn't necessary to change the root directory:
+a new procfs instance can be mounted directly over
+.IR /proc .)
 
 When a process ID is passed over a UNIX domain socket to a 
 process in a different PID namespace (see the description of
@@ -208,11 +213,7 @@ it is translated into the corresponding PID value in
 the receiving process's PID namespace.
 .\" FIXME Presumably, a similar thing happens with the UID and GID passed 
 .\" via a UNIX domain socket. That needs to be confirmed and documented
-.\" under the "User namespaces" section.
-
-Use of PID namespaces requires a kernel that is configured with the
-.B CONFIG_PID_NS
-option.
+.\" under the "user_namespaces" page.
 .SH CONFORMING TO
 Namespaces are a Linux-specific feature.
 .SH SEE ALSO

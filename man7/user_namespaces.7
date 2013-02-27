@@ -45,7 +45,7 @@ but is unprivileged for operations outside the namespace.
 User namespaces can be nested;
 that is, each user namespace has a parent user namespace,
 and can have zero or more child user namespaces.
-The parent of a user namespace is the user namespace
+The parent user namespace is the user namespace
 of the process that creates the user namespace via a call to
 .BR unshare (2)
 or
@@ -53,6 +53,9 @@ or
 with the 
 .BR CLONE_NEWUSER
 flag.
+
+The first process in a user namespace starts out with a complete set
+of capabilities with respect to the new user namespace.  
 
 When a user namespace is created,
 it starts out without a mapping of user IDs (group IDs)
@@ -62,9 +65,16 @@ may be set by writing into
 .IR /proc/[pid]/uid_map
 .RI ( /proc/[pid]/gid_map );
 see below.
-
-The first process in a user namespace starts out with a complete set
-of capabilities with respect to the new user namespace.  
+.PP
+In order to create a new user namespace,
+there must exist a mapping of the caller's effective
+user and group IDs into the parent namespace.
+If such a mapping does not exist, then
+.BR clone (2)
+and
+.BR unshare (2)
+fail with the error
+.BR EPERM .
 
 System calls that return user IDs (group IDs) will return
 either the user ID (group ID) mapped into the current
@@ -76,7 +86,11 @@ and
 .IR /proc/sys/kernel/overflowgid
 in
 .BR proc (5).
-
+.PP
+Use of user namespaces requires a kernel that is configured with the
+.B CONFIG_USER_NS
+option.
+.SS Interaction of user namespaces and other types of namespaces
 Starting in Linux 3.8, unprivileged processes can create user namespaces,
 and mount, PID, IPC, network, and UTS namespaces can be created with just the
 .B CAP_SYS_ADMIN
@@ -107,8 +121,7 @@ privileged operations that operate on global
 resources isolated by the namespace,
 the permission checks are performed according to the process's capabilities
 in the user namespace that the kernel associated with the new namespace.
-
-
+.SS Capabilities
 The following rules apply with respect to the capabilities granted
 to a process:
 .\" In the 3.8 sources, see security/commoncap.c::cap_capable():
@@ -130,18 +143,7 @@ has all capabilities in the user namespace.
 .\" As a rough approximation, this means that
 .\" the user who creates a user namespace 
 .\" has all capabilities inside that namespace and its descendants.
-.PP
-Use of user namespaces requires a kernel that is configured with the
-.B CONFIG_USER_NS
-option.
-
-Over the years, there have been a lot of features that have been added
-to the Linux kernel that are only available to privileged users
-because of their potential to confuse set-user-ID-root applications.
-In general, it becomes safe to allow the root user in a user namespace to
-use those features because it is impossible, while in a user namespace,
-to gain more privilege than the root user of a user namespace has.
-
+.SS User and group ID mappings: uid_map and gid_map
 The
 .IR /proc/[pid]/uid_map
 and
@@ -151,7 +153,10 @@ files (available since Linux 3.5)
 expose the mappings for user and group IDs
 inside the user namespace for the process
 .IR pid .
-The description here explains the details for
+These files can be read to view the mappings in a user namespace and
+written to (once) to define the mappings.
+
+The description in the following paragraphs explains the details for
 .IR uid_map ;
 .IR gid_map
 is exactly the same,
@@ -215,6 +220,7 @@ that created this user namespace.
 .IP (3)
 The length of the range of user IDs that is mapped between the two
 user namespaces.
+.SS Defining user and group ID mappings: writing to uid_map and gid_map
 .PP
 After the creation of a new user namespace, the
 .I uid_map
@@ -313,16 +319,7 @@ in the parent user namespace.
 .PP
 Writes that violate the above rules fail with the error
 .BR EPERM .
-.PP
-In order to create a new user namespace,
-there must exist a mapping of the caller's effective
-user and group IDs into the parent namespace.
-If such a mapping does not exist, then
-.BR clone (2)
-and
-.BR unshare (2)
-fail with the error
-.BR EPERM .
+.SS Set-user-ID and set-group-ID programs
 .PP
 When a process inside a user namespace executes
 a set-user-ID (set-group-ID) program,
@@ -341,6 +338,13 @@ flag (see
 .BR mount (2).)
 .SH CONFORMING TO
 Namespaces are a Linux-specific feature.
+.SH NOTES
+Over the years, there have been a lot of features that have been added
+to the Linux kernel that are only available to privileged users
+because of their potential to confuse set-user-ID-root applications.
+In general, it becomes safe to allow the root user in a user namespace to
+use those features because it is impossible, while in a user namespace,
+to gain more privilege than the root user of a user namespace has.
 .SH SEE ALSO
 .BR unshare (1),
 .BR clone (2),

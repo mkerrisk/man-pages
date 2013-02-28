@@ -111,35 +111,48 @@ and so will result in the usual actions associated with those signals
 .\" ============================================================
 .\"
 .SS Nesting PID namespaces
-PID namespaces can be nested.
-When a new PID namespace is created,
-the processes in that namespace are visible
-in the PID namespace of the process that created the new namespace;
-analogously, if the parent PID namespace is itself
-the child of another PID namespace,
-then processes in the child and parent PID namespaces will both be
-visible in the grandparent PID namespace.
-Conversely, the processes in the "child" PID namespace do not see
-the processes in the parent namespace.
-More succinctly: a process can see (e.g., send signals with
-.BR kill(2))
-only processes contained in its own PID namespace
-and the namespaces nested below that PID namespace.
+PID namespaces can be nested:
+each PID namespace has a parent,
+except for the initial ("root") PID namespace.
+The parent of a PID namespace is the PID namespace of the process that
+created the namespace using
+.BR clone (2)
+or
+.BR unshare (2).
+PID namespaces thus form a tree,
+with all namespaces ultimately tracing their ancestry to the root namespace.
 
-A process will have one PID for each of the layers of the hierarchy
-starting from the PID namespace in which it is visible,
-starting from the namespace in which it resides
+A process is visible to other processes in its PID namespace,
+and to the processes in each direct ancestor PID namespace
+going back to the root PID namespace.
+In this context, "visible" means that one process
+can be the target of operations by another process using
+system calls that specify a process ID.
+Conversely, the processes in a child PID namespace can't see
+processes in the parent and further removed ancestor namespace.
+More succinctly: a process can see (e.g., send signals with
+.BR kill(2),
+set nice values with
+.BR setpriority (2),
+etc.) only processes contained in its own PID namespace
+and in descendants of that namespace.
+
+A process has one process ID in each of the layers of the PID
+namespace hierarchy in which is visible,
+and walking back though each direct ancestor namespace
 through to the root PID namespace.
+System calls that operate on process IDs always
+operate using the process ID that is visible in the
+PID namespace of the caller.
 A call to
 .BR getpid (2)
 always returns the PID associated with the namespace in which
-the process resides.
+the process was created.
 
 Some processes in a PID namespace may have parents
 that are outside of the namespace.
 For example, the parent of the initial process in the namespace
-(i.e.,
-the
+(i.e., the
 .BR init (1)
 process with PID 1) is necessarily in another namespace.
 Likewise, the direct children of a process that uses

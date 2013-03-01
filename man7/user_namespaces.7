@@ -110,10 +110,14 @@ in the user namespace that the kernel associated with the new namespace.
 .\" ============================================================
 .\"
 .SS Capabilities
-A process may have a capability either
-because that capability is present in its effective capability set,
-or because it inherits the capability from a parent user namespace
-according to the following rules:
+In the context of (nested) user namespaces,
+a process may have a capability
+because that capability is present in its effective capability set
+(for example, it executed a set-user-ID program that conferred
+capabilities on it or it was the child process of the
+.BR clone (2)
+call that created the namespace)
+or for either of the following reasons:
 .\" In the 3.8 sources, see security/commoncap.c::cap_capable():
 .IP 1. 3
 If a process has a capability in a user namespace,
@@ -123,19 +127,20 @@ namespaces as well.
 .\" * The owner of the user namespace in the parent of the
 .\" * user namespace has all caps.
 When a user namespace is created, the kernel records the effective
-user ID of the creating process as being the "owner" of the namespace
-(and likewise associates the effective group ID of the creating process
-with the namespace).
-.IP
-A process whose effective user ID matches that of the
-owner of a user namespace and which is a member of the parent namespace
-has all capabilities in the user namespace.
+user ID of the creating process as being the "owner" of the namespace.
+.\" (and likewise associates the effective group ID of the creating process
+.\" with the namespace).
+A process that resides
+in the parent of the user namespace
+.\" See kernel commit 520d9eabce18edfef76a60b7b839d54facafe1f9 for a fix
+.\" on this point
+and whose effective user ID matches the owner of the namespace
+has all capabilities in the namespace.
+.\"     This includes the case where the process executes a set-user-ID
+.\"     program that confers the effective UID of the creator of the namespace.
 By virtue of the first rule,
 this means that the process has all capabilities in all
 further removed descendant user namespaces as well.
-.\" As a rough approximation, this means that
-.\" the user who creates a user namespace
-.\" has all capabilities inside that namespace and its descendants.
 .\"
 .\" ============================================================
 .\"

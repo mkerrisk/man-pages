@@ -46,7 +46,8 @@ the process has full privileges for operations inside the user namespace,
 but is unprivileged for operations outside the namespace.
 
 User namespaces can be nested;
-that is, each user namespace has a parent user namespace,
+that is, each user namespace\(emexcept the initial ("root")
+namespace\(emhas a parent user namespace,
 and can have zero or more child user namespaces.
 The parent user namespace is the user namespace
 of the process that creates the user namespace via a call to
@@ -56,57 +57,6 @@ or
 with the
 .BR CLONE_NEWUSER
 flag.
-
-The first process in a user namespace starts out with a complete set
-of capabilities with respect to the new user namespace.
-On the other hand,
-that process has no capabilities outside that user namespace,
-even if the new namespace is created by the root user.
-(However, a child process created by the root user
-will be able to access resources such as
-files that are owned by user ID 0,
-and will be able to do things such as sending signals
-to processes belonging to user ID 0.)
-
-When a user namespace is created,
-it starts out without a mapping of user IDs (group IDs)
-to the parent user namespace.
-The desired mapping of user IDs (group IDs) to the parent user namespace
-may be set by writing into
-.IR /proc/[pid]/uid_map
-.RI ( /proc/[pid]/gid_map );
-see below.
-.PP
-System calls that return user IDs (group IDs)\(emfor example,
-.BR getuid (2),
-.BR getgid (2),
-and the credential fields in the structure returned by
-.BR stat (2)\(emwill
-return either the user ID (group ID) mapped into the current
-user namespace if there is a mapping, or the overflow user ID (group ID);
-the default value for the overflow user ID (group ID) is 65534.
-See the descriptions of
-.IR /proc/sys/kernel/overflowuid
-and
-.IR /proc/sys/kernel/overflowgid
-in
-.BR proc (5).
-
-When a process accesses a file, its user and group IDs
-are mapped into the initial user namespace for the purpose of permission
-checking and assigning IDs when creating a file.
-When a process retrieves file user and group IDs via
-.BR stat (2)
-the IDs are mapped in the opposite direction,
-to produce values relative to the process user and group ID mappings.
-
-When a process's user and group IDs are passed over a UNIX domain socket
-to a process in a different user namespace (see the description of
-.B SCM_CREDENTIALS
-in
-.BR unix (7)),
-they are translated into the corresponding values as per the
-receiving process's user and group ID mappings.
 
 Use of user namespaces requires a kernel that is configured with the
 .B CONFIG_USER_NS
@@ -149,6 +99,18 @@ in the user namespace that the kernel associated with the new namespace.
 .\" ============================================================
 .\"
 .SS Capabilities
+.PP
+The first process in a user namespace starts out with a complete set
+of capabilities with respect to the new user namespace.
+On the other hand,
+that process has no capabilities outside that user namespace,
+even if the new namespace is created by the root user.
+(However, a child process created by the root user
+will be able to access resources such as
+files that are owned by user ID 0,
+and will be able to do things such as sending signals
+to processes belonging to user ID 0.)
+
 A process may have a capability either
 because that capability is present in its effective capability set,
 or because it inherits the capability from a parent user namespace
@@ -179,6 +141,9 @@ further removed descendant user namespaces as well.
 .\" ============================================================
 .\"
 .SS User and group ID mappings: uid_map and gid_map
+When a user namespace is created,
+it starts out without a mapping of user IDs (group IDs)
+to the parent user namespace.
 The
 .IR /proc/[pid]/uid_map
 and
@@ -255,6 +220,21 @@ that created this user namespace.
 .IP (3)
 The length of the range of user IDs that is mapped between the two
 user namespaces.
+.PP
+System calls that return user IDs (group IDs)\(emfor example,
+.BR getuid (2),
+.BR getgid (2),
+and the credential fields in the structure returned by
+.BR stat (2)\(emreturn
+the user ID (group ID) mapped into the current user namespace.
+
+When a process accesses a file, its user and group IDs
+are mapped into the initial user namespace for the purpose of permission
+checking and assigning IDs when creating a file.
+When a process retrieves file user and group IDs via
+.BR stat (2)
+the IDs are mapped in the opposite direction,
+to produce values relative to the process user and group ID mappings.
 .\"
 .\" ============================================================
 .\"
@@ -377,6 +357,19 @@ program that resides on a file system that was mounted with the
 .BR MS_NOSUID
 flag (see
 .BR mount (2).)
+.\"
+.\" ============================================================
+.\"
+.SS Miscellaneous
+.PP
+When a process's user and group IDs are passed over a UNIX domain socket
+to a process in a different user namespace (see the description of
+.B SCM_CREDENTIALS
+in
+.BR unix (7)),
+they are translated into the corresponding values as per the
+receiving process's user and group ID mappings.
+
 .SH CONFORMING TO
 Namespaces are a Linux-specific feature.
 .SH NOTES

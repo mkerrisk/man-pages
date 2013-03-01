@@ -340,6 +340,66 @@ Writes that violate the above rules fail with the error
 .\"
 .\" ============================================================
 .\"
+.SS Unmapped user and group IDs
+.PP
+There are various places where an unmapped user ID (group ID)
+may be exposed to user space.
+For example, the first process in a new user namespace may call
+.BR getuid ()
+before a user ID mapping has been defined for the namespace.
+In most such cases, an unmapped user ID is converted
+.\" from_kuid_munged(), from_kgid_munged()
+to the overflow user ID (group ID);
+the default value for the overflow user ID (group ID) is 65534.
+See the descriptions of
+.IR /proc/sys/kernel/overflowuid
+and
+.IR /proc/sys/kernel/overflowgid
+in
+.BR proc (5).
+
+The cases where unmapped IDs are mapped in this fashion include
+system calls that return user IDs
+.RB ( getuid (2)
+.BR getgid (2),
+and similar),
+credentials passed over a UNIX domain socket,
+.\" also SO_PEERCRED
+credentials returned by
+.BR stat (2),
+.BR waitid (2),
+and the System V IPC "ctl"
+.B IPC_STAT
+operations,
+credentials exposed by
+.IR /proc/PID/status 
+and the files in
+.IR /proc/sysvipc/* ,
+credentials returned via the
+.I si_uid
+field in the
+.I siginfo_t
+received with a signal (see
+.BR sigaction (2)),
+credentials written to the process accounting file (see
+.BR acct (5),
+and credentials returned with POSIX message queue notifications (see
+.BR mq_notify (3)).
+
+There is one notable case where unmapped user and group IDs are
+.I not
+.\" from_kuid(), from_kgid()
+.\" Also F_GETOWNER_UIDS is an exception
+converted to the corresponding overflow ID value.
+When viewing a
+.I uid_map
+or
+.I gid_map
+file in which there is no mapping for the second field,
+that field is displayed as 4294967295 (\-1 as an unsigned integer);
+.\"
+.\" ============================================================
+.\"
 .SS Set-user-ID and set-group-ID programs
 .PP
 When a process inside a user namespace executes
@@ -387,7 +447,9 @@ a command inside those namespaces.
 The comments and
 .I usage()
 function inside the program provide a full explanation of the program.
-The following shell session demonstrates its use:
+The following shell session demonstrates its use.
+
+First, we look at the run-time environment:
 
 .in +4n
 .nf
@@ -400,7 +462,7 @@ $ \fBid -g\fP
 .fi
 .in
 
-Now start a shell in new user
+Now start a new shell in new user
 .RI ( \-U ),
 mount
 .RI ( \-m ),

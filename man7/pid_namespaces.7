@@ -208,9 +208,6 @@ the parent of a process is either in the same namespace
 or resides in the immediate parent PID namespace.
 
 Every thread in a process must be in the same PID namespace.
-.\" FIXME It's not really explained WHY this is so.
-.\" I suspect part of the problem here is terminology. Is
-.\" "thread" really the term needed here?
 For this reason, the following call sequences will fail (with the error
 .BR EINVAL ):
 
@@ -218,14 +215,8 @@ For this reason, the following call sequences will fail (with the error
     unshare(CLONE_NEWPID);
     clone(..., CLONE_VM, ...);    /* Fails */
 
-    clone(..., CLONE_VM, ...);
-    unshare(CLONE_NEWPID);        /* Fails */
-
     setns(fd, CLONE_NEWPID);
     clone(..., CLONE_VM, ...);    /* Fails */
-
-    clone(..., CLONE_VM, ...);
-    setns(fd, CLONE_NEWPID);      /* Fails */
 .fi
 
 The point here is that
@@ -242,6 +233,27 @@ Because a subsequent
 .BR CLONE_VM
 would imply the creation of a new thread in a different PID namespace,
 the operation is not permitted.
+(Note: the kernel code tests for
+.BR CLONE_VM
+as a proxy for
+.BR CLONE_THREAD ,
+since
+.BR CLONE_VM
+must always be specified when
+.BR CLONE_THREAD
+is specified, and testing for
+.BR CLONE_VM
+is simpler.)
+For analogous reasons, the following call sequences also fail (with
+.BR EINVAL ):
+
+.nf
+    clone(..., CLONE_VM, ...);
+    setns(fd, CLONE_NEWPID);      /* Fails */
+
+    clone(..., CLONE_VM, ...);
+    unshare(CLONE_NEWPID);        /* Fails */
+.fi
 .\"
 .\" ============================================================
 .\"

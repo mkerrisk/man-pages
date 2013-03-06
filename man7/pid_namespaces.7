@@ -206,9 +206,57 @@ Among other things, this means that the parental relationship
 between processes mirrors the parental relationship between PID namespaces:
 the parent of a process is either in the same namespace
 or resides in the immediate parent PID namespace.
-
-Every thread in a process must be in the same PID namespace.
-For this reason, the following call sequences will fail (with the error
+.SS Compatibility of CLONE_NEWPID with other CLONE_* flags
+.BR CLONE_NEWPID
+can't be combined with some other
+.BR CLONE_*
+flags:
+.IP * 3
+.B CLONE_THREAD
+requires being in the same PID namespace in order that that
+the threads in a process can send signals to each other.
+Similarly, it must be possible to see all of the threads
+of a processes in the
+.BR proc (5)
+file system.
+.IP *
+.BR CLONE_SIGHAND
+requires being in the same PID namespace;
+otherwise the process ID of the process sending a signal
+could not be meaningfully encoded when a signal is sent
+(see the description of the
+.I siginfo_t
+type in
+.BR sigaction (2)).
+A signal queue shared by processes in multiple PID namespaces
+will defeat that.
+.IP *
+.BR CLONE_VM
+requires all of the threads to be in the same PID namespace,
+because, from the point of view of a core dump,
+if two processes share the same address space they are threads and will
+be core dumped together.
+When a core dump is written, the PID of each
+thread is written into the core dump.
+Writing the process IDs could not meaningfully succeed
+if some of the process IDs were in a parent PID namespace.
+.PP
+To summarize: there is a technical requirement for each of
+.BR CLONE_THREAD ,
+.BR CLONE_SIGHAND ,
+and
+.BR CLONE_VM
+to share a PID namespace.
+(Note furthermore that in
+.BR clone (2)
+requires
+.BR CLONE_VM
+to be specified if
+.BR CLONE_THREAD
+or
+.BR CLONE_SIGHAND
+is specified.)
+Thus, call sequences such as the following will fail (with the error
 .BR EINVAL ):
 
 .nf
@@ -217,37 +265,7 @@ For this reason, the following call sequences will fail (with the error
 
     setns(fd, CLONE_NEWPID);
     clone(..., CLONE_VM, ...);    /* Fails */
-.fi
 
-The point here is that
-.BR unshare (2)
-and
-.BR setns (2)
-change the PID namespace that will be used in all subsequent calls to
-.BR clone (2)
-and
-.BR fork (2),
-but do not change the PID namespace of the calling process.
-Because a subsequent
-.BR clone(2)
-.BR CLONE_VM
-would imply the creation of a new thread in a different PID namespace,
-the operation is not permitted.
-(Note: the kernel code tests for
-.BR CLONE_VM
-as a proxy for
-.BR CLONE_THREAD ,
-since
-.BR CLONE_VM
-must always be specified when
-.BR CLONE_THREAD
-is specified, and testing for
-.BR CLONE_VM
-is simpler.)
-For analogous reasons, the following call sequences also fail (with
-.BR EINVAL ):
-
-.nf
     clone(..., CLONE_VM, ...);
     setns(fd, CLONE_NEWPID);      /* Fails */
 

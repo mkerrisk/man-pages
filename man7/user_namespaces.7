@@ -35,7 +35,7 @@ user IDs and group IDs (see
 keys (see
 .BR keyctl (2)),
 and capabilities (see
-.BR capabilities (7).
+.BR capabilities (7)).
 A process's user and group IDs can be different
 inside and outside a user namespace.
 In particular,
@@ -45,21 +45,13 @@ in other words,
 the process has full privileges for operations inside the user namespace,
 but is unprivileged for operations outside the namespace.
 
-The child process created by
-.BR clone (2)
-with the
-.BR CLONE_NEWUSER
-flag starts out with a complete set
-of capabilities in the new user namespace.
-On the other hand,
-that process has no capabilities outside that user namespace,
-even if the new namespace is created by the root user.
-(However, a child process created by the root user
-will be able to access resources such as
-files that are owned by user ID 0,
-and will be able to do things such as sending signals
-to processes belonging to user ID 0.)
-
+Use of user namespaces requires a kernel that is configured with the
+.B CONFIG_USER_NS
+option.
+.\"
+.\" ============================================================
+.\"
+.SS Nested namespaces, namespace membership
 User namespaces can be nested;
 that is, each user namespace\(emexcept the initial ("root")
 namespace\(emhas a parent user namespace,
@@ -73,9 +65,100 @@ with the
 .BR CLONE_NEWUSER
 flag.
 
-Use of user namespaces requires a kernel that is configured with the
-.B CONFIG_USER_NS
-option.
+Each process is member of exactly one user namespace.
+A process created via
+.BR fork (2)
+or
+.BR clone (2)
+without the
+.BR CLONE_NEWUSER
+flag is a member of the same user namespace as its parent.
+A process can join another user namespace with
+.BR setns (2)
+if it has the
+.BR CAP_SYS_ADMIN
+in that namespace;
+upon doing so, it gains a full set of capabilities in that namespace.
+
+A call to
+.BR clone (2)
+or
+.BR unshare (2)
+with the
+.BR CLONE_NEWUSER
+flag makes the new child process (for
+.BR clone (2))
+or the caller (for
+.BR unshare (2))
+a member of the new user namespace created by the call.
+.\"
+.\" ============================================================
+.\"
+.SS Capabilities
+The child process created by
+.BR clone (2)
+with the
+.BR CLONE_NEWUSER
+flag starts out with a complete set
+of capabilities in the new user namespace.
+Likewise, a process that creates a new user namespace using
+.BR unshare (2)
+or joins an existing user namespace using
+.BR setns (2)
+gains a full set of capabilities in that namespace.
+On the other hand,
+that process has no capabilities outside that user namespace,
+even if the new namespace is created or joined by the root user
+(i.e., a process with user ID 0 in the root namespace).
+(Nevertheless, a process owned by the root user
+will be able to access resources such as
+files that are owned by user ID 0,
+and will be able to do things such as sending signals
+to processes belonging to user ID 0.)
+
+Having a capability inside a user namespace
+permits a process to perform operations (that require privilege)
+only on resources governed by that namespace.
+The rules for determining whether or not a process has a capability
+in a particular user namespace are as follows:
+.IP 1. 3
+A process has a capability inside a user namespace
+if it is a member of that namespace and
+it has the capability in its effective capability set.
+A process can gain capabilities in its effective capability
+set in various ways.
+For example, it may execute a set-user-ID program or an
+executable with associated file capabilities.
+In addition,
+a process may gain capabilities via the effect of
+.BR clone (2)
+.BR unshare (2)
+or
+.BR setns (2),
+as already described.
+.\" In the 3.8 sources, see security/commoncap.c::cap_capable():
+.IP 2.
+If a process has a capability in a user namespace,
+then it has that capability in all child (and further removed descendant)
+namespaces as well.
+.IP 3.
+.\" * The owner of the user namespace in the parent of the
+.\" * user namespace has all caps.
+When a user namespace is created, the kernel records the effective
+user ID of the creating process as being the "owner" of the namespace.
+.\" (and likewise associates the effective group ID of the creating process
+.\" with the namespace).
+A process that resides
+in the parent of the user namespace
+.\" See kernel commit 520d9eabce18edfef76a60b7b839d54facafe1f9 for a fix
+.\" on this point
+and whose effective user ID matches the owner of the namespace
+has all capabilities in the namespace.
+.\"     This includes the case where the process executes a set-user-ID
+.\"     program that confers the effective UID of the creator of the namespace.
+By virtue of the previous rule,
+this means that the process has all capabilities in all
+further removed descendant user namespaces as well.
 .\"
 .\" ============================================================
 .\"
@@ -108,46 +191,12 @@ or
 .BR unshare (2),
 the kernel records the user namespace of the creating process against
 the new namespace.
+(This association can't be changed.)
 When a process in the new namespace subsequently performs
 privileged operations that operate on global
 resources isolated by the namespace,
 the permission checks are performed according to the process's capabilities
 in the user namespace that the kernel associated with the new namespace.
-.\"
-.\" ============================================================
-.\"
-.SS Capabilities
-In the context of (nested) user namespaces,
-a process may have a capability
-because that capability is present in its effective capability set
-(for example, it executed a set-user-ID program that conferred
-capabilities on it or it was the child process of the
-.BR clone (2)
-call that created the namespace)
-or for either of the following reasons:
-.\" In the 3.8 sources, see security/commoncap.c::cap_capable():
-.IP 1. 3
-If a process has a capability in a user namespace,
-then it has that capability in all child (and further removed descendant)
-namespaces as well.
-.IP 2.
-.\" * The owner of the user namespace in the parent of the
-.\" * user namespace has all caps.
-When a user namespace is created, the kernel records the effective
-user ID of the creating process as being the "owner" of the namespace.
-.\" (and likewise associates the effective group ID of the creating process
-.\" with the namespace).
-A process that resides
-in the parent of the user namespace
-.\" See kernel commit 520d9eabce18edfef76a60b7b839d54facafe1f9 for a fix
-.\" on this point
-and whose effective user ID matches the owner of the namespace
-has all capabilities in the namespace.
-.\"     This includes the case where the process executes a set-user-ID
-.\"     program that confers the effective UID of the creator of the namespace.
-By virtue of the first rule,
-this means that the process has all capabilities in all
-further removed descendant user namespaces as well.
 .\"
 .\" ============================================================
 .\"

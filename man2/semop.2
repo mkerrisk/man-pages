@@ -126,9 +126,11 @@ the semaphore value
 .RI  ( semval ).
 Furthermore, if
 .B SEM_UNDO
-is specified for this operation, the system updates the undo count
+is specified for this operation, the system subtracts the value
+.I sem_op
+from the semaphore adjustment
 .RI ( semadj )
-for this semaphore.
+value for this semaphore.
 This operation can always proceed\(emit never forces a thread to wait.
 The calling process must have alter permission on the semaphore set.
 .PP
@@ -206,9 +208,11 @@ is subtracted from
 .IR semval ,
 and, if
 .B SEM_UNDO
-is specified for this operation, the system updates the undo count
+is specified for this operation, the system adds the absolute value of
+.I sem_op
+to the semaphore adjustment
 .RI ( semadj )
-for this semaphore.
+value for this semaphore.
 If the absolute value of
 .I sem_op
 is greater than
@@ -233,18 +237,8 @@ one of the following occurs:
 .IP \(bu 3
 .I semval
 becomes greater than or equal to the absolute value of
-.IR sem_op ,
-at which time the value of
-.I semncnt
-is decremented, the absolute value of
-.I sem_op
-is subtracted from
-.I semval
-and, if
-.B SEM_UNDO
-is specified for this operation, the system updates the undo count
-.RI ( semadj )
-for this semaphore.
+.IR sem_op :
+the operation now proceeds, as described above.
 .IP \(bu
 The semaphore set is removed from the system:
 .BR semop ()
@@ -430,12 +424,22 @@ is never automatically restarted after being interrupted by a signal handler,
 regardless of the setting of the
 .B SA_RESTART
 flag when establishing a signal handler.
-.PP
-.I semadj
-is a per-process integer which is simply the (negative) count
-of all semaphore operations performed specifying the
+
+A semaphore adjustment
+.RI ( semadj )
+value is a per-process, per-semaphore integer that is the negated sum
+of all operations performed on a semaphore specifying the
 .B SEM_UNDO
 flag.
+Each process has a list of
+.I semadj
+values\(emone value for each semaphore on which it has operated using
+.BR SEM_UNDO .
+When a process terminates, each of its per-semaphore
+.I semadj
+values is added to the corresponding semaphore,
+thus undoing the effect of that process's operations on the semaphore
+(but see BUGS below).
 When a semaphore's value is directly set using the
 .B SETVAL
 or

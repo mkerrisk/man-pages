@@ -79,6 +79,36 @@ and an error code is stored in
 .BR syscall ()
 first appeared in
 4BSD.
+
+Each architecture ABI has its own requirements on how system call arguments are passed to the kernel.
+For system calls that have a glibc wrapper (i.g., most system calls) glibc handles the details of copy arguments to the right registers in a manner suitable for the architecture.
+However, when using
+.BR syscall ()
+to make a system call,
+the caller may need to handle architecture-dependent details.
+For example, on ARM architecture, a
+.I "long long"
+argument is considered to be 8-byte aligned and to be split into two 4-byte arguments.
+
+.BR readahead ()
+system call could be called like below in ARM architecture.
+
+syscall(__NR_readahead, fd, 
+.I 0
+, (unsigned int)(
+.I offset
+>> 32), (unsigned int)(
+.I offset
+& 0xFFFFFFFF), count)
+
+.I offset
+is 64 bit and should be 8-byte aligned.
+Thus, a padding is inserted before
+.I offset
+and
+.I offset
+is split into two 32 bit arguments.
+
 .SH EXAMPLE
 .nf
 #define _GNU_SOURCE

@@ -79,47 +79,63 @@ and an error code is stored in
 .BR syscall ()
 first appeared in
 4BSD.
-
+.SS Architecture-specific requirements
 Each architecture ABI has its own requirements on how
 system call arguments are passed to the kernel.
 For system calls that have a glibc wrapper (e.g., most system calls),
-glibc handles the details of copyiing arguments to the right registers
+glibc handles the details of copying arguments to the right registers
 in a manner suitable for the architecture.
 However, when using
 .BR syscall ()
 to make a system call,
-the caller may need to handle architecture-dependent details.
-For example, on the ARM architecture Embbeded ABI (EABI), a
-.I "long long"
-argument is considered to be 8-byte aligned and to be split
-into two 4-byte arguments.
+the caller might need to handle architecture-dependent details;
+this requirement is most commonly encountered on certain 32-bit architectures.
 
-For example, the
+For example, on the ARM architecture Embedded ABI (EABI), a
+64-bit value (e.g.,
+.IR "long long" )
+must be aligned to an even register pair.
+Thus, using
+.BR syscall ()
+instead of the wrapper provided by glibc,
+the
 .BR readahead ()
 system call would be invoked as follows on the ARM architecture with the EABI:
 
 .in +4n
 .nf
-syscall(__NR_readahead, fd, 0, (unsigned int)(offset >> 32),
-        (unsigned int)(offset & 0xFFFFFFFF), count);
+syscall(SYS_readahead, fd, 0,
+        (unsigned int) (offset >> 32),
+        (unsigned int) (offset & 0xFFFFFFFF),
+        count);
 .fi
 .in
 .PP
-.I offset
-is 64 bit and should be 8-byte aligned.
-Thus, a padding is inserted before
-.I offset
-and
-.I offset
-is split into two 32-bit arguments.
-Similar issues can occur on MIPS with the O32 ABI and 
-on PowerPC with the 32-bit ABI.
+Since the offset argument is 64 bits, and the first argument
+.RI ( fd )
+is passed in
+.IR r0 ,
+we need to manually split and align the 64-bit value ourselves so that it is
+passed in the
+.IR r2 / r3
+register pair.
+That means inserting a dummy value into
+.I r1
+(the second argument of 0).
+
+Similar issues can occur on MIPS with the O32 ABI,
+on PowerPC with the 32-bit ABI, and on Xtensa.
+.\" Mike Frysinger: this issue ends up forcing MIPS
+.\" O32 to take 7 arguments to syscall()
+
 The affected system calls are
-.BR fadvise64_64 (2)
-.BR ftruncate64 (2)
-.BR pread64 (2)
-.BR pwrite64 (2)
-.BR readahead (2)
+.BR fadvise64_64 (2),
+.BR ftruncate64 (2),
+.BR posix_fadvise (2),
+.BR pread64 (2),
+.BR pwrite64 (2),
+.BR readahead (2),
+.BR sync_file_range (2),
 and
 .BR truncate64 (2).
 .SH EXAMPLE

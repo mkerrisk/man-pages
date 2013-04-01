@@ -25,7 +25,7 @@
 .\" 2005-04-08 mtk, noted kernel version and added BUGS
 .\" 2010-10-09, mtk, document arm_fadvise64_64()
 .\"
-.TH POSIX_FADVISE 2 2010-10-09 "Linux" "Linux Programmer's Manual"
+.TH POSIX_FADVISE 2 2013-04-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
 posix_fadvise \- predeclare an access pattern for file data
 .SH SYNOPSIS
@@ -151,18 +151,25 @@ call
 or
 .BR fdatasync (2)
 first.
-.SS arm_fadvise()
-The ARM architecture
-needs 64-bit arguments to be aligned in a suitable pair of registers.
-On this architecture, the call signature of
+.SS Architecture-specific variants
+Some architectures require
+64-bit arguments to be aligned in a suitable pair of registers (see
+.BR syscall (2)
+for further detail).
+On such architectures, the call signature of
 .BR posix_fadvise ()
-is flawed, since it forces a register to be wasted as padding between the
+shown in the SYNOPSIS would force
+a register to be wasted as padding between the
 .I fd
 and
 .I len
 arguments.
-Therefore, since Linux 2.6.14, ARM defines a different
-system call that orders the arguments suitably:
+Therefore, these architectures define a version of the
+system call that orders the arguments suitably,
+but otherwise is otherwise exactly the same as
+.BR posix_fadvise ().
+
+For example, since Linux 2.6.14, ARM has the following system call:
 .PP
 .in +4n
 .nf
@@ -171,10 +178,11 @@ system call that orders the arguments suitably:
 .fi
 .in
 .PP
-The behavior of this system call is otherwise exactly the same as
-.BR posix_fadvise ().
-No library support is provided for this system call in glibc.
-.\" No ARM support in glibc.
+These architecture-specific details are generally
+hidden from applications by the glibc
+.BR posix_fadvise ()
+wrapper function,
+which invokes the appropriate architecture-specific system call.
 .SH BUGS
 In kernels before 2.6.6, if
 .I len

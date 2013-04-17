@@ -38,14 +38,11 @@
 .\"		commit 6e3e939f3b1bf8534b32ad09ff199d88800835a0
 .\"		Author: Johannes Berg <johannes.berg@intel.com>
 .\"		Also: SCM_WIFI_STATUS
-.\"	SO_PEEK_OFF (3.4)
-.\"		commit ef64a54f6e558155b4f149bb10666b9e914b6c54
-.\"		Author: Pavel Emelyanov <xemul@parallels.com>
 .\"	SO_NOFCS (3.4)
 .\"		commit 3bdc0eba0b8b47797f4a76e377dd8360f317450f
 .\"		Author: Ben Greear <greearb@candelatech.com>
 .\"
-.TH SOCKET 7 2013-03-15 Linux "Linux Programmer's Manual"
+.TH SOCKET 7 2013-04-17 Linux "Linux Programmer's Manual"
 .SH NAME
 socket \- Linux socket interface
 .SH SYNOPSIS
@@ -630,31 +627,69 @@ Gets the socket type as an integer (e.g.,
 This socket option is read-only.
 .TP
 .BR SO_PEEK_OFF " (since Linux 3.4)"
-This option controls the behavior of
+.\" commit ef64a54f6e558155b4f149bb10666b9e914b6c54
+This option, which is currently supported only for
+.BR unix (7)
+sockets, sets the value of the "peek offset" for the
 .BR recv(2)
 system call when used with
 .BR MSG_PEEK
 flag.
 
-When this value is negative (kernel sets -1 to all new sockets by default)
-the behavior of the
+When this option is set to a negative value
+(it is set to \-1 for all new sockets),
+traditional behavior is provided:
 .BR recv(2)
-is not affected at all.
-When it's set to zero or positive value, peeking the data would occur from
-the respective position in bytes. At the same time this offset will be
-incremented on the amount of bytes peeked from queue, so that the
-subsequent attempt to peek the data would result in next data in queue
-(similarly, receiving the data from queue without the
+with the
 .BR MSG_PEEK
-flag will result in respectively decreased offset value).
-For datagram sockets, if the offset points to the middle of a packet,
+flag will peek data from the front of the queue.
+
+When the option is set to a value greater than or equal to zero,
+then the next peek at data queued in the socket will occur at
+the byte offset specified by the option value.
+At the same time, the "peek offset" will be
+incremented by the number of bytes that were peeked from the queue,
+so that a subsequent peek will return the next data in the queue.i
+
+If data is removed from the front of the queue via a call to
+.BR recv (2)
+(or similar) without the
+.BR MSG_PEEK
+flag, the "peek offset" will be decreased by the number of bytes removed.
+In other words, receiving data without the
+.B MSG_PEEK
+flag will cause the "peek offset" to be adjusted to maintain
+the correct relative position in the queued data,
+so that a subsequent peek will retrieve the data that would have been
+retrieved had the data not been removed.
+
+For datagram sockets, if the "peek offset" points to the middle of a packet,
 the data returned will be marked with the
 .BR MSG_TRUNC
 flag.
 
-Since Linux 3.4 this option is supported for
-.BR unix(7)
-sockets only.
+The following example serves to illustrate the use of
+.BR SO_PEEK_OFF .
+Suppose a stream socket has the following queued input data:
+
+    aabbccddeeff
+
+.IP
+The following sequence of
+.BR recv (2)
+calls would have the effect noted in the comments:
+
+.in +4n
+.nf
+int ov = 4;                  // Set peek offset to 4
+setsockopt(fd, SOL_SOCKET, SO_PEEK_OFF, &ov, sizeof(ov));
+
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "cc"; offset set to 6
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "dd"; offset set to 8
+recv(fd, buf, 2, 0);         // Reads "aa"; offset set to 6
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "ee"; offset set to 8
+.fi
+.in
 .SS Signals
 When writing onto a connection-oriented socket that has been shut down
 (by the local or the remote end)

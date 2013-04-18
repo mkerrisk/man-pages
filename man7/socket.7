@@ -429,6 +429,71 @@ For more information see
 .\" FIXME Document SO_PASSSEC, added in 2.6.18; there is some info
 .\" in the 2.6.18 ChangeLog
 .TP
+.BR SO_PEEK_OFF " (since Linux 3.4)"
+.\" commit ef64a54f6e558155b4f149bb10666b9e914b6c54
+This option, which is currently supported only for
+.BR unix (7)
+sockets, sets the value of the "peek offset" for the
+.BR recv(2)
+system call when used with
+.BR MSG_PEEK
+flag.
+
+When this option is set to a negative value
+(it is set to \-1 for all new sockets),
+traditional behavior is provided:
+.BR recv(2)
+with the
+.BR MSG_PEEK
+flag will peek data from the front of the queue.
+
+When the option is set to a value greater than or equal to zero,
+then the next peek at data queued in the socket will occur at
+the byte offset specified by the option value.
+At the same time, the "peek offset" will be
+incremented by the number of bytes that were peeked from the queue,
+so that a subsequent peek will return the next data in the queue.i
+
+If data is removed from the front of the queue via a call to
+.BR recv (2)
+(or similar) without the
+.BR MSG_PEEK
+flag, the "peek offset" will be decreased by the number of bytes removed.
+In other words, receiving data without the
+.B MSG_PEEK
+flag will cause the "peek offset" to be adjusted to maintain
+the correct relative position in the queued data,
+so that a subsequent peek will retrieve the data that would have been
+retrieved had the data not been removed.
+
+For datagram sockets, if the "peek offset" points to the middle of a packet,
+the data returned will be marked with the
+.BR MSG_TRUNC
+flag.
+
+The following example serves to illustrate the use of
+.BR SO_PEEK_OFF .
+Suppose a stream socket has the following queued input data:
+
+    aabbccddeeff
+
+.IP
+The following sequence of
+.BR recv (2)
+calls would have the effect noted in the comments:
+
+.in +4n
+.nf
+int ov = 4;                  // Set peek offset to 4
+setsockopt(fd, SOL_SOCKET, SO_PEEK_OFF, &ov, sizeof(ov));
+
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "cc"; offset set to 6
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "dd"; offset set to 8
+recv(fd, buf, 2, 0);         // Reads "aa"; offset set to 6
+recv(fd, buf, 2, MSG_PEEK);  // Peeks "ee"; offset set to 8
+.fi
+.in
+.TP
 .B SO_PEERCRED
 Return the credentials of the foreign process connected to this socket.
 This is possible only for connected
@@ -625,71 +690,6 @@ for details on control messages.
 Gets the socket type as an integer (e.g.,
 .BR SOCK_STREAM ).
 This socket option is read-only.
-.TP
-.BR SO_PEEK_OFF " (since Linux 3.4)"
-.\" commit ef64a54f6e558155b4f149bb10666b9e914b6c54
-This option, which is currently supported only for
-.BR unix (7)
-sockets, sets the value of the "peek offset" for the
-.BR recv(2)
-system call when used with
-.BR MSG_PEEK
-flag.
-
-When this option is set to a negative value
-(it is set to \-1 for all new sockets),
-traditional behavior is provided:
-.BR recv(2)
-with the
-.BR MSG_PEEK
-flag will peek data from the front of the queue.
-
-When the option is set to a value greater than or equal to zero,
-then the next peek at data queued in the socket will occur at
-the byte offset specified by the option value.
-At the same time, the "peek offset" will be
-incremented by the number of bytes that were peeked from the queue,
-so that a subsequent peek will return the next data in the queue.i
-
-If data is removed from the front of the queue via a call to
-.BR recv (2)
-(or similar) without the
-.BR MSG_PEEK
-flag, the "peek offset" will be decreased by the number of bytes removed.
-In other words, receiving data without the
-.B MSG_PEEK
-flag will cause the "peek offset" to be adjusted to maintain
-the correct relative position in the queued data,
-so that a subsequent peek will retrieve the data that would have been
-retrieved had the data not been removed.
-
-For datagram sockets, if the "peek offset" points to the middle of a packet,
-the data returned will be marked with the
-.BR MSG_TRUNC
-flag.
-
-The following example serves to illustrate the use of
-.BR SO_PEEK_OFF .
-Suppose a stream socket has the following queued input data:
-
-    aabbccddeeff
-
-.IP
-The following sequence of
-.BR recv (2)
-calls would have the effect noted in the comments:
-
-.in +4n
-.nf
-int ov = 4;                  // Set peek offset to 4
-setsockopt(fd, SOL_SOCKET, SO_PEEK_OFF, &ov, sizeof(ov));
-
-recv(fd, buf, 2, MSG_PEEK);  // Peeks "cc"; offset set to 6
-recv(fd, buf, 2, MSG_PEEK);  // Peeks "dd"; offset set to 8
-recv(fd, buf, 2, 0);         // Reads "aa"; offset set to 6
-recv(fd, buf, 2, MSG_PEEK);  // Peeks "ee"; offset set to 8
-.fi
-.in
 .SS Signals
 When writing onto a connection-oriented socket that has been shut down
 (by the local or the remote end)

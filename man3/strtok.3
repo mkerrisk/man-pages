@@ -1,5 +1,6 @@
-.\" Copyright (C) 1996 Andries Brouwer (aeb@cwi.nl)
-.\" and Copyright (C) 2005 Michael Kerrisk (mtk.manpages@gmail.com)
+.\" Copyright (C) 2005, 2013 Michael Kerrisk (mtk.manpages@gmail.com)
+.\" a few fragments from an earlier (1996) version by
+.\" Andries Brouwer (aeb@cwi.nl) remain.
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -26,8 +27,9 @@
 .\" Rewritten old page, 960210, aeb@cwi.nl
 .\" Updated, added strtok_r. 2000-02-13 Nicolás Lichtmaier <nick@debian.org>
 .\" 2005-11-17, mtk: Substantial parts rewritten
+.\" 2013-05-19, mtk: added much further detail on the operation of strtok()
 .\"
-.TH STRTOK 3  2012-05-10 "GNU" "Linux Programmer's Manual"
+.TH STRTOK 3  2013-05-19 "GNU" "Linux Programmer's Manual"
 .SH NAME
 strtok, strtok_r \- extract tokens from strings
 .SH SYNOPSIS
@@ -52,13 +54,13 @@ _XOPEN_SOURCE || _POSIX_SOURCE
 .SH DESCRIPTION
 The
 .BR strtok ()
-function parses a string into a sequence of tokens.
+function breaks a string into a sequence of zero or more nonempty tokens.
 On the first call to
 .BR strtok ()
 the string to be parsed should be
 specified in \fIstr\fP.
 In each subsequent call that should parse the same string,
-\fIstr\fP should be NULL.
+\fIstr\fP must be NULL.
 
 The \fIdelim\fP argument specifies a set of bytes that
 delimit the tokens in the parsed string.
@@ -74,12 +76,52 @@ If no more tokens are found,
 .BR strtok ()
 returns NULL.
 
-A sequence of two or more contiguous delimiter bytes in
-the parsed string is considered to be a single delimiter.
-Delimiter bytes at the start or end of the string are ignored.
+A sequence of calls to
+.BR strtok ()
+that operate on the same string maintains a pointer
+that determines the point from which to start searching for the next token.
+The first call to
+.BR strtok ()
+sets this pointer to point to the first byte of the string.
+The start of the next token is determined by scanning forward 
+for the next nondelimiter byte in
+.IR str .
+If such a byte is found, it is taken as the start of the next token.
+If no such byte is found,
+then there are no more tokens, and
+.BR strtok ()
+returns NULL.
+(A string that is empty or that contains only delimiter
+will thus cause
+.BR strtok ()
+to return NULL on the first call.)
+
+The end of each token is found by scanning forward until either
+the next delimiter byte is found or until the
+terminating null byte (\(aq\\0\(aq) is encountered.
+If a delimiter byte is found, it is overwritten with
+a null byte to terminate the current token, and
+.BR strtok ()
+saves a pointer to the following byte;
+that pointer will be used as the starting point
+when searching for the next token.
+In this case,
+.BR strtok ()
+returns a pointer to the start of the found token.
+
+From the above description,
+it follows that a sequence of two or more contiguous delimiter bytes in
+the parsed string is considered to be a single delimiter, and that
+delimiter bytes at the start or end of the string are ignored.
 Put another way: the tokens returned by
 .BR strtok ()
 are always nonempty strings.
+Thus, for example, given the string "\fIaaa;;bbb,\fP",
+successive calls to
+.BR strtok ()
+that specify the delimiter string "\fI;,\fP" 
+would return the strings "\fIaaa\fP" and "\fIbbb\fP",
+and then a NULL pointer.
 
 The
 .BR strtok_r ()

@@ -654,8 +654,13 @@ Records additional data, if applicable.
 Usually returned by tracepoint events.
 .TP
 .BR PERF_SAMPLE_BRANCH_STACK " (Since Linux 3.4)"
-Records the branch stack.
-See branch_sample_type.
+This provides a record of recent branches, as provided
+by CPU branch sampling hardware (such as Intel Last Branch Record).
+Not all hardware supports this feature.
+
+See the
+.I branch_sample_type
+field for how to filter which branches are reported.
 .TP
 .BR PERF_SAMPLE_REGS_USER " (Since Linux 3.7)"
 Records the current user-level CPU register state
@@ -960,8 +965,17 @@ is a further extension of the
 field.
 .TP
 .IR "branch_sample_type" " (Since Linux 3.4)"
-This is used with the CPUs hardware branch sampling, if available.
-It can have one of the following values:
+If 
+.B PERF_SAMPLE_BRANCH_STACK
+is enabled, then this specifies what branches to include
+in the branch record.
+If the user does not set privilege level explicitly, the kernel
+will use the event's privilege level.
+Event and branch privilege levels do not have to match.
+The value is formed by ORing together zero or more of the following values,
+although 
+.B PERF_SAMPLE_BRANCH_ANY
+covers all branch types.
 .RS
 .TP
 .B PERF_SAMPLE_BRANCH_USER
@@ -1545,9 +1559,31 @@ is enabled, then a 64-bit value indicating
 the number of records is included, followed by
 .I bnr
 .I perf_branch_entry
-structures.
-These structures have from, to, and flags values indicating
-the from and to addresses from the branches on the callstack.
+structures which each include the fields:
+.RS
+.TP
+.I from
+indicating the source instruction (may not be a branch)
+.TP
+.I to
+the branch target
+.TP
+.I mispred
+the branch target was mispredicted
+.TP
+.I predicted
+the branch target was predicted.
+.RE
+The entries are from most to least recent, so the first entry
+has the most recent branch.
+
+Support for 
+.I mispred 
+and 
+.I predicted 
+is optional; if not supported both
+values will be 0.
+
 .TP
 .IR abi ", " regs[weight(mask)]
 If

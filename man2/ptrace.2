@@ -41,7 +41,7 @@
 .\"    (Thanks to Blaisorblade, Daniel Jacobowitz and others who helped.)
 .\" 2011-09, major update by Denys Vlasenko <vda.linux@googlemail.com>
 .\"
-.TH PTRACE 2 2013-02-16 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2013-07-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -608,9 +608,9 @@ If the tracee was already stopped by a signal and
 was sent to it,
 the tracee stops with
 .B PTRACE_EVENT_STOP
-with
+and
 .I WSTOPSIG(status)
-== stop_sig.
+returns the stop signal.
 If any other ptrace-stop is generated at the same time (for example,
 if a signal is sent to the tracee), this ptrace-stop happens.
 If none of the above applies (for example, if the tracee is running in userspace),
@@ -774,22 +774,26 @@ and any subsequent ptrace stops will be reported under
 the thread group leader's PID.
 .SS Stopped states
 A tracee can be in two states: running or stopped.
-For the purposes of ptrace, tracee which is blocked in a syscall
+For the purposes of ptrace, a tracee which is blocked in a system call
 (such as
 .BR read (2),
-.BR pause (2)
-etc)
-is nevertheless considered to be running, even if tracee is blocked
+.BR pause (2),
+etc.)
+is nevertheless considered to be running, even if the tracee is blocked
 for a long time.
 The state of the tracee after
 .BR PTRACE_LISTEN
 is somewhat of a gray area: it is not in any ptrace-stop (ptrace commands
-won't work on it, and it will deliver waitpid notifications),
+won't work on it, and it will deliver
+.BR waitpid (2)
+notifications),
 but it also may be considered "stopped" because
 it is not executing instructions (is not scheduled), and if it was
 in group-stop before
 .BR PTRACE_LISTEN ,
-it will not respond to signals until SIGCONT is received.
+it will not respond to signals until
+.B SIGCONT
+is received.
 .LP
 There are many kinds of states when the tracee is stopped, and in ptrace
 discussions they are often conflated.
@@ -1075,11 +1079,13 @@ then it is definitely a group-stop.
 .B SIGKILL
 killed the tracee.)
 .LP
-If tracee was attached using PTRACE_SEIZE, group-stop
-is indicated by
+If tracee was attached using
+.IR PTRACE_SEIZE ,
+group-stop is indicated by
 .BR PTRACE_EVENT_STOP :
-status>>16 == PTRACE_EVENT_STOP. This allows detection of group-stops
-without extra
+.IR "status>>16 == PTRACE_EVENT_STOP" .
+This allows detection of group-stops
+without requiring an extra
 .B PTRACE_GETSIGINFO
 call.
 .LP
@@ -1208,7 +1214,8 @@ to finish exiting.
 .B PTRACE_EVENT_STOP
 Stop induced by
 .B PTRACE_INTERRUPT
-command, or group-stop (only if attached using PTRACE_SEIZE).
+command, or group-stop (only if attached using
+.BR PTRACE_SEIZE ).
 .LP
 .B PTRACE_GETSIGINFO
 on

@@ -85,19 +85,20 @@ and then
 If the binary was linked with the
 .B \-z nodeflib
 linker option, this step is skipped.
-.SS $ORIGIN and rpath
+.SS Rpath token expansion
 .PP
 .B ld.so
-understands the string
-.I $ORIGIN
-(or equivalently
-.IR ${ORIGIN} )
-in an rpath specification (DT_RPATH or DT_RUNPATH) to mean
+understands certain strings in an rpath specification (DT_RPATH or DT_RUNPATH); those strings are substituted as follows
+.TP
+.IR $ORIGIN " (or equivalently " ${ORIGIN} )
+This expands to 
 the directory containing the application executable.
 Thus, an application located in
 .I somedir/app
 could be compiled with
-.I gcc -Wl,-rpath,\(aq$ORIGIN/../lib\(aq
+
+    gcc -Wl,-rpath,\(aq$ORIGIN/../lib\(aq
+
 so that it finds an associated shared library in
 .I somedir/lib
 no matter where
@@ -177,6 +178,45 @@ acpi, apic, clflush, cmov, cx8, dts, fxsr, ht, i386, i486, i586, i686, mca, mmx,
 mtrr, pat, pbe, pge, pn, pse36, sep, ss, sse, sse2, tm
 .SH ENVIRONMENT
 There are four important environment variables.
+.TP
+.B LD_ASSUME_KERNEL
+(glibc since 2.2.3)
+Each shared library can inform the dynamic linker of the minimum kernel ABI
+version that it requires.
+(This requirement is encoded in an ELF note section that is typically named
+.IR .note.ABI-tag .)
+At run time,
+the dynamic linker determines the ABI version of the running kernel and
+will reject loading shared libraries that specify minimum ABI versions
+that exceed that ABI version.
+
+.BR LD_ASSUME_KERNEL
+can be used to
+cause the dynamic linker to assume that it is running on a system with
+a different kernel ABI version.
+For example, the following command line causes the
+dynamic linker to assume it is running on Linux 2.2.5 when loading
+the shared libraries required by
+.IR myprog :
+
+.in +4n
+.nf
+$ \fBLD_ASSUME_KERNEL=2.2.5 ./myprog\fP
+.fi
+.in
+
+On systems that provide multiple versions of a shared library
+(in different directories in the search path) that have
+different minimum kernel ABI version requirements,
+.BR LD_ASSUME_KERNEL
+can be used to select the version of the library that is used
+(dependent on the directory search order).
+Historically, the most common use of the
+.BR LD_ASSUME_KERNEL 
+feature was to manually select the older
+LinuxThreads POSIX threads implementation on systems that provided both
+LinuxThreads and NPTL
+(which latter was typically the default on such systems).
 .TP
 .B LD_BIND_NOT
 (glibc since 2.2)

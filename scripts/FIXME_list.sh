@@ -1,4 +1,5 @@
 #!/bin/sh
+#
 # FIXME_list.sh
 #
 # Display FIXME segments from man-pages source files

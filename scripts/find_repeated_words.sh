@@ -1,5 +1,7 @@
 #!/bin/sh
 #
+# find_repeated_words.sh
+#
 # A simple script for finding instances of repeated consecutive words
 # in manual pages -- human inspection can then determine if these
 # are real errors in the text.

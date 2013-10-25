@@ -108,19 +108,28 @@ structure, which contains the following fields:
 .in +4n
 .nf
 struct stat {
-    dev_t     st_dev;     /* ID of device containing file */
-    ino_t     st_ino;     /* inode number */
-    mode_t    st_mode;    /* protection */
-    nlink_t   st_nlink;   /* number of hard links */
-    uid_t     st_uid;     /* user ID of owner */
-    gid_t     st_gid;     /* group ID of owner */
-    dev_t     st_rdev;    /* device ID (if special file) */
-    off_t     st_size;    /* total size, in bytes */
-    blksize_t st_blksize; /* blocksize for filesystem I/O */
-    blkcnt_t  st_blocks;  /* number of 512B blocks allocated */
-    time_t    st_atime;   /* time of last access */
-    time_t    st_mtime;   /* time of last modification */
-    time_t    st_ctime;   /* time of last status change */
+    dev_t     st_dev;         /* ID of device containing file */
+    ino_t     st_ino;         /* inode number */
+    mode_t    st_mode;        /* protection */
+    nlink_t   st_nlink;       /* number of hard links */
+    uid_t     st_uid;         /* user ID of owner */
+    gid_t     st_gid;         /* group ID of owner */
+    dev_t     st_rdev;        /* device ID (if special file) */
+    off_t     st_size;        /* total size, in bytes */
+    blksize_t st_blksize;     /* blocksize for filesystem I/O */
+    blkcnt_t  st_blocks;      /* number of 512B blocks allocated */
+
+    /* Since Linux 2.6, the kernel supports nanosecond
+       precision for the following timestamp fields.
+       For the details before Linux 2.6, see NOTES. */
+
+    struct timespec st_atim;  /* time of last access */
+    struct timespec st_mtim;  /* time of last modification */
+    struct timespec st_ctim;  /* time of last status change */
+
+#define st_atime st_atim.tv_sec      /* Backward compatibility */
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
 };
 .fi
 .in
@@ -497,18 +506,30 @@ T}
 
 A sticky command appeared in Version 32V AT&T UNIX.
 .SH NOTES
+Older kernels and older standards did not support nanosecond timestamp
+fields.
+Instead, there were three timestamp 
+.RI fields\(em st_atime ,
+.IR st_mtime ,
+and
+.IR st_ctime \(emtyped
+as 
+.IR time_t
+that recorded timestamps with one-second precision.
 Since kernel 2.5.48, the
 .I stat
 structure supports nanosecond resolution for the three file timestamp fields.
-Glibc exposes the nanosecond component of each field using names of the form
+The nanosecond components of each timestamp are available
+via names of the form
 .IR st_atim.tv_nsec
 if the
 .B _BSD_SOURCE
 or
 .B _SVID_SOURCE
 feature test macro is defined.
-These fields are specified in POSIX.1-2008, and, starting with version 2.12,
-glibc also exposes these field names if
+Nanosecond timestamps are nowadays standardized,
+starting with POSIX.1-2008, and, starting with version 2.12,
+glibc also exposes the nanosecond component names if
 .BR _POSIX_C_SOURCE
 is defined with the value 200809L or greater, or
 .BR _XOPEN_SOURCE

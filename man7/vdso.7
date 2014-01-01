@@ -4,7 +4,13 @@
 .\" This page is in the public domain.
 .\" %%%LICENSE_END
 .\"
-.TH VDSO 7 2013-04-09 "Linux" "Linux Programmer's Manual"
+.\" Useful background:
+.\"     http://articles.manugarg.com/systemcallinlinux2_6.html
+.\"     https://lwn.net/Articles/446528/
+.\"     http://www.linuxjournal.com/content/creating-vdso-colonels-other-chicken
+.\"     http://www.trilithium.com/johan/2005/08/linux-gate/
+.\"
+.TH VDSO 7 2014-01-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
 vDSO \- overview of the virtual ELF dynamic shared object
 .SH SYNOPSIS
@@ -14,53 +20,65 @@ vDSO \- overview of the virtual ELF dynamic shared object
 .SH DESCRIPTION
 The "vDSO" is a small shared library that the kernel automatically maps into the
 address space of all user-space applications.
-Applications themselves usually need not concern themselves with these details
+Applications usually do not need to concern themselves with these details
 as the vDSO is most commonly called by the C library.
-This way you can write using standard functions and the C library will take care
-of using any available functionality.
+This way you can write using standard functions
+and the C library will take care
+of using any functionality that is available via the vDSO.
 
 Why does the vDSO exist at all?
-There are some facilities the kernel provides that user space ends up using
-frequently to the point that such calls can dominate overall performance.
-This is due both to the frequency of the call as well as the context overhead
+There are some system calls the kernel provides that user space ends up using
+frequently, to the point that such calls can dominate overall performance.
+This is due both to the frequency of the call as well as the
+context-switch overhead that results from 
 from exiting user space and entering the kernel.
 
-The rest of this documentation is geared towards the curious and/or C library
+The rest of this documentation is geared toward the curious and/or C library
 writers rather than general developers.
 If you're trying to call the vDSO in your own application rather than using
 the C library, you're most likely doing it wrong.
 .SS Example background
 Making system calls can be slow.
-In x86 32-bit systems, you can trigger a software interrupt (int $0x80) to tell
-the kernel you wish to make a system call.
-However, this instruction is expensive: it goes through the full interrupt
-handling paths in the processor's microcode as well as in the kernel.
-Newer processors have faster (but backwards incompatible) instructions to
+In x86 32-bit systems, you can trigger a software interrupt
+.RI ( "int $0x80" )
+to tell the kernel you wish to make a system call.
+However, this instruction is expensive: it goes through
+the full interrupt-handling paths
+in the processor's microcode as well as in the kernel.
+Newer processors have faster (but backward incompatible) instructions to
 initiate system calls.
 Rather than require the C library to figure out if this functionality is
-available at runtime itself, it can use functions provided by the kernel in
+available at runtime,
+the C library can use functions provided by the kernel in
 the vDSO.
 
 Note that the terminology can be confusing.
-On x86 systems, the vDSO function is named "__kernel_vsyscall", but on x86_64,
+On x86 systems, the vDSO function
+used to determine the preferred method of making a system call is
+named "__kernel_vsyscall", but on x86_64,
 the term "vsyscall" also refers to an obsolete way to ask the kernel what time
 it is or what CPU the caller is on.
 
-One system call frequently called is gettimeofday().
-This is called both directly by user-space applications as well as indirectly by
+One frequently used system call is
+.BR gettimeofday (2).
+This system call is called both directly by user-space applications
+as well as indirectly by
 the C library.
-Think timestamps or timing loops or polling -- all of these frequently need to
+Think timestamps or timing loops or polling\(emall of these frequently need to
 know what time it is right now.
-This information is also not secret -- any application in any privilege mode
-(root or any user) will get the same answer.
+This information is also not secret\(emany application in any privilege mode
+(root or any unprivileged user) will get the same answer.
 Thus the kernel arranges for the information required to answer this question
 to be placed in memory the process can access.
-Now a call to gettimeofday() changes from a system call to a normal function
+Now a call to
+.BR gettimeofday (2)
+changes from a system call to a normal function
 call and a few memory accesses.
 .SS Finding the vDSO
 The base address of the vDSO (if one exists) is passed by the kernel to each
-program in the initial auxiliary vector.
-Specifically, via the
+program in the initial auxiliary vector (see
+.BR getauxval (3)), 
+via the
 .B AT_SYSINFO_EHDR
 tag.
 
@@ -70,58 +88,61 @@ The base address will usually be randomized at runtime every time a new
 process image is created (at
 .BR execve (2)
 time).
-This is done for security reasons to prevent standard "return-to-libc" attacks.
+This is done for security reasons,
+to prevent "return-to-libc" attacks.
 
-For some architectures, there is also a
+For some architectures, there is also an
 .B AT_SYSINFO
 tag.
 This is used only for locating the vsyscall entry point and is frequently
 omitted or set to 0 (meaning it's not available).
-It is a throwback to the initial vDSO work (see
-.IR HISTORY
-below) and should be avoided.
-
-Refer to
-.BR getauxval (3)
-for more details on accessing these fields.
+This tag is a throwback to the initial vDSO work (see
+.IR History
+below) and its use should be avoided.
 .SS File format
 Since the vDSO is a fully formed ELF image, you can do symbol lookups on it.
-This allows new symbols to be added with newer kernel releases, and for the
+This allows new symbols to be added with newer kernel releases, and allows the
 C library to detect available functionality at runtime when running under
 different kernel versions.
-Often times the C library will do detection with the first call and then
+Oftentimes the C library will do detection with the first call and then
 cache the result for subsequent calls.
 
 All symbols are also versioned (using the GNU version format).
 This allows the kernel to update the function signature without breaking
-backwards compatibility.
+backward compatibility.
 This means changing the arguments that the function accepts as well as the
 return value.
-Thus, when looking up a symbol in the vDSO, you must always include the version
+Thus, when looking up a symbol in the vDSO,
+you must always include the version
 to match the ABI you expect.
 
-Typically the vDSO follows the naming convention of prefixing all symbols with
-"__vdso_" or "__kernel_" so as to distinguish them from other standard symbols.
-e.g. The "gettimeofday" function is named "__vdso_gettimeofday".
+Typically the vDSO follows the naming convention of prefixing
+all symbols with "__vdso_" or "__kernel_"
+so as to distinguish them from other standard symbols.
+For example, the "gettimeofday" function is named "__vdso_gettimeofday".
 
-You use the standard C calling conventions when calling any of these functions.
+You use the standard C calling conventions when calling
+any of these functions.
 No need to worry about weird register or stack behavior.
 .SH NOTES
 .SS Source
 When you compile the kernel, it will automatically compile and link the vDSO
 code for you.
-You will frequently find it under the architecture-specific dir:
+You will frequently find it under the architecture-specific directory:
 
     find arch/$ARCH/ -name '*vdso*.so*' -o -name '*gate*.so*'
 
 Note that the vDSO that is used is based on the ABI of your user-space code
 and not the ABI of the kernel.
-i.e. If you run an i386 32-bit ELF under an i386 32-bit kernel or under an
+In other words,
+if you run an i386 32-bit ELF under an i386 32-bit kernel or under an
 x86_64 64-bit kernel, you'll get the same vDSO.
 So when referring to sections below, use the user-space ABI.
 .SS vDSO names
-The name of this shared object varies across architectures.
-It will often show up in things like glibc's `ldd` output.
+The name of vDSO shared object varies across architectures.
+It will often show up in things like glibc's 
+.BR ldd (1)
+output.
 The exact name should not matter to any code, so do not hardcode it.
 .if t \{\
 .ft CW
@@ -145,18 +166,18 @@ x86/x32	linux-vdso.so.1
 .in
 .ft P
 \}
-.SS arm functions
+.SS ARM functions
 .\" See linux/arch/arm/kernel/entry-armv.S
 .\" See linux/Documentation/arm/kernel_user_helpers.txt
-The arm port has a code page full of utility functions.
+The ARM port has a code page full of utility functions.
 Since it's just a raw page of code, there is no ELF information for doing
 symbol lookups or versioning.
 It does provide support for different versions though.
 
-For documentation on this code page, it's better you refer to the kernel doc
+For information on this code page,
+it's best to refer to the kernel documentation
 as it's extremely detailed and covers everything you need to know:
-.br
-Documentation/arm/kernel_user_helpers.txt
+.IR Documentation/arm/kernel_user_helpers.txt .
 .SS aarch64 functions
 .\" See linux/arch/arm64/kernel/vdso/vdso.lds.S
 .if t \{\
@@ -183,8 +204,8 @@ the normal sense.
 Instead, it maps at boot time a few raw functions into a fixed location in
 memory.
 User-space applications then call directly into that region.
-There is no provision for backwards compatibility beyond sniffing raw opcodes,
-but as this is an embedded CPU, it can get away with things -- some of the
+There is no provision for backward compatibility beyond sniffing raw opcodes,
+but as this is an embedded CPU, it can get away with things\(emsome of the
 object formats it runs aren't even ELF based (they're bFLT/FLAT).
 
 For documentation on this code page, it's better you refer to the public docs:
@@ -209,13 +230,15 @@ __kernel_syscall_via_epc	LINUX_2.5
 .ft P
 \}
 
-The Itanium port actually likes to get tricky.
+The Itanium port is somewhat tricky.
 In addition to the vDSO above, it also has "light-weight system calls" (also
 known as "fast syscalls" or "fsys").
-You can invoke these via the __kernel_syscall_via_epc vDSO helper.
+You can invoke these via the
+.I __kernel_syscall_via_epc
+vDSO helper.
 The system calls listed here have the same semantics as if you called them
 directly via
-.BR syscall (3),
+.BR syscall (2),
 so refer to the relevant
 documentation for each.
 The table below lists the functions available via this mechanism.
@@ -241,7 +264,8 @@ set_tid_address
 .\" See linux/arch/parisc/kernel/syscall.S
 .\" See linux/Documentation/parisc/registers
 The parisc port has a code page full of utility functions called a gateway page.
-Rather than use the normal ELF aux vector approach, it passes the address of
+Rather than use the normal ELF auxiliary vector approach,
+it passes the address of
 the page to the process via the SR2 register.
 The permissions on the page are such that merely executing those addresses
 automatically executes with kernel privileges and not in user-space.
@@ -249,9 +273,10 @@ This is done to match the way HP-UX works.
 
 Since it's just a raw page of code, there is no ELF information for doing
 symbol lookups or versioning.
-Simply call into the appropriate offset via the branch instruction, e.g.:
-.br
-ble <offset>(%sr2, %r0)
+Simply call into the appropriate offset via the branch instruction,
+for example:
+
+    ble <offset>(%sr2, %r0)
 .if t \{\
 .ft CW
 \}
@@ -283,7 +308,7 @@ _
 .\" See linux/arch/powerpc/kernel/vdso32/vdso32.lds.S
 The functions marked with a
 .I *
-below are only available when the kernel is
+below are available only when the kernel is
 a powerpc64 (64-bit) kernel.
 .if t \{\
 .ft CW
@@ -439,19 +464,25 @@ __vdso_time	LINUX_2.6
 .ft P
 \}
 .SS History
-The vDSO was originally just a single function -- the vsyscall.
-In older kernels, you might see that in a process's memory map rather than vdso.
-Over time, people realized that this was a great way to pass more functionality
+The vDSO was originally just a single function\(emthe vsyscall.
+In older kernels, you might see that name
+in a process's memory map rather than "vdso".
+Over time, people realized that this mechanism 
+was a great way to pass more functionality
 to user space, so it was reconceived as a vDSO in the current format.
 .SH SEE ALSO
 .BR syscalls (2),
 .BR getauxval (3),
 .BR proc (5)
 
-The docs/examples/sources in the Linux sources:
+The documents, examples, and source code in the Linux source code tree:
+.in +4n
 .nf
+
 Documentation/ABI/stable/vdso
-linux/Documentation/ia64/fsys.txt
+Documentation/ia64/fsys.txt
 Documentation/vDSO/* (includes examples of using the vDSO)
+
 find arch/ -iname '*vdso*' -o -iname '*gate*'
 .fi
+.in

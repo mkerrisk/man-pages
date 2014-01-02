@@ -32,7 +32,7 @@
 .\" Modified by Walter Harms: dladdr, dlvsym
 .\" Modified by Petr Baudis <pasky@suse.cz>, 2008-12-04: dladdr caveat
 .\"
-.TH DLOPEN 3 2013-12-30 "Linux" "Linux Programmer's Manual"
+.TH DLOPEN 3 2014-01-02 "Linux" "Linux Programmer's Manual"
 .SH NAME
 dladdr, dlclose, dlerror, dlopen, dlsym, dlvsym \- programming interface to
 dynamic linking loader
@@ -466,15 +466,22 @@ main(int argc, char **argv)
 
     dlerror();    /* Clear any existing error */
 
-    /* Writing: cosine = (double (*)(double)) dlsym(handle, "cos");
-       would seem more natural, but the C99 standard leaves
-       casting from "void *" to a function pointer undefined.
-       The assignment used below is the POSIX.1\-2003 (Technical
-       Corrigendum 1) workaround; see the Rationale for the
-       POSIX specification of dlsym(). */
+    cosine = (double (*)(double)) dlsym(handle, "cos");
 
-    *(void **) (&cosine) = dlsym(handle, "cos");
-.\" But in fact "gcc -O2 -Wall" will complain about the preceding cast.
+    /* According to the C99 standard, casting 'void *' to a function pointer
+       as shown above is forbidden. POSIX.1-2003 and POSIX.2008 followed
+       C99's requirement, and proposed the following workaround:
+
+           *(void **) (&cosine) = dlsym(handle, "cos");
+
+       This (clumsy) cast conforms with C99 and will avoid any compiler 
+       warnings.
+
+       The 2013 Technical Corrigendum to POSIX.1-2008 (a.k.a. POSIX.1-2013)
+       improved matters by requiring that conforming implementations support
+       casting 'void *' to a function pointer. Nevertheless, some compilers
+       (e.g., gcc with the '-pedantic' option) may complain about the cast
+       used in this program. */
 
     error = dlerror();
     if (error != NULL)  {

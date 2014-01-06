@@ -45,7 +45,7 @@
 .\" 2007-07-25, mtk, fairly substantial rewrites and rearrangements
 .\" of text.
 .\"
-.TH SETPGID 2 2013-07-31 "Linux" "Linux Programmer's Manual"
+.TH SETPGID 2 2014-01-07 "Linux" "Linux Programmer's Manual"
 .SH NAME
 setpgid, getpgid, setpgrp, getpgrp \- set/get process group
 .SH SYNOPSIS
@@ -84,10 +84,12 @@ _XOPEN_SOURCE\ &&\ _XOPEN_SOURCE_EXTENDED
 .nf
     _SVID_SOURCE || _XOPEN_SOURCE\ >=\ 500 ||
     _XOPEN_SOURCE\ &&\ _XOPEN_SOURCE_EXTENDED
+.br
+    || /* Since glibc 2.19: */ _BSD_SOURCE
 .fi
 .sp
 .BR setpgrp "()\ (BSD),"
-.BR getpgrp "()\ (BSD):"
+.BR getpgrp "()\ (BSD) [before glibc 2.19]:"
 .nf
     _BSD_SOURCE &&
         !\ (_POSIX_SOURCE || _POSIX_C_SOURCE || _XOPEN_SOURCE ||
@@ -157,18 +159,39 @@ call, which takes arguments
 .I pid
 and
 .IR pgid ,
-is equivalent to
-.IR "setpgid(pid, pgid)" .
+is is a wrapper function that calls
+
+    setpgid(pid, pgid)
+
 .\" The true BSD setpgrp() system call differs in allowing the PGID
 .\" to be set to arbitrary values, rather than being restricted to
 .\" PGIDs in the same session.
+Since glibc 2.19, the BSD-specific
+.BR setpgrp ()
+function is no longer exposed by
+.IR <unistd.h> ;
+calls should be replaced with the
+.BR setpgid ()
+call shown above.
 
 The BSD-specific
 .BR getpgrp ()
 call, which takes a single
 .I pid
-argument, is equivalent to
-.IR "getpgid(pid)" .
+argument, is a wrapper function that calls
+
+    getpgid(pid)
+
+Since glibc 2.19, the BSD-specific
+.BR getpgrp ()
+function is no longer exposed by
+.IR <unistd.h> ;
+calls should be replaced with calls to the POSIX.1
+.BR getpgrp ()
+which takes no arguments (if the intent is to obtain the caller's PGID),
+or with the
+.BR getpgid ()
+call shown above.
 .SH RETURN VALUE
 On success,
 .BR setpgid ()

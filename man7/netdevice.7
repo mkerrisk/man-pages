@@ -15,7 +15,7 @@
 .\" Modified, 2011-11-02, <bidulock@openss7.org>, added many basic
 .\"  but missing ioctls, such as SIOCGIFADDR.
 .\"
-.TH NETDEVICE  7 2012-04-26 "Linux" "Linux Programmer's Manual"
+.TH NETDEVICE  7 2014-01-09 "Linux" "Linux Programmer's Manual"
 .SH NAME
 netdevice \- low-level access to Linux network devices
 .SH SYNOPSIS
@@ -29,7 +29,7 @@ network devices.
 Linux supports some standard ioctls to configure network devices.
 They can be used on any socket's file descriptor regardless of the
 family or type.
-They pass an
+Most of them pass an
 .I ifreq
 structure:
 
@@ -51,14 +51,6 @@ struct ifreq {
         char            ifr_slave[IFNAMSIZ];
         char            ifr_newname[IFNAMSIZ];
         char           *ifr_data;
-    };
-};
-
-struct ifconf {
-    int                 ifc_len; /* size of buffer */
-    union {
-        char           *ifc_buf; /* buffer address */
-        struct ifreq   *ifc_req; /* array of structures */
     };
 };
 .fi
@@ -265,30 +257,69 @@ This currently
 means only addresses of the
 .B AF_INET
 (IPv4) family for compatibility.
-The user passes a
+Unlike the others, this ioctl passes an
 .I ifconf
-structure as argument to the ioctl.
-It contains a pointer to an array of
-.I ifreq
-structures in
+structure:
+
+.in +4n
+.nf
+struct ifconf {
+    int                 ifc_len; /* size of buffer */
+    union {
+        char           *ifc_buf; /* buffer address */
+        struct ifreq   *ifc_req; /* array of structures */
+    };
+};
+.fi
+.in
+
+If
 .I ifc_req
-and its length in bytes in
+is NULL,
+.B SIOCGIFCONF
+returns the necessary buffer size in bytes
+for receiving all available addresses in
 .IR ifc_len .
-The kernel fills the ifreqs with all current L3 interface addresses that
-are running:
+Otherwise
+.I ifc_req
+contains a pointer to an array of
+.I ifreq
+structures to be filled with all currently active L3 interface addresses.
+.I ifc_len
+contains the size of the array in bytes.
+Within each
+.I ifreq
+structure,
 .I ifr_name
-contains the interface name (eth0:1 etc.),
+will receive the interface name, and
 .I ifr_addr
 the address.
-The kernel returns with the actual length in
+The actual number of bytes transferred is returned in
 .IR ifc_len .
-If
+
+If the size specified by
 .I ifc_len
-is equal to the original length the buffer probably has overflowed
-and you should retry with a bigger buffer to get all addresses.
-When no error occurs the ioctl returns 0;
-otherwise \-1.
-Overflow is not an error.
+is insufficient to store all the addresses,
+the kernel will skip the exceeding ones and return success.
+There is no reliable way of detecting this condition once it has occurred.
+It is therefore recommended to either determine the necessary buffer size
+beforehand by calling
+.B SIOCGIFCONF
+with
+.I ifc_req
+set to NULL, or to retry the call with a bigger buffer whenever
+.I ifc_len
+upon return differs by less than sizeof(struct
+.IR ifreq )
+from its original value.
+
+If an error occurs accessing the
+.I ifconf
+or
+.I ifreq
+structures,
+.B EFAULT
+will be returned.
 .\" Slaving isn't supported in 2.2
 .\" .
 .\" .TP

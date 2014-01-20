@@ -41,7 +41,7 @@
 .\"    (Thanks to Blaisorblade, Daniel Jacobowitz and others who helped.)
 .\" 2011-09, major update by Denys Vlasenko <vda.linux@googlemail.com>
 .\"
-.TH PTRACE 2 2013-07-11 "Linux" "Linux Programmer's Manual"
+.TH PTRACE 2 2014-01-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 ptrace \- process trace
 .SH SYNOPSIS
@@ -325,51 +325,57 @@ structures without removing signals from a queue.
 .I addr
 points to a
 .I ptrace_peeksiginfo_args
-structure.
+structure that specifies the ordinal position from which
+copying of signals should start,
+and the number of signals to copy.
 .I siginfo_t
-structures are copied into the buffer starting at
-.I data.
-The return value contains a number of copied signals (zero indicates
-that a signal with this sequence number doesn't exist).
-A result
+structures are copied into the buffer pointed to by
+.IR data .
+The return value contains the number of copied signals (zero indicates
+that there is no signal corresponding to the specified ordinal position).
+Within the returned
 .I siginfo
-contains a kernel part of
+structures,
+the
 .IR si_code
-(
-.BR __SI_CHLD,
-.BR __SI_FAULT,
-etc), which is not shown in other places.
+field includes information
+.RB ( __SI_CHLD ,
+.BR __SI_FAULT ,
+etc.), that are not otherwise exposed to user space.
 .PP
 .in +10n
 .nf
 struct ptrace_peeksiginfo_args {
-	u64 off;        /* from which siginfo to start */
-	u32 flags;
-	s32 nr;         /* how may siginfos to take */
+    u64 off;    /* Ordinal position in queue at which
+                   to start copying signals */
+    u32 flags;  /* PTRACE_PEEKSIGINFO_SHARED or 0 */
+    s32 nr;     /* Number of signals to copy */
 };
 .fi
 
-Currently here is only one flag
-.BR PTRACE_PEEKSIGINFO_SHARED
-for dumping signals from process-wide queue.
-If this flag is not set, signals are read from a per-thread queue.
+Currently, there is only one flag,
+.BR PTRACE_PEEKSIGINFO_SHARED ,
+for dumping signals from the process-wide signal queue.
+If this flag is not set,
+signals are read from the per-thread queue of the specified thread.
 .in
 .PP
 .TP
 .BR PTRACE_GETSIGMASK " (since Linux 3.11)"
 .\" commit 29000caecbe87b6b66f144f72111f0d02fbbf0c1
-Retrieve mask of blocked signals to the address
-.I data.
+Place a copy of the mask of blocked signals in the buffer pointed to by
+.IR data .
 The
 .I addr
 argument contains the size of mask.
 .TP
 .BR PTRACE_SETSIGMASK " (since Linux 3.11)"
-Change mask of blocked signals from the address
-.I data.
+Change the mask of blocked signals to the value specified
+in the buffer pointed to by
+.IR data .
 The
 .I addr
-argument contains the size of mask.
+argument contains the size of the mask.
 .TP
 .BR PTRACE_SETOPTIONS " (since Linux 2.4.6; see BUGS for caveats)"
 Set ptrace options from

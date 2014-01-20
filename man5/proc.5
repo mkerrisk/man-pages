@@ -59,7 +59,7 @@
 .\" to see what information could be imported from that file
 .\" into this file.
 .\"
-.TH PROC 5 2013-12-30 "Linux" "Linux Programmer's Manual"
+.TH PROC 5 2014-01-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 proc \- process information pseudo-filesystem
 .SH DESCRIPTION
@@ -1491,6 +1491,72 @@ Contains subdirectories for installed busses.
 Subdirectory for PCMCIA devices when
 .B CONFIG_PCMCIA
 is set at kernel compilation time.
+.TP
+.IR /proc/[pid]/timers " (since Linux 3.10)"
+.\" commit 5ed67f05f66c41e39880a6d61358438a25f9fee5
+.\" commit 48f6a7a511ef8823fdff39afee0320092d43a8a0
+A list of the POSIX timers for this process.
+Each timer is listed with a line that starets with the string "ID:".
+For example:
+
+.in +4n
+.nf
+ID: 1
+signal: 60/00007fff86e452a8
+notify: signal/pid.2634
+ClockID: 0
+ID: 0
+signal: 60/00007fff86e452a8
+notify: signal/pid.2634
+ClockID: 1
+.fi
+.in
+
+The lines shown for each timer have the following meanings:
+.RS
+.TP
+.I ID
+The ID for this timer.
+This is not the same as the timer ID returned by
+.BR timer_create (2);
+rather, it is the same kernel-internal ID that is available via the
+.I si_timerid
+field of the
+.IR siginfo_t
+structure (see
+.BR sigaction (2)).
+.TP
+.I signal
+This is the signal number that this timer uses to deliver notifications
+followed by a slash, and then the
+.I sigev_value.sival_ptr
+value supplied to the signal handler.
+Valid only for timers that notify via a signal.
+.TP
+.I notify
+The part before the slash specifies the mechanism
+that this timer uses to deliver notifications,
+and is one of "thread", "signal", or "none".
+Immediately following the slash is either the string "tid" for timers
+with
+.B SIGEV_THREAD_ID
+notification, or "pid" for timers that notify by other mechanisms.
+Following the "." is the PID of the process that will be delivered
+a signal if the timer delivers notifications via a signal.
+.TP
+.I ClockID
+This field identifies the clock that the timer uses for measuring time.
+For most clocks, this is a number that matches one of the user-space
+.BR CLOCK_*
+constants dexposed via
+.IR <time.h> .
+.B CLOCK_PROCESS_CPUTIME_ID
+timers display with a value of -6
+in this field.
+.B CLOCK_THREAD_CPUTIME_ID
+timers display with a value of -2
+in this field.
+.RE
 .TP
 .I /proc/bus/pccard/drivers
 .TP

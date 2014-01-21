@@ -289,81 +289,6 @@ The following symbolic constants are provided for
 00001 others have execute permission
 .RE
 .TP
-.BR O_TMPFILE " (since Linux 3.11)"
-.\" commit 60545d0d4610b02e55f65d141c95b18ccf855b6e
-.\" commit f4e0c30c191f87851c4a53454abb55ee276f4a7e
-.\" commit bb458c644a59dbba3a1fe59b27106c5e68e1c4bd
-Create an unnamed temporary file.
-The
-.I pathname
-argument specifies a directory;
-an unnamed inode will be created in that directory's filesystem.
-Anything written to the resulting file will be lost when
-the last file descriptor is closed, unless the file is given a name.
-
-.B O_TMPFILE
-must be specified with one of
-.B O_RDWR
-or
-.B O_WRONLY
-and, optionally,
-.BR O_EXCL .
-If
-.B O_EXCL
-is not specified, then
-.BR linkat (2)
-can be used to link the temporary file into the filesystem, making it
-permanent, using code like the following:
-
-.in +4n
-.nf
-char path[PATH_MAX];
-fd = open("/path/to/dir", O_TMPFILE | O_RDWR,
-        S_IRUSR | S_IWUSR);
-/* File I/O on 'fd'... */
-snprintf(path, PATH_MAX,  "/proc/self/fd/%d", fd);
-linkat(AT_FDCWD, path, AT_FDCWD, argv[2],
-        AT_SYMLINK_FOLLOW);
-.fi
-.in
-
-In this case,
-the
-.BR open ()
-.I mode
-argument determines the file permission mode, as with
-.BR O_CREAT .
-
-There are two main use cases for
-.\" Inspired by http://lwn.net/Articles/559147/
-.BR O_TMPFILE :
-.RS
-.IP * 3
-Improved
-.BR tmpfile (3)
-functionality: race-free creation of temporary files that
-(1) are automatically deleted when closed;
-(2) can never be reached via any pathname;
-(3) are not subject to symlink attacks; and
-(4) do not require the caller to devise unique names.
-.IP *
-Creating a file that is initially invisible, which is then populated
-with data and adjusted to have approriate filesystem attributes
-.RB ( chown (2),
-.BR chmod (2),
-.BR fsetxattr (2),
-etc.)
-before being atomically linked into the filesystem
-in a fully formed state (using
-.BR linkat (2)
-as described above).
-.RE
-.IP
-.B O_TMPFILE
-requires support by the underlying filesystem;
-.\" As at 3.13, there's support for at least ext2, ext3, ext4
-only a subset of Linux filesystems provide that support.
-.TP
 .BR O_DIRECT " (since Linux 2.4.10)"
 Try to minimize cache effects of the I/O to and from this file.
 In general this will degrade performance, but it is useful in
@@ -619,6 +544,81 @@ Any
 on the resulting file descriptor will block the calling process until
 the data has been physically written to the underlying hardware.
 .IR "But see NOTES below" .
+.TP
+.BR O_TMPFILE " (since Linux 3.11)"
+.\" commit 60545d0d4610b02e55f65d141c95b18ccf855b6e
+.\" commit f4e0c30c191f87851c4a53454abb55ee276f4a7e
+.\" commit bb458c644a59dbba3a1fe59b27106c5e68e1c4bd
+Create an unnamed temporary file.
+The
+.I pathname
+argument specifies a directory;
+an unnamed inode will be created in that directory's filesystem.
+Anything written to the resulting file will be lost when
+the last file descriptor is closed, unless the file is given a name.
+
+.B O_TMPFILE
+must be specified with one of
+.B O_RDWR
+or
+.B O_WRONLY
+and, optionally,
+.BR O_EXCL .
+If
+.B O_EXCL
+is not specified, then
+.BR linkat (2)
+can be used to link the temporary file into the filesystem, making it
+permanent, using code like the following:
+
+.in +4n
+.nf
+char path[PATH_MAX];
+fd = open("/path/to/dir", O_TMPFILE | O_RDWR,
+        S_IRUSR | S_IWUSR);
+/* File I/O on 'fd'... */
+snprintf(path, PATH_MAX,  "/proc/self/fd/%d", fd);
+linkat(AT_FDCWD, path, AT_FDCWD, argv[2],
+        AT_SYMLINK_FOLLOW);
+.fi
+.in
+
+In this case,
+the
+.BR open ()
+.I mode
+argument determines the file permission mode, as with
+.BR O_CREAT .
+
+There are two main use cases for
+.\" Inspired by http://lwn.net/Articles/559147/
+.BR O_TMPFILE :
+.RS
+.IP * 3
+Improved
+.BR tmpfile (3)
+functionality: race-free creation of temporary files that
+(1) are automatically deleted when closed;
+(2) can never be reached via any pathname;
+(3) are not subject to symlink attacks; and
+(4) do not require the caller to devise unique names.
+.IP *
+Creating a file that is initially invisible, which is then populated
+with data and adjusted to have approriate filesystem attributes
+.RB ( chown (2),
+.BR chmod (2),
+.BR fsetxattr (2),
+etc.)
+before being atomically linked into the filesystem
+in a fully formed state (using
+.BR linkat (2)
+as described above).
+.RE
+.IP
+.B O_TMPFILE
+requires support by the underlying filesystem;
+.\" As at 3.13, there's support for at least ext2, ext3, ext4
+only a subset of Linux filesystems provide that support.
 .TP
 .B O_TRUNC
 If the file already exists and is a regular file and the open mode allows

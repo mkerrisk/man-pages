@@ -46,9 +46,6 @@
 .\"	TCP_THIN_DUPACK (2.6.34)
 .\"	    commit 7e38017557bc0b87434d184f8804cadb102bb903
 .\"	    Author: Andreas Petlund <apetlund@simula.no>
-.\"	TCP_USER_TIMEOUT (new in 2.6.37)
-.\"	    Author: Jerry Chu <hkchu@google.com>
-.\"	    commit dca43c75e7e545694a9dd6288553f55c53e2a3a3
 .\"	TCP_REPAIR (3.5)
 .\"	    commit ee9952831cfd0bbe834f4a26489d7dce74582e37
 .\"	    Author: Pavel Emelyanov <xemul@parallels.com>
@@ -70,7 +67,7 @@
 .\"        commit c9bee3b7fdecb0c1d070c7b54113b3bdfb9a3d36
 .\"        Author: Eric Dumazet <edumazet@google.com>
 .\"
-.TH TCP  7 2013-12-12 "Linux" "Linux Programmer's Manual"
+.TH TCP  7 2014-01-23 "Linux" "Linux Programmer's Manual"
 .SH NAME
 tcp \- TCP protocol
 .SH SYNOPSIS
@@ -993,6 +990,51 @@ Set the number of SYN retransmits that TCP should send before
 aborting the attempt to connect.
 It cannot exceed 255.
 This option should not be used in code intended to be portable.
+.TP
+.BR TCP_USER_TIMEOUT " (since Linux 2.6.37)"
+.\"	    commit dca43c75e7e545694a9dd6288553f55c53e2a3a3
+.\"	    Author: Jerry Chu <hkchu@google.com>
+.\" The following text taken nearly verbatim from Jerry Chu's (excellent)
+.\" commit message.
+.\"
+This option takes an
+.IR "unsigned int"
+as an argument.
+When the value is greater than 0,
+it specifies the maximum amount of time in imilliseconds that transmitted
+data may remain unacknowledged before TCP will forcibly close the
+corresponding connection and return
+.B ETIMEDOUT
+to the application.
+If the option value is specified as 0,
+TCP will to use the system default.
+
+Increasing user timeouts allows a TCP connection to survive extended
+periods without end-to-end connectivity.
+Decreasing user timeouts
+allows applications to "fail fast", if so desired.
+Otherwise, failure may take upto 20 minutes with
+the current system defaults in a normal WAN environment.
+
+This option can be set during any state of a TCP connection,
+but is only effective during the synchronized states of a connection
+(ESTABLISHED, FIN-WAIT-1, FIN-WAIT-2, CLOSE-WAIT, CLOSING, and LAST-ACK).
+Moreover, when used with the TCP keepalive
+.RB ( SO_KEEPALIVE )
+option,
+.B TCP_USER_TIMEOUT
+will override keepalive to determine when to close a
+connection due to keepalive failure.
+
+The option has no effect on when TCP retransmits a packet,
+nor when a keepalive probe is sent.
+
+This option, like many others, will be inherited by the socket returned by
+.BR accept (2),
+if it was set on the listening socket.
+
+Further details on the user timeout" feature can be found in
+RFC\ 793 and RFC\ 5482 ("TCP User Timeout Option").
 .TP
 .BR TCP_WINDOW_CLAMP " (since Linux 2.4)"
 .\" Precisely: since 2.3.41

@@ -33,7 +33,7 @@
 .\"     to EXAMPLE text.
 .\" 2008-10-10, mtk: add description of pipe2()
 .\"
-.TH PIPE 2 2014-01-05 "Linux" "Linux Programmer's Manual"
+.TH PIPE 2 2014-02-11 "Linux" "Linux Programmer's Manual"
 .SH NAME
 pipe, pipe2 \- create pipe
 .SH SYNOPSIS
@@ -81,6 +81,43 @@ flag on the two new file descriptors.
 See the description of the same flag in
 .BR open (2)
 for reasons why this may be useful.
+.TP
+.BR O_DIRECT " (since Linux 3.4)"
+.\" commit 9883035ae7edef3ec62ad215611cb8e17d6a1a5d
+Create a pipe that performs I/O in "packet" mode.
+Each
+.BR write (2)
+to the pipe is dealt with as a separate packet, and
+.BR read (2)s
+from the pipe will read one packet at a time.
+Note the following points:
+.RS
+.IP * 3
+Writes of greater than
+.BR PIPE_BUF
+bytes (see
+.BR pipe (7))
+will be split into multiple packets.
+.IP *
+If a
+.BR read (2)
+specifies a buffer size that is smaller than the next packet,
+then the requested number of bytes are read,
+and the excess bytes in the packet are discarded.
+Specifying a buffer size of
+.BR PIPE_BUF
+will be sufficient to read the largest possible packets
+(see the previous point).
+.IP *
+Zero-length packets are not supported.
+(A
+.BR read (2)
+that specifies a buffer size of zero is a no-op, and returns 0.)
+.RE
+.IP
+Older kernels that do not support this flag will indicate this via an
+.B EINVAL
+error.
 .TP
 .B O_NONBLOCK
 Set the

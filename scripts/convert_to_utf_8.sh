@@ -45,13 +45,16 @@ for f in "$@"; do
             mkdir -p "$new_dir"
         fi
         case "$basen" in
-            iso_8859-11.7 | iso_8859-13.7)
-                from_enc=$enc
-                ;;
             armscii-8.7 | cp1251.7 | iso_8859-*.7 | koi8-?.7)
-                from_enc="${basen%.7}"
+
+	        # iconv does not understand some encoding names that
+	    	# start "iso_", but does understand the corresponding
+	        # forms that start with "iso-"
+
+                from_enc="$(echo $basen | sed 's/\.7$//;s/iso_/iso-/')"
                 ;;
             *)
+	        echo "NULL TRANSFORM: $f"
                 from_enc=$enc
                 ;;
         esac

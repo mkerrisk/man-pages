@@ -1,6 +1,7 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"             and Copyright (C) 1993 Michael Haardt
-.\"             and Copyright (C) 1993,1994 Ian Jackson.
+.\"             and Copyright (C) 1993,1994 Ian Jackson
+.\"		and Copyright (C) 2006, 2014, Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(GPL_NOVERSION_ONELINE)
 .\" You may distribute it under the terms of the GNU General
@@ -11,9 +12,9 @@
 .\" Modified 2003-04-23 by Michael Kerrisk
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
-.TH MKNOD 2 2013-01-27 "Linux" "Linux Programmer's Manual"
+.TH MKNOD 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mknod \- create a special or ordinary file
+mknod, mknodat \- create a special or ordinary file
 .SH SYNOPSIS
 .nf
 .B #include <sys/types.h>
@@ -22,6 +23,12 @@ mknod \- create a special or ordinary file
 .B #include <unistd.h>
 .sp
 .BI "int mknod(const char *" pathname ", mode_t " mode ", dev_t " dev );
+.sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <sys/stat.h>
+.sp
+.BI "int mknodat(int " dirfd ", const char *" pathname ", mode_t " mode \
+", dev_t " dev );
 .fi
 .sp
 .in -4n
@@ -98,9 +105,52 @@ If the directory containing the node has the set-group-ID
 bit set, or if the filesystem is mounted with BSD group semantics, the
 new node will inherit the group ownership from its parent directory;
 otherwise it will be owned by the effective group ID of the process.
+.\"
+.\"
+.SS mknodat()
+The
+.BR mknodat ()
+system call operates in exactly the same way as
+.BR mknod (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR mknod (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR mknod (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
+.PP
+See
+.BR openat (2)
+for an explanation of the need for
+.BR mknodat ().
 .SH RETURN VALUE
 .BR mknod ()
-returns zero on success, or \-1 if an error occurred (in which case,
+and
+.BR mknodat ()
+return zero on success, or \-1 if an error occurred (in which case,
 .I errno
 is set appropriately).
 .SH ERRORS
@@ -174,11 +224,32 @@ does not support the type of node requested.
 .B EROFS
 .I pathname
 refers to a file on a read-only filesystem.
+.PP
+The following additional errors can occur for
+.BR mknodat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR mknodat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR mknod ():
 SVr4, 4.4BSD, POSIX.1-2001 (but see below).
 .\" The Linux version differs from the SVr4 version in that it
 .\" does not require root permission to create pipes, also in that no
 .\" EMULTIHOP, ENOLINK, or EINTR error is documented.
+ 
+.BR mknodat ():
+POSIX.1-2008.
 .SH NOTES
 POSIX.1-2001 says: "The only portable use of
 .BR mknod ()
@@ -211,7 +282,6 @@ Some of these affect
 .BR chown (2),
 .BR fcntl (2),
 .BR mkdir (2),
-.BR mknodat (2),
 .BR mount (2),
 .BR socket (2),
 .BR stat (2),

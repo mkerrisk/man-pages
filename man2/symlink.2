@@ -1,5 +1,6 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"             and Copyright (C) 1993 Michael Haardt, Ian Jackson.
+.\"		and Copyright (C) 2006, 2014 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -29,14 +30,22 @@
 .\" Modified 1997-01-31 by Eric S. Raymond <esr@thyrsus.com>
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
-.TH SYMLINK 2 2013-10-30 "Linux" "Linux Programmer's Manual"
+.TH SYMLINK 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-symlink \- make a new name for a file
+symlink, symlinkat \- make a new name for a file
 .SH SYNOPSIS
+.nf
 .B #include <unistd.h>
 .sp
 .BI "int symlink(const char *" target ", const char *" linkpath );
 .sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <unistd.h>
+.sp
+.BI "int symlinkat(const char *" target ", int " newdirfd \
+", const char *" linkpath );
+.sp
+.fi
 .in -4n
 Feature Test Macro Requirements for glibc (see
 .BR feature_test_macros (7)):
@@ -48,7 +57,20 @@ Feature Test Macro Requirements for glibc (see
 _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500 ||
 _XOPEN_SOURCE\ &&\ _XOPEN_SOURCE_EXTENDED || _POSIX_C_SOURCE\ >=\ 200112L
 .RE
+.sp
+.BR symlinkat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
 .ad b
+.PD
 .SH DESCRIPTION
 .BR symlink ()
 creates a symbolic link named
@@ -81,6 +103,40 @@ If
 exists it will
 .I not
 be overwritten.
+.SS symlinkat()
+The
+.BR symlinkat ()
+system call operates in exactly the same way as
+.BR symlink (2),
+except for the differences described here.
+
+If the pathname given in
+.I linkpath
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I newdirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR symlink (2)
+for a relative pathname).
+
+If
+.I linkpath
+is relative and
+.I newdirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I linkpath
+is interpreted relative to the current working
+directory of the calling process (like
+.BR symlink (2)).
+
+If
+.I linkpath
+is absolute, then
+.I newdirfd
+is ignored.
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -146,12 +202,33 @@ does not support the creation of symbolic links.
 .B EROFS
 .I linkpath
 is on a read-only filesystem.
+.PP
+The following additional errors can occur for
+.BR symlinkat ():
+.TP
+.B EBADF
+.I newdirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I linkpath
+is relative and
+.I newdirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR symlinkat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR symlink ():
 SVr4, 4.3BSD, POSIX.1-2001.
 .\" SVr4 documents additional error codes EDQUOT and ENOSYS.
 .\" See
 .\" .BR open (2)
 .\" re multiple files with the same name, and NFS.
+
+.BR symlinkat ():
+POSIX.1-2008.
 .SH NOTES
 No checking of
 .I target
@@ -169,7 +246,6 @@ If this behavior is not desired, use
 .BR open (2),
 .BR readlink (2),
 .BR rename (2),
-.BR symlinkat (2),
 .BR unlink (2),
 .BR path_resolution (7),
 .BR symlink (7)

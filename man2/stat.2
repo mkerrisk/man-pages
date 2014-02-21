@@ -1,7 +1,7 @@
 '\" t
 .\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
 .\" Parts Copyright (c) 1995 Nicolai Langfeldt (janl@ifi.uio.no), 1/1/95
-.\" and Copyright (c) 2007 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (c) 2006, 2007, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -37,10 +37,11 @@
 .\" 2007-06-08 mtk: Added example program
 .\" 2007-07-05 mtk: Added details on underlying system call interfaces
 .\"
-.TH STAT 2 2013-10-25 "Linux" "Linux Programmer's Manual"
+.TH STAT 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-stat, fstat, lstat \- get file status
+stat, fstat, lstat, fstatat \- get file status
 .SH SYNOPSIS
+.nf
 .B #include <sys/types.h>
 .br
 .B #include <sys/stat.h>
@@ -52,6 +53,14 @@ stat, fstat, lstat \- get file status
 .BI "int fstat(int " fd ", struct stat *" buf );
 .br
 .BI "int lstat(const char *" path ", struct stat *" buf );
+.sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <sys/stat.h>
+.sp
+.BI "int fstatat(int " dirfd ", const char *" pathname ", struct stat *" \
+buf ,
+.BI "            int " flags );
+.fi
 .sp
 .in -4n
 Feature Test Macro Requirements for glibc (see
@@ -66,6 +75,18 @@ _BSD_SOURCE || _XOPEN_SOURCE\ >=\ 500 ||
 _XOPEN_SOURCE\ &&\ _XOPEN_SOURCE_EXTENDED
 .br
 || /* Since glibc 2.10: */ _POSIX_C_SOURCE\ >=\ 200112L
+.RE
+.sp
+.BR fstatat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
 .RE
 .PD
 .ad
@@ -305,6 +326,95 @@ on a directory means that a file
 in that directory can be renamed or deleted only by the owner
 of the file, by the owner of the directory, and by a privileged
 process.
+.\"
+.\"
+.SS fstatat ()
+The
+.BR fstatat ()
+system call operates in exactly the same way as
+.BR stat (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR stat (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR stat (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
+
+.I flags
+can either be 0, or include one or more of the following flags ORed:
+.TP
+.BR AT_EMPTY_PATH " (since Linux 2.6.39)"
+.\" commit 65cfc6722361570bfe255698d9cd4dccaf47570d
+If
+.I pathname
+is an empty string, operate on the file referred to by
+.IR dirfd
+(which may have been obtained using the
+.BR open (2)
+.B O_PATH
+flag).
+In this case,
+.I dirfd
+can refer to any type of file, not just a directory.
+This flag is Linux-specific; define
+.B _GNU_SOURCE
+.\" Before glibc 2.16, defining _ATFILE_SOURCE sufficed
+to obtain its definition.
+.TP
+.BR AT_NO_AUTOMOUNT " (since Linux 2.6.38)"
+Don't automount the terminal ("basename") component of
+.I pathname
+if it is a directory that is an automount point.
+This allows the caller to gather attributes of an automount point
+(rather than the location it would mount).
+This flag can be used in tools that scan directories
+to prevent mass-automounting of a directory of automount points.
+The
+.B AT_NO_AUTOMOUNT
+flag has no effect if the mount point has already been mounted over.
+This flag is Linux-specific; define
+.B _GNU_SOURCE
+.\" Before glibc 2.16, defining _ATFILE_SOURCE sufficed
+to obtain its definition.
+.TP
+.B AT_SYMLINK_NOFOLLOW
+If
+.I pathname
+is a symbolic link, do not dereference it:
+instead return information about the link itself, like
+.BR lstat (2).
+(By default,
+.BR fstatat ()
+dereferences symbolic links, like
+.BR stat (2).)
+.PP
+See
+.BR openat (2)
+for an explanation of the need for
+.BR fstatat ().
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -366,8 +476,36 @@ calls
 on a file whose size exceeds
 .I (1<<31)-1
 bytes.
+.PP
+The same errors that occur for
+.BR stat (2)
+can also occur for
+.BR fstatat ().
+The following additional errors can occur for
+.BR fstatat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B EINVAL
+Invalid flag specified in
+.IR flags .
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR fstatat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
-These system calls conform to SVr4, 4.3BSD, POSIX.1-2001.
+.BR stat (),
+.BR fstat (),
+.BR lstat ():
+SVr4, 4.3BSD, POSIX.1-2001.
 .\" SVr4 documents additional
 .\" .BR fstat ()
 .\" error conditions EINTR, ENOLINK, and EOVERFLOW.  SVr4
@@ -376,6 +514,10 @@ These system calls conform to SVr4, 4.3BSD, POSIX.1-2001.
 .\" and
 .\" .BR lstat ()
 .\" error conditions EINTR, EMULTIHOP, ENOLINK, and EOVERFLOW.
+
+.BR fstatat ():
+POSIX.1-2008.
+A similar system call exists on Solaris.
 
 According to POSIX.1-2001,
 .BR lstat ()
@@ -611,6 +753,11 @@ and
 .\" interface, rather than the libc-kernel interface.
 .\"
 .\" (Note that the details depend on gcc being used as c compiler.)
+
+The underlying system call employed by the glibc
+.BR fstatat ()
+wrapper function is actually called
+.BR fstatat64 ().
 .SH EXAMPLE
 The following program calls
 .BR stat ()
@@ -680,7 +827,6 @@ main(int argc, char *argv[])
 .BR access (2),
 .BR chmod (2),
 .BR chown (2),
-.BR fstatat (2),
 .BR readlink (2),
 .BR utime (2),
 .BR capabilities (7),

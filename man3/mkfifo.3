@@ -1,4 +1,5 @@
 .\" This manpage is Copyright (C) 1995 James R. Van Zandt <jrv@vanzandt.mv.com>
+.\" and Copyright (C) 2006, 2014 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -24,16 +25,40 @@
 .\"
 .\" changed section from 2 to 3, aeb, 950919
 .\"
-.TH MKFIFO 3 2013-01-27 "GNU" "Linux Programmer's Manual"
+.TH MKFIFO 3 2014-02-21 "GNU" "Linux Programmer's Manual"
 .SH NAME
-mkfifo \- make a FIFO special file (a named pipe)
+mkfifo, mkfifoat \- make a FIFO special file (a named pipe)
 .SH SYNOPSIS
 .nf
 .B #include <sys/types.h>
 .B #include <sys/stat.h>
 .sp
 .BI "int mkfifo(const char *" pathname ", mode_t " mode );
+.sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <sys/stat.h>
+.sp
+.BI "int mkfifoat(int " dirfd ", const char *" pathname ", mode_t " mode );
 .fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR mkfifoat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
+.PD
 .SH DESCRIPTION
 .BR mkfifo ()
 makes a FIFO special file with name \fIpathname\fP.
@@ -58,10 +83,46 @@ other process opens the same FIFO for writing, and vice versa.
 See
 .BR fifo (7)
 for nonblocking handling of FIFO special files.
+.SS mkfifoat()
+The
+.BR mkfifoat ()
+function operates in exactly the same way as
+.BR mkfifo (3),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR mkfifo (3)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR mkfifo (3)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
 .SH RETURN VALUE
 On success
 .BR mkfifo ()
-returns 0.
+and
+.BR mkfifoat ()
+return 0.
 In the case of an error, \-1 is returned (in which case, \fIerrno\fP
 is set appropriately).
 .SH ERRORS
@@ -101,8 +162,31 @@ directory.
 .TP
 .B EROFS
 \fIpathname\fP refers to a read-only filesystem.
+.PP
+The following additional errors can occur for
+.BR mkfifoat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I pathname
+is a relative path and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR mkfifoat ()
+was added to glibc in version 2.4.
+It is implemented using
+.BR mknod (2),
+available on Linux since kernel 2.6.16.
 .SH CONFORMING TO
+.BR mkfifo ():
 POSIX.1-2001.
+
+.BR mkfifoat ():
+POSIX.1-2008.
 .SH SEE ALSO
 .BR mkfifo (1),
 .BR close (2),
@@ -111,5 +195,4 @@ POSIX.1-2001.
 .BR stat (2),
 .BR umask (2),
 .BR write (2),
-.BR mkfifoat (3),
 .BR fifo (7)

@@ -1,7 +1,7 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\" and Copyright (C) 1993 Michael Haardt, Ian Jackson.
 .\" and Copyright (C) 2008 Greg Banks
-.\" and Copyright (C) 2008, 2013, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2006, 2008, 2013, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -49,9 +49,9 @@
 .\" O_TTYINIT.  Eventually these may need to be documented.  --mtk
 .\" FIXME Linux 2.6.33 has O_DSYNC, and a hidden __O_SYNC.
 .\"
-.TH OPEN 2 2014-02-20 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-open, creat \- open and possibly create a file
+open, openat, creat \- open and possibly create a file
 .SH SYNOPSIS
 .nf
 .B #include <sys/types.h>
@@ -62,7 +62,30 @@ open, creat \- open and possibly create a file
 .BI "int open(const char *" pathname ", int " flags ", mode_t " mode );
 
 .BI "int creat(const char *" pathname ", mode_t " mode );
+.sp
+.BI "int openat(int " dirfd ", const char *" pathname ", int " flags );
+.BI "int openat(int " dirfd ", const char *" pathname ", int " flags \
+", mode_t " mode );
 .fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR openat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
+.PD
 .SH DESCRIPTION
 Given a
 .I pathname
@@ -652,7 +675,7 @@ flag is ignored.
 Otherwise the effect of
 .B O_TRUNC
 is unspecified.
-.PP
+.SS creat()
 .BR creat ()
 is equivalent to
 .BR open ()
@@ -660,8 +683,43 @@ with
 .I flags
 equal to
 .BR O_CREAT|O_WRONLY|O_TRUNC .
+.SS openat()
+The
+.BR openat ()
+system call operates in exactly the same way as
+.BR open (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR open (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR open (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
 .SH RETURN VALUE
-.BR open ()
+.BR open (),
+.BR openat (),
 and
 .BR creat ()
 return the new file descriptor, or \-1 if an error occurred
@@ -669,6 +727,11 @@ return the new file descriptor, or \-1 if an error occurred
 .I errno
 is set appropriately).
 .SH ERRORS
+.BR open (),
+.BR openat (),
+and
+.BR creat ()
+can fail with the following errors:
 .TP
 .B EACCES
 The requested access to the file is not allowed, or search permission
@@ -869,8 +932,31 @@ The
 flag was specified, and an incompatible lease was held on the file
 (see
 .BR fcntl (2)).
+.PP
+The following additional errors can occur for
+.BR openat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR openat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR open (),
+.BR creat ()
 SVr4, 4.3BSD, POSIX.1-2001, POSIX.1-2008.
+
+.BR openat ():
+POSIX.1-2008.
+A similar system call exists on Solaris.
 
 The
 .BR O_DIRECT ,
@@ -1022,6 +1108,61 @@ parent directory.
 Otherwise, if the file is modified because of the
 .B O_TRUNC
 flag, its st_ctime and st_mtime fields are set to the current time.
+.\"
+.\"
+.SS Rationale for openat() and the other *at() calls
+.BR openat ()
+and other similar system calls and library functions suffixed "at"
+(i.e.,
+.BR faccessat (2),
+.BR fchmodat (2),
+.BR fchownat (2),
+.BR fstatat (2),
+.BR futimesat (2),
+.BR linkat (2),
+.BR mkdirat (2),
+.BR mknodat (2),
+.BR readlinkat (2),
+.BR renameat (2),
+.BR symlinkat (2),
+.BR unlinkat (2),
+.BR utimensat (2)
+and
+.BR mkfifoat (3))
+are supported
+for two reasons.
+Here, the explanation is in terms of the 
+.BR openat ()
+call, but the rationale is the analogous for the other interfaces.
+
+First,
+.BR openat ()
+allows an application to avoid race conditions that could
+occur when using
+.BR open (2)
+to open files in directories other than the current working directory.
+These race conditions result from the fact that some component
+of the directory prefix given to
+.BR open (2)
+could be changed in parallel with the call to
+.BR open (2).
+Such races can be avoided by
+opening a file descriptor for the target directory,
+and then specifying that file descriptor as the
+.I dirfd
+argument of
+.BR openat ().
+
+Second,
+.BR openat ()
+allows the implementation of a per-thread "current working
+directory", via file descriptor(s) maintained by the application.
+(This functionality can also be obtained by tricks based
+on the use of
+.IR /proc/self/fd/ dirfd,
+but less efficiently.)
+.\"
+.\"
 .SS O_DIRECT
 .LP
 The
@@ -1173,7 +1314,6 @@ functionality.
 .BR mknod (2),
 .BR mmap (2),
 .BR mount (2),
-.BR openat (2),
 .BR read (2),
 .BR socket (2),
 .BR stat (2),

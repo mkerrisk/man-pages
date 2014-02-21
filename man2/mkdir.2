@@ -1,15 +1,16 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"             and Copyright (C) 1993 Michael Haardt
-.\"             and Copyright (C) 1993,1994 Ian Jackson.
+.\"             and Copyright (C) 1993,1994 Ian Jackson
+.\"		and Copyright (C) 2006, 2014 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(GPL_NOVERSION_ONELINE)
 .\" You may distribute it under the terms of the GNU General
 .\" Public License. It comes with NO WARRANTY.
 .\" %%%LICENSE_END
 .\"
-.TH MKDIR 2 2013-01-27 "Linux" "Linux Programmer's Manual"
+.TH MKDIR 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mkdir \- create a directory
+mkdir, mkdirat \- create a directory
 .SH SYNOPSIS
 .nf
 .B #include <sys/stat.h>
@@ -17,6 +18,31 @@ mkdir \- create a directory
 .\" .B #include <unistd.h>
 .sp
 .BI "int mkdir(const char *" pathname ", mode_t " mode );
+.sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <sys/stat.h>
+.sp
+.BI "int mkdirat(int " dirfd ", const char *" pathname ", mode_t " mode );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR mkdirat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
+.PD
 .fi
 .SH DESCRIPTION
 .BR mkdir ()
@@ -45,9 +71,52 @@ otherwise it will be owned by the effective group ID of the process.
 
 If the parent directory has the set-group-ID bit set, then so will the
 newly created directory.
+.\"
+.\"
+.SS mkdirat()
+The
+.BR mkdirat ()
+system call operates in exactly the same way as
+.BR mkdir (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR mkdir (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR mkdir (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
+.PP
+See
+.BR openat (2)
+for an explanation of the need for
+.BR mkdirat ().
 .SH RETURN VALUE
 .BR mkdir ()
-returns zero on success, or \-1 if an error occurred (in which case,
+and
+.BR mkdirat ()
+return zero on success, or \-1 if an error occurred (in which case,
 .I errno
 is set appropriately).
 .SH ERRORS
@@ -115,9 +184,30 @@ does not support the creation of directories.
 .B EROFS
 .I pathname
 refers to a file on a read-only filesystem.
+.PP
+The following additional errors can occur for
+.BR mkdirat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR mkdirat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR mkdir ():
 SVr4, BSD, POSIX.1-2001.
 .\" SVr4 documents additional EIO, EMULTIHOP
+
+.BR mkdirat ():
+POSIX.1-2008.
 .SH NOTES
 Under Linux apart from the permission bits, only the
 .B S_ISVTX
@@ -134,7 +224,6 @@ Some of these affect
 .BR mkdir (1),
 .BR chmod (2),
 .BR chown (2),
-.BR mkdirat (2),
 .BR mknod (2),
 .BR mount (2),
 .BR rmdir (2),

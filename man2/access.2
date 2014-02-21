@@ -1,6 +1,6 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"             and Copyright (C) 1993 Michael Haardt, Ian Jackson.
-.\" and Copyright (C) 2007 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2004, 2006, 2007, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -40,14 +40,40 @@
 .\" Modified 2004-06-23 by Michael Kerrisk
 .\" 2007-06-10, mtk, various parts rewritten, and added BUGS section.
 .\"
-.TH ACCESS 2 2013-09-13 "Linux" "Linux Programmer's Manual"
+.TH ACCESS 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-access \- check real user's permissions for a file
+access, faccessat \- check user's permissions for a file
 .SH SYNOPSIS
 .nf
 .B #include <unistd.h>
 .sp
 .BI "int access(const char *" pathname ", int " mode );
+
+.B #include <fcntl.h>           /* Definition of AT_* constants */
+.B #include <unistd.h>
+.sp
+.BI "int faccessat(int " dirfd ", const char *" pathname ", int " \
+mode ", int " flags );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR faccessat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
+.PD
 .fi
 .SH DESCRIPTION
 .BR access ()
@@ -85,6 +111,56 @@ then an
 .B X_OK
 check is successful for a regular file if execute permission
 is enabled for any of the file owner, group, or other.
+.SS faccessat ()
+The
+.BR faccessat ()
+system call operates in exactly the same way as
+.BR access (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR access (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR access (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
+
+.I flags
+is constructed by ORing together zero or more of the following values:
+.TP
+.B AT_EACCESS
+Perform access checks using the effective user and group IDs.
+By default,
+.BR faccessat ()
+uses the real IDs (like
+.BR access (2)).
+.TP
+.B AT_SYMLINK_NOFOLLOW
+If
+.I pathname
+is a symbolic link, do not dereference it:
+instead return information about the link itself.
 .SH "RETURN VALUE"
 On success (all requested permissions granted, or
 .I mode
@@ -153,8 +229,33 @@ Insufficient kernel memory was available.
 .B ETXTBSY
 Write access was requested to an executable which is being
 executed.
+.PP
+The following additional errors can occur for
+.BR faccessat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B EINVAL
+Invalid flag specified in
+.IR flags .
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.SH VERSIONS
+.BR faccessat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH "CONFORMING TO"
+.BR access (2):
 SVr4, 4.3BSD, POSIX.1-2001.
+
+.BR faccessat (2):
+POSIX.1-2008.
 .SH NOTES
 .PP
 .BR Warning :
@@ -214,6 +315,31 @@ because UID mapping is done on the server and hidden from the client,
 which checks permissions.  (NFS versions 3 and higher perform the check on
 the server.)
 Similar problems can occur to FUSE mounts.
+.\" 
+.\" 
+.SS faccessat ()
+See
+.BR openat (2)
+for an explanation of the need for
+.BR faccessat ().
+
+.IR Warning :
+.BR faccessat ()
+is subject to the same kinds of races as
+.BR access (2)
+and
+.BR euidaccess (3).
+.SS Glibc notes
+The raw system call takes only the first three arguments.
+The
+.B AT_EACCESS
+and
+.B AT_SYMLINK_NOFOLLOW
+flags are actually implemented within the glibc wrapper function for
+.BR faccessat ().
+If either of these flags is specified, then the wrapper function employs
+.BR fstatat (2)
+to determine access permissions.
 .SH BUGS
 In kernel 2.4 (and earlier) there is some strangeness in the handling of
 .B X_OK
@@ -251,11 +377,11 @@ honors this flag.
 .SH "SEE ALSO"
 .BR chmod (2),
 .BR chown (2),
-.BR faccessat (2),
 .BR open (2),
 .BR setgid (2),
 .BR setuid (2),
 .BR stat (2),
 .BR euidaccess (3),
 .BR credentials (7),
-.BR path_resolution (7)
+.BR path_resolution (7),
+.BR symlink (7)

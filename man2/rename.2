@@ -1,6 +1,7 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\"             and Copyright (C) 1993 Michael Haardt;
-.\"             and Copyright (C) 1993,1995 Ian Jackson.
+.\"             and Copyright (C) 1993,1995 Ian Jackson
+.\"		and Copyright (C) 2006, 2014 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -29,13 +30,40 @@
 .\" Modified Thu Mar  3 09:49:35 2005 by Michael Haardt <michael@moria.de>
 .\" 2007-03-25, mtk, added various text to DESCRIPTION.
 .\"
-.TH RENAME 2 2013-01-27 "Linux" "Linux Programmer's Manual"
+.TH RENAME 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-rename \- change the name or location of a file
+rename, renameat \- change the name or location of a file
 .SH SYNOPSIS
+.nf
 .B #include <stdio.h>
 .sp
 .BI "int rename(const char *" oldpath ", const char *" newpath );
+.sp
+.BR "#include <fcntl.h>           " "/* Definition of AT_* constants */"
+.B #include <stdio.h>
+.sp
+.BI "int renameat(int " olddirfd ", const char *" oldpath ,
+.BI "             int " newdirfd ", const char *" newpath );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR renameat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
+.PD
 .SH DESCRIPTION
 .BR rename ()
 renames a file, moving it between directories if required.
@@ -88,6 +116,53 @@ If
 refers to a symbolic link, the link is renamed; if
 .I newpath
 refers to a symbolic link, the link will be overwritten.
+.SS renameat ()
+The
+.BR renameat ()
+system call operates in exactly the same way as
+.BR rename (2),
+except for the differences described here.
+
+If the pathname given in
+.I oldpath
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I olddirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR rename (2)
+for a relative pathname).
+
+If
+.I oldpath
+is relative and
+.I olddirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I oldpath
+is interpreted relative to the current working
+directory of the calling process (like
+.BR rename (2)).
+
+If
+.I oldpath
+is absolute, then
+.I olddirfd
+is ignored.
+
+The interpretation of
+.I newpath
+is as for
+.IR oldpath ,
+except that a relative pathname is interpreted relative
+to the directory referred to by the file descriptor
+.IR newdirfd .
+
+See
+.BR openat (2)
+for an explanation of the need for
+.BR renameat ().
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -229,8 +304,35 @@ are not on the same mounted filesystem.
 .BR rename ()
 does not work across different mount points,
 even if the same filesystem is mounted on both.)
+.PP
+The following additional errors can occur for
+.BR renameat ():
+.TP
+.B EBADF
+.I olddirfd
+or
+.I newdirfd
+is not a valid file descriptor.
+.TP
+.B ENOTDIR
+.I oldpath
+is relative and
+.I olddirfd
+is a file descriptor referring to a file other than a directory;
+or similar for
+.I newpath
+and
+.I newdirfd
+.SH VERSIONS
+.BR renameat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR rename ():
 4.3BSD, C89, C99, POSIX.1-2001.
+
+.BR renameat ():
+POSIX.1-2008.
 .SH BUGS
 On NFS filesystems, you can not assume that if the operation
 failed, the file was not renamed.
@@ -246,7 +348,6 @@ for a similar problem.
 .BR mv (1),
 .BR chmod (2),
 .BR link (2),
-.BR renameat (2),
 .BR symlink (2),
 .BR unlink (2),
 .BR path_resolution (7),

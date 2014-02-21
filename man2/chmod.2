@@ -1,4 +1,5 @@
 .\" Copyright (c) 1992 Drew Eckhardt (drew@cs.colorado.edu), March 28, 1992
+.\" and Copyright (C) 2006, 2014 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -28,15 +29,23 @@
 .\"   <michael@cantor.informatik.rwth-aachen.de>: NFS details
 .\" Modified 2004-06-23 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
-.TH CHMOD 2 2010-09-26 "Linux" "Linux Programmer's Manual"
+.TH CHMOD 2 2014-02-21 "Linux" "Linux Programmer's Manual"
 .SH NAME
-chmod, fchmod \- change permissions of a file
+chmod, fchmod, fchmodat \- change permissions of a file
 .SH SYNOPSIS
+.nf
 .B #include <sys/stat.h>
 .sp
 .BI "int chmod(const char *" path ", mode_t " mode );
 .br
 .BI "int fchmod(int " fd ", mode_t " mode );
+.sp
+.BR "#include <fcntl.h>" "           /* Definition of AT_* constants */"
+.B #include <sys/stat.h>
+.sp
+.BI "int fchmodat(int " dirfd ", const char *" pathname ", mode_t " \
+mode ", int " flags );
+.fi
 .sp
 .in -4n
 Feature Test Macro Requirements for glibc (see
@@ -53,6 +62,20 @@ _XOPEN_SOURCE\ &&\ _XOPEN_SOURCE_EXTENDED
 .br
 || /* Since glibc 2.12: */ _POSIX_C_SOURCE\ >=\ 200809L
 .RE
+.PD
+.sp
+.BR fchmodat ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_XOPEN_SOURCE\ >=\ 700 || _POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_ATFILE_SOURCE
+.RE
+.ad
 .PD
 .ad
 .SH DESCRIPTION
@@ -150,6 +173,52 @@ already open files, because the access control is done on the server, but
 open files are maintained by the client.
 Widening the permissions may be
 delayed for other clients if attribute caching is enabled on them.
+.\"
+.\"
+.SS fchmodat()
+The
+.BR fchmodat ()
+system call operates in exactly the same way as
+.BR chmod (2),
+except for the differences described here.
+
+If the pathname given in
+.I pathname
+is relative, then it is interpreted relative to the directory
+referred to by the file descriptor
+.I dirfd
+(rather than relative to the current working directory of
+the calling process, as is done by
+.BR chmod (2)
+for a relative pathname).
+
+If
+.I pathname
+is relative and
+.I dirfd
+is the special value
+.BR AT_FDCWD ,
+then
+.I pathname
+is interpreted relative to the current working
+directory of the calling process (like
+.BR chmod (2)).
+
+If
+.I pathname
+is absolute, then
+.I dirfd
+is ignored.
+
+.I flags
+can either be 0, or include the following flag:
+.TP
+.B AT_SYMLINK_NOFOLLOW
+If
+.I pathname
+is a symbolic link, do not dereference it:
+instead operate on the link itself.
+This flag is not currently implemented.
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -216,12 +285,61 @@ See above.
 .TP
 .B EROFS
 See above.
+.PP
+The same errors that occur for
+.BR chmod (2)
+can also occur for
+.BR fchmodat ().
+The following additional errors can occur for
+.BR fchmodat ():
+.TP
+.B EBADF
+.I dirfd
+is not a valid file descriptor.
+.TP
+.B EINVAL
+Invalid flag specified in
+.IR flags .
+.TP
+.B ENOTDIR
+.I pathname
+is relative and
+.I dirfd
+is a file descriptor referring to a file other than a directory.
+.TP
+.B ENOTSUP
+.I flags
+specified
+.BR AT_SYMLINK_NOFOLLOW ,
+which is not supported.
+.SH VERSIONS
+.BR fchmodat ()
+was added to Linux in kernel 2.6.16;
+library support was added to glibc in version 2.4.
 .SH CONFORMING TO
+.BR chmod (),
+.BR fchmod ():
 4.4BSD, SVr4, POSIX.1-2001.
+
+.BR fchmodat ():
+POSIX.1-2008.
+.SH NOTES
+See
+.BR openat (2)
+for an explanation of the need for
+.BR fchmodat ().
+
+The GNU C library wrapper function implements the POSIX-specified
+interface described in this page.
+This interface differs from the underlying Linux system call, which does
+.I not
+have a
+.I flags
+argument.
 .SH SEE ALSO
 .BR chown (2),
 .BR execve (2),
-.BR fchmodat (2),
 .BR open (2),
 .BR stat (2),
-.BR path_resolution (7)
+.BR path_resolution (7),
+.BR symlink (7)

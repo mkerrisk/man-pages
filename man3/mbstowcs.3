@@ -1,4 +1,6 @@
+'\" t -*- coding: UTF-8 -*-
 .\" Copyright (c) Bruno Haible <haible@clisp.cons.org>
+.\" and Copyright 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_DOC_ONEPARA)
 .\" This is free documentation; you can redistribute it and/or
@@ -104,6 +106,117 @@ The function
 .BR mbsrtowcs (3)
 provides a better interface to the same
 functionality.
+.SH EXAMPLE
+The program below illustrates the use of
+.BR mbstowcs (),
+as well as some of the wider character classification functions.
+An example run is the following:
+.in +4n
+.nf
+
+$ ./t_mbstowcs de_DE.UTF\-8 Grüße!
+Length of source string (excluding terminator):
+    8 bytes
+    6 multibyte characters
+
+Wide character string is: Grüße! (6 characters)
+    G alpha upper 
+    r alpha lower 
+    ü alpha lower 
+    ß alpha lower 
+    e alpha lower 
+    ! !alpha
+.fi
+.in
+.SS Program source
+.nf
+#include <locale.h>
+#include <wchar.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+int
+main(int argc, char *argv[])
+{
+    size_t mbslen;      /* Number of multibyte characters in source */
+    wchar_t *wcs;       /* Pointer to converted wide character string */
+    wchar_t *wp;
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <locale> <string>\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Apply the specified locale */
+
+    if (setlocale(LC_ALL, argv[1]) == NULL) {
+        perror("setlocale");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Calculate the length required to hold argv[2] converted to
+       a wide character string */
+       
+    mbslen = mbstowcs(NULL, argv[2], 0);
+    if (mbslen == \-1) {
+        perror("mbstowcs");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Describe the source string to the user */
+
+    printf("Length of source string (excluding terminator):\\n");
+    printf("    %ld bytes\\n", (long) strlen(argv[2]));
+    printf("    %ld multibyte characters\\n\\n", (long) mbslen);
+
+    /* Allocate wide character string of the desired size.  Add 1
+       to allow for terminating null wide character (L\(aq\\0\(aq). */
+
+    wcs = calloc(mbslen + 1, sizeof(wchar_t));
+    if (wcs == NULL) {
+        perror("calloc");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* Convert the multibyte character string in argv[2] to a 
+       wide character string */
+
+    if (mbstowcs(wcs, argv[2], mbslen + 1) == \-1) {
+        perror("mbstowcs");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Wide character string is: %ls (%ld characters)\\n",
+            wcs, (long) mbslen);
+
+    /* Now do some inspection of the classes of the characters in
+       the wide character string */
+    
+    for (wp = wcs; *wp != 0; wp++) {
+        printf("    %lc ", (wint_t) *wp);
+
+        if (!iswalpha(*wp))
+            printf("!");
+        printf("alpha ");
+
+        if (iswalpha(*wp)) {
+            if (iswupper(*wp))
+                printf("upper ");
+
+            if (iswlower(*wp))
+                printf("lower ");
+        }
+
+        putchar(\(aq\\n\(aq);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
+.BR mblen (3),
 .BR mbsrtowcs (3),
+.BR mbtowc (3),
+.BR wctomb (3),
 .BR wcstombs (3)

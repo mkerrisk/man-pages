@@ -1,5 +1,5 @@
 .\" Copyright (C) 1993 David Metcalfe (david@prism.demon.co.uk)
-.\" and Copyright (C) 2005, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2005, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -38,7 +38,7 @@
 .\"
 .TH STRERROR 3  2014-03-09 "" "Linux Programmer's Manual"
 .SH NAME
-strerror, strerror_r \- return string describing error number
+strerror, strerror_r, strerror_l \- return string describing error number
 .SH SYNOPSIS
 .nf
 .B #include <string.h>
@@ -50,20 +50,25 @@ strerror, strerror_r \- return string describing error number
 .sp
 .BI "char *strerror_r(int " errnum ", char *" buf ", size_t " buflen );
             /* GNU-specific */
+
+.BI "char *strerror_l(int " errnum ", locale_t " locale );
 .fi
 .sp
 .in -4n
 Feature Test Macro Requirements for glibc (see
 .BR feature_test_macros (7)):
 .in
+.ad l
 .sp
-The XSI-compliant version of
-.BR strerror_r ()
-is provided if:
+.BR strerror_r ():
+.RS 4
+The XSI-compliant version is provided if:
 .br
 (_POSIX_C_SOURCE\ >=\ 200112L || _XOPEN_SOURCE\ >=\ 600) && !\ _GNU_SOURCE
 .br
 Otherwise, the GNU-specific version is provided.
+.RE
+.ad
 .SH DESCRIPTION
 The
 .BR strerror ()
@@ -80,10 +85,13 @@ is
 the returned description will be "Invalid argument".)
 This string must not be modified by the application, but may be
 modified by a subsequent call to
-.BR strerror ().
+.BR strerror ()
+or
+.BR strerror_l ().
 No other library function, including
 .BR perror (3),
 will modify this string.
+.\"
 .SS strerror_r()
 The
 .BR strerror_r ()
@@ -133,17 +141,45 @@ is too small and
 .I errnum
 is unknown).
 The string always includes a terminating null byte (\(aq\\0\(aq).
+.\"
+.SS strerror_l()
+.BR strerror_l ()
+is like
+.BR strerror (),
+but maps
+.I errnum
+to a locale-dependent error message in the locale specified by
+.IR locale .
+The behavior of
+.BR strerror_l ()
+is undefined if
+.I locale
+is the special locale object
+.BR LC_GLOBAL_LOCALE
+or is not a valid locale object handle.
 .SH RETURN VALUE
 The
-.BR strerror ()
+.BR strerror (),
+.BR strerror_l (),
 and the GNU-specific
 .BR strerror_r ()
 functions return
 the appropriate error description string,
 or an "Unknown error nnn" message if the error number is unknown.
 
+The XSI-compliant
+.BR strerror_r ()
+function returns 0 on success.
+On error,
+a (positive) error number is returned (since glibc 2.13),
+or \-1 is returned and
+.I errno
+is set to indicate the error (glibc versions before 2.13).
+
 POSIX.1-2001 and POSIX.1-2008 require that a successful call to
 .BR strerror ()
+or
+.BR strerror_l ()
 shall leave
 .I errno
 unchanged, and note that,
@@ -154,15 +190,6 @@ to zero before the call,
 and then check
 .I errno
 after the call.
-
-The XSI-compliant
-.BR strerror_r ()
-function returns 0 on success.
-On error,
-a (positive) error number is returned (since glibc 2.13),
-or \-1 is returned and
-.I errno
-is set to indicate the error (glibc versions before 2.13).
 .SH ERRORS
 .TP
 .B EINVAL
@@ -181,11 +208,19 @@ function is not thread-safe.
 The
 .BR strerror_r ()
 function is thread-safe.
+.\" FIXME Need a thread-safety statement about strerror_l()
+.SH VERSIONS
+The
+.BR strerror_l ()
+function first appeared in glibc 2.6.
 .SH CONFORMING TO
 .BR strerror ()
 is specified by POSIX.1-2001, C89, C99.
 .BR strerror_r ()
 is specified by POSIX.1-2001.
+
+.BR strerror_l ()
+is specified in POSIX.1-2008.
 
 The GNU-specific
 .BR strerror_r ()
@@ -215,4 +250,5 @@ C99 and POSIX.1-2008 require the return value to be non-NULL.
 .BR errno (3),
 .BR error (3),
 .BR perror (3),
-.BR strsignal (3)
+.BR strsignal (3),
+.BR locale (7)

@@ -91,6 +91,17 @@ If the call fails, the contents of
 .I base
 remain valid and unchanged.
 .PP
+If
+.I base
+is the special locale object
+.BR LC_GLOBAL_LOCALE
+(see
+.BR duplocale (3)),
+or is not
+.IR "(locale_t)\ 0"
+and is not a valid locale object handle,
+the behavior is undefined.
+
 The
 .I category_mask
 argument is a bit mask that specifies the locale categories
@@ -104,6 +115,7 @@ The mask is constructed by a bitwise OR of the constants
 .BR LC_NUMERIC_MASK ,
 and
 .BR LC_TIME_MASK .
+
 For each category specified in
 .IR category_mask ,
 the locale data from
@@ -134,17 +146,6 @@ and
 .B LANG
 environment variables (see
 .BR locale (7)).
-.PP
-If
-.I base
-is the special locale object
-.BR LC_GLOBAL_LOCALE
-(see
-.BR duplocale (3)),
-or is not
-.IR "(locale_t)\ 0"
-and is not a valid locale object handle,
-the behavior is undefined.
 .SS freelocale()
 The
 .BR freelocale ()
@@ -183,7 +184,7 @@ to indicate the cause of the error.
 .B EINVAL
 One or more bits in
 .I category_mask
-does not correspond to a valid locale category.
+do not correspond to a valid locale category.
 .TP
 .B EINVAL
 .I locale
@@ -222,7 +223,7 @@ category of the locale object.
 
 Having created and initialized the locale object,
 the program then applies it using
-.BR uselocale (),
+.BR uselocale (3),
 and then tests the effect of the locale changes by:
 .IP 1. 3
 Displaying a floating-point number with a fractional part.
@@ -288,13 +289,6 @@ $ LC_ALL=mi_NZ ./a.out fr_FR ""
 123456,789
 Te Paraire, te 07 o Poutū-te-rangi, 2014 00:38:44 CET
 .fi
-.in
-
-.in +4n
-.nf
-
-.fi
-.in
 .SS Program source
 .nf
 #define _XOPEN_SOURCE 700
@@ -309,8 +303,7 @@ Te Paraire, te 07 o Poutū-te-rangi, 2014 00:38:44 CET
 int
 main(int argc, char *argv[])
 {
-    const int BUF_SIZE = 100;
-    char buf[BUF_SIZE];
+    char buf[100];
     time_t t;
     size_t s;
     struct tm *tm;
@@ -330,11 +323,13 @@ main(int argc, char *argv[])
 
     /* If a second command\-line argument was specified, modify the
        locale object to take the LC_TIME settings from the locale
-       specified in argv[2] */
+       specified in argv[2]. We assign the result of this newlocale()
+       call to 'nloc' rather than 'loc', since in some cases, we might
+       want to preserve 'loc' if this call fails. */
 
     if (argc > 2) {
         nloc = newlocale(LC_TIME_MASK, argv[2], loc);
-        if (loc == (locale_t) 0)
+        if (nloc == (locale_t) 0)
             errExit("newlocale");
         loc = nloc;
     }
@@ -354,7 +349,7 @@ main(int argc, char *argv[])
     if (tm == NULL)
         errExit("time");
 
-    s = strftime(buf, BUF_SIZE, "%c", tm);
+    s = strftime(buf, sizeof(buf), "%c", tm);
     if (s == 0)
         errExit("strftime");
 

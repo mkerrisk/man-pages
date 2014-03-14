@@ -27,7 +27,7 @@
 .\"
 .TH READAHEAD 2 2013-04-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
-readahead \- perform file readahead into page cache
+readahead \- initiate file readahead into page cache
 .SH SYNOPSIS
 .nf
 .BR "#define _GNU_SOURCE" "             /* See feature_test_macros(7) */"
@@ -37,8 +37,8 @@ readahead \- perform file readahead into page cache
 .fi
 .SH DESCRIPTION
 .BR readahead ()
-populates the page cache with data from a file so that subsequent
-reads from that file will not block on disk I/O.
+initates readahead on a file so that subsequent reads from that file will
+hopefully be satisfied from the cache, and not block on disk I/O.
 The
 .I fd
 argument is a file descriptor identifying the file which is
@@ -57,8 +57,6 @@ equal to
 .IR "(offset+count)" .
 .BR readahead ()
 does not read beyond the end of the file.
-.BR readahead ()
-blocks until the specified data has been read.
 The current file offset of the open file referred to by
 .I fd
 is left unchanged.
@@ -94,6 +92,13 @@ On some 32-bit architectures,
 the calling signature for this system call differs,
 for the reasons described in
 .BR syscall (2).
+
+The call attempts to schedule the reads in the background and return
+immediately, however it may block while reading filesystem metadata
+in order to locate where the blocks requested are.  This occurs frequently
+with ext[234] on large files using indirect blocks instead of extents,
+giving the appearence that the call blocks until the requested data has
+been read.
 .SH SEE ALSO
 .BR lseek (2),
 .BR madvise (2),

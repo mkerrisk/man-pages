@@ -693,7 +693,7 @@ except for the differences described here.
 If the pathname given in
 .I pathname
 is relative, then it is interpreted relative to the directory
-referred to by the file descriptor
+ to by the file descriptor
 .I dirfd
 (rather than relative to the current working directory of
 the calling process, as is done by
@@ -1002,34 +1002,6 @@ This is typically used to open devices in order to get a file descriptor
 for use with
 .BR ioctl (2).
 
-Unlike the other values that can be specified in
-.IR flags ,
-the
-.I "access mode"
-values
-.BR O_RDONLY ", " O_WRONLY ", and " O_RDWR
-do not specify individual bits.
-Rather, they define the low order two bits of
-.IR flags ,
-and are defined respectively as 0, 1, and 2.
-In other words, the combination
-.B "O_RDONLY | O_WRONLY"
-is a logical error, and certainly does not have the same meaning as
-.BR O_RDWR .
-Linux reserves the special, nonstandard access mode 3 (binary 11) in
-.I flags
-to mean:
-check for read and write permission on the file and return a descriptor
-that can't be used for reading or writing.
-This nonstandard access mode is used by some Linux drivers to return a
-descriptor that is to be used only for device-specific
-.BR ioctl (2)
-operations.
-.\" See for example util-linux's disk-utils/setfdprm.c
-.\" For some background on access mode 3, see
-.\" http://thread.gmane.org/gmane.linux.kernel/653123
-.\" "[RFC] correct flags to f_mode conversion in __dentry_open"
-.\" LKML, 12 Mar 2008
 .LP
 The (undefined) effect of
 .B O_RDONLY | O_TRUNC
@@ -1041,11 +1013,36 @@ On many systems the file is actually truncated.
 .\" Tru64 5.1B: truncate
 .\" HP-UX 11.22: truncate
 .\" FreeBSD 4.7: truncate
-.PP
-There are many infelicities in the protocol underlying NFS, affecting
-amongst others
-.BR O_SYNC " and " O_NDELAY .
 
+Note that
+.BR open ()
+can open device special files, but
+.BR creat ()
+cannot create them; use
+.BR mknod (2)
+instead.
+
+If the file is newly created, its
+.IR st_atime ,
+.IR st_ctime ,
+.I st_mtime
+fields
+(respectively, time of last access, time of last status change, and
+time of last modification; see
+.BR stat (2))
+are set
+to the current time, and so are the
+.I st_ctime
+and
+.I st_mtime
+fields of the
+parent directory.
+Otherwise, if the file is modified because of the
+.B O_TRUNC
+flag, its st_ctime and st_mtime fields are set to the current time.
+.\"
+.\"
+.SS Synchronized I/O
 POSIX provides for three different variants of synchronized I/O,
 corresponding to the flags
 .BR O_SYNC ,
@@ -1067,15 +1064,13 @@ to be on disk on returning to user space, but only the
 .B O_DSYNC
 semantics, which require only actual file data and metadata necessary
 to retrieve it to be on disk by the time the system call returns.
+.\"
+.\"
+.SS NFS
+There are many infelicities in the protocol underlying NFS, affecting
+amongst others
+.BR O_SYNC " and " O_NDELAY .
 
-Note that
-.BR open ()
-can open device special files, but
-.BR creat ()
-cannot create them; use
-.BR mknod (2)
-instead.
-.LP
 On NFS filesystems with UID mapping enabled,
 .BR open ()
 may
@@ -1088,25 +1083,38 @@ This is because the client performs
 by checking the
 permissions, but UID mapping is performed by the server upon
 read and write requests.
+.\"
+.\"
+.SS File access mode
+Unlike the other values that can be specified in
+.IR flags ,
+the
+.I "access mode"
+values
+.BR O_RDONLY ", " O_WRONLY ", and " O_RDWR
+do not specify individual bits.
+Rather, they define the low order two bits of
+.IR flags ,
+and are defined respectively as 0, 1, and 2.
+In other words, the combination
+.B "O_RDONLY | O_WRONLY"
+is a logical error, and certainly does not have the same meaning as
+.BR O_RDWR .
 
-If the file is newly created, its
-.IR st_atime ,
-.IR st_ctime ,
-.I st_mtime
-fields
-(respectively, time of last access, time of last status change, and
-time of last modification; see
-.BR stat (2))
-are set
-to the current time, and so are the
-.I st_ctime
-and
-.I st_mtime
-fields of the
-parent directory.
-Otherwise, if the file is modified because of the
-.B O_TRUNC
-flag, its st_ctime and st_mtime fields are set to the current time.
+Linux reserves the special, nonstandard access mode 3 (binary 11) in
+.I flags
+to mean:
+check for read and write permission on the file and return a descriptor
+that can't be used for reading or writing.
+This nonstandard access mode is used by some Linux drivers to return a
+descriptor that is to be used only for device-specific
+.BR ioctl (2)
+operations.
+.\" See for example util-linux's disk-utils/setfdprm.c
+.\" For some background on access mode 3, see
+.\" http://thread.gmane.org/gmane.linux.kernel/653123
+.\" "[RFC] correct flags to f_mode conversion in __dentry_open"
+.\" LKML, 12 Mar 2008
 .\"
 .\"
 .SS Rationale for openat() and the other *at() calls

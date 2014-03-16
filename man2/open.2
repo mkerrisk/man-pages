@@ -47,9 +47,8 @@
 .\"
 .\" FIXME . Apr 08: The next POSIX revision has O_EXEC, O_SEARCH, and
 .\" O_TTYINIT.  Eventually these may need to be documented.  --mtk
-.\" FIXME Linux 2.6.33 has O_DSYNC, and a hidden __O_SYNC.
 .\"
-.TH OPEN 2 2014-02-21 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2014-03-16 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, openat, creat \- open and possibly create a file
 .SH SYNOPSIS
@@ -349,6 +348,24 @@ avoid denial-of-service problems if
 is called on a
 FIFO or tape device.
 .TP
+.B O_DSYNC
+Write operations on the file will complete according to the requirements of
+synchronized I/O
+.I data
+integrity completion.
+
+By the time
+.BR write (2)
+(and similar)
+return, the output data
+has been transferred to the underlying hardware,
+along with any file metadata that would be required to retrieve that data
+(i.e., as though each
+.BR write (2)
+was followed by a call to
+.BR fdatasync (2)).
+.IR "See NOTES below" .
+.TP
 .B O_EXCL
 Ensure that this call creates the file:
 if this flag is specified in conjunction with
@@ -565,12 +582,27 @@ and
 with an empty pathname to have the calls operate on the symbolic link.
 .TP
 .B O_SYNC
-The file is opened for synchronous I/O.
-Any
-.BR write (2)s
-on the resulting file descriptor will block the calling process until
-the data has been physically written to the underlying hardware.
-.IR "But see NOTES below" .
+Write operations on the file will complete according to the requirements of
+synchronized I/O
+.I file
+integrity completion
+(by contrast with contrast with the
+synchronized I/O
+.I data
+integrity completion
+provided by
+.BR O_DSYNC .)
+
+By the time
+.BR write (2)
+(and similar)
+return, the output data and associated file metadata
+have been transferred to the underlying hardware
+(i.e., as though each
+.BR write (2)
+was followed by a call to
+.BR fsync (2)).
+.IR "See NOTES below" .
 .TP
 .BR O_TMPFILE " (since Linux 3.11)"
 .\" commit 60545d0d4610b02e55f65d141c95b18ccf855b6e
@@ -1043,27 +1075,95 @@ flag, its st_ctime and st_mtime fields are set to the current time.
 .\"
 .\"
 .SS Synchronized I/O
-POSIX provides for three different variants of synchronized I/O,
-corresponding to the flags
+The POSIX.1-2008 "synchronized I/O" option
+specifies different variants of synchronized I/O,
+and specifies the
+.BR open ()
+flags
 .BR O_SYNC ,
 .BR O_DSYNC ,
 and
-.BR O_RSYNC .
-Currently (2.6.31), Linux implements only
-.BR O_SYNC ,
-but glibc maps
-.B O_DSYNC
+.BR O_RSYNC
+for controlling the behavior.
+Regardless of whether an implementation supports this option,
+it must at least support the use of
+.BR O_SYNC
+for regular files.
+
+Linux implements 
+.BR O_SYNC
 and
-.B O_RSYNC
-to the same numerical value as
-.BR O_SYNC .
-Most Linux filesystems don't actually implement the POSIX
-.B O_SYNC
-semantics, which require all metadata updates of a write
-to be on disk on returning to user space, but only the
-.B O_DSYNC
-semantics, which require only actual file data and metadata necessary
-to retrieve it to be on disk by the time the system call returns.
+.BR O_DSYNC ,
+but not
+.BR O_RSYNC .
+(Somewhat incorrectly, glibc defines
+.BR O_RSYNC
+to have the same value as
+.BR O_SYNC .)
+
+.BR O_SYNC
+provides synchronized I/O
+.I file
+integrity completion,
+meaning write operations will flush data and all associated metadata
+to the underlying hardware.
+.BR O_DSYNC
+provides synchronized I/O
+.I data
+integrity completion,
+meaning write operations will flush data
+to the underlying hardware,
+but will only flush metadata updates that are required
+to allow a subsequent read operation to complete successfully.
+Data integrity completion can reduce the number of disk operations
+that are required for applications that don't need the guarantees
+of file integrity completion.
+
+To understand the difference between the the two types of completion,
+consider two pieces of file metadata:
+the file last modification timestamp
+.RI ( st_mtime )
+and the file length.
+All write operations will update the last file modification timestamp,
+but only writes that add data to the end of the
+file will change the file length.
+The last modification timestamp is not needed to ensure that
+a read completes successfully, but the file length is.
+Thus,
+.BR O_DSYNC
+would only guarantee to flush updates to the file length metadata
+(whereas
+.BR O_SYNC
+would also always flush the last modification timestamp metadata).
+
+Before Linux 2.6.33, Linux implemented only the
+.BR O_SYNC
+flag for 
+.BR open ().
+However, when that flag was specified,
+most filesystems actually provided the equivalent of synchronized I/O
+.I data
+integrity completion (i.e.,
+.BR O_SYNC
+was actually implemented as the equivalent of
+.BR O_DSYNC ).
+
+Since Linux 2.6.33, proper
+.BR O_SYNC
+support is provided.
+However, to ensure backward binary compatibility,
+.BR O_DSYNC
+was defined with the same value as the historical
+.BR O_SYNC ,
+and
+.BR O_SYNC
+was defined as a new (two-bit) flag value that includes the 
+.BR O_DSYNC
+flag value.
+This ensures that applications compiled against
+new headers get at least
+.BR O_DSYNC
+semantics on pre-2.6.33 kernels.
 .\"
 .\"
 .SS NFS

@@ -37,7 +37,7 @@
 .\"	Added notes on /proc files
 .\" FIXME . Add example programs to this page.
 .\"
-.TH MSGOP 2 2014-01-23 "Linux" "Linux Programmer's Manual"
+.TH MSGOP 2 2014-03-17 "Linux" "Linux Programmer's Manual"
 .SH NAME
 msgrcv, msgsnd \- System V message queue operations
 .SH SYNOPSIS
@@ -246,12 +246,24 @@ Nondestructively fetch a copy of the message at the ordinal position
 in the queue specified by
 .I msgtyp
 (messages are considered to be numbered starting at 0).
-This flag should be specified in conjunction with
+
+This flag must be specified in conjunction with
 .BR IPC_NOWAIT ,
-so that if there is no message available at the given position,
+with the result that, if there is no message available at the given position,
 the call fails immediately with the error
 .BR ENOMSG .
-This flag was added for the implementation of
+Because they alter the meaning of
+.I msgtyp
+in orthogonal ways,
+.BR MSG_COPY
+and
+.BR MSG_EXCEPT
+may not both be specified in
+.IR msgflg .
+
+The
+.BR MSG_COPY
+flag was added for the implementation of
 the kernel checkpoint-restore facility and
 is available only if the kernel was built with the
 .B CONFIG_CHECKPOINT_RESTORE
@@ -413,6 +425,20 @@ was invalid, or
 .I msgsz
 was less than 0.
 .TP
+.BR EINVAL " (since Linux 3.14)"
+.I msgflg
+specified
+.BR MSG_COPY ,
+but not
+.BR IPC_NOWAIT .
+.TP
+.BR EINVAL " (since Linux 3.14)"
+.I msgflg
+specified both
+.BR MSG_COPY
+and
+.BR MSG_EXCEPT .
+.TP
 .B ENOMSG
 .B IPC_NOWAIT
 was specified in
@@ -493,21 +519,25 @@ number of message headers
 and for the system wide maximum size in bytes of the message pool
 .RB ( MSGPOOL ).
 .SH BUGS
-If
+In Linux 3.13 and earlier,
+if
 .BR msgrcv ()
-is called with the
+was called with the
 .BR MSG_COPY
 flag, but without
 .BR IPC_NOWAIT ,
-and the message queue contains less than
+and the message queue contained less than
 .I msgtyp
-messages, then the call will block until the next message is written
+messages, then the call would block until the next message is written
 to the queue.
 .\" FIXME http://marc.info/?l=linux-kernel&m=139048542803605&w=2
-At that point, the call will return a copy of the message,
+At that point, the call would return a copy of the message,
 .I regardless
-of whether that message is at the ordinal position
+of whether that message was at the ordinal position
 .IR msgtyp .
+This bug is fixed
+.\" commit 4f87dac386cc43d5525da7a939d4b4e7edbea22c
+in Linux 3.14.
 
 Specifying both
 .B MSG_COPY
@@ -517,9 +547,13 @@ in
 .I msgflg
 is a logical error (since these flags impose different interpretations on
 .IR msgtyp ).
+In Linux 3.13 and earlier,
 .\" FIXME http://marc.info/?l=linux-kernel&m=139048542803605&w=2
-However, as at Linux 3.13, this error is not diagnosed by
-.IR msgrcv ().
+this error was not diagnosed by
+.BR msgrcv ().
+This bug is fixed
+.\" commit 4f87dac386cc43d5525da7a939d4b4e7edbea22c
+in Linux 3.14.
 .SH SEE ALSO
 .BR msgctl (2),
 .BR msgget (2),

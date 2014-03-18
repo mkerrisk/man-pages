@@ -36,9 +36,9 @@ for a pathname and open file via a handle
 
 .BI "int name_to_handle_at(int " dirfd ", const char *" pathname ,
 .BI "                      struct file_handle *" handle ,
-.BI "                      int *" mnt_id ", int " flags );
+.BI "                      int *" mount_id ", int " flags );
 
-.BI "int open_by_handle_at(int " mountdirfd ", struct file_handle *" handle ,
+.BI "int open_by_handle_at(int " mount_fd ", struct file_handle *" handle ,
 .BI "                      int " flags );
 .fi
 .SH DESCRIPTION
@@ -55,13 +55,17 @@ returns an opaque handle that corresponds to a specified file;
 opens the file corresponding to a handle returned by a previous call to
 .BR name_to_handle_at ()
 and returns an open file descriptor.
+.\"
+.\"
 .SS name_to_handle_at()
 The
 .BR name_to_handle_at ()
 system call returns a file handle and a mount ID corresponding to
-the file specified by
-.IR pathname ,
-which specifies the pathname of an existing file.
+the file specified by the
+.IR dirfd
+and
+.IR pathname
+arguments.
 The file handle is returned via the argument
 .IR handle ,
 which is a pointer to a structure of the following form:
@@ -118,34 +122,61 @@ and
 fields are needed only by a subsequent call to
 .BR open_by_handle_at ().
 
-The treatment of a relative pathname in
+Together, the
 .I pathname
-depends on the value of
-.IR dirfd .
-If
+and
 .I dirfd
+arguments identify the file for which a handle is to obtained.
+There are four distinct cases:
+.IP * 3
+If
+.I pathname
+is a nonempty string containing an absolute pathname,
+then a handle is returned for the file referred to by that pathname.
+In this case,
+.IR dirfd
+is ignored.
+.IP *
+If
+.I pathname
+is a nonempty string containing a relative pathname and
+.IR dirfd
 has the special value
 .BR AT_FDCWD ,
 then
 .I pathname
-is interpreted relative to the current working
-directory of the calling process.
-(See
-.BR openat (3)
-for an explanation of why this is useful.)
-Otherwise,
-.IR dirfd
-must be a file descriptor that refers to a directory, and
-.I pathname
-is interpreted relative to that directory.
+is interpreted relative to the current working directory of the caller,
+and a handle is returned for the file to which it refers.
+.IP *
 If
 .I pathname
-is an absolute pathname, then
-.I dirfd
-is ignored.
-
+is a nonempty string containing a relative pathname and
+.IR dirfd
+is a file descriptor referring to a directory, then
+.I pathname
+is interpreted relative to the directory referred to by
+.IR dirfd ,
+and a handle is returned for the file to which it refers.
+(See
+.BR openat (3)
+for an explanation of why "directory file descriptors" are useful.)
+.IP *
+If
+.I pathname
+is an empty string and
+.I flags
+specifies the value
+.BR AT_EMPTY_PATH ,
+then
+.IR dirfd
+can be an open file descriptor referring to any type of file,
+or
+.BR AT_FDCWD ,
+meaning the current working directory,
+and a handle is returned for the file to which it refers.
+.PP
 The
-.I mnt_id
+.I mount_id
 argument returns an identifier for the filesystem
 mount that corresponds to
 .IR pathname .
@@ -162,18 +193,14 @@ argument is a bit mask constructed by ORing together
 zero or more of the following value:
 .TP
 .B AT_EMPTY_PATH
-If
+Allow
 .I pathname
-is an empty string,
-then obtain a handle for the file referred to by
-.IR dirfd
+to be an empty string.
+See above.
 (which may have been obtained using the
 .BR open (2)
 .B O_PATH
 flag).
-In this case,
-.I dirfd
-can refer to any type of file, not just a directory.
 .TP
 .B AT_SYMLINK_FOLLOW
 By default,
@@ -197,9 +224,9 @@ a file handle returned by a previous call to
 .BR name_to_handle_at ().
 
 The
-.IR mountdirfd
-argument is a file descriptor for a directory under
-the mount point with respect to which
+.IR mount_fd
+argument is a file descriptor for any object (file, directory, etc.)
+in the mounted filesystem with respect to which
 .IR handle
 should be interpreted.
 The special value
@@ -211,6 +238,15 @@ The
 argument
 is as for
 .BR open (2).
+.\" FIXME: Confirm that the following is intended behavior.
+.\"        (It certainly seems to be the behavior, from experimenting.)
+If
+.I handle
+refers to a symbolic link, the caller must specify the
+.B O_PATH
+flag, and the symbolic link is not dereferenced (the
+.B O_NOFOLLOW
+flag, if specified, is ignored).
 
 The caller must have the
 .B CAP_DAC_READ_SEARCH
@@ -251,6 +287,13 @@ includes an invalid bit value.
 is greater than
 .BR MAX_HANDLE_SZ .
 .TP
+.B ENOENT
+.I pathname
+is an empty string, but
+.BR AT_EMPTY_PATH
+was not specified in
+.IR flags .
+.TP
 .B ENOTDIR
 The file descriptor supplied in
 .I dirfd
@@ -280,7 +323,7 @@ is updated to indicate the required size for the handle.
 can fail with the following errors:
 .TP
 .B EBADF
-.IR mountdirfd
+.IR mount_fd
 is not an open file descriptor.
 .TP
 .B EINVAL
@@ -293,10 +336,18 @@ or is equal to zero.
 Insufficient memory.
 .TP
 .B ENOTDIR
-.IR mountdirfd
+.IR mount_fd
 is not
 .B AT_FDCWD
 and does not refer to a directory.
+.TP
+.B ELOOP
+.\" FIXME (see earlier FIXME). Is this the intended behavior?
+.I handle
+refers to a symbolic link, but
+.B O_PATH
+was not specified in
+.IR flags .
 .TP
 .B EPERM
 The caller does not have the
@@ -317,6 +368,27 @@ A file handle can be generated in one process using
 and later used in a different process that calls
 .BR open_by_handle_at ().
 
+Not all filesystem types support the translation of pathnames to
+file handles.
+.\" FIXME NeilBrown noted:
+.\"    ESTALE is also returned if the filesystem does not support
+.\"    file-handle -> file mappings.
+.\"    On filesystems which don't provide export_operations (/sys /proc
+.\"    ubifs romfs cramfs nfs coda ... several others) name_to_handle_at
+.\"    will produce a generic handle using the 32 bit inode and 32 bit
+.\"    i_generation. open_by_name_at given this (or any) filehandle
+.\"    will fail with ESTALE.
+.\" However, on /proc and /sys, at least, name_to_handle_at() fails with
+.\" EOPNOTSUPP. Are there really filesystems that can deliver ESTALE (the
+.\" same error as for an invalid file handle) in the above circumstances?
+
+A file handle may become invalid ("stale") if a file is deleted,
+or for other filesystem-specific reasons.
+Invalid handles are notified by an
+.B ESTALE
+error from
+.BR open_by_name_at ().
+
 These system calls are designed for use by user-space file servers.
 For example, a user-space NFS server might generate a file handle
 and pass it to an NFS client.
@@ -327,18 +399,22 @@ it could pass the handle back to the server.
 This sort of functionality allows a user-space file server to operate in
 a stateless fashion with respect to the files it serves.
 
-Specifying both
-.BR O_PATH
-and
-.BR O_NOFOLLOW
-in a call to
+If
+.I pathname
+refers to a symbolic link and
+.IR flags
+does not specify
+.BR AT_SYMLINK_FOLLOW ,
+then
 .BR name_to_handle_at ()
-that operates on a symbolic link can be used to obtain a handle for the link.
+returns a handle for the link (rather than the file to which it refers).
 .\" commit bcda76524cd1fa32af748536f27f674a13e56700
 The process receiving the handle can later perform operations
 on the symbolic link by converting the handle to a file descriptor using
 .BR open_by_handle_at ()
-and then passing the file descriptor as the
+with the
+.BR O_PATH
+flag, and then passing the file descriptor as the
 .IR dirfd
 argument in system calls such as
 .BR readlinkat (2)
@@ -351,7 +427,7 @@ can be reused as filesystems are unmounted and mounted.
 Therefore, the mount ID returned by
 .BR name_to_handle_at (3)
 (in
-.IR *mnt_id )
+.IR *mount_id )
 should not be treated as a persistent identifier
 for the corresponding mounted filesystem.
 However, an application can use the information in the
@@ -366,14 +442,12 @@ record to search for the corresponding device UUID via the symbolic links in
 (A more comfortable way of obtaining the UUID is to use the
 .\" e.g., http://stackoverflow.com/questions/6748429/using-libblkid-to-find-uuid-of-a-partition
 .BR libblkid (3)
-library, which uses the
-.I /sys
-filesystem to obtain the same information.)
+library.)
 That process can then be reversed,
 using the UUID to look up the device name,
 and then obtaining the corresponding mount point,
 in order to produce the
-.IR mountdirfd
+.IR mount_fd
 argument used by
 .BR open_by_name_at ().
 .SH EXAMPLE
@@ -396,12 +470,12 @@ The program then employs
 .BR open_by_handle_at ()
 to open the file using that handle.
 If an optional command-line argument is supplied, then the
-.IR mountdirfd
+.IR mount_fd
 argument for
 .BR open_by_handle_at ()
 is obtained by opening the directory named in that argument.
 Otherwise,
-.IR mountdirfd
+.IR mount_fd
 is obtained by scanning
 .IR /proc/self/mountinfo
 to find a record whose mount ID matches the mount ID
@@ -423,15 +497,19 @@ $ \fBrm cecilia.txt\fP
 .fi
 .in
 
-Now delete and re-create the file with the same inode number;
+Now we delete and (quickly) re-create the file so that
+it has the same content and (by chance) the same inode.
+Nevertheless,
 .BR open_by_handle_at ()
-recognizes that the file referred to by the file handle no longer exists.
+recognizes that the original file referred to by the file handle
+no longer exists.
 
 .in +4n
 .nf
 $ \fBstat \-\-printf="%i\\n" cecilia.txt\fP       # Display inode number 
 4072121
-$ \fBecho 'Warum?' > cecilia.txt\fP
+$ \fBrm cecilia.txt\fP
+$ \fBecho 'Kannst du bitte überlegen?' > cecilia.txt\fP
 $ \fBstat \-\-printf="%i\\n" cecilia.txt\fP       # Check inode number
 4072121
 $ \fBsudo ./t_open_by_handle_at < fh\fP

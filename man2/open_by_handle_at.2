@@ -360,7 +360,7 @@ and later used in a different process that calls
 .BR open_by_handle_at ().
 
 Some filesystem don't support the translation of pathnames to
-file handles, for example, 
+file handles, for example,
 .IR /proc ,
 .IR /sys ,
 and various network filesystems.
@@ -491,7 +491,7 @@ no longer exists.
 
 .in +4n
 .nf
-$ \fBstat \-\-printf="%i\\n" cecilia.txt\fP     # Display inode number 
+$ \fBstat \-\-printf="%i\\n" cecilia.txt\fP     # Display inode number
 4072121
 $ \fBrm cecilia.txt\fP
 $ \fBecho 'Can you please think about it?' > cecilia.txt\fP
@@ -521,16 +521,19 @@ int
 main(int argc, char *argv[])
 {
     struct file_handle *fhp;
-    int mount_id, fhsize, s;
+    int mount_id, fhsize, flags, dirfd, j;
+    char *pathname;
 
-    if (argc < 2 || strcmp(argv[1], "\-\-help") == 0) {
+    if (argc != 2) {
         fprintf(stderr, "Usage: %s pathname\\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
+    pathname = argv[1];
+
     /* Allocate file_handle structure */
 
-    fhsize = sizeof(struct file_handle *);
+    fhsize = sizeof(*fhp);
     fhp = malloc(fhsize);
     if (fhp == NULL)
         errExit("malloc");
@@ -538,9 +541,11 @@ main(int argc, char *argv[])
     /* Make an initial call to name_to_handle_at() to discover
        the size required for file handle */
 
+    dirfd = AT_FDCWD;           /* For name_to_handle_at() calls */
+    flags = 0;                  /* For name_to_handle_at() calls */
     fhp\->handle_bytes = 0;
-    s = name_to_handle_at(AT_FDCWD, argv[1], fhp, &mount_id, 0);
-    if (s != \-1 || errno != EOVERFLOW) {
+    if (name_to_handle_at(dirfd, pathname, fhp,
+                &mount_id, flags) != \-1 || errno != EOVERFLOW) {
         fprintf(stderr, "Unexpected result from name_to_handle_at()\\n");
         exit(EXIT_FAILURE);
     }
@@ -554,18 +559,17 @@ main(int argc, char *argv[])
 
     /* Get file handle from pathname supplied on command line */
 
-    if (name_to_handle_at(AT_FDCWD, argv[1], fhp, &mount_id, 0) == \-1)
+    if (name_to_handle_at(dirfd, pathname, fhp, &mount_id, flags) == \-1)
         errExit("name_to_handle_at");
 
     /* Write mount ID, file handle size, and file handle to stdout,
        for later reuse by t_open_by_handle_at.c */
 
-    if (write(STDOUT_FILENO, &mount_id, sizeof(int)) != sizeof(int) ||
-            write(STDOUT_FILENO, &fhsize, sizeof(int)) != sizeof(int) ||
-            write(STDOUT_FILENO, fhp, fhsize) != fhsize) {
-        fprintf(stderr, "Write failure\\n");
-        exit(EXIT_FAILURE);
-    }
+    printf("%d\\n", mount_id);
+    printf("%d %d   ", fhp\->handle_bytes, fhp\->handle_type);
+    for (j = 0; j < fhp\->handle_bytes; j++)
+        printf(" %02x", fhp\->f_handle[j]);
+    printf("\\n");
 
     exit(EXIT_SUCCESS);
 }
@@ -598,85 +602,102 @@ open_mount_path_by_id(int mount_id)
     char *linep;
     size_t lsize;
     char mount_path[PATH_MAX];
-    int fmnt_id, fnd, nread;
+    int mi_mount_id, found;
+    ssize_t nread;
     FILE *fp;
 
-    fp  = fopen("/proc/self/mountinfo", "r");
+    fp = fopen("/proc/self/mountinfo", "r");
     if (fp == NULL)
         errExit("fopen");
 
-    for (fnd = 0; !fnd ; ) {
-        linep = NULL;
+    found = 0;
+    linep = NULL;
+    while (!found) {
         nread = getline(&linep, &lsize, fp);
         if (nread == \-1)
             break;
 
-	nread = sscanf(linep, "%d %*d %*s %*s %s", &fmnt_id, mount_path);
+        nread = sscanf(linep, "%d %*d %*s %*s %s",
+                       &mi_mount_id, mount_path);
         if (nread != 2) {
             fprintf(stderr, "Bad sscanf()\\n");
             exit(EXIT_FAILURE);
         }
 
-        free(linep);
-
-        if (fmnt_id == mount_id)
-            fnd = 1;
+        if (mi_mount_id == mount_id)
+            found = 1;
     }
+    free(linep);
 
     fclose(fp);
 
-    if (!fnd) {
+    if (!found) {
         fprintf(stderr, "Could not find mount point\\n");
         exit(EXIT_FAILURE);
     }
 
-    return open(mount_path, O_RDONLY | O_DIRECTORY);
+    return open(mount_path, O_RDONLY);
 }
 
 int
 main(int argc, char *argv[])
 {
     struct file_handle *fhp;
-    int mount_id, fd, mount_fd, fhsize;
+    int mount_id, fd, mount_fd, handle_bytes, j;
     ssize_t nread;
-#define BSIZE 1000
-    char buf[BSIZE];
+    char buf[1000];
+#define LINE_SIZE 100
+    char line1[LINE_SIZE], line2[LINE_SIZE];
+    char *nextp;
 
-    if (argc > 1 && strcmp(argv[1], "\-\-help") == 0) {
-        fprintf(stderr, "Usage: %s [mount\-dir]]\\n",
-                argv[0]);
+    if ((argc > 1 && strcmp(argv[1], "\-\-help") == 0) || argc > 2) {
+        fprintf(stderr, "Usage: %s [mount\-path]\\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    /* Read data produced by t_name_to_handle_at.c */
+    /* Standard input contains mount ID and file handle information:
 
-    if (read(STDIN_FILENO, &mount_id, sizeof(int)) != sizeof(int))
-        errExit("read");
+         Line 1: <mount_id>
+         Line 2: <handle_bytes> <handle_type>   <bytes of handle in hex>
+    */
 
-    if (read(STDIN_FILENO, &fhsize, sizeof(int)) != sizeof(int))
-        errExit("read");
+    if ((fgets(line1, sizeof(line1), stdin) == NULL) ||
+           (fgets(line2, sizeof(line2), stdin) == NULL)) {
+        fprintf(stderr, "Missing mount_id / file handle\\n");
+        exit(EXIT_FAILURE);
+    }
 
-    fhp = malloc(fhsize);
+    mount_id = atoi(line1);
+
+    handle_bytes = strtoul(line2, &nextp, 0);
+
+    /* Given handle_bytes, we can now allocate file_handle structure */
+
+    fhp = malloc(sizeof(struct file_handle) + handle_bytes);
     if (fhp == NULL)
         errExit("malloc");
 
-    if (read(STDIN_FILENO, fhp, fhsize) != fhsize)
-        errExit("read");
+    fhp\->handle_bytes = handle_bytes;
+
+    fhp\->handle_type = strtoul(nextp, &nextp, 0);
+
+    for (j = 0; j < fhp\->handle_bytes; j++)
+        fhp\->f_handle[j] = strtoul(nextp, &nextp, 16);
 
     /* Obtain file descriptor for mount point, either by opening
        the pathname specified on the command line, or by scanning
        /proc/self/mounts to find a mount that matches the \(aqmount_id\(aq
-       obtained by name_to_handle_at() (in t_name_to_handle_at.c) */
+       that we received from stdin. */
 
     if (argc > 1)
-        mount_fd = open(argv[1], O_RDONLY | O_DIRECTORY);
+        mount_fd = open(argv[1], O_RDONLY);
     else
         mount_fd = open_mount_path_by_id(mount_id);
 
     if (mount_fd == \-1)
         errExit("opening mount fd");
 
-    /* Open name using handle and mount point */
+    /* Open file using handle and mount point */
 
     fd = open_by_handle_at(mount_fd, fhp, O_RDONLY);
     if (fd == \-1)
@@ -684,10 +705,11 @@ main(int argc, char *argv[])
 
     /* Try reading a few bytes from the file */
 
-    nread = read(fd, buf, BSIZE);
+    nread = read(fd, buf, sizeof(buf));
     if (nread == \-1)
         errExit("read");
-    printf("Read %ld bytes\\n", (long) nread);
+
+    printf("Read %zd bytes\\n", nread);
 
     exit(EXIT_SUCCESS);
 }

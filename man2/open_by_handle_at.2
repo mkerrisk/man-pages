@@ -122,6 +122,14 @@ and
 fields are needed only by a subsequent call to
 .BR open_by_handle_at ().
 
+The
+.I flags
+argument is a bit mask constructed by ORing together zero or more of
+.BR AT_EMPTY_PATH
+and
+.BR AT_SYMLINK_FOLLOW ,
+described below.
+
 Together, the
 .I pathname
 and
@@ -187,30 +195,18 @@ descriptor for the mount point;
 that file descriptor can be used in a subsequent call to
 .BR open_by_handle_at ().
 
-The
-.I flags
-argument is a bit mask constructed by ORing together
-zero or more of the following values:
-.TP
-.B AT_EMPTY_PATH
-Allow
-.I pathname
-to be an empty string.
-See above.
-.TP
-.B AT_SYMLINK_FOLLOW
 By default,
 .BR name_to_handle_at ()
 does not dereference
 .I pathname
-if it is a symbolic link.
-The flag
+if it is a symbolic link, and thus returns a handle for the link itself.
+If
 .B AT_SYMLINK_FOLLOW
-can be specified in
-.I flags
-to cause
+is specified in
+.IR flags ,
 .I pathname
-to be dereferenced if it is a symbolic link.
+is dereferenced if it is a symbolic link
+(so that the call returns a handle for the file referred to by the link).
 .SS open_by_handle_at()
 The
 .BR open_by_handle_at ()
@@ -298,7 +294,7 @@ was not specified in
 The file descriptor supplied in
 .I dirfd
 does not refer to a directory,
-and it it is not the case that both
+and it is not the case that both
 .I flags
 includes
 .BR AT_EMPTY_PATH
@@ -413,7 +409,7 @@ The mount IDs in
 .IR /proc/self/mountinfo
 can be reused as filesystems are unmounted and mounted.
 Therefore, the mount ID returned by
-.BR name_to_handle_at (3)
+.BR name_to_handle_at ()
 (in
 .IR *mount_id )
 should not be treated as a persistent identifier
@@ -475,12 +471,12 @@ The following shell session demonstrates the use of these two programs:
 
 .in +4n
 .nf
-$ \fBecho 'Kannst du bitte überlegen?' > cecilia.txt\fP
+$ \fBecho 'Can you please think about it?' > cecilia.txt\fP
 $ \fB./t_name_to_handle_at cecilia.txt > fh\fP
 $ \fB./t_open_by_handle_at < fh\fP
 open_by_handle_at: Operation not permitted
 $ \fBsudo ./t_open_by_handle_at < fh\fP      # Need CAP_SYS_ADMIN
-Read 28 bytes
+Read 31 bytes
 $ \fBrm cecilia.txt\fP
 .fi
 .in
@@ -499,7 +495,7 @@ no longer exists.
 $ \fBstat \-\-printf="%i\\n" cecilia.txt\fP       # Display inode number 
 4072121
 $ \fBrm cecilia.txt\fP
-$ \fBecho 'Kannst du bitte überlegen?' > cecilia.txt\fP
+$ \fBecho 'Can you please think about it?' > cecilia.txt\fP
 $ \fBstat \-\-printf="%i\\n" cecilia.txt\fP       # Check inode number
 4072121
 $ \fBsudo ./t_open_by_handle_at < fh\fP
@@ -698,10 +694,10 @@ main(int argc, char *argv[])
 }
 .fi
 .SH SEE ALSO
-.BR blkid (1),
-.BR findfs (1),
 .BR open (2),
 .BR libblkid (3),
+.BR blkid (8),
+.BR findfs (8),
 .BR mount (8)
 
 The

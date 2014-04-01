@@ -1,5 +1,5 @@
 '\" t
-.\" Copyright (C) 2006 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (C) 2006, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -350,6 +350,162 @@ Filesystem containing watched object was unmounted.
 In addition, an
 .B IN_IGNORED
 event will subsequently be generated for the watch descriptor.
+.RE
+.SS Examples
+Suppose an application is watching the directory
+.I dir
+and the file
+.IR dir/myfile
+for all events.
+The examples below show some events that will be generated
+for these two objects.
+.RS 4
+.TP
+fd = open("dir/myfile", O_RDWR);
+Generates
+.B IN_OPEN
+events for both
+.I dir
+and
+.IR dir/myfile .
+.TP
+read(fd, buf, count);
+Generates
+.B IN_ACCESS
+events for both
+.I dir
+and
+.IR dir/myfile .
+.TP
+write(fd, buf, count);
+Generates
+.B IN_MODIFY
+events for both
+.I dir
+and
+.IR dir/myfile .
+.TP
+fchmod(fd, mode);
+Generates
+.B IN_ATTRIB
+events for both
+.I dir
+and
+.IR dir/myfile .
+.TP
+close(fd);
+Generates
+.B IN_CLOSE_WRITE
+events for both
+.I dir
+and
+.IR dir/myfile .
+.RE
+.PP
+Suppose an application is watching the directories
+.I dir1
+and
+.IR dir ,
+and the file
+.IR dir1/myfile .
+The following examples show some events that may be generated.
+.RS 4
+.TP
+link("dir/myfile", "dir2/new");
+Generates an
+.B IN_ATTRIB
+event for
+.IR myfile
+and an
+.B IN_CREATE
+event for
+.IR dir2 .
+.TP
+rename("dir1/myfile", "dir2/myfile");
+Generates an
+.B IN_MOVED_FROM
+event for
+.IR dir1 ,
+an
+.B IN_MOVED_TO
+event for
+.IR dir2 ,
+and an
+.B IN_MOVE_SELF
+event for
+.IR myfile .
+The
+.B IN_MOVED_FROM
+and
+.B IN_MOVED_TO
+events will have the same
+.I cookie
+value.
+.RE
+.PP
+Suppose that
+.IR dir1/xx
+and
+.IR dir2/yy
+are (the only) links to the same file, and an application is watching
+.IR dir1 ,
+.IR dir2 ,
+.IR dir1/xx ,
+and
+.IR dir2/yy .
+Executing the following calls in the order given below will generate
+the following events:
+.RS 4
+.TP
+unlink("dir2/yy");
+Generates
+.BR IN_ATTRIB
+event for
+.IR xx
+(because its link count changes)
+and an
+.B IN_DELETE
+event for
+.IR dir2 .
+.TP
+unlink("dir1/xx");
+Generates
+.BR IN_ATTRIB ,
+.BR IN_DELETE_SELF ,
+and
+.BR IN_IGNORED
+events for
+.IR xx ,
+and an
+.BR IN_DELETE
+for
+.IR dir1 .
+.RE
+.PP
+Suppose an application is watching the directory
+.IR dir
+and (the empty) directory
+.IR dir/subdir .
+The following examples show some events that may be generated.
+.RS 4
+.TP
+mkdir("dir/new", mode);
+Generates an
+.B "IN_CREATE | IN_ISDIR"
+event for
+.IR dir .
+.TP
+rmdir("dir/sub");
+Generates
+.B IN_DELETE_SELF
+and
+.B IN_IGNORED
+events for
+.IR subdir ,
+and an
+.B "IN_DELETE | IN_ISDIR"
+event for
+.IR dir .
 .RE
 .SS /proc interfaces
 The following interfaces can be used to limit the amount of

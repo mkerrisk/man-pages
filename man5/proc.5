@@ -121,12 +121,76 @@ control group in the hierarchy to which the process belongs
 This file is present only if the
 .B CONFIG_CGROUPS
 kernel configuration option is enabled.
+.TP
+.IR /proc/[pid]/clear_refs " (since Linux 2.6.22)"
+.\" commit b813e931b4c8235bb42e301096ea97dbdee3e8fe (2.6.22)
+.\" commit 398499d5f3613c47f2143b8c54a04efb5d7a6da9 (2.6.32)
+.\" commit 040fa02077de01c7e08fa75be6125e4ca5636011 (3.11)
 .\"
-.\" FIXME Describe /proc/[pid]/clear_refs
-.\"       Added in 2.6.22
 .\"       "Clears page referenced bits shown in smaps output"
-.\"       write-only
-.\"       CONFIG_PROC_PAGE_MONITOR
+.\"       write-only, writable only by the owner of the process
+
+This is a write-only file, writable only by owner of the process.
+
+The following values may be written to the file:
+.RS
+.TP
+1 (since Linux 2.6.22)
+.\" Internally: CLEAR_REFS_ALL
+Reset the PG_Referenced and ACCESSED/YOUNG
+bits for all the pages associated with the process.
+(Before kernel 2.6.32, writing any nonzero value to this file
+had this effect.)
+.TP
+2 (since Linux 2.6.32)
+.\" Internally: CLEAR_REFS_ANON
+Reset the PG_Referenced and ACCESSED/YOUNG
+bits for all anonymous pages associated with the process.
+.TP
+3 (since Linux 2.6.32)
+.\" Internally: CLEAR_REFS_MAPPED
+Reset the PG_Referenced and ACCESSED/YOUNG
+bits for all file-mapped pages associated with the process.
+.RE
+.IP
+Clearing the PG_Referenced and ACCESSED/YOUNG bits provides a method
+to measure approximately how much memory a process is using.
+One first inspects the values in the "Referenced:" fields
+for the VMAs shown in
+.IR /proc/[pid]/smaps
+to get an idea of the memory footprint of the
+process.
+One then clears the PG_Referenced and ACCESSED/YOUNG bits
+and, after some measured time interval,
+once again inspects the values in the "Referenced:" fields
+to get an idea of the change in memory footprint of the
+process during the measured interval.
+If one is interested only in inspecting the selected mapping types,
+then the value 2 or 3 can be used instead of 1.
+
+A further value can be written to affect a different bit:
+.RS
+.TP
+4 (since Linux 3.11)
+Clear the soft-dirty bit for all the pages associated with the process.
+.\" Internally: CLEAR_REFS_SOFT_DIRTY
+This is used (in conjunction with
+.IR /proc/[pid]/pagemap )
+by the check-point restore system to discover which pages of a process
+have been dirtied since the file
+.IR /proc/[pid]/clear_refs
+was written to.
+.RE
+.IP
+Writing any value to
+.IR /proc/[pid]/clear_refs
+other than those listed above has no effect.
+
+The
+.IR /proc/[pid]/clear_refs
+file is present only if the
+.B CONFIG_PROC_PAGE_MONITOR
+kernel configuration option is enabled.
 .TP
 .I /proc/[pid]/cmdline
 This holds the complete command line for the process,

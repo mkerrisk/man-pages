@@ -997,9 +997,57 @@ Writing to
 or
 .IR /proc/[pid]/oom_adj
 will change the other with its scaled value.
-.\" FIXME Describe /proc/[pid]/pagemap
-.\"       Added in 2.6.25
-.\"       CONFIG_PROC_PAGE_MONITOR
+.TP
+.IR /proc/[pid]/pagemap " (since Linux 2.6.25)"
+This file shows the mapping of each of the process's virtual pages
+into physical page frames or swap area.
+It contains one 64-bit value for each virtual page,
+with the bits set as follows:
+.RS 12
+.TP
+63
+If set, the page is present in RAM.
+.TP
+62
+If set, the page is in swap space
+.TP
+61 (since Linux 3.5)
+The page is a file-mapped page or a shared anonymous page.
+.TP
+60-56 (since Linux 3.11)
+Zero
+.\" Not quite true; see commit 541c237c0923f567c9c4cabb8a81635baadc713f
+.TP
+55 (Since Linux 3.11)
+PTE is soft-dirty
+(see the kernel source file
+.IR Documentation/vm/soft-dirty.txt ).
+.TP
+54-0
+If the page is present in RAM (bit 63), then these bits
+provide the page frame number, which can be used to index
+.IR /proc/kpageflags
+and
+.IR /proc/kpagecount .
+If the page is present in swap (bit 62),
+then bits 4-0 give the swap type, and bits 54-5 encode the swap offset.
+.RE
+.IP
+Before Linux 3.11, bits 60-55 were
+used to encode the base-2 log of the page size.
+.IP
+To employ
+.IR /proc/[pid]/pagemap
+efficiently, use
+.IR /proc/[pid]/maps
+to determine which areas of memory are actually mapped and seek
+to skip over unmapped regions.
+.IP
+The
+.IR /proc/[pid]/pagemap
+file is present only if the
+.B CONFIG_PROC_PAGE_MONITOR
+kernel configuration option is enabled.
 .TP
 .I /proc/[pid]/root
 UNIX and Linux support the idea of a per-process root of the

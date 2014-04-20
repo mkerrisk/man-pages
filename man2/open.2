@@ -48,7 +48,7 @@
 .\" FIXME . Apr 08: The next POSIX revision has O_EXEC, O_SEARCH, and
 .\" O_TTYINIT.  Eventually these may need to be documented.  --mtk
 .\"
-.TH OPEN 2 2014-04-10 "Linux" "Linux Programmer's Manual"
+.TH OPEN 2 2014-04-20 "Linux" "Linux Programmer's Manual"
 .SH NAME
 open, openat, creat \- open and possibly create a file
 .SH SYNOPSIS
@@ -208,6 +208,7 @@ for further details.
 See also BUGS, below.
 .TP
 .BR O_CLOEXEC " (since Linux 2.6.23)"
+.\" NOTE! several otehr man pages refer to this text
 Enable the close-on-exec flag for the new file descriptor.
 Specifying this flag permits a program to avoid additional
 .BR fcntl (2)
@@ -215,19 +216,32 @@ Specifying this flag permits a program to avoid additional
 operations to set the
 .B FD_CLOEXEC
 flag.
-Additionally,
-use of this flag is essential in some multithreaded programs
-since using a separate
+
+Note that the use of this flag is essential in some multithreaded programs,
+because using a separate
 .BR fcntl (2)
 .B F_SETFD
 operation to set the
 .B FD_CLOEXEC
 flag does not suffice to avoid race conditions
-where one thread opens a file descriptor at the same
-time as another thread does a
+where one thread opens a file descriptor and
+attempts to set its close-on-exec flag using
+.BR fcntl (2)
+at the same time as another thread does a
 .BR fork (2)
 plus
 .BR execve (2).
+Depending on the order of execution,
+the race may lead to the file desriptor returned by
+.BR open ()
+being unintentionally leaked to the program executed by the child process
+created by
+.BR fork (2).
+(This kind of race is in principle possible for any system call
+that creates a file descriptor whose close-on-exec flag should be set,
+and various other Linux system calls provide an equivalent of the
+.BR O_CLOEXEC
+flag to deal with this problem.)
 .\" This flag fixes only one form of the race condition;
 .\" The race can also occur with, for example, descriptors
 .\" returned by accept(), pipe(), etc.

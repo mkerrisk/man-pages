@@ -473,7 +473,7 @@ Listening for events stopped.
 .in
 .SS Program source
 .nf
-#define _GNU_SOURCE // needed for O_LARGEFILE
+#define _GNU_SOURCE 	/* Needed to get O_LARGEFILE defintion */
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -496,11 +496,11 @@ handle_events(int fd)
     char procfd_path[PATH_MAX];
     struct fanotify_response response;
 
-    /* Loop while events can be read from fanotify file descriptor. */
+    /* Loop while events can be read from fanotify file descriptor */
 
     for(;;) {
 
-        /* Read some events. */
+        /* Read some events */
 
         len = read(fd, (void *) &buf, sizeof(buf));
         if (len == \-1 && errno != EAGAIN) {
@@ -508,21 +508,20 @@ handle_events(int fd)
             exit(EXIT_FAILURE);
         }
 
-        /* Check if end of available data reached. */
+        /* Check if end of available data reached */
 
         if (len <= 0)
             break;
 
-        /* Point to the first event in the buffer. */
+        /* Point to the first event in the buffer */
 
         metadata = (struct fanotify_event_metadata *) buf;
 
-        /* Loop over all events in the buffer. */
+        /* Loop over all events in the buffer */
 
         while (FAN_EVENT_OK(metadata, len)) {
 
-            /* Check that run time and compile time structures
-               match. */
+            /* Check that run\-time and compile\-time structures match */
 
             if (metadata\->vers != FANOTIFY_METADATA_VERSION) {
                 fprintf(stderr,
@@ -530,30 +529,29 @@ handle_events(int fd)
                 exit(EXIT_FAILURE);
             }
 
-            /* Check that the event contains a file descriptor. */
+            /* Check that the event contains a file descriptor */
 
             if (metadata\->fd >= 0) {
 
-                /* Handle open permission event. */
+                /* Handle open permission event */
 
                 if (metadata\->mask & FAN_OPEN_PERM) {
                     printf("FAN_OPEN_PERM: ");
 
-                    /* Allow file to be opened. */
+                    /* Allow file to be opened */
 
                     response.fd = metadata\->fd;
                     response.response = FAN_ALLOW;
-                    write(fd, &response, sizeof(
-                              struct fanotify_response));
+                    write(fd, &response,
+			    sizeof(struct fanotify_response));
                 }
 
-                /* Handle closing of writable file event. */
+                /* Handle closing of writable file event */
 
-                if (metadata\->mask & FAN_CLOSE_WRITE) {
+                if (metadata\->mask & FAN_CLOSE_WRITE)
                     printf("FAN_CLOSE_WRITE: ");
-                }
 
-                /* Determine path of the file accessed. */
+                /* Determine path of the file accessed */
 
                 snprintf(procfd_path, sizeof(procfd_path),
                          "/proc/self/fd/%d", metadata\->fd);
@@ -567,13 +565,13 @@ handle_events(int fd)
                 path[path_len] = '\\0';
                 printf("File %s", path);
 
-                /* Close the file descriptor of the event. */
+                /* Close the file descriptor of the event */
 
                 close(metadata\->fd);
                 printf("\\n");
             }
 
-            /* Forward pointer to next event. */
+            /* Forward pointer to next event */
 
             metadata = FAN_EVENT_NEXT(metadata, len);
         }
@@ -588,16 +586,16 @@ main(int argc, char *argv[])
     nfds_t nfds;
     struct pollfd fds[2];
 
-    /* Check mount point is supplied. */
+    /* Check mount point is supplied */
 
     if (argc != 2) {
-        printf("Usage: %s MOUNT\\n", argv[0]);
+        fprintf(stderr, "Usage: %s MOUNT\\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
     printf("Press enter key to terminate.\\n");
 
-    /* Create the file descriptor for accessing the fanotify API. */
+    /* Create the file descriptor for accessing the fanotify API */
 
     fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK,
                        O_RDONLY | O_LARGEFILE);
@@ -606,10 +604,10 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    /* Mark the mount for
+    /* Mark the mount for:
        \- permission events before opening files
-       \- notification events after closing a write enabled
-         file descriptor. */
+       \- notification events after closing a write\-enabled
+         file descriptor */
 
     if (fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
                       FAN_OPEN_PERM | FAN_CLOSE_WRITE, \-1,
@@ -619,21 +617,21 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    /* Prepare for polling. */
+    /* Prepare for polling */
 
     nfds = 2;
 
-    /* Console input. */
+    /* Console input */
 
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
 
-    /* Fanotify input. */
+    /* Fanotify input */
 
     fds[1].fd = fd;
     fds[1].events = POLLIN;
 
-    /* This is the loop to wait for incoming events. */
+    /* This is the loop to wait for incoming events */
 
     printf("Listening for events.\\n");
     while (1) {
@@ -647,7 +645,7 @@ main(int argc, char *argv[])
         if (poll_num > 0) {
             if (fds[0].revents & POLLIN) {
 
-                /* Console input is available. Empty stdin and quit. */
+                /* Console input is available: empty stdin and quit */
 
                 while (read(STDIN_FILENO, &buf, 1) > 0 && buf != '\\n')
                     continue;
@@ -655,18 +653,18 @@ main(int argc, char *argv[])
             }
             if (fds[1].revents & POLLIN) {
 
-                /* Fanotify events are available. */
+                /* Fanotify events are available */
 
                 handle_events(fd);
             }
         }
     }
 
-    /* Close fanotify file descriptor. */
+    /* Close fanotify file descriptor */
 
     close(fd);
     printf("Listening for events stopped.\\n");
-    return EXIT_SUCCESS;
+    exit(EXIT_SUCCESS);
 }
 .fi
 .SH "SEE ALSO"

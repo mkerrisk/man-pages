@@ -32,7 +32,7 @@
 .\" FIXME: Maybe document LOCK_MAND, LOCK_RW, LOCK_READ, LOCK_WRITE
 .\"        which only have effect for SAMBA.
 .\"
-.TH FLOCK 2 2014-04-22 "Linux" "Linux Programmer's Manual"
+.TH FLOCK 2 2014-04-27 "Linux" "Linux Programmer's Manual"
 .SH NAME
 flock \- apply or remove an advisory lock on an open file
 .SH SYNOPSIS
@@ -146,12 +146,36 @@ possibly implemented in terms of
 .BR fcntl (2),
 appears on most UNIX systems.
 .SH NOTES
+In Linux kernels up to 2.6.11,
 .BR flock ()
-does not lock files over NFS.
-Use
+does not lock files over NFS
+(i.e., the scope of locks was limited to the local system).
+Instead, one could use
 .BR fcntl (2)
-instead: that does work over NFS, given a sufficiently recent version of
+byte-range locking, which does work over NFS,
+given a sufficiently recent version of
 Linux and a server which supports locking.
+Since Linux 2.6.12, NFS clients support
+.BR flock ()
+locks by emulating them as byte-range locks on the entire file.
+This means that
+.BR fcntl (2)
+and
+.BR flock ()
+locks
+.I do
+interact with one another over NFS.
+Since Linux 2.6.37,
+.\" commit 5eebde23223aeb0ad2d9e3be6590ff8bbfab0fc2
+the kernel supports a compatibility mode that allows
+.BR flock ()
+locks (and also
+.BR fcntl (2)
+byte region locks) to be treated as local;
+see the discussion of the
+.I "local_lock"
+option in
+.BR nfs (5).
 .PP
 Since kernel 2.0,
 .BR flock ()

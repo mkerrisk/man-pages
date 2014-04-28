@@ -1,49 +1,29 @@
-.\" Copyright (C) Tom Bjorkholm, Markus Kuhn & David A. Wheeler 1996-1999
-.\" and Copyright (C) 2007 Carsten Emde <Carsten.Emde@osadl.org>
-.\" and Copyright (C) 2008 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
-.\" %%%LICENSE_START(GPLv2+_DOC_FULL)
-.\" This is free documentation; you can redistribute it and/or
-.\" modify it under the terms of the GNU General Public License as
-.\" published by the Free Software Foundation; either version 2 of
-.\" the License, or (at your option) any later version.
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
 .\"
-.\" The GNU General Public License's references to "object code"
-.\" and "executables" are to be interpreted as the output of any
-.\" document formatting or typesetting system, including
-.\" intermediate and printed output.
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
 .\"
-.\" This manual is distributed in the hope that it will be useful,
-.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
-.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-.\" GNU General Public License for more details.
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
 .\"
-.\" You should have received a copy of the GNU General Public
-.\" License along with this manual; if not, see
-.\" <http://www.gnu.org/licenses/>.
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.\" 1996-04-01 Tom Bjorkholm <tomb@mydata.se>
-.\"            First version written
-.\" 1996-04-10 Markus Kuhn <mskuhn@cip.informatik.uni-erlangen.de>
-.\"            revision
-.\" 1999-08-18 David A. Wheeler <dwheeler@ida.org> added Note.
-.\" Modified, 25 Jun 2002, Michael Kerrisk <mtk.manpages@gmail.com>
-.\"	Corrected description of queue placement by sched_setparam() and
-.\"		sched_setscheduler()
-.\"	A couple of grammar clean-ups
-.\" Modified 2004-05-27 by Michael Kerrisk <mtk.manpages@gmail.com>
-.\" 2005-03-23, mtk, Added description of SCHED_BATCH.
-.\" 2007-07-10, Carsten Emde <Carsten.Emde@osadl.org>
-.\"     Add text on real-time features that are currently being
-.\"     added to the mainline kernel.
-.\" 2008-05-07, mtk; Rewrote and restructured various parts of the page to
-.\"     improve readability.
-.\" 2010-06-19, mtk, documented SCHED_RESET_ON_FORK
 .\"
-.\" Worth looking at: http://rt.wiki.kernel.org/index.php
-.\"
-.TH SCHED_SETSCHEDULER 2 2013-09-17 "Linux" "Linux Programmer's Manual"
+.TH SCHED_SETSCHEDULER 2 2014-04-28 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sched_setscheduler, sched_getscheduler \-
 set and get scheduling policy/parameters
@@ -57,22 +37,39 @@ set and get scheduling policy/parameters
 .sp
 .BI "int sched_getscheduler(pid_t " pid );
 .sp
-\fBstruct sched_param {
-    ...
-    int \fIsched_priority\fB;
-    ...
-};
 .fi
 .SH DESCRIPTION
+The
 .BR sched_setscheduler ()
-sets both the scheduling policy and the associated parameters for the
+system call
+sets both the scheduling policy and parameters for the
 thread whose ID is specified in \fIpid\fP.
 If \fIpid\fP equals zero, the
 scheduling policy and parameters of the calling thread will be set.
+
+The scheduling parameters are specified in the
+.I param
+argumenti, which is a pointer to a structure of the following form:
+
+.nf
+.in +4n
+struct sched_param {
+    ...
+    int sched_priority;
+    ...
+};
+.in
+.fi
+
+In the current implementation, the structure contains only one field,
+.IR sched_priority .
 The interpretation of
-the argument \fIparam\fP depends on the selected policy.
+.I param
+depends on the selected policy.
+
 Currently, Linux supports the following "normal"
-(i.e., non-real-time) scheduling policies:
+(i.e., non-real-time) scheduling policies as values that may be specified in
+.IR policy :
 .TP 14
 .BR SCHED_OTHER
 the standard round-robin time-sharing policy;
@@ -87,9 +84,18 @@ for running
 .I very
 low priority background jobs.
 .PP
-The following "real-time" policies are also supported,
+For each of the above policies,
+.IR param\->sched_priority
+must be 0.
+
+Various "real-time" policies are also supported,
 for special time-critical applications that need precise control over
-the way in which runnable threads are selected for execution:
+the way in which runnable threads are selected for execution.
+For the rules governing when a process may use these policies, see
+.BR sched (7).
+The real-time policies that may be specified in
+.IR policy
+are:
 .TP 14
 .BR SCHED_FIFO
 a first-in, first-out policy; and
@@ -97,174 +103,17 @@ a first-in, first-out policy; and
 .BR SCHED_RR
 a round-robin policy.
 .PP
-The semantics of each of these policies are detailed below.
-
-.BR sched_getscheduler ()
-queries the scheduling policy currently applied to the thread
-identified by \fIpid\fP.
-If \fIpid\fP equals zero, the policy of the
-calling thread will be retrieved.
-.\"
-.SS Scheduling policies
-The scheduler is the kernel component that decides which runnable thread
-will be executed by the CPU next.
-Each thread has an associated scheduling policy and a \fIstatic\fP
-scheduling priority, \fIsched_priority\fP; these are the settings
-that are modified by
-.BR sched_setscheduler ().
-The scheduler makes it decisions based on knowledge of the scheduling
-policy and static priority of all threads on the system.
-
-For threads scheduled under one of the normal scheduling policies
-(\fBSCHED_OTHER\fP, \fBSCHED_IDLE\fP, \fBSCHED_BATCH\fP),
-\fIsched_priority\fP is not used in scheduling
-decisions (it must be specified as 0).
-
-Processes scheduled under one of the real-time policies
-(\fBSCHED_FIFO\fP, \fBSCHED_RR\fP) have a
-\fIsched_priority\fP value in the range 1 (low) to 99 (high).
-(As the numbers imply, real-time threads always have higher priority
-than normal threads.)
-Note well: POSIX.1-2001 requires an implementation to support only a
-minimum 32 distinct priority levels for the real-time policies,
-and some systems supply just this minimum.
-Portable programs should use
+For each of the above policies,
+.IR param\->sched_priority
+specifies a scheduling priority for the thread.
+This is a number on the range returned by calling
 .BR sched_get_priority_min (2)
 and
-.BR sched_get_priority_max (2)
-to find the range of priorities supported for a particular policy.
+.BR sched_get_priority_min (2)
+with the specified
+.IR policy .
+On Linux, these system calls return, respectively, 1 and 99.
 
-Conceptually, the scheduler maintains a list of runnable
-threads for each possible \fIsched_priority\fP value.
-In order to determine which thread runs next, the scheduler looks for
-the nonempty list with the highest static priority and selects the
-thread at the head of this list.
-
-A thread's scheduling policy determines
-where it will be inserted into the list of threads
-with equal static priority and how it will move inside this list.
-
-All scheduling is preemptive: if a thread with a higher static
-priority becomes ready to run, the currently running thread
-will be preempted and
-returned to the wait list for its static priority level.
-The scheduling policy determines the
-ordering only within the list of runnable threads with equal static
-priority.
-.SS SCHED_FIFO: First in-first out scheduling
-\fBSCHED_FIFO\fP can be used only with static priorities higher than
-0, which means that when a \fBSCHED_FIFO\fP threads becomes runnable,
-it will always immediately preempt any currently running
-\fBSCHED_OTHER\fP, \fBSCHED_BATCH\fP, or \fBSCHED_IDLE\fP thread.
-\fBSCHED_FIFO\fP is a simple scheduling
-algorithm without time slicing.
-For threads scheduled under the
-\fBSCHED_FIFO\fP policy, the following rules apply:
-.IP * 3
-A \fBSCHED_FIFO\fP thread that has been preempted by another thread of
-higher priority will stay at the head of the list for its priority and
-will resume execution as soon as all threads of higher priority are
-blocked again.
-.IP *
-When a \fBSCHED_FIFO\fP thread becomes runnable, it
-will be inserted at the end of the list for its priority.
-.IP *
-A call to
-.BR sched_setscheduler ()
-or
-.BR sched_setparam (2)
-will put the
-\fBSCHED_FIFO\fP (or \fBSCHED_RR\fP) thread identified by
-\fIpid\fP at the start of the list if it was runnable.
-As a consequence, it may preempt the currently running thread if
-it has the same priority.
-(POSIX.1-2001 specifies that the thread should go to the end
-of the list.)
-.\" In 2.2.x and 2.4.x, the thread is placed at the front of the queue
-.\" In 2.0.x, the Right Thing happened: the thread went to the back -- MTK
-.IP *
-A thread calling
-.BR sched_yield (2)
-will be put at the end of the list.
-.PP
-No other events will move a thread
-scheduled under the \fBSCHED_FIFO\fP policy in the wait list of
-runnable threads with equal static priority.
-
-A \fBSCHED_FIFO\fP
-thread runs until either it is blocked by an I/O request, it is
-preempted by a higher priority thread, or it calls
-.BR sched_yield (2).
-.SS SCHED_RR: Round-robin scheduling
-\fBSCHED_RR\fP is a simple enhancement of \fBSCHED_FIFO\fP.
-Everything
-described above for \fBSCHED_FIFO\fP also applies to \fBSCHED_RR\fP,
-except that each thread is allowed to run only for a maximum time
-quantum.
-If a \fBSCHED_RR\fP thread has been running for a time
-period equal to or longer than the time quantum, it will be put at the
-end of the list for its priority.
-A \fBSCHED_RR\fP thread that has
-been preempted by a higher priority thread and subsequently resumes
-execution as a running thread will complete the unexpired portion of
-its round-robin time quantum.
-The length of the time quantum can be
-retrieved using
-.BR sched_rr_get_interval (2).
-.\" On Linux 2.4, the length of the RR interval is influenced
-.\" by the process nice value -- MTK
-.\"
-.SS SCHED_OTHER: Default Linux time-sharing scheduling
-\fBSCHED_OTHER\fP can be used at only static priority 0.
-\fBSCHED_OTHER\fP is the standard Linux time-sharing scheduler that is
-intended for all threads that do not require the special
-real-time mechanisms.
-The thread to run is chosen from the static
-priority 0 list based on a \fIdynamic\fP priority that is determined only
-inside this list.
-The dynamic priority is based on the nice value (set by
-.BR nice (2)
-or
-.BR setpriority (2))
-and increased for each time quantum the thread is ready to run,
-but denied to run by the scheduler.
-This ensures fair progress among all \fBSCHED_OTHER\fP threads.
-.\"
-.SS SCHED_BATCH: Scheduling batch processes
-(Since Linux 2.6.16.)
-\fBSCHED_BATCH\fP can be used only at static priority 0.
-This policy is similar to \fBSCHED_OTHER\fP in that it schedules
-the thread according to its dynamic priority
-(based on the nice value).
-The difference is that this policy
-will cause the scheduler to always assume
-that the thread is CPU-intensive.
-Consequently, the scheduler will apply a small scheduling
-penalty with respect to wakeup behaviour,
-so that this thread is mildly disfavored in scheduling decisions.
-
-.\" The following paragraph is drawn largely from the text that
-.\" accompanied Ingo Molnar's patch for the implementation of
-.\" SCHED_BATCH.
-.\" commit b0a9499c3dd50d333e2aedb7e894873c58da3785
-This policy is useful for workloads that are noninteractive,
-but do not want to lower their nice value,
-and for workloads that want a deterministic scheduling policy without
-interactivity causing extra preemptions (between the workload's tasks).
-.\"
-.SS SCHED_IDLE: Scheduling very low priority jobs
-(Since Linux 2.6.23.)
-\fBSCHED_IDLE\fP can be used only at static priority 0;
-the process nice value has no influence for this policy.
-
-This policy is intended for running jobs at extremely low
-priority (lower even than a +19 nice value with the
-.B SCHED_OTHER
-or
-.B SCHED_BATCH
-policies).
-.\"
-.SS Resetting scheduling policy for child processes
 Since Linux 2.6.32, the
 .B SCHED_RESET_ON_FORK
 flag can be ORed in
@@ -274,152 +123,15 @@ when calling
 As a result of including this flag, children created by
 .BR fork (2)
 do not inherit privileged scheduling policies.
-This feature is intended for media-playback applications,
-and can be used to prevent applications evading the
-.BR RLIMIT_RTTIME
-resource limit (see
-.BR getrlimit (2))
-by creating multiple child processes.
-
-More precisely, if the
-.BR SCHED_RESET_ON_FORK
-flag is specified,
-the following rules apply for subsequently created children:
-.IP * 3
-If the calling thread has a scheduling policy of
-.B SCHED_FIFO
-or
-.BR SCHED_RR ,
-the policy is reset to
-.BR SCHED_OTHER
-in child processes.
-.IP *
-If the calling process has a negative nice value,
-the nice value is reset to zero in child processes.
-.PP
-After the
-.BR SCHED_RESET_ON_FORK
-flag has been enabled,
-it can be reset only if the thread has the
-.BR CAP_SYS_NICE
-capability.
-This flag is disabled in child processes created by
-.BR fork (2).
-
-The
-.B SCHED_RESET_ON_FORK
-flag is visible in the policy value returned by
-.BR sched_getscheduler ()
-.\"
-.SS Privileges and resource limits
-In Linux kernels before 2.6.12, only privileged
-.RB ( CAP_SYS_NICE )
-threads can set a nonzero static priority (i.e., set a real-time
-scheduling policy).
-The only change that an unprivileged thread can make is to set the
-.B SCHED_OTHER
-policy, and this can be done only if the effective user ID of the caller of
-.BR sched_setscheduler ()
-matches the real or effective user ID of the target thread
-(i.e., the thread specified by
-.IR pid )
-whose policy is being changed.
-
-Since Linux 2.6.12, the
-.B RLIMIT_RTPRIO
-resource limit defines a ceiling on an unprivileged thread's
-static priority for the
-.B SCHED_RR
-and
-.B SCHED_FIFO
-policies.
-The rules for changing scheduling policy and priority are as follows:
-.IP * 3
-If an unprivileged thread has a nonzero
-.B RLIMIT_RTPRIO
-soft limit, then it can change its scheduling policy and priority,
-subject to the restriction that the priority cannot be set to a
-value higher than the maximum of its current priority and its
-.B RLIMIT_RTPRIO
-soft limit.
-.IP *
-If the
-.B RLIMIT_RTPRIO
-soft limit is 0, then the only permitted changes are to lower the priority,
-or to switch to a non-real-time policy.
-.IP *
-Subject to the same rules,
-another unprivileged thread can also make these changes,
-as long as the effective user ID of the thread making the change
-matches the real or effective user ID of the target thread.
-.IP *
-Special rules apply for the
-.BR SCHED_IDLE .
-In Linux kernels before 2.6.39,
-an unprivileged thread operating under this policy cannot
-change its policy, regardless of the value of its
-.BR RLIMIT_RTPRIO
-resource limit.
-In Linux kernels since 2.6.39,
-.\" commit c02aa73b1d18e43cfd79c2f193b225e84ca497c8
-an unprivileged thread can switch to either the
-.BR SCHED_BATCH
-or the
-.BR SCHED_NORMAL
-policy so long as its nice value falls within the range permitted by its
-.BR RLIMIT_NICE
-resource limit (see
-.BR getrlimit (2)).
-.PP
-Privileged
-.RB ( CAP_SYS_NICE )
-threads ignore the
-.B RLIMIT_RTPRIO
-limit; as with older kernels,
-they can make arbitrary changes to scheduling policy and priority.
 See
-.BR getrlimit (2)
-for further information on
-.BR RLIMIT_RTPRIO .
-.SS Response time
-A blocked high priority thread waiting for the I/O has a certain
-response time before it is scheduled again.
-The device driver writer
-can greatly reduce this response time by using a "slow interrupt"
-interrupt handler.
-.\" as described in
-.\" .BR request_irq (9).
-.SS Miscellaneous
-Child processes inherit the scheduling policy and parameters across a
-.BR fork (2).
-The scheduling policy and parameters are preserved across
-.BR execve (2).
+.BR sched (7)
+for details.
 
-Memory locking is usually needed for real-time processes to avoid
-paging delays; this can be done with
-.BR mlock (2)
-or
-.BR mlockall (2).
-
-Since a nonblocking infinite loop in a thread scheduled under
-\fBSCHED_FIFO\fP or \fBSCHED_RR\fP will block all threads with lower
-priority forever, a software developer should always keep available on
-the console a shell scheduled under a higher static priority than the
-tested application.
-This will allow an emergency kill of tested
-real-time applications that do not block or terminate as expected.
-See also the description of the
-.BR RLIMIT_RTTIME
-resource limit in
-.BR getrlimit (2).
-
-POSIX systems on which
-.BR sched_setscheduler ()
-and
 .BR sched_getscheduler ()
-are available define
-.B _POSIX_PRIORITY_SCHEDULING
-in \fI<unistd.h>\fP.
+returns the current scheduling policy of the thread
+identified by \fIpid\fP.
+If \fIpid\fP equals zero, the policy of the
+calling thread will be retrieved.
 .SH RETURN VALUE
 On success,
 .BR sched_setscheduler ()
@@ -427,7 +139,7 @@ returns zero.
 On success,
 .BR sched_getscheduler ()
 returns the policy for the thread (a nonnegative integer).
-On error, \-1 is returned, and
+On error, both calls return \-1, and
 .I errno
 is set appropriately.
 .SH ERRORS
@@ -446,6 +158,18 @@ The thread whose ID is \fIpid\fP could not be found.
 POSIX.1-2001 (but see BUGS below).
 The \fBSCHED_BATCH\fP and \fBSCHED_IDLE\fP policies are Linux-specific.
 .SH NOTES
+Further details of the semantics of all of the above "normal"
+and "real-time" scheduling  policies can be found in
+.BR sched (7).
+
+POSIX systems on which
+.BR sched_setscheduler ()
+and
+.BR sched_getscheduler ()
+are available define
+.B _POSIX_PRIORITY_SCHEDULING
+in \fI<unistd.h>\fP.
+
 POSIX.1 does not detail the permissions that an unprivileged
 thread requires in order to call
 .BR sched_setscheduler (),
@@ -474,60 +198,6 @@ and
 instead of the
 .BR sched_* (2)
 system calls.)
-.PP
-Originally, Standard Linux was intended as a general-purpose operating
-system being able to handle background processes, interactive
-applications, and less demanding real-time applications (applications that
-need to usually meet timing deadlines).
-Although the Linux kernel 2.6
-allowed for kernel preemption and the newly introduced O(1) scheduler
-ensures that the time needed to schedule is fixed and deterministic
-irrespective of the number of active tasks, true real-time computing
-was not possible up to kernel version 2.6.17.
-.SS Real-time features in the mainline Linux kernel
-.\" FIXME . Probably this text will need some minor tweaking
-.\" by about the time of 2.6.30; ask Carsten Emde about this then.
-From kernel version 2.6.18 onward, however, Linux is gradually
-becoming equipped with real-time capabilities,
-most of which are derived from the former
-.I realtime-preempt
-patches developed by Ingo Molnar, Thomas Gleixner,
-Steven Rostedt, and others.
-Until the patches have been completely merged into the
-mainline kernel
-(this is expected to be around kernel version 2.6.30),
-they must be installed to achieve the best real-time performance.
-These patches are named:
-.in +4n
-.nf
-
-patch-\fIkernelversion\fP-rt\fIpatchversion\fP
-.fi
-.in
-.PP
-and can be downloaded from
-.UR http://www.kernel.org\:/pub\:/linux\:/kernel\:/projects\:/rt/
-.UE .
-
-Without the patches and prior to their full inclusion into the mainline
-kernel, the kernel configuration offers only the three preemption classes
-.BR CONFIG_PREEMPT_NONE ,
-.BR CONFIG_PREEMPT_VOLUNTARY ,
-and
-.B CONFIG_PREEMPT_DESKTOP
-which respectively provide no, some, and considerable
-reduction of the worst-case scheduling latency.
-
-With the patches applied or after their full inclusion into the mainline
-kernel, the additional configuration item
-.B CONFIG_PREEMPT_RT
-becomes available.
-If this is selected, Linux is transformed into a regular
-real-time operating system.
-The FIFO and RR scheduling policies that can be selected using
-.BR sched_setscheduler ()
-are then used to run a thread
-with true real-time priority and a minimum worst-case scheduling latency.
 .SH BUGS
 POSIX says that on success,
 .BR sched_setscheduler ()
@@ -539,28 +209,19 @@ since it always returns 0 on success.
 .SH SEE ALSO
 .ad l
 .nh
-.BR chrt (1),
-.BR getpriority (2),
-.BR mlock (2),
-.BR mlockall (2),
-.BR munlock (2),
-.BR munlockall (2),
 .BR nice (2),
 .BR sched_get_priority_max (2),
 .BR sched_get_priority_min (2),
 .BR sched_getaffinity (2),
+.BR sched_getattr (2),
 .BR sched_getparam (2),
 .BR sched_rr_get_interval (2),
 .BR sched_setaffinity (2),
+.BR sched_setattr (2),
 .BR sched_setparam (2),
 .BR sched_yield (2),
 .BR setpriority (2),
 .BR capabilities (7),
-.BR cpuset (7)
+.BR cpuset (7),
+.BR sched (7)
 .ad
-.PP
-.I Programming for the real world \- POSIX.4
-by Bill O. Gallmeister, O'Reilly & Associates, Inc., ISBN 1-56592-074-0.
-.PP
-The Linux kernel source file
-.I Documentation/scheduler/sched-rt-group.txt

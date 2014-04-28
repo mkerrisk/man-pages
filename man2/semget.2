@@ -33,7 +33,7 @@
 .\"	Rewrote BUGS note about semget()'s failure to initialize
 .\"		semaphore values
 .\"
-.TH SEMGET 2 2012-05-31 "Linux" "Linux Programmer's Manual"
+.TH SEMGET 2 2014-04-28 "Linux" "Linux Programmer's Manual"
 .SH NAME
 semget \- get a System V semaphore set identifier
 .SH SYNOPSIS
@@ -96,16 +96,6 @@ argument of
 (though the execute permissions are
 not meaningful for semaphores, and write permissions mean permission
 to alter semaphore values).
-.PP
-The values of the semaphores in a newly created set are indeterminate.
-(POSIX.1-2001 is explicit on this point.)
-Although Linux, like many other implementations,
-initializes the semaphore values to 0,
-a portable application cannot rely on this:
-it should explicitly initialize the semaphores to the desired values.
-.\" In truth, every one of the many implementations that I've tested sets
-.\" the values to zero, but I suppose there is/was some obscure
-.\" implementation out there that does not.
 .PP
 When creating a new semaphore set,
 .BR semget ()
@@ -223,6 +213,32 @@ SVr4, POSIX.1-2001.
 .\" SVr4 documents additional error conditions EFBIG, E2BIG, EAGAIN,
 .\" ERANGE, EFAULT.
 .SH NOTES
+.PP
+The values of the semaphores in a newly created set are indeterminate.
+(POSIX.1-2001 and POSIX.1-2008 are explicit on this point,
+although POSIX.1-2008 notes that a future version of the standard
+may require an implementation to initialize the semaphores to 0.)
+Although Linux, like many other implementations,
+initializes the semaphore values to 0,
+a portable application cannot rely on this:
+it should explicitly initialize the semaphores to the desired values.
+.\" In truth, every one of the many implementations that I've tested sets
+.\" the values to zero, but I suppose there is/was some obscure
+.\" implementation out there that does not.
+Initialization can be done using
+.BR semctl (2)
+.B SETVAL
+or
+.B SETALL
+operation.
+(Where multiple peers do not know who will be the first to
+initialize the set, checking for a nonzero
+.I sem_otime
+in the associated data structure retrieved by a
+.BR semctl (2)
+.B IPC_STAT
+operation can be used to avoid races.)
+
 The inclusion of
 .I <sys/types.h>
 and
@@ -275,25 +291,6 @@ The name choice
 was perhaps unfortunate,
 .B IPC_NEW
 would more clearly show its function.
-.LP
-The semaphores in a set are not initialized by
-.BR semget ().
-.\" In fact they are initialized to zero on Linux, but POSIX.1-2001
-.\" does not specify this, and we can't portably rely on it.
-In order to initialize the semaphores,
-.BR semctl (2)
-must be used to perform a
-.B SETVAL
-or a
-.B SETALL
-operation on the semaphore set.
-(Where multiple peers do not know who will be the first to
-initialize the set, checking for a nonzero
-.I sem_otime
-in the associated data structure retrieved by a
-.BR semctl (2)
-.B IPC_STAT
-operation can be used to avoid races.)
 .SH SEE ALSO
 .BR semctl (2),
 .BR semop (2),

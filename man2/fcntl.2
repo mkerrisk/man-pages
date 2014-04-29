@@ -1252,6 +1252,11 @@ However, these details can be ignored by applications using glibc, whose
 wrapper function transparently employs the more recent system call
 where it is available.
 
+The errors returned by
+.BR dup2 (2)
+are different from those returned by
+.BR F_DUPFD .
+.SS Record locks
 Since kernel 2.0, there is no interaction between the types of lock
 placed by
 .BR flock (2)
@@ -1269,6 +1274,26 @@ Clearly,
 .I l_pid
 alone is not going to be very useful if the process holding the lock
 may live on a different machine.
+
+Before Linux 3.12, if an NFS client
+is out of contact with the server for a period of time,
+it might lose and regain a lock without ever being aware of the fact.
+This scenario potentially risks data corruption,
+since another process might acquire a lock in the intervening period
+and perform file I/O.
+Since Linux 3.12,
+.\" commit ef1820f9be27b6ad158f433ab38002ab8131db4d
+if the client loses contact with the server,
+any I/O to the file by a process which "thinks" it holds
+a lock will fail until that process closes and reopens the file.
+A kernel parameter,
+.IR nfs.recover_lost_locks ,
+can be set to 1 to obtain the pre-3.12 behavior,
+whereby the client will attempt to recover lost locks
+when contact is reestablished with the server.
+Because of the attendant risk of data corruption,
+.\" commit f6de7a39c181dfb8a2c534661a53c73afb3081cd
+this parameter defaults to 0 (disabled).
 .SH BUGS
 .SS F_SETFL
 It is not possible to use

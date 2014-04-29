@@ -9,7 +9,7 @@
 .\"
 .\" $Id: packet.7,v 1.13 2000/08/14 08:03:45 ak Exp $
 .\"
-.TH PACKET  7 2014-04-24 "Linux" "Linux Programmer's Manual"
+.TH PACKET  7 2014-04-28 "Linux" "Linux Programmer's Manual"
 .SH NAME
 packet \- packet interface on device level
 .SH SYNOPSIS
@@ -319,14 +319,25 @@ original fanout algorithm selects a backlogged socket, the packet
 rolls over to the next available one.
 .TP
 .BR PACKET_LOSS " (with " PACKET_TX_RING )
-When a malformed packet is encountered on a transmit ring, the default is to
-set its status to
+When a malformed packet is encountered on a transmit ring, the default is
+to reset its
+.I tp_status
+to
 .BR TP_STATUS_WRONG_FORMAT
-and abort the transmission immediately (it and following packets are left
-lingering on the ring).
+and abort the transmission immediately.
+The malformed packet blocks itself and subsequent enqueued packets from
+being sent.
+The format error must be fixed, the associated
+.I tp_status
+reset to
+.BR TP_STATUS_SEND_REQUEST
+and the transmission process restarted via
+.BR send (2) .
 However, if
 .BR PACKET_LOSS
-is set, any malformed packet will be skipped, its status reset to
+is set, any malformed packet will be skipped, its
+.I tp_status
+reset to
 .BR TP_STATUS_AVAILABLE ,
 and the transmission process continued.
 .TP
@@ -360,15 +371,21 @@ Packet socket and application communicate the head and tail of the ring
 through the
 .I tp_status
 field.
-The packet socket owns all slots with status
+The packet socket owns all slots with
+.I tp_status
+equal to
 .BR TP_STATUS_KERNEL .
 After filling a slot, it changes the status of the slot to transfer
 ownership to the application.
-During normal operation, the new status has the
+During normal operation, the new
+.I tp_status
+value has at least the
 .BR TP_STATUS_USER
 bit set to signal that a received packet has been stored.
 When the application has finished processing a packet, it transfers
-ownership of the slot back to the socket by setting the status to
+ownership of the slot back to the socket by setting
+.I tp_status
+equal to
 .BR TP_STATUS_KERNEL .
 Packet sockets implement multiple variants of the packet ring.
 The implementation details are described in
@@ -407,9 +424,13 @@ Create a memory-mapped ring buffer for packet transmission.
 This option is similar to
 .BR PACKET_RX_RING
 and takes the same arguments.
-The application writes packets into slots with status
+The application writes packets into slots with
+.I tp_status
+equal to
 .BR TP_STATUS_AVAILABLE
-and schedules them for transmission by changing the status to
+and schedules them for transmission by changing
+.I tp_status
+to
 .BR TP_STATUS_SEND_REQUEST .
 When packets are ready to be transmitted, the application calls
 .BR send (2)
@@ -424,7 +445,9 @@ If an address is passed using
 or
 .BR sendmsg (2),
 then that overrides the socket default.
-On successful transmission, the socket resets the slot to
+On successful transmission, the socket resets
+.I tp_status
+to
 .BR TP_STATUS_AVAILABLE .
 It immediately aborts the transmission on error unless
 .BR PACKET_LOSS
@@ -633,6 +656,11 @@ The
 .I <linux/if_ether.h>
 include file for physical layer protocols.
 
-The example source file
+The Linux kernel source tree.
+.IR /Documentation/networking/filter.txt
+describes how to apply Berkeley Packet Filters to packet sockets.
 .IR /tools/testing/selftests/net/psock_tpacket.c
-in the Linux kernel source tree.
+contains example source code for all available versions of
+.BR PACKET_RX_RING
+and
+.BR PACKET_TX_RING .

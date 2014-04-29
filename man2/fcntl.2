@@ -1278,16 +1278,27 @@ may live on a different machine.
 Before Linux 3.12, if an NFSv4 client
 loses contact with the server for a period of time
 (defined as more than 90 seconds with no communication),
-.\" FIXME: The 90 seconds is either /proc/fs/nfsd/nfsv4leasetime or
-.\" /proc/fs/nfsd/nfsv4gracetime. Which is it? My suspicion, looking at
-.\" fs/lockd/svcproc.c and fs/lockd/grace.c::locks_in_grace() is that
-.\" it is /proc/fs/nfsd/nfsv4gracetime that is relevant here.
 .\"
 .\" Neil Brown: With NFSv3 the failure mode is the reverse.  If
 .\"     the server loses contact with a client then any lock stays in place
 .\"     indefinitely ("why can't I read my mail"... I remember it well).
 .\"
 it might lose and regain a lock without ever being aware of the fact.
+(The period of time after which contact is assumed lost is known as
+the NFSv4 leasetime.
+On a Linux NFS server, this can be determined by looking at
+.IR /proc/fs/nfsd/nfsv4leasetime ,
+which expresses the period in seconds.
+The default value for this file is 90.)
+.\"
+.\" Jeff Layton: 
+.\"     Note that this is not a firm timeout. The server runs a job
+.\"     periodically to clean out expired stateful objects, and it's likely
+.\"     that there is some time (maybe even up to another whole lease period)
+.\"     between when the timeout expires and the job actually runs. If the
+.\"     client gets a RENEW in there within that window, its lease will be
+.\"     renewed and its state preserved.
+.\"
 This scenario potentially risks data corruption,
 since another process might acquire a lock in the intervening period
 and perform file I/O.

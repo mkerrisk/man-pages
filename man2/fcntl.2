@@ -1,8 +1,9 @@
 '\" t
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
-.\"                 and Copyright (C) 1993 Michael Haardt, Ian Jackson;
-.\"                 and Copyright (C) 1998 Jamie Lokier;
-.\"                 and Copyright (C) 2002-2010 Michael Kerrisk.
+.\" and Copyright (C) 1993 Michael Haardt, Ian Jackson;
+.\" and Copyright (C) 1998 Jamie Lokier;
+.\" and Copyright (C) 2002-2010, 2014 Michael Kerrisk;
+.\" and Copyright (C) 2014 Jeff Layton
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -233,8 +234,7 @@ struct flock {
     off_t l_start;   /* Starting offset for lock */
     off_t l_len;     /* Number of bytes to lock */
     pid_t l_pid;     /* PID of process blocking our lock
-                        (returned for F_GETLK and F_OFD_GETLK only. Set
-                         to 0 for open file description locks) */
+                        (set by F_GETLK and F_OFD_GETLK) */
     ...
 };
 .fi
@@ -363,22 +363,22 @@ in the
 field of
 .I lock
 and leaves the other fields of the structure unchanged.
+
 If one or more incompatible locks would prevent
 this lock being placed, then
 .BR fcntl ()
-returns details about one of these locks in the
+returns details about one of those locks in the
 .IR l_type ", " l_whence ", " l_start ", and " l_len
 fields of
-.I lock
-.
-If the conflicting lock is a traditional POSIX lock, then the
+.IR lock .
+If the conflicting lock is a traditional (process-associated) record lock,
+then the
 .I l_pid
-to be the PID of the process holding that lock. If the
-conflicting lock is an open file description lock, then the
+field is set to the PID of the process holding that lock.
+If the conflicting lock is an open file description lock, then
 .I l_pid
-will be set to \-1.
-Note that the information returned by
-.BR F_GETLK
+is set to \-1.
+Note that the returned information
 may already be out of date by the time the caller inspects it.
 .P
 In order to place a read lock,
@@ -421,35 +421,46 @@ and
 instead.
 .SS Open file description locks (non-POSIX)
 .BR F_OFD_GETLK ", " F_OFD_SETLK " and  " F_OFD_SETLKW
-are used to acquire, release and test open file description record locks.
-These are byte-range locks that work identically to the traditional advisory
-record locks described above, but are associated with the open file description
-on which they were acquired rather than the process, much like locks acquired
-with
-.BR flock (2)
-.
-.PP
-Unlike traditional advisory record locks, these locks are inherited
-across
+are used to acquire, release, and test open file description record locks.
+These are advisory byte-range locks whose operation is in most respects
+identical to the traditional record locks described above.
+
+The principal difference between the two lock types
+is that whereas traditional record locks
+are associated with a process,
+open file description locks are associated with the
+open file description on which they are acquired,
+much like locks acquired with
+.BR flock (2).
+Consequently (and unlike traditional advisory record locks),
+open file description locks are inherited across
 .BR fork (2)
-and
+(and
 .BR clone (2)
 with
-.BR CLONE_FILES
-and are only released on the last close of the open file description instead
-of being released on any close of the file.
+.BR CLONE_FILES ),
+and are only automatically released on the last close
+of the open file description,
+instead of being released on any close of the file.
 .PP
 Open file description locks always conflict with traditional record locks,
 even when they are acquired by the same process on the same file descriptor.
 They only conflict with each other when they are acquired on different
 open file descriptions.
 .PP
-Note that in contrast to traditional record locks, the
-.I flock
-structure passed in as an argument to the open file description lock commands
-must have the
+As with traditional advisory locks, the third argument to
+.BR fcntl (),
+.IR lock ,
+is a pointer to an
+.IR flock
+structure.
+By contrast with traditional record locks, the
 .I l_pid
-value set to 0.
+field of that structure must be set to zero
+when using the commands described below.
+
+The commands for working with open file description locks are analogous
+to those used with traditional locks:
 .TP
 .BR F_OFD_SETLK " (\fIstruct flock *\fP)"
 Acquire an open file description lock (when
@@ -470,6 +481,7 @@ If a conflicting lock is held by another process,
 this call returns \-1 and sets
 .I errno
 to
+.\" FIXME: EACCESS should probably not be here
 .B EACCES
 or
 .BR EAGAIN .
@@ -478,9 +490,10 @@ or
 As for
 .BR F_OFD_SETLK ,
 but if a conflicting lock is held on the file, then wait for that lock to be
-released. If a signal is caught while waiting, then the call is interrupted
-and (after the signal handler has returned) returns immediately (with return
-value \-1 and
+released.
+If a signal is caught while waiting, then the call is interrupted
+and (after the signal handler has returned) returns immediately
+(with return value \-1 and
 .I errno
 set to
 .BR EINTR ;
@@ -500,23 +513,11 @@ in the
 field of
 .I lock
 and leaves the other fields of the structure unchanged.
-If one or more incompatible locks would prevent
-this lock being placed, then
-.BR fcntl ()
-returns details about one of these locks in the
-.IR l_type ", " l_whence ", " l_start ", and " l_len
-fields of
-.I lock
-.
-If the conflicting lock is a process-associated record lock, then the
-.I l_pid
-will be set to the PID of the process holding that lock. If the
-conflicting lock is an open file description lock, then the
-.I l_pid
-will be set to -1 to indicate that it is not associated with a process.
-Note that the information returned by
-.BR F_OFD_GETLK
-may already be out of date by the time the caller inspects it.
+If one or more incompatible locks would prevent this lock being placed,
+then details about one of these locks are returned via
+.IR lock ,
+as described above for
+.BR F_GETLK .
 .SS Mandatory locking
 (Non-POSIX.)
 The above record locks may be either advisory or mandatory,

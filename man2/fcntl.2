@@ -430,7 +430,7 @@ and close the same file.
 The threads in a process share locks.
 In other words,
 a multithreaded program can't use record locking to ensure
-that threads don't simulataneously access the same region of a file.
+that threads don't simultaneously access the same region of a file.
 .PP
 Open file description locks solve both of these problems.
 .SS Open file description locks (non-POSIX)
@@ -459,8 +459,27 @@ instead of being released on any close of the file.
 .PP
 Open file description locks always conflict with traditional record locks,
 even when they are acquired by the same process on the same file descriptor.
-They only conflict with each other when they are acquired on different
-open file descriptions.
+
+Open file description locks placed via the same open file description
+(i.e., via the same file descriptor,
+or via a duplicate of the file descriptor created by
+.BR fork (2),
+.BR dup (2),
+.BR fcntl (2)
+.BR F_DUPFD ,
+and so on) are always compatible:
+if a new lock is placed on an already locked region,
+then the existing lock is converted to the new lock type.
+(Such conversions may result in splitting, shrinking, or coalescing with
+an existing lock as discussed above.)
+
+On the other hand, open file description locks may conflict with
+each other when they are acquired via different open file descriptions.
+Thus, the threads in a multithreaded program can use
+open file description locks to synchronize access to a file region
+by having each thread perform its own
+.BR open (2)
+on the file and applying locks via the resulting file descriptor.
 .PP
 As with traditional advisory locks, the third argument to
 .BR fcntl (),

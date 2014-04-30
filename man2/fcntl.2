@@ -391,20 +391,7 @@ To place both types of lock, open a file read-write.
 .P
 As well as being removed by an explicit
 .BR F_UNLCK ,
-record locks are automatically released when the process
-terminates or if it closes
-.I any
-file descriptor referring to a file on which locks are held.
-.\" (Additional file descriptors referring to the same file
-.\" may have been obtained by calls to
-.\" .BR open "(2), " dup "(2), " dup2 "(2), or " fcntl ().)
-This is bad: it means that a process can lose the locks on
-a file like
-.I /etc/passwd
-or
-.I /etc/mtab
-when for some reason a library function decides to open, read
-and close it.
+record locks are automatically released when the process terminates.
 .P
 Record locks are not inherited by a child created via
 .BR fork (2),
@@ -419,6 +406,33 @@ should be avoided; use
 and
 .BR write (2)
 instead.
+
+The record locks described above are associated with the process
+(unlike the open file description locks described below).
+This has some unfortunate consequences:
+.IP * 3
+If a process holding a lock on a file closes
+.I any
+file descriptor referring to the file,
+then all of the process's locks on the file are released,
+no matter which file descriptor they were obtained via.
+.\" (Additional file descriptors referring to the same file
+.\" may have been obtained by calls to
+.\" .BR open "(2), " dup "(2), " dup2 "(2), or " fcntl ().)
+This is bad: it means that a process can lose its locks on
+a file such as
+.I /etc/passwd
+or
+.I /etc/mtab
+when for some reason a library function decides to open, read,
+and close the same file.
+.IP *
+The threads in a process share locks.
+In other words,
+a multithreaded program can't use record locking to ensure
+that threads don't simulataneously access the same region of a file.
+.PP
+Open file description locks solve both of these problems.
 .SS Open file description locks (non-POSIX)
 Open file description locks are advisory byte-range locks whose operation is
 in most respects identical to the traditional record locks described above.

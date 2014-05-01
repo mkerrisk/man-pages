@@ -1,4 +1,5 @@
 .\" Copyright (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
+.\" and Copyright (c) 2014 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -27,7 +28,7 @@
 .\" Modified 14 May 2001, 23 Sep 2001 by aeb
 .\" 2004-12-20, mtk
 .\"
-.TH SYSTEM 3  2010-09-10 "" "Linux Programmer's Manual"
+.TH SYSTEM 3  2014-05-01 "" "Linux Programmer's Manual"
 .SH NAME
 system \- execute a shell command
 .SH SYNOPSIS
@@ -37,48 +38,95 @@ system \- execute a shell command
 .BI "int system(const char *" "command" );
 .fi
 .SH DESCRIPTION
+The
 .BR system ()
-executes a command specified in
+library function uses
+.BR fork (2)
+to create a child process that executes the shell command specified in
 .I command
-by calling
-.BR "/bin/sh \-c"
-.IR command ,
-and returns after the command has been completed.
+using
+.BR execl (3)
+as follows:
+
+    execl("/bin/sh", "sh". "-c", command, (char *) 0);
+
+.BR system ()
+returns after the command has been completed.
+
 During execution of the command,
 .B SIGCHLD
 will be blocked, and
 .B SIGINT
 and
 .B SIGQUIT
-will be ignored.
-.SH RETURN VALUE
-The value returned is \-1 on error (e.g.,
-.BR fork (2)
-failed),
-and the return status of the command otherwise.
-This latter return status is in the format
-specified in
-.BR wait (2).
-Thus, the exit code of the command will be
-.IR WEXITSTATUS(status) .
-In case
-.I "/bin/sh"
-could not be executed, the exit status will be that of
-a command that does
-.IR exit(127) .
-.PP
-If the value of
-.I command
-is NULL,
+will be ignored, in the process that calls
 .BR system ()
-returns nonzero if the shell is available, and zero if not.
+(these signals will be handled according to their defaults inside
+the child process that executes
+.IR command ).
+
+If
+.I command
+is NULL, then
+.BR system ()
+returns a status indicating whether a shell is available on the system
+.SH RETURN VALUE
+The return value of
+.BR system ()
+is one of the following:
+.IP * 3
+If
+.I command
+is NULL, then a nonzero value if a shell is available,
+or 0 if no shell is available.
+.IP *
+If a child process could not be created,
+or its status could not be retrieved,
+the return value is \-1.
+.IP *
+If a shell could not be executed in the child process,
+then the return value is as though the child shell terminated by calling
+.BR _exit (2)
+with the status 127.
+.IP *
+If all system calls succeed,
+then the return value is the termination status of the child shell
+used to execute
+.IR command .
+(The termination status of a shell is the termination status of
+the last command it executes.)
+.PP
+In the last two cases,
+the return value is a "wait status" that can be examined using
+the macros described in
+.BR waitpid (2).
+(i.e.,
+.BR WIFEXITED ()
+.BR WEXITSTATUS ()
+and so on).
 .PP
 .BR system ()
 does not affect the wait status of any other children.
 .SH CONFORMING TO
 C89, C99, POSIX.1-2001.
 .SH NOTES
-.PP
+.BR system ()
+provides simplicity and convenience:
+it handles all of the details of calling
+.BR fork (2),
+.BR execl (3),
+and
+.BR waitpid (2),
+as well as the necessary manipulations of signals;
+in addition,
+the shell performs the usual substitutions and I/O redirections for
+.IR command .
+The main cost of
+.BR system ()
+is inefficiency:
+additional system calls are required to create the process that
+runs the shell and to execute the shell.
+
 If the
 .B _XOPEN_SOURCE
 feature test macro is defined
@@ -86,7 +134,7 @@ feature test macro is defined
 .I any
 header files),
 then the macros described in
-.BR wait (2)
+.BR waitpid (2)
 .RB ( WEXITSTATUS (),
 etc.) are made available when including
 .IR <stdlib.h> .
@@ -100,7 +148,7 @@ and
 This may make programs that call it
 from a loop uninterruptible, unless they take care themselves
 to check the exit status of the child.
-E.g.
+For example:
 .br
 .nf
 
@@ -146,12 +194,16 @@ the calling program has previously called
 .BR chroot (2)
 (which is not specified by POSIX.1-2001).
 .PP
-It is possible for the shell command to return 127, so that code is not
-a sure indication that the
-.BR execve (2)
-call failed.
+It is possible for the shell command to terminate with a status of 127,
+which yields a
+.BR system ()
+return value that is indistinguishable from the case
+where a shell could not be executed in the child process.
 .SH SEE ALSO
 .BR sh (1),
-.BR signal (2),
+.BR sigaction (2),
+.BR sigprocmask (2),
+.BR fork (2),
 .BR wait (2),
-.BR exec (3)
+.BR exec (3),
+.BR signal (7)

@@ -3698,6 +3698,98 @@ for easy understanding.
 .BR svipc (7)
 provides further background on the information shown by these files.
 .TP
+.IR /proc/timer_stats " (since Linux 2.6.21)"
+.\" commit 82f67cd9fca8c8762c15ba7ed0d5747588c1e221
+.\"	Date:   Fri Feb 16 01:28:13 2007 -0800
+.\" Text largely derived from Documentation/timers/timer_stats.txt
+This is a debugging facility to make timer (ab)use in a Linux
+system visible to kernel and user-space developers.
+It can be used by kernel and user-space developers to verify that
+their code does not make undue use of timers.
+The goal is to avoid unnecessary wakeups,
+thereby optimizing power consumption.
+
+If enabled in the kernel
+.RB ( CONFIG_TIMER_STATS ),
+but not used,
+it has almost zero runtime overhead and a relatively small
+data-structure overhead.
+Even if collection is enabled at runtime, overhead is low:
+all the locking is per-CPU and lookup is hashed.
+
+The
+.I /proc/timer_stats
+file is used both to control sampling facility and to read out the
+sampled information.
+
+timer_stats collects information about the timer events which are fired in a
+Linux system over a sample period:
+
+- the pid of the task(process) which initialized the timer
+- the name of the process which initialized the timer
+- the function where the timer was initialized
+- the callback function which is associated to the timer
+- the number of events (callbacks)
+
+The timer_stats functionality is inactive on bootup.
+A sampling period can be started using the following command:
+
+    # echo 1 > /proc/timer_stats
+
+The following command stops a sampling period:
+
+    # echo 0 > /proc/timer_stats
+
+The statistics can be retrieved by:
+
+    $ cat /proc/timer_stats
+
+While sampling is enabled, each readout from /proc/timer_stats will see
+newly updated statistics.
+Once sampling is disabled, the sampled information
+is kept until a new sample period is started.
+This allows multiple readouts.
+
+Sample output from
+.IR /proc/timer_stats :
+
+.nf
+.RS -4
+.RB $ " cat /proc/timer_stats"
+Timer Stats Version: v0.3
+Sample period: 1.764 s
+Collection: active
+  255,     0 swapper/3        hrtimer_start_range_ns (tick_sched_timer)
+   71,     0 swapper/1        hrtimer_start_range_ns (tick_sched_timer)
+   58,     0 swapper/0        hrtimer_start_range_ns (tick_sched_timer)
+    4,  1694 gnome-shell      mod_delayed_work_on (delayed_work_timer_fn)
+   17,     7 rcu_sched        rcu_gp_kthread (process_timeout)
+\&...
+    1,  4911 kworker/u16:0    mod_delayed_work_on (delayed_work_timer_fn)
+   1D,  2522 kworker/0:0      queue_delayed_work_on (delayed_work_timer_fn)
+1029 total events, 583.333 events/sec
+
+.fi
+.RE
+.IP
+The output columns are:
+.RS
+.IP * 3
+a count of the number of events,
+optionally (since Linux 2.6.23) followed by the letter \(aqD\(aq
+.\" commit c5c061b8f9726bc2c25e19dec227933a13d1e6b7 deferrable timers
+if this is a deferrable timer;
+.IP *
+the PID of the process that initialized the timer;
+.IP *
+the name of the process that initialized the timer;
+.IP *
+the function where the timer was initialized; and
+.IP *
+(in parentheses)
+the callback function that is associated with the timer.
+.RE
+.TP
 .I /proc/tty
 Subdirectory containing the pseudo-files and subdirectories for
 tty drivers and line disciplines.

@@ -32,7 +32,7 @@
 .\" Modified Sat Jul 12 20:45:39 1997 by Michael Haardt
 .\"   <michael@cantor.informatik.rwth-aachen.de>
 .\"
-.TH READ 2 2013-02-12 "Linux" "Linux Programmer's Manual"
+.TH READ 2 2014-05-04 "Linux" "Linux Programmer's Manual"
 .SH NAME
 read \- read from a file descriptor
 .SH SYNOPSIS
@@ -184,6 +184,45 @@ server side reads.
 UNIX semantics can be obtained by disabling client
 side attribute caching, but in most situations this will substantially
 increase server load and decrease performance.
+.SH BUGS
+According to POSIX.1-2008/SUSv4 Section XSI 2.9.7
+("Thread Interactions with Regular File Operations"):
+
+.RS 4
+All of the following functions shall be atomic with respect to
+each other in the effects specified in POSIX.1-2008 when they
+operate on regular files or symbolic links: ...
+.RE
+
+Among the APIs subsequently listed are
+.BR read ()
+and
+.BR readv (2).
+And among the effects that should be atomic across threads (and processes)
+are updates of the file offset.
+However, on Linux before version 3.14,
+this was not the case: if two processes that share
+an open file description (see
+.BR open (2))
+perform a
+.BR read ()
+(or
+.BR readv (2))
+at the same time, then the I/O operations were not atomic
+with respect updating the file offset,
+with the result that the reads in the two processes
+might (incorrectly) overlap in the blocks of data that they obtained.
+This problem was fixed in Linux 3.14.
+.\" http://thread.gmane.org/gmane.linux.kernel/1649458
+.\"    From: Michael Kerrisk (man-pages <mtk.manpages <at> gmail.com>
+.\"    Subject: Update of file offset on write() etc. is non-atomic with I/O
+.\"    Date: 2014-02-17 15:41:37 GMT
+.\"    Newsgroups: gmane.linux.kernel, gmane.linux.file-systems
+.\" commit 9c225f2655e36a470c4f58dbbc99244c5fc7f2d4
+.\"    Author: Linus Torvalds <torvalds@linux-foundation.org>
+.\"    Date:   Mon Mar 3 09:36:58 2014 -0800
+.\"    
+.\"        vfs: atomic f_pos accesses as per POSIX
 .SH SEE ALSO
 .BR close (2),
 .BR fcntl (2),

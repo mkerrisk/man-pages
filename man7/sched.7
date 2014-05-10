@@ -70,12 +70,12 @@ Set the CPU affinity of a specified thread.
 .TP
 .BR sched_setattr (2)
 (Linux-specific)
-A generaized API for setting the scheduling policy and parameters
+A generalized API for setting the scheduling policy and parameters
 of a specified thread.
 .TP
 .BR sched_getattr (2)
 (Linux-specific)
-A generaized API for fetching the scheduling policy and parameters
+A generalized API for fetching the scheduling policy and parameters
 of a specified thread.
 .\"
 .SS Scheduling policies
@@ -238,25 +238,42 @@ or
 policies).
 .\"
 .SS Resetting scheduling policy for child processes
-Since Linux 2.6.32, the
-.B SCHED_RESET_ON_FORK
-flag can be ORed in
-.I policy
-when calling
-.BR sched_setscheduler ().
-As a result of including this flag, children created by
+Each thread has a reset-on-fork scheduling flag.
+When this flag is set, children created by
 .BR fork (2)
 do not inherit privileged scheduling policies.
-This feature is intended for media-playback applications,
+The reset-on-fork flag can be set by either:
+.IP * 3
+ORing the
+.B SCHED_RESET_ON_FORK
+flag into the
+.I policy
+argument when calling
+.BR sched_setscheduler (2)
+(since Linux 2.6.32);
+or
+.IP *
+specifying the
+.B SCHED_FLAG_RESET_ON_FORK
+flag in
+.IR attr.sched_flags
+when calling
+.BR sched_setattr (2).
+.PP
+Note that the constants used with these two APIs have different names.
+The state of the reset-on-fork flag can analogously be retrieved using
+.BR sched_getscheduler (2)
+and
+.BR sched_getattr (2).
+
+The reset-on-fork feature is intended for media-playback applications,
 and can be used to prevent applications evading the
 .BR RLIMIT_RTTIME
 resource limit (see
 .BR getrlimit (2))
 by creating multiple child processes.
 
-More precisely, if the
-.BR SCHED_RESET_ON_FORK
-flag is specified,
+More precisely, if the reset-on-fork flag is set,
 the following rules apply for subsequently created children:
 .IP * 3
 If the calling thread has a scheduling policy of
@@ -270,19 +287,12 @@ in child processes.
 If the calling process has a negative nice value,
 the nice value is reset to zero in child processes.
 .PP
-After the
-.BR SCHED_RESET_ON_FORK
-flag has been enabled,
+After the reset-on-fork flag has been enabled,
 it can be reset only if the thread has the
 .BR CAP_SYS_NICE
 capability.
 This flag is disabled in child processes created by
 .BR fork (2).
-
-The
-.B SCHED_RESET_ON_FORK
-flag is visible in the policy value returned by
-.BR sched_getscheduler ()
 .\"
 .SS Privileges and resource limits
 In Linux kernels before 2.6.12, only privileged

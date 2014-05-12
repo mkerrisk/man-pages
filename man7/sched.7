@@ -369,6 +369,59 @@ See
 .BR getrlimit (2)
 for further information on
 .BR RLIMIT_RTPRIO .
+.SS Limiting the CPU usage of real-time and deadline processes
+A nonblocking infinite loop in a thread scheduled under the
+.BR SCHED_FIFO ,
+.BR SCHED_RR ,
+or
+.BR SCHED_DEADLINE
+policy will block all threads with lower
+priority forever.
+Prior to Linux 2.6.25, the only way of preventing a runaway real-time
+process from freezing the system was to run (at the console)
+a shell scheduled under a higher static priority than the tested application.
+This allows an emergency kill of tested
+real-time applications that do not block or terminate as expected.
+
+Since Linux 2.6.25, there are other techniques for dealing with runaway
+real-time and deadline processes.
+One of these is to use the
+.BR RLIMIT_RTTIME
+resource limit to set a ceiling on the CPU time that
+a real-time process may consume.
+See
+.BR getrlimit (2)
+for details.
+
+Since version 2.6.25, Linux also provides two
+.I /proc
+files that can be used to reserve a certain amount of CPU time
+to be used by non-real-time processes.
+Reserving some CPU time in this fashion allows some CPU time to be
+allocated to (say) a root shell that can be used to kill a runaway process.
+Both of these files specify time values in microseconds:
+.TP
+.IR /proc/sys/kernel/sched_rt_period_us
+This file specifies a scheduling period that is equivalent to
+100% CPU bandwidth.
+The value in this file can range from 1 to
+.BR INT_MAX ,
+giving an operating range of 1 microsecond to around 35 minutes.
+The default value in this file is 1,000,000 (1 second).
+.TP
+.IR /proc/sys/kernel/sched_rt_runtime_us
+The value in this file specifies how much of the "period" time
+can be used by all real-time and deadline scheduled processes
+on the system.
+The value in this file can range from \-1 to
+.BR INT_MAX \-1.
+Specifying \-1 makes the runtime the same as the period;
+that is, no CPU time is set aside for non-real-time processes
+(which was the Linux behavior before kernel 2.6.25).
+The default value in this file is 950,000 (0.95 seconds),
+meaning that 5% of the CPU time is reserved for processes that
+don't run under a real-time or deadline scheduling policy.
+.PP
 .SS Response time
 A blocked high priority thread waiting for I/O has a certain
 response time before it is scheduled again.
@@ -388,18 +441,6 @@ paging delays; this can be done with
 .BR mlock (2)
 or
 .BR mlockall (2).
-
-Since a nonblocking infinite loop in a thread scheduled under
-\fBSCHED_FIFO\fP or \fBSCHED_RR\fP will block all threads with lower
-priority forever, a software developer should always keep available on
-the console a shell scheduled under a higher static priority than the
-tested application.
-This will allow an emergency kill of tested
-real-time applications that do not block or terminate as expected.
-See also the description of the
-.BR RLIMIT_RTTIME
-resource limit in
-.BR getrlimit (2).
 .SH NOTES
 .PP
 Originally, Standard Linux was intended as a general-purpose operating

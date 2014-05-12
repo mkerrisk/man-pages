@@ -194,64 +194,77 @@ retrieved using
 .\" by the process nice value -- MTK
 .\"
 .SS SCHED_DEADLINE: Sporadic task model deadline scheduling
-SCHED_DEADLINE is currently implemented using GEDF (Global
-Earliest Deadline First) with additional CBS (Constant Bandwidth
-Server).
+SCHED_DEADLINE
+is currently implemented using GEDF (Global Earliest Deadline First)
+with additional CBS (Constant Bandwidth Server).
 
 A sporadic task is one that has a sequence of jobs, where each
-job is activated at most once per period. Each job has also a
-relative deadline, before which it should finish execution, and a
+job is activated at most once per period.
+Each job has also a relative deadline,
+before which it should finish execution, and a
 computation time, that is the time necessary for executing the
-job without interruption. The instant of time when a task wakes
-up, because a new job has to be executed, is called arrival time
+job without interruption.
+The instant of time when a task wakes up,
+because a new job has to be executed, is called arrival time
 (and it is also referred to as request time or release time).
-Start time is instead the time at which a task starts its
-execution. The absolute deadline is thus obtained adding the
+Start time is instead the time at which a task starts its execution.
+The absolute deadline is thus obtained adding the
 relative deadline to the arrival time.
 
 The following diagram clarifies these terms:
 
+.in +4n
 .nf
-        arrival/wakeup           absolute deadline
-        |        start time          |
-        v        v                   v
- -------x--------xoooooooooooo-------x--------x-----
-                 |<- comp. ->|
-        |<---------- rel. deadline ->|
-        |<---------- period ----------------->|
+       arrival/wakeup           absolute deadline
+       |        start time          |
+       v        v                   v
+-------x--------xoooooooooooo-------x--------x-----
+                |<- comp. ->|
+       |<---------- rel. deadline ->|
+       |<---------- period ----------------->|
 .fi
+.in
 
-SCHED_DEADLINE allows the user to specify three parameters (see
-sched_setattr(2)): Runtime [ns], Deadline [ns] and Period [ns].
+.B SCHED_DEADLINE
+allows the user to specify three parameters (see
+.BR sched_setattr (2)):
+Runtime [ns], Deadline [ns] and Period [ns].
 Such parameters has not necessarily to correspond to the
 aforementioned terms, while usual practise is to set Runtime to
 something bigger than the average computation time (or worst-case
 execution time for hard real-time tasks), Deadline to the
-relative deadline and Period to the period of the task. With such
-a setting we would have:
+relative deadline and Period to the period of the task.
+With such a setting we would have:
 
+.in +4n
 .nf
-        arrival/wakeup           absolute deadline
-        |        start time          |
-        v        v                   v
- -------x--------xoooooooooooo-------x--------x-----
-                 |<- Runtime -->|
-        |<---------- Deadline ------>|
-        |<---------- Period ----------------->|
+       arrival/wakeup           absolute deadline
+       |        start time          |
+       v        v                   v
+-------x--------xoooooooooooo-------x--------x-----
+                |<- Runtime -->|
+       |<---------- Deadline ------>|
+       |<---------- Period ----------------->|
 .fi
+.in
 
 It is checked that: Runtime <= Deadline <= Period.
 
 The CBS guarantees non-interference between tasks, by throttling
 tasks that attempt to over-run their specified Runtime.
 
-In general the set of all SCHED_DEADLINE tasks is not
-feasible/schedulable within the given constraints. To guarantee
-some degree of timeliness we must do an admittance test on
-setting/changing SCHED_DEADLINE policy/attributes.
+In general, the set of all
+.B SCHED_DEADLINE
+tasks is not feasible/schedulable within the given constraints.
+To guarantee some degree of timeliness, we must do an admittance test on
+setting/changing
+.B SCHED_DEADLINE
+policy/attributes.
 
 This admission test calculates that the task set is
-feasible/schedulable, failing this, sched_setattr() will return
+feasible/schedulable, failing this,
+.BR sched_setattr (2)
+will return
 -EBUSY.
 
 For example, it is required (but not necessarily sufficient) for
@@ -260,16 +273,31 @@ CPUs available, where, since each task can maximally run for
 Runtime per Period, that task's utilization is its
 Runtime/Period.
 
-Because we must be able to calculate admittance SCHED_DEADLINE
+Because we must be able to calculate admittance
+.BR SCHED_DEADLINE
 tasks are the highest priority (user controllable) tasks in the
-system, if any SCHED_DEADLINE task is runnable it will preempt
+system, if any
+.BR SCHED_DEADLINE
+task is runnable, it will preempt
 any FIFO/RR/OTHER/BATCH/IDLE task.
 
-SCHED_DEADLINE tasks will fail fork(2) with -EAGAIN, except when
-the forking task has SCHED_FLAG_RESET_ON_FORK set.
+.B SCHED_DEADLINE
+tasks will fail
+.BR fork (2)
+with
+-EAGAIN,
+except when
+the forking task hascw
+SCHED_FLAG_RESET_ON_FORK
+set.
 
-A SCHED_DEADLINE task calling sched_yield() will 'yield' the
-current job and wait for a new period to begin.
+A
+.B SCHED_DEADLINE
+task calling
+.BR sched_yield (2)
+will 'yield' the current job and wait for a new period to begin.
+.\"
+.\"
 .SS SCHED_OTHER: Default Linux time-sharing scheduling
 \fBSCHED_OTHER\fP can be used at only static priority 0.
 \fBSCHED_OTHER\fP is the standard Linux time-sharing scheduler that is

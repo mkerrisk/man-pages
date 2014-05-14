@@ -386,6 +386,16 @@ Execute permission is denied for the file or a script or ELF interpreter.
 The filesystem is mounted
 .IR noexec .
 .TP
+.BR EAGAIN " (since Linux 3.1)"
+.\" commit 72fa59970f8698023045ab0713d66f3f4f96945c
+Having changed its real UID using one of the
+.BR set*uid ()
+calls, the caller was\(emand is now still\(emabove its
+.BR RLIMIT_NPROC
+resource limit (see
+.BR setrlimit (2)).
+For a more detailed explanation of this error, see NOTES.
+.TP
 .B EFAULT
 .I filename
 or one of the pointers in the vectors
@@ -542,6 +552,82 @@ are used to delimit the arguments.
 
 Linux ignores the set-user-ID and set-group-ID bits on scripts.
 .\"
+.\" .SH BUGS
+.\" Some Linux versions have failed to check permissions on ELF
+.\" interpreters.  This is a security hole, because it allows users to
+.\" open any file, such as a rewinding tape device, for reading.  Some
+.\" Linux versions have also had other security holes in
+.\" .BR execve ()
+.\" that could be exploited for denial of service by a suitably crafted
+.\" ELF binary. There are no known problems with 2.0.34 or 2.2.15.
+.SS execve() and EAGAIN
+A more detailed explanation of the
+.BR EAGAIN
+error that can occur (since Linux 3.1) when calling
+.BR execve ()
+is as follows.
+
+The
+.BR EAGAIN
+error can occur when a
+.I preceding
+call to
+.BR setuid (2),
+.BR setreuid (2),
+or
+.BR setresuid (2)
+caused the real user ID of the process to change,
+and that change caused the process to exceed its
+.BR RLIMIT_NPROC
+resource limit (i.e., the number of processes belonging
+to the new real UID exceeds the resource limit).
+In Linux 3.0 and earlier, this caused the
+.BR set*uid ()
+call to fail.
+
+Since Linux 3.1, the scenario just described no longer causes the
+.BR set*uid ()
+call to fail,
+because it too often led to security holes where buggy applications
+didn't check the return status and assumed
+that\(emif the caller had root privileges\(emthe call would always succeed.
+Instead, the
+.BR set*uid ()
+calls now successfully change the real UID,
+but the kernel sets an internal flag, named
+.BR PF_NPROC_EXCEEDED ,
+to note that the
+.BR RLIMIT_NPROC
+resource limit has been exceeded.
+If the resource limit is still exceeded at the time of a subsequent
+.BR execve ()
+call, that call fails with the error
+.BR EAGAIN .
+This kernel logic ensures that the
+.BR RLIMIT_NPROC
+resource limit is still enforced for the
+common privileged daemon workflow\(emnamely,
+.BR fork (2)
++
+.BR set*uid ()
++
+.BR execve ().
+
+If the resource limit was not still exceeded at the time of the
+.BR execve ()
+call
+(because other processes belonging to this real UID terminated between the
+.BR set*uid()
+call and the
+.BR execve ()
+call), then the
+.BR execve ()
+call succeeds and the kernel clears the
+.BR PF_NPROC_EXCEEDED
+process flag.
+The flag is also cleared if a subsequent call to
+.BR fork (2)
+by this process succeeds.
 .SS Historical
 With UNIX\ V6, the argument list of an
 .BR exec ()

@@ -401,7 +401,30 @@ In order to place a write lock,
 .I fd
 must be open for writing.
 To place both types of lock, open a file read-write.
-.P
+
+When placing locks with
+.BR F_SETLKW ,
+the kernel detects
+.IR deadlocks ,
+whereby two or more processes have their
+lock requests mutually blocked by locks held by the other processes.
+For example, suppose process A holds a write lock on byte 100 of a file,
+and process B holds a write lock on byte 200.
+If each process then attempts to lock the byte already
+locked by the other process using
+.BR F_SETLKW ,
+then, without deadlock detection,
+both processes would remain blocked indefinitely.
+When the kernel detects such deadlocks,
+it causes one of the blocking lock requests to immediately fail with the error
+.BR EDEADLK ;
+an application that encounters such an error should release
+some of its locks to allow other applications to proceed before
+attempting regain the locks that it requires.
+Circular deadlocks involving more than two processes are also detected.
+Note, however, that there are limitations to the kernel's
+deadlock-detection algorithm; see BUGS.
+
 As well as being removed by an explicit
 .BR F_UNLCK ,
 record locks are automatically released when the process terminates.
@@ -1582,6 +1605,26 @@ even when the owner process (group) is one that the caller
 has permission to send signals to.
 Despite this error return, the file descriptor owner is set,
 and signals will be sent to the owner.
+.\"
+.SS Deadlock detection
+The deadlock-detection algorithm employed by the kernel when dealing with
+.BR F_SETLKW
+requests can yield both
+false negatives (failures to detect deadlocks,
+leaving a set of deadlocked processes blocked indefinitely)
+and false positives
+.RB ( EDEADLK
+errors when there is no deadlock).
+For example,
+the kernel limits the lock depth of its dependency search to 10 steps,
+meaning that circular deadlock chains that exceed
+that size will not be detected.
+In addition, the kernel may falsely indicate a deadlock
+when two or more processes created using the
+.BR clone (2)
+.B CLONE_FILES
+flag place locks that appear (to the kernel) to conflict.
+.\"
 .SS Mandatory locking
 The Linux implementation of mandatory locking
 is subject to race conditions which render it unreliable:

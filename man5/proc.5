@@ -2315,28 +2315,14 @@ Memory used for block device "bounce buffers".
 Memory used by FUSE for temporary writeback buffers.
 .TP
 .IR CommitLimit " %lu (since Linux 2.6.10)"
-Based on the overcommit ratio ('vm.overcommit_ratio'),
-this is the total amount of memory currently available to
-be allocated on the system.
+This is the total amount of memory currently available to
+be allocated on the system, expressed in kilobytes.
 This limit is adhered to
 only if strict overcommit accounting is enabled (mode 2 in
-.IR /proc/sys/vm/overcommit_ratio ).
-The
-.I CommitLimit
-is calculated using the following formula:
-
-    CommitLimit =
-        ([total RAM pages] - [total huge TLB pages]) *
-        overcommit_ratio / 100 + [total swap pages]
-
-For example, on a system with 1GB of physical RAM and 7GB
-of swap with a
-.I overcommit_ratio
-of 30, this formula yields a
-.I CommitLimit
-of 7.3GB.
-For more details, see the memory overcommit documentation
-in the kernel source file
+.IR /proc/sys/vm/overcommit_memory ).
+The limit is calculated according to the formula described under
+.IR /proc/sys/vm/overcommit_memory .
+For further details, see the kernel source file
 .IR Documentation/vm/overcommit-accounting .
 .TP
 .IR Committed_AS " %lu"
@@ -2349,13 +2335,14 @@ A process which allocates 1GB of memory (using
 or similar), but touches only 300MB of that memory will show up
 as using only 300MB of memory even if it has the address space
 allocated for the entire 1GB.
+
 This 1GB is memory which has been "committed" to by the VM
 and can be used at any time by the allocating application.
-With strict overcommit enabled on the system (mode 2
-.IR /proc/sys/vm/overcommit_memory ),
+With strict overcommit enabled on the system (mode 2 in
+IR /proc/sys/vm/overcommit_memory ),
 allocations which would exceed the
 .I CommitLimit
-(detailed above) will not be permitted.
+will not be permitted.
 This is useful if one needs to guarantee that processes will not
 fail due to lack of memory once that memory has been successfully allocated.
 .TP
@@ -3854,13 +3841,42 @@ with
 are not checked, and the default check is very weak,
 leading to the risk of getting a process "OOM-killed".
 Under Linux 2.4, any nonzero value implies mode 1.
+
 In mode 2 (available since Linux 2.6), the total virtual address space
-on the system is limited to (SS + RAM*(r/100)),
-where SS is the size of the swap space, and RAM
-is the size of the physical memory, and r is the contents of the file
-.IR /proc/sys/vm/overcommit_ratio .
+that can be allocated
+.RI ( CommitLimit
+in
+.IR /proc/meminfo )
+is calculated as
+
+    CommitLimit = (total_RAM - total_huge_TLB) *
+                  overcommit_ratio / 100 + total_swap
+
+where:
+.RS 12
+.IP * 3
+.I total_RAM
+is the total amount of RAM on the system;
+.IP *
+.I total_huge_TLB
+is the amount of memory set aside for huge pages;
+.IP *
+.I overcommit_ratio
+is the value in
+.IR /proc/sys/vm/overcommit_ratio ;
+and
+.IP *
+.I total_swap
+is the amount of swap space.
+.RE
+.IP
+For example, on a system with 16GB of physical RAM, 16GB
+of swap, no space dedicated to huge pages, and an
+.I overcommit_ratio
+of 50, this formula yields a
+.I CommitLimit
+of 24GB.
 .TP
-.I /proc/sys/vm/overcommit_ratio
 .IR /proc/sys/vm/overcommit_ratio " (since Linux 2.6.0)"
 This writable file defines a percentage by which memory
 can be overcommitted.

@@ -1,6 +1,7 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
 .\" and Copyright (C) 1993 Michael Haardt, Ian Jackson.
 .\" and Copyright (C) 2005, 2008 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -50,15 +51,58 @@ dup, dup2, dup3 \- duplicate a file descriptor
 .BI "int dup3(int " oldfd ", int " newfd ", int " flags );
 .fi
 .SH DESCRIPTION
-These system calls create a copy of the file descriptor
-.IR oldfd .
-
+The
 .BR dup ()
-uses the lowest-numbered unused descriptor for the new descriptor.
+system call creates a copy of the file descriptor
+.IR oldfd ,
+using the lowest-numbered unused descriptor for the new descriptor.
 
+After a successful return,
+the old and new file descriptors may be used interchangeably.
+They refer to the same open file description (see
+.BR open (2))
+and thus share file offset and file status flags;
+for example, if the file offset is modified by using
+.BR lseek (2)
+on one of the descriptors, the offset is also changed for the other.
+
+The two descriptors do not share file descriptor flags
+(the close-on-exec flag).
+The close-on-exec flag
+.RB ( FD_CLOEXEC ;
+see
+.BR fcntl (2))
+for the duplicate descriptor is off.
+.\"
+.SS dup2()
+The
 .BR dup2 ()
-.RI "makes " newfd " be the copy of " oldfd ", closing " newfd
-first if necessary, but note the following:
+system call performs the same task as
+.BR dup (),
+but instead of using the lowest-numbered unused file descriptor,
+it uses the descriptor number specified in
+.IR newfd .
+If the descriptor
+.IR newfd
+was previously open, it is silently closed before being reused.
+
+The steps of closing and reusing the file descriptor
+.IR newfd
+are performed
+.IR atomically .
+This is important, because trying to implement equivalent functionality using
+.BR close (2)
+and
+.BR dup ()
+would be 
+subject to race conditions, whereby
+.I newfd
+might be reused between the two steps.
+Such reuse could happen because the main program is interrupted
+by a signal handler that allocates a file descriptor,
+or because a parallel thread allocates a file descriptor.
+
+Note the following points:
 .IP * 3
 If
 .I oldfd
@@ -76,23 +120,7 @@ then
 .BR dup2 ()
 does nothing, and returns
 .IR newfd .
-.PP
-After a successful return from one of these system calls,
-the old and new file descriptors may be used interchangeably.
-They refer to the same open file description (see
-.BR open (2))
-and thus share file offset and file status flags;
-for example, if the file offset is modified by using
-.BR lseek (2)
-on one of the descriptors, the offset is also changed for the other.
-
-The two descriptors do not share file descriptor flags
-(the close-on-exec flag).
-The close-on-exec flag
-.RB ( FD_CLOEXEC ;
-see
-.BR fcntl (2))
-for the duplicate descriptor is off.
+.\"
 .SS dup3()
 .BR dup3 ()
 is the same as

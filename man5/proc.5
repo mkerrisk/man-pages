@@ -3822,6 +3822,38 @@ is nonzero, it takes precedence over whatever value is used in
 
 The default value is 0.
 .TP
+.IR /proc/sys/vm/overcommit_kbytes " (since Linux 3.14)"
+.\" commit 49f0ce5f92321cdcf741e35f385669a421013cb7
+This writable file provides an alternative to
+.IR /proc/sys/vm/overcommit_ratio
+for controlling the
+.I CommitLimit
+when
+.IR /proc/sys/vm/overcommit_memory
+has the value 2.
+It allows the amount of memory overcommitting to be specified as
+an absolute value (in kB),
+rather than as a percentage, as is done with
+.IR overcommit_ratio .
+This allows for finer-grained control of
+.IR CommitLimit
+on systems with extremely large memory sizes.
+
+Only one of
+.IR overcommit_kbytes
+or
+.IR overcommit_ratio
+can have an effect:
+if
+.IR overcommit_kbytes
+has a nonzero value, then it is used to calculate
+.IR CommitLimit ,
+otherwise
+.IR overcommit_ratio
+is used.
+Writing a value to either of these files causes the
+value in the other file to be set to zero.
+.TP
 .I /proc/sys/vm/overcommit_memory
 This file contains the kernel virtual memory accounting mode.
 Values are:
@@ -3876,6 +3908,14 @@ of swap, no space dedicated to huge pages, and an
 of 50, this formula yields a
 .I CommitLimit
 of 24GB.
+
+Since Linux 3.14, if the value in
+.I /proc/sys/vm/overcommit_kbytes
+is nonzero, then
+.I CommitLimit
+is instead calculated as:
+
+    CommitLimit = overcommit_kbytes + total_swap
 .TP
 .IR /proc/sys/vm/overcommit_ratio " (since Linux 2.6.0)"
 This writable file defines a percentage by which memory

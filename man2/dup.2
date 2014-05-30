@@ -225,13 +225,42 @@ If
 was open, any errors that would have been reported at
 .BR close (2)
 time are lost.
-A careful programmer will not use
-.BR dup2 ()
-or
-.BR dup3 ()
-without closing
+If this is of concern,
+then\(emunless the program is single-threaded and does not allocate
+file descriptors in signal handlers\(emthe correct approach is
+.I not
+to close
 .I newfd
-first.
+before calling
+.BR dup2 (),
+because of the race condition described above.
+Instead, code something like the following could be used:
+
+.nf
+    /* Obtain a duplicate of 'newfd' that can subsequently
+       be used to check for close() errors; an EBADF error
+       means that 'newfd' was not open. */
+
+    tmpfd = dup(newfd);
+    if (tmpfd == \-1 && errno != EBADF) {
+        /* Handle unexpected dup() error */
+    }
+
+    /* Atomically duplicate 'oldfd' on 'newfd' */
+
+    if (dup2(oldfd, newfd) == \-1) {
+        /* Handle dup2() error */
+    }
+
+    /* Now check for close() errors on the file originally
+       referred to by 'newfd' */
+
+    if (tmpfd != \-1) {
+        if (close(tmpfd) == \-1) {
+            /* Handle errors from close */
+        }
+    }
+.fi
 .SH SEE ALSO
 .BR close (2),
 .BR fcntl (2),

@@ -66,17 +66,18 @@ The kernel has a cyclic buffer of length
 .B LOG_BUF_LEN
 in which messages given as arguments to the kernel function
 .BR printk ()
-are stored (regardless of their loglevel).
+are stored (regardless of their log level).
 In early kernels,
 .B LOG_BUF_LEN
 had the value 4096;
 from kernel 1.3.54, it was 8192;
 from kernel 2.1.113, it was 16384;
 since kernel 2.4.23/2.6, the value is a kernel configuration option
-.RB ( CONFIG_LOG_BUF_SHIFT ).
+.RB ( CONFIG_LOG_BUF_SHIFT ,
+default value dependent on the architecture).
 .\" Under "General setup" ==> "Kernel log buffer size"
 .\" For 2.6, precisely the option seems to have appeared in 2.5.55.
-In recent kernels, the size can be queried with command type 10 (see below).
+Since Linux 2.6.6, the size can be queried with command type 10 (see below).
 .SS Commands
 The \fItype\fP argument determines the action taken by this function.
 The list below specifies the values for
@@ -107,7 +108,7 @@ This is the function executed by the kernel when a user program reads
 .TP
 .BR SYSLOG_ACTION_READ_ALL " (3)"
 Read all messages remaining in the ring buffer,
-placing then in the buffer pointed to by
+placing them in the buffer pointed to by
 .IR bufp .
 The call reads the last \fIlen\fP
 bytes from the log buffer (nondestructively),
@@ -154,6 +155,9 @@ the command simply sets
 .I console_loglevel
 to
 .IR minimum_console_loglevel .
+See the discussion of
+.IR /proc/sys/kernel/printk ,
+below.
 
 The
 .I bufp
@@ -174,6 +178,9 @@ this command simply sets
 .I console_loglevel
 to
 .IR default_console_loglevel .
+See the discussion of
+.IR /proc/sys/kernel/printk ,
+below.
 
 The
 .I bufp
@@ -182,11 +189,17 @@ and
 arguments are ignored.
 .TP
 .BR SYSLOG_ACTION_CONSOLE_LEVEL " (8)"
-The call sets the console log level to the value given in
+The call sets
+.I console_loglevel
+to the value given in
 .IR len ,
 which must be an integer between 1 and 8 (inclusive).
+The kernel silently enforces a minimum value of
+.IR minimum_console_loglevel
+for
+.IR len .
 See the
-.B loglevel
+.IR "log level"
 section for details.
 The
 .I bufp
@@ -227,36 +240,64 @@ Since Linux 2.6.37,
 capability (now deprecated for this purpose) or the (new)
 .BR CAP_SYSLOG
 capability.
-.SS The loglevel
-The kernel routine
-.BR printk ()
-will only print a message on the
-console, if it has a loglevel less than the value of the variable
-.IR console_loglevel .
-This variable initially has the value
+.\"
+.\"
+.SS /proc/sys/kernel/printk
+.I /proc/sys/kernel/printk
+is a writable file containing four integer values that influence kernel
+.I printk()
+behavior when printing or logging error messages.
+The four values are:
+.TP
+.I console_loglevel
+Only messages with a log level lower than this value will
+be printed to the console.
+The default value for this field is
 .B DEFAULT_CONSOLE_LOGLEVEL
-(7), but is set to 10 if the
-kernel command line contains the word "debug", and to 15 in case
+(7), but it is set to
+4 if the kernel command line contains the word "quiet", \" since Linux 2.4
+10 if the kernel command line contains the word "debug",
+and to 15 in case
 of a kernel fault (the 10 and 15 are just silly, and equivalent to 8).
-This variable is set (to a value in the range 1-8) by a
+The value of
+.IR console_loglevel
+can be set (to a value in the range 1-8) by a
 .BR syslog ()
 call with a
 .I type
 of 8.
-Calls to
-.BR syslog ()
-with
-.I type
-equal to 6 or 7 set the variable to 1 (kernel panics only)
-or 7 (all except debugging messages), respectively.
-
-Every text line in a message has its own loglevel.
-This level is
-.I "DEFAULT_MESSAGE_LOGLEVEL \- 1"
-(6) unless the line starts with <d>
-where \fId\fP is a digit in the range 1-7, in which case the level
-is \fId\fP.
-The conventional meaning of the loglevel is as follows:
+.TP
+.I default_message_loglevel
+This value will be used as the log level for
+.IR printk()
+messages that do not have an explicit level.
+Up to and including Linux 2.6.38,
+the hard-coded default value for this field was 4
+.RB ( KERN_WARNING );
+since Linux 2.6.39,
+.\" commit 5af5bcb8d37f99ba415a1adc6da71051b84f93a5
+the default value is a defined by the kernel configuration option
+.BR CONFIG_DEFAULT_MESSAGE_LOGLEVEL ,
+which defaults to 4.
+.TP
+.I minimum_console_loglevel
+The value in this field is the minimum value to which
+.I console_loglevel
+can be set.
+.TP
+.I default_console_loglevel
+This is the default value for
+.IR console_loglevel .
+.\"
+.\"
+.SS The log level
+Every
+.IR printk ()
+message has its own log level.
+If the log level is not explicitly specified as part of the message,
+it defaults to
+.IR default_message_loglevel .
+The conventional meaning of the log level is as follows:
 
 .TS
 lB lB lB
@@ -271,6 +312,12 @@ KERN_NOTICE	5	Normal but significant condition
 KERN_INFO	6	Informational
 KERN_DEBUG	7	Debug-level messages
 .TE
+
+The kernel
+.IR printk()
+routine will print a message on the
+console only if it has a log level less than the value of
+.IR console_loglevel .
 .SH RETURN VALUE
 For \fItype\fP equal to 2, 3, or 4, a successful call to
 .BR syslog ()
@@ -314,7 +361,9 @@ system call is not available, because the kernel was compiled with the
 kernel-configuration option disabled.
 .TP
 .B EPERM
-An attempt was made to change console_loglevel or clear the kernel
+An attempt was made to change
+.I console_loglevel
+or clear the kernel
 message ring buffer by a process without sufficient privilege
 (more precisely: without the
 .B CAP_SYS_ADMIN
@@ -329,7 +378,7 @@ System call was interrupted by a signal; nothing was read.
 This system call is Linux-specific and should not be used in programs
 intended to be portable.
 .SH NOTES
-From the very start people noted that it is unfortunate that
+From the very start, people noted that it is unfortunate that
 a system call and a library routine of the same name are entirely
 different animals.
 .\" In libc4 and libc5 the number of this call was defined by

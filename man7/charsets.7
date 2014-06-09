@@ -150,6 +150,24 @@ unlike the ISO-8859 series.
 Console support for KOI8-R is available under Linux through user-mode
 utilities that modify keyboard bindings and the EGA graphics table,
 and employ the "user mapping" font table in the console driver.
+.SS GB 2312
+GB 2312 is a mainland Chinese national standard character set used
+to express simplified Chinese.
+Just like JIS X 0208, characters are
+mapped into a 94x94 two-byte matrix used to construct EUC-CN.
+EUC-CN
+is the most important encoding for Linux and includes ASCII and
+GB 2312.
+Note that EUC-CN is often called as GB, GB 2312, or CN-GB.
+.SS Big5
+Big5 was a popular character set in Taiwan to express traditional
+Chinese.
+(Big5 is both a character set and an encoding.)
+It is a superset of ASCII.
+Non-ASCII characters are expressed in two bytes.
+Bytes 0xa1-0xfe are used as leading bytes for two-byte characters.
+Big5 and its extension were widely used in Taiwan and Hong Kong.
+It is not ISO 2022 compliant.
 .\" Thanks to Tomohiro KUBOTA for the following sections about
 .\" national standards.
 .SS JIS X 0208
@@ -178,24 +196,65 @@ to construct encodings such as EUC-KR, Johab, and ISO-2022-KR.
 EUC-KR is the most important encoding for Linux and includes
 ASCII and KS X 1001.
 KS C 5601 is an older name for KS X 1001.
-.SS GB 2312
-GB 2312 is a mainland Chinese national standard character set used
-to express simplified Chinese.
-Just like JIS X 0208, characters are
-mapped into a 94x94 two-byte matrix used to construct EUC-CN.
-EUC-CN
-is the most important encoding for Linux and includes ASCII and
-GB 2312.
-Note that EUC-CN is often called as GB, GB 2312, or CN-GB.
-.SS Big5
-Big5 was a popular character set in Taiwan to express traditional
-Chinese.
-(Big5 is both a character set and an encoding.)
-It is a superset of ASCII.
-Non-ASCII characters are expressed in two bytes.
-Bytes 0xa1-0xfe are used as leading bytes for two-byte characters.
-Big5 and its extension were widely used in Taiwan and Hong Kong.
-It is not ISO 2022 compliant.
+.SS ISO 2022 and ISO 4873
+The ISO 2022 and 4873 standards describe a font-control model
+based on VT100 practice.
+This model is (partially) supported
+by the Linux kernel and by
+.BR xterm (1).
+It used to be popular in Japan and Korea.
+.LP
+There are 4 graphic character sets, called G0, G1, G2, and G3,
+and one of them is the current character set for codes with
+high bit zero (initially G0), and one of them is the current
+character set for codes with high bit one (initially G1).
+Each graphic character set has 94 or 96 characters, and is
+essentially a 7-bit character set.
+It uses codes either
+040-0177 (041-0176) or 0240-0377 (0241-0376).
+G0 always has size 94 and uses codes 041-0176.
+.LP
+Switching between character sets is done using the shift functions
+\fB^N\fP (SO or LS1), \fB^O\fP (SI or LS0), ESC n (LS2), ESC o (LS3),
+ESC N (SS2), ESC O (SS3), ESC ~ (LS1R), ESC } (LS2R), ESC | (LS3R).
+The function LS\fIn\fP makes character set G\fIn\fP the current one
+for codes with high bit zero.
+The function LS\fIn\fPR makes character set G\fIn\fP the current one
+for codes with high bit one.
+The function SS\fIn\fP makes character set G\fIn\fP (\fIn\fP=2 or 3)
+the current one for the next character only (regardless of the value
+of its high order bit).
+.LP
+A 94-character set is designated as G\fIn\fP character set
+by an escape sequence ESC ( xx (for G0), ESC ) xx (for G1),
+ESC * xx (for G2), ESC + xx (for G3), where xx is a symbol
+or a pair of symbols found in the ISO 2375 International
+Register of Coded Character Sets.
+For example, ESC ( @ selects the ISO 646 character set as G0,
+ESC ( A selects the UK standard character set (with pound
+instead of number sign), ESC ( B selects ASCII (with dollar
+instead of currency sign), ESC ( M selects a character set
+for African languages, ESC ( ! A selects the Cuban character
+set, and so on.
+.LP
+A 96-character set is designated as G\fIn\fP character set
+by an escape sequence ESC \- xx (for G1), ESC . xx (for G2)
+or ESC / xx (for G3).
+For example, ESC \- G selects the Hebrew alphabet as G1.
+.LP
+A multibyte character set is designated as G\fIn\fP character set
+by an escape sequence ESC $ xx or ESC $ ( xx (for G0),
+ESC $ ) xx (for G1), ESC $ * xx (for G2), ESC $ + xx (for G3).
+For example, ESC $ ( C selects the Korean character set for G0.
+The Japanese character set selected by ESC $ B has a more
+recent version selected by ESC & @ ESC $ B.
+.LP
+ISO 4873 stipulates a narrower use of character sets, where G0
+is fixed (always ASCII), so that G1, G2 and G3
+can be invoked only for codes with the high order bit set.
+In particular, \fB^N\fP and \fB^O\fP are not used anymore, ESC ( xx
+can be used only with xx=B, and ESC ) xx, ESC * xx, ESC + xx
+are equivalent to ESC \- xx, ESC . xx, ESC / xx, respectively.
 .SS TIS-620
 TIS-620 is a Thai national standard character set and a superset
 of ASCII.
@@ -267,66 +326,6 @@ This means that in the Linux console in UTF-8 mode, one can use a character
 set with 512 different symbols.
 This is not enough for Japanese, Chinese, and
 Korean, but it is enough for most other purposes.
-.LP
-.SS ISO 2022 and ISO 4873
-The ISO 2022 and 4873 standards describe a font-control model
-based on VT100 practice.
-This model is (partially) supported
-by the Linux kernel and by
-.BR xterm (1).
-It used to be popular in Japan and Korea.
-.LP
-There are 4 graphic character sets, called G0, G1, G2, and G3,
-and one of them is the current character set for codes with
-high bit zero (initially G0), and one of them is the current
-character set for codes with high bit one (initially G1).
-Each graphic character set has 94 or 96 characters, and is
-essentially a 7-bit character set.
-It uses codes either
-040-0177 (041-0176) or 0240-0377 (0241-0376).
-G0 always has size 94 and uses codes 041-0176.
-.LP
-Switching between character sets is done using the shift functions
-\fB^N\fP (SO or LS1), \fB^O\fP (SI or LS0), ESC n (LS2), ESC o (LS3),
-ESC N (SS2), ESC O (SS3), ESC ~ (LS1R), ESC } (LS2R), ESC | (LS3R).
-The function LS\fIn\fP makes character set G\fIn\fP the current one
-for codes with high bit zero.
-The function LS\fIn\fPR makes character set G\fIn\fP the current one
-for codes with high bit one.
-The function SS\fIn\fP makes character set G\fIn\fP (\fIn\fP=2 or 3)
-the current one for the next character only (regardless of the value
-of its high order bit).
-.LP
-A 94-character set is designated as G\fIn\fP character set
-by an escape sequence ESC ( xx (for G0), ESC ) xx (for G1),
-ESC * xx (for G2), ESC + xx (for G3), where xx is a symbol
-or a pair of symbols found in the ISO 2375 International
-Register of Coded Character Sets.
-For example, ESC ( @ selects the ISO 646 character set as G0,
-ESC ( A selects the UK standard character set (with pound
-instead of number sign), ESC ( B selects ASCII (with dollar
-instead of currency sign), ESC ( M selects a character set
-for African languages, ESC ( ! A selects the Cuban character
-set, and so on.
-.LP
-A 96-character set is designated as G\fIn\fP character set
-by an escape sequence ESC \- xx (for G1), ESC . xx (for G2)
-or ESC / xx (for G3).
-For example, ESC \- G selects the Hebrew alphabet as G1.
-.LP
-A multibyte character set is designated as G\fIn\fP character set
-by an escape sequence ESC $ xx or ESC $ ( xx (for G0),
-ESC $ ) xx (for G1), ESC $ * xx (for G2), ESC $ + xx (for G3).
-For example, ESC $ ( C selects the Korean character set for G0.
-The Japanese character set selected by ESC $ B has a more
-recent version selected by ESC & @ ESC $ B.
-.LP
-ISO 4873 stipulates a narrower use of character sets, where G0
-is fixed (always ASCII), so that G1, G2 and G3
-can be invoked only for codes with the high order bit set.
-In particular, \fB^N\fP and \fB^O\fP are not used anymore, ESC ( xx
-can be used only with xx=B, and ESC ) xx, ESC * xx, ESC + xx
-are equivalent to ESC \- xx, ESC . xx, ESC / xx, respectively.
 .SH SEE ALSO
 .BR iconv (1),
 .BR console (4),

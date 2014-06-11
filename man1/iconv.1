@@ -120,24 +120,55 @@ program uses the
 .BR iconv (3)
 function which in turn uses
 .I gconv
-modules to convert to and from a character set.
+modules (dynamically loaded shared libraries)
+to convert to and from a character set.
+Before calling
+.BR iconv (3),
+the 
+.B iconv
+program must first allocate a conversion descriptor using
+.BR iconv_open (3).
+The operation of the latter function is influenced by the setting of the
+.B GCONV_PATH
+environment variable:
+.IP * 3
+If
+.B GCONV_PATH
+is not set,
+.BR iconv_open (3)
+loads the system gconv cache file created by
+.BR iconvconfig (8)
+and then, based on the configuration,
+loads the gconv modules needed to perform the conversion.
+.IP *
+If
+.B GCONV_PATH
+is defined (as a colon-separated list of pathnames),
+the system gconv module configuration cache is not used.
+Instead,
+.BR iconv_open (3)
+first tries to load the configuration files from one of the directories in
+.BR GCONV_PATH ,
+followed by the system configuration file.
+.\" FIXME what is "the system configuration file"?
+If a directory does not contain a gconv module configuration file,
+any gconv modules that it may contain are ignored.
+If a directory contains a gconv module configuration file
+and it is determined that a module needed for this conversion is
+available in the directory,
+then the needed module is loaded from that directory,
+the order being such that the first suitable module found in
+.B GCONV_PATH
+is used.
+This allows users to use custom modules and even replace system-provided
+modules by providing such modules in
+.B GCONV_PATH
+directories.
+.\" FIXME The following sentence seems out of place.
+.PP
 .B iconv
 supports any character set for which a
 corresponding gconv configuration and module are provided.
-By default, the system-provided gconv configuration and modules
-are used, but
-.B GCONV_PATH
-can be defined as a list of pathnames, separated by colons (\(aq:\(aq),
-for gconv configuration and module search path,
-to be searched prior to the system-provided configuration and modules.
-If
-.B GCONV_PATH
-is set, the system gconv module configuration cache (created by
-.BR iconvconfig (8))
-will not be used.
-Only directories containing the
-.I gconv-modules
-configuration files will be searched for the specified gconv modules.
 .SH FILES
 .TP
 .I /usr/lib/gconv

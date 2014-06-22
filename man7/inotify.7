@@ -754,6 +754,24 @@ if the older had not yet been read)
 instead checked if the most recent event could be coalesced with the
 .I oldest
 unread event.
+
+As of Linux 3.15.1, the following bug exists:
+.\" FIXME https://bugzilla.kernel.org/show_bug.cgi?id=77111
+When a watch descriptor is removed by calling
+.BR inotify_rm_watch (2),
+any pending unread events for that watch descriptor remain available to read.
+As watch descriptors are subsequently allocated with
+.BR inotify_add_watch (2),
+the kernel cycles through the range of possible watch descriptors (0 to
+.BR INT_MAX )
+incrementally.
+When allocating a free watch descriptor, no check is made to see whether that
+watch descriptor number has any pending unread events in the inotify queue.
+Thus, it can happen that a watch descriptor is reallocated even
+when pending unread events exist for a previous incarnation of
+that watch descriptor number, with the result that the application
+might then read those events and interpret them as belonging to 
+the file associated with the newly recycled watch descriptor.
 .SH EXAMPLE
 The following program demonstrates the usage of the inotify API.
 It marks the directories passed as a command-line arguments

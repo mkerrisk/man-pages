@@ -24,8 +24,8 @@ getitimer, setitimer \- get or set value of an interval timer
 .SH DESCRIPTION
 The system provides each process with three interval timers,
 each decrementing in a distinct time domain.
-When any timer expires, a signal is sent to the
-process, and the timer (potentially) restarts.
+When a timer expires, a signal is sent to the
+process, and the timer is reset to the specified interval (if nonzero).
 .TP 1.5i
 .B ITIMER_REAL
 decrements in real time, and delivers
@@ -53,8 +53,8 @@ Timer values are defined by the following structures:
 .nf
 
 struct itimerval {
-    struct timeval it_interval; /* next value */
-    struct timeval it_value;    /* current value */
+    struct timeval it_interval; /* Interval for periodic timer */
+    struct timeval it_value;    /* Time until next expiration */
 };
 
 struct timeval {
@@ -69,20 +69,24 @@ The function
 .BR getitimer ()
 fills the structure pointed to by
 .I curr_value
-with the current setting for the timer specified by
+with the current value
+(i.e., the amount of time remaining until the next expiration)
+of the timer specified by
 .I which
 (one of
 .BR ITIMER_REAL ,
 .BR ITIMER_VIRTUAL ,
 or
 .BR ITIMER_PROF ).
-The element
+The subfields of the field
 .I it_value
-is set to the amount of time remaining on the timer, or zero if the timer
+are set to the amount of time remaining on the timer, or zero if the timer
 is disabled.
-Similarly,
+The
 .I it_interval
-is set to the reset value.
+field is set to the timer interval (period);
+a value of zero returned in (both subfields of) this field indicates
+that this is a single-shot timer.
 
 The function
 .BR setitimer ()
@@ -90,7 +94,10 @@ sets the specified timer to the value in
 .IR new_value .
 If
 .I old_value
-is non-NULL, the old value of the timer is stored there.
+is non-NULL, the old value of the timer
+(i.e., the same information as returned by
+.BR getitimer ())
+is stored there.
 .LP
 Timers decrement from
 .I it_value

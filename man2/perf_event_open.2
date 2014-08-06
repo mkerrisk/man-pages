@@ -225,7 +225,8 @@ struct perf_event_attr {
                                 /* exclude kernel callchains */
           exclude_callchain_user   : 1,
                                 /* exclude user callchains */
-          __reserved_1   : 41;
+          mmap2          :  1,  /* include mmap with inode data */
+          __reserved_1   : 40;
 
     union {
         __u32 wakeup_events;    /* wakeup every n events */
@@ -980,6 +981,13 @@ Do not include kernel callchains.
 .IR "exclude_callchain_user" " (since Linux 3.7)"
 Do not include user callchains.
 .TP
+.IR "mmap2" " (since Linux 3.16)"
+Generate an extended executable mmap record that contains enough
+additional information to uniquely identify shared mappings.
+The
+.I mmap
+flag must also be set for this to work.
+.TP
 .IR "wakeup_events" ", " "wakeup_watermark"
 This union sets how many samples
 .RI ( wakeup_events )
@@ -1587,6 +1595,23 @@ struct {
 };
 .fi
 .in
+.RS
+.TP
+.I pid
+is the process id.
+.TP
+.I tid
+is the thread id.
+.TP
+.I addr
+is the address of the allocated memory.
+.I len
+is the length of the allocated memory.
+.I pgoff
+is the page offset of the allocated memory.
+.I filename
+is a string describing the backing of the allocated memory.
+.RE
 .TP
 .B PERF_RECORD_LOST
 This record indicates when events are lost.
@@ -2101,6 +2126,70 @@ the high 32 bits of the field by shifting right by
 .B PERF_TXN_ABORT_SHIFT
 and masking with
 .BR PERF_TXN_ABORT_MASK .
+.RE
+.TP
+.B PERF_RECORD_MMAP2
+This record includes extended information on
+.BR mmap (2)
+calls returning executable mappings.
+The format is similar to that of the
+.B PERF_RECORD_MMAP
+record but includes extra values that allow uniquely identifying
+shared mappings.
+.in +4n
+.nf
+struct {
+    struct perf_event_header header;
+    u32 pid, tid;
+    u64 addr;
+    u64 len;
+    u64 pgoff;
+    u32 maj;
+    u32 min;
+    u64 ino;
+    u64 ino_generation;
+    u32 prot, flags;
+    char filename[];
+    struct sample_id sample_id;
+};
+.fi
+.RS
+.TP
+.I pid
+is the process id.
+.TP
+.I tid
+is the thread id.
+.TP
+.I addr
+is the address of the allocated memory.
+.TP
+.I len
+is the length of the allocated memory.
+.TP
+.I pgoff
+is the page offset of the allocated memory.
+.TP
+.I maj
+is the major number of the underlying device.
+.TP
+.I min
+is the minor number of the underlying device.
+.TP
+.I ino
+is the inode.
+.TP
+.I ino_generation
+is the inode generation.
+.TP
+.I prot
+is the protection information.
+.TP
+.I flags
+is the flags information.
+.TP
+.I filename
+is a string describing the backing of the allocated memory.
 .RE
 .RE
 .SS Signal overflow

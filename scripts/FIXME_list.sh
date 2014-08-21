@@ -54,7 +54,7 @@ done
 shift $(( $OPTIND - 1 ))
 
 if test $# -eq 0; then
-    echo "Usage: $0 [-a] pathname" 1>&2
+    echo "Usage: $0 [-a] pathname..." 1>&2
     exit 1;
 fi
 

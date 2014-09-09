@@ -130,9 +130,11 @@ even if the new namespace is created or joined by the root user
 
 Note that a call to
 .BR execve (2)
-will cause a process's capabilities to be recalculated (see
+will cause a process's capabilities to be recalculated in the usual way (see
 .BR capabilities (7)),
-so that usually, unless it has a user ID of 0 within the namespace,
+so that usually,
+unless it has a user ID of 0 within the namespace or the executable file
+has a nonempty inheritable capabilities mask,
 it will lose all capabilities.
 See the discussion of user and group ID mappings, below.
 
@@ -420,6 +422,16 @@ This mapping tells us
 that the range starting at user ID 0 in this namespace
 maps to a range starting at 0 in the (nonexistent) parent namespace,
 and the length of the range is the largest 32-bit unsigned integer.
+(This deliberately leaves 4294967295 (the 32-bit signed \-1 value) unmapped.
+This is deliberate:
+.IR "(uid_t)\ -\1"
+is used in several interfaces (e.g.,
+.BR setreuid (2))
+as a way to specify "no user ID".
+Leaving
+.BR setreuid (2))
+unmapped and unusuable guarantees that there will be no
+confusion when using these interfaces.
 .\"
 .\" ============================================================
 .\"
@@ -512,7 +524,7 @@ in the user namespace.
 The usual case here is that this single line provides a mapping for user ID
 of the process that created the namespace.
 .IP * 3
-The process has the
+The opening process has the
 .BR CAP_SETUID
 .RB ( CAP_SETGID )
 capability in the parent user namespace.

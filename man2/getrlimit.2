@@ -250,8 +250,19 @@ Each message queue that the user creates counts (until it is removed)
 against this limit according to the formula:
 .nf
 
-    bytes = attr.mq_maxmsg * sizeof(struct msg_msg *) +
-            attr.mq_maxmsg * attr.mq_msgsize
+    Since Linux 3.5:
+        bytes = attr.mq_maxmsg * sizeof(struct msg_msg) +
+                min(attr.mq_maxmsg, MQ_PRIO_MAX) *
+                      sizeof(struct posix_msg_tree_node)+ 
+                                /* For overhead */
+                attr.mq_maxmsg * attr.mq_msgsize;
+                                /* For message data */
+
+    Linux 3.4 and earlier:
+        bytes = attr.mq_maxmsg * sizeof(struct msg_msg *) +
+                                /* For overhead */
+                attr.mq_maxmsg * attr.mq_msgsize;
+                                /* For message data */
 
 .fi
 where
@@ -259,11 +270,16 @@ where
 is the
 .I mq_attr
 structure specified as the fourth argument to
-.BR mq_open (3).
+.BR mq_open (3),
+and the
+.I msg_msg
+and
+.I posix_msg_tree_node
+structures are kernel-internal structures.
 
-The first addend in the formula, which includes
-.I "sizeof(struct msg_msg\ *)"
-(4 bytes on Linux/i386), ensures that the user cannot
+The "overhead" addend in the formula accounts for overhead
+bytes required by the implementation
+and ensures that the user cannot
 create an unlimited number of zero-length messages (such messages
 nevertheless each consume some system memory for bookkeeping overhead).
 .TP

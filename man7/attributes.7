@@ -167,157 +167,157 @@ they are not to be regarded as a promise of future behavior.
 Other keywords that appear in safety notes are defined in subsequent sections.
 .\"
 .\"
-.SS Unsafe features
-Functions that are unsafe to call in certain contexts are annotated with
-keywords that document their features that make them unsafe to call.
-AS-Unsafe features in this section indicate the functions are never safe
-to call when asynchronous signals are enabled.
-AC-Unsafe features
-indicate they are never safe to call when asynchronous cancellation is
-enabled.
-There are no MT-Unsafe marks in this section.
-.TP
-.I code
-Functions marked with
-.I lock
-as an AS-Unsafe feature may be
-interrupted by a signal while holding a non-recursive lock.
-If the signal handler calls another such function that takes the same lock,
-the result is a deadlock.
-
-Functions annotated with
-.I lock
-as an AC-Unsafe feature may, if canceled asynchronously,
-fail to release a lock that would have been released if their execution
-had not been interrupted by asynchronous thread cancellation.
-Once a lock is left taken, attempts to take that lock will block indefinitely.
-.TP
-.I corrupt
-Functions marked with
-.I corrupt
-as an AS-Unsafe feature may corrupt
-data structures and misbehave when they interrupt,
-or are interrupted by, another such function.
-Unlike functions marked with
-.IR lock ,
-these take recursive locks to avoid MT-Safety problems,
-but this is not enough to stop a signal handler from observing
-a partially-updated data structure.
-Further corruption may arise from the interrupted function's
-failure to notice updates made by signal handlers.
-
-Functions marked with
-.I corrupt
-as an AC-Unsafe feature may leave
-data structures in a corrupt, partially updated state.
-Subsequent uses of the data structure may misbehave.
-
-.\" A special case, probably not worth documenting separately, involves
-.\" reallocing, or even freeing pointers.  Any case involving free could
-.\" be easily turned into an ac-safe leak by resetting the pointer before
-.\" releasing it; I don't think we have any case that calls for this sort
-.\" of fixing.  Fixing the realloc cases would require a new interface:
-.\" instead of @code{ptr=realloc(ptr,size)} we'd have to introduce
-.\" @code{acsafe_realloc(&ptr,size)} that would modify ptr before
-.\" releasing the old memory.  The ac-unsafe realloc could be implemented
-.\" in terms of an internal interface with this semantics (say
-.\" __acsafe_realloc), but since realloc can be overridden, the function
-.\" we call to implement realloc should not be this internal interface,
-.\" but another internal interface that calls __acsafe_realloc if realloc
-.\" was not overridden, and calls the overridden realloc with async
-.\" cancel disabled.  --lxoliva
-.TP
-.I heap
-Functions marked with
-.I heap
-may call heap memory management functions from the
-.BR malloc (3)/ free (3) 
-family of functions and are only as safe as those functions.
-This note is thus equivalent to:
-
-    | AS-Unsafe lock | AC-Unsafe lock fd mem | 
-.\" @sampsafety{@asunsafe{@asulock{}}@acunsafe{@aculock{} @acsfd{} @acsmem{}}}
-.\"
-.\" Check for cases that should have used plugin instead of or in
-.\" addition to this.  Then, after rechecking gettext, adjust i18n if
-.\" needed.
-.TP
-.I dlopen
-Functions marked with
-.I dlopen
-use the dynamic loader to load
-shared libraries into the current execution image.
-This involves opening files, mapping them into memory,
-allocating additional memory, resolving symbols,
-applying relocations and more,
-all of this while holding internal dynamic loader locks.
-
-The locks are enough for these functions to be AS- and AC-Unsafe,
-but other issues may arise.
-At present this is a placeholder for all
-potential safety issues raised by
-.BR dlopen (3).
-
-.\" dlopen runs init and fini sections of the module; does this mean
-.\" dlopen always implies plugin?
-.TP
-.I plugin
-Functions annotated with
-.I plugin
-may run code from plugins that
-may be external to the GNU C Library.
-Such plugin functions are assumed to be
-MT-Safe, AS-Unsafe and AC-Unsafe.
-Examples of such plugins are stack unwinding libraries,
-name service switch (NSS) and character set conversion (iconv) back-ends.
-
-Although the plugins mentioned as examples are all brought in by means
-of dlopen, the
-.I plugin
-keyword does not imply any direct
-involvement of the dynamic loader or the
-.I libdl
-interfaces,
-those are covered by
-.IR dlopen .
-For example, if one function loads a module and finds the addresses
-of some of its functions,
-while another just calls those already-resolved functions,
-the former will be marked with
-.IR dlopen ,
-whereas the latter will get the
-.IR plugin .
-When a single function takes all of these actions, then it gets both marks.
-.TP
-.I i18n
-Functions marked with
-.I i18n
-may call internationalization
-functions of the
-.BR gettext (3)
-family and will be only as safe as those
-functions.
-This note is thus equivalent to:
-
-     | MT-Safe env | AS-Unsafe corrupt heap dlopen | AC-Unsafe corrupt | 
-
-.\" @sampsafety{@mtsafe{@mtsenv{}}@asunsafe{@asucorrupt{} @ascuheap{} @ascudlopen{}}@acunsafe{@acucorrupt{}}}
-.TP
-.I timer
-Functions marked with
-.I timer
-use the
-.BR alarm (3)
-function or
-similar to set a time-out for a system call or a long-running operation.
-In a multi-threaded program, there is a risk that the time-out signal
-will be delivered to a different thread,
-thus failing to interrupt the intended thread.
-Besides being MT-Unsafe, such functions are always
-AS-Unsafe, because calling them in signal handlers may interfere with
-timers set in the interrupted code, and AC-Unsafe,
-because there is no safe way to guarantee an earlier timer
-will be reset in case of asynchronous cancellation.
+.\" .SS Unsafe features
+.\" Functions that are unsafe to call in certain contexts are annotated with
+.\" keywords that document their features that make them unsafe to call.
+.\" AS-Unsafe features in this section indicate the functions are never safe
+.\" to call when asynchronous signals are enabled.
+.\" AC-Unsafe features
+.\" indicate they are never safe to call when asynchronous cancellation is
+.\" .\" enabled.
+.\" There are no MT-Unsafe marks in this section.
+.\" .TP
+.\" .\" .I code
+.\" Functions marked with
+.\" .I lock
+.\" as an AS-Unsafe feature may be
+.\" .\" interrupted by a signal while holding a non-recursive lock.
+.\" If the signal handler calls another such function that takes the same lock,
+.\" the result is a deadlock.
+.\" 
+.\" Functions annotated with
+.\" .I lock
+.\" as an AC-Unsafe feature may, if canceled asynchronously,
+.\" fail to release a lock that would have been released if their execution
+.\" had not been interrupted by asynchronous thread cancellation.
+.\" Once a lock is left taken, attempts to take that lock will block indefinitely.
+.\" .TP
+.\" .I corrupt
+.\" Functions marked with
+.\" .\" .I corrupt
+.\" as an AS-Unsafe feature may corrupt
+.\" data structures and misbehave when they interrupt,
+.\" or are interrupted by, another such function.
+.\" Unlike functions marked with
+.\" .IR lock ,
+.\" these take recursive locks to avoid MT-Safety problems,
+.\" but this is not enough to stop a signal handler from observing
+.\" a partially-updated data structure.
+.\" Further corruption may arise from the interrupted function's
+.\" failure to notice updates made by signal handlers.
+.\" 
+.\" Functions marked with
+.\" .I corrupt
+.\" as an AC-Unsafe feature may leave
+.\" data structures in a corrupt, partially updated state.
+.\" Subsequent uses of the data structure may misbehave.
+.\" 
+.\" .\" A special case, probably not worth documenting separately, involves
+.\" .\" reallocing, or even freeing pointers.  Any case involving free could
+.\" .\" be easily turned into an ac-safe leak by resetting the pointer before
+.\" .\" releasing it; I don't think we have any case that calls for this sort
+.\" .\" of fixing.  Fixing the realloc cases would require a new interface:
+.\" .\" instead of @code{ptr=realloc(ptr,size)} we'd have to introduce
+.\" .\" @code{acsafe_realloc(&ptr,size)} that would modify ptr before
+.\" .\" releasing the old memory.  The ac-unsafe realloc could be implemented
+.\" .\" in terms of an internal interface with this semantics (say
+.\" .\" __acsafe_realloc), but since realloc can be overridden, the function
+.\" .\" we call to implement realloc should not be this internal interface,
+.\" .\" but another internal interface that calls __acsafe_realloc if realloc
+.\" .\" was not overridden, and calls the overridden realloc with async
+.\" .\" cancel disabled.  --lxoliva
+.\" .TP
+.\" .I heap
+.\" Functions marked with
+.\" .I heap
+.\" may call heap memory management functions from the
+.\" .BR malloc (3)/ free (3) 
+.\" family of functions and are only as safe as those functions.
+.\" This note is thus equivalent to:
+.\" 
+.\"     | AS-Unsafe lock | AC-Unsafe lock fd mem | 
+.\" .\" @sampsafety{@asunsafe{@asulock{}}@acunsafe{@aculock{} @acsfd{} @acsmem{}}}
+.\" .\"
+.\" .\" Check for cases that should have used plugin instead of or in
+.\" .\" addition to this.  Then, after rechecking gettext, adjust i18n if
+.\" .\" needed.
+.\" .TP
+.\" .I dlopen
+.\" Functions marked with
+.\" .I dlopen
+.\" use the dynamic loader to load
+.\" shared libraries into the current execution image.
+.\" This involves opening files, mapping them into memory,
+.\" allocating additional memory, resolving symbols,
+.\" applying relocations and more,
+.\" all of this while holding internal dynamic loader locks.
+.\" 
+.\" The locks are enough for these functions to be AS- and AC-Unsafe,
+.\" but other issues may arise.
+.\" At present this is a placeholder for all
+.\" potential safety issues raised by
+.\" .BR dlopen (3).
+.\" 
+.\" .\" dlopen runs init and fini sections of the module; does this mean
+.\" .\" dlopen always implies plugin?
+.\" .TP
+.\" .I plugin
+.\" Functions annotated with
+.\" .I plugin
+.\" may run code from plugins that
+.\" may be external to the GNU C Library.
+.\" Such plugin functions are assumed to be
+.\" MT-Safe, AS-Unsafe and AC-Unsafe.
+.\" Examples of such plugins are stack unwinding libraries,
+.\" name service switch (NSS) and character set conversion (iconv) back-ends.
+.\" 
+.\" Although the plugins mentioned as examples are all brought in by means
+.\" of dlopen, the
+.\" .I plugin
+.\" keyword does not imply any direct
+.\" involvement of the dynamic loader or the
+.\" .I libdl
+.\" interfaces,
+.\" those are covered by
+.\" .IR dlopen .
+.\" For example, if one function loads a module and finds the addresses
+.\" of some of its functions,
+.\" while another just calls those already-resolved functions,
+.\" the former will be marked with
+.\" .IR dlopen ,
+.\" whereas the latter will get the
+.\" .IR plugin .
+.\" When a single function takes all of these actions, then it gets both marks.
+.\" .TP
+.\" .I i18n
+.\" Functions marked with
+.\" .I i18n
+.\" may call internationalization
+.\" functions of the
+.\" .BR gettext (3)
+.\" family and will be only as safe as those
+.\" functions.
+.\" This note is thus equivalent to:
+.\" 
+.\"     | MT-Safe env | AS-Unsafe corrupt heap dlopen | AC-Unsafe corrupt | 
+.\" 
+.\" .\" @sampsafety{@mtsafe{@mtsenv{}}@asunsafe{@asucorrupt{} @ascuheap{} @ascudlopen{}}@acunsafe{@acucorrupt{}}}
+.\" .TP
+.\" .I timer
+.\" Functions marked with
+.\" .I timer
+.\" use the
+.\" .BR alarm (3)
+.\" function or
+.\" similar to set a time-out for a system call or a long-running operation.
+.\" In a multi-threaded program, there is a risk that the time-out signal
+.\" will be delivered to a different thread,
+.\" thus failing to interrupt the intended thread.
+.\" Besides being MT-Unsafe, such functions are always
+.\" AS-Unsafe, because calling them in signal handlers may interfere with
+.\" timers set in the interrupted code, and AC-Unsafe,
+.\" because there is no safe way to guarantee an earlier timer
+.\" will be reset in case of asynchronous cancellation.
 .\"
 .\"
 .SS Conditionally safe features

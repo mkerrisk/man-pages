@@ -387,115 +387,115 @@ the objects are passed to the functions by users;
 in others, they are used by the functions to return values to users;
 in others, they are not even exposed to users.
 
-We consider access to objects passed as (indirect) arguments to
-functions to be data race free.
-The assurance of data race free objects
-is the caller's responsibility.
-We will not mark a function as MT-Unsafe or AS-Unsafe
-if it misbehaves when users fail to take the measures required by
-POSIX to avoid data races when dealing with such objects.
-As a general rule, if a function is documented as reading from
-an object passed (by reference) to it, or modifying it,
-users ought to use memory synchronization primitives
-to avoid data races just as they would should they perform
-the accesses themselves rather than by calling the library function.
-Standard I/O
-.RI ( "FILE *" )
-streams are the exception to the general rule,
-in that POSIX mandates the library to guard against data races
-in many functions that manipulate objects of this specific opaque type.
-We regard this as a convenience provided to users,
-rather than as a general requirement whose expectations
-should extend to other types.
-
-In order to remind users that guarding certain arguments is their
-responsibility, we will annotate functions that take objects of certain
-types as arguments.
-We draw the line for objects passed by users as follows:
-objects whose types are exposed to users,
-and that users are expected to access directly,
-such as memory buffers, strings,
-and various user-visible structured types, do
-.I not
-give reason for functions to be annotated with
-.IR race .
-It would be noisy and redundant with the general requirement,
-and not many would be surprised by the library's lack of internal
-guards when accessing objects that can be accessed directly by users.
-
-As for objects that are opaque or opaque-like,
-in that they are to be manipulated only by passing them
-to library functions (e.g.,
-.IR FILE ,
-.IR DIR ,
-.IR obstack ,
-.IR iconv_t ),
-there might be additional expectations as to internal coordination
-of access by the library.
-We will annotate, with
-.I race
-followed by a colon and the argument name,
-functions that take such objects but that do not take
-care of synchronizing access to them by default.
-For example,
-.I FILE
-stream
-.I unlocked
-functions
-.RB ( unlocked_stdio (3))
-will be annotated,
-but those that perform implicit locking on
-.I FILE
-streams by default will not,
-even though the implicit locking may be disabled on a per-stream basis.
-
-In either case, we will not regard as MT-Unsafe functions that may
-access user-supplied objects in unsafe ways should users fail to ensure
-the accesses are well defined.
-The notion prevails that users are expected to safeguard against
-data races any user-supplied objects that the library accesses
-on their behalf.
-
-.\" The above describes @mtsrace; @mtasurace is described below.
-
-This user responsibility does not apply, however,
-to objects controlled by the library itself,
-such as internal objects and static buffers used
-to return values from certain calls.
-When the library doesn't guard them against concurrent uses,
-these cases are regarded as MT-Unsafe and AS-Unsafe (although the
-.I race
-mark under AS-Unsafe will be omitted
-as redundant with the one under MT-Unsafe).
-As in the case of user-exposed objects,
-the mark may be followed by a colon and an identifier.
-The identifier groups all functions that operate on a
-certain unguarded object; users may avoid the MT-Safety issues related
-with unguarded concurrent access to such internal objects by creating a
-non-recursive mutex related with the identifier,
-and always holding the mutex when calling any function marked
-as racy on that identifier,
-as they would have to should the identifier be
-an object under user control.
-The non-recursive mutex avoids the MT-Safety issue,
-but it trades one AS-Safety issue for another,
-so use in asynchronous signals remains undefined.
-
-When the identifier relates to a static buffer used to hold return values,
-the mutex must be held for as long as the buffer remains in use
-by the caller.
-Many functions that return pointers to static buffers offer reentrant
-variants that store return values in caller-supplied buffers instead.
-In some cases, such as
-.BR tmpname (3),
-the variant is chosen not by calling an alternate entry point,
-but by passing a non-NULL pointer to the buffer in which the
-returned values are to be stored.
-These variants are generally preferable in multi-threaded programs,
-although some of them are not MT-Safe because of other internal buffers,
-also documented with
-.I race
-notes.
+.\" We consider access to objects passed as (indirect) arguments to
+.\" functions to be data race free.
+.\" The assurance of data race free objects
+.\" is the caller's responsibility.
+.\" We will not mark a function as MT-Unsafe or AS-Unsafe
+.\" if it misbehaves when users fail to take the measures required by
+.\" POSIX to avoid data races when dealing with such objects.
+.\" As a general rule, if a function is documented as reading from
+.\" an object passed (by reference) to it, or modifying it,
+.\" users ought to use memory synchronization primitives
+.\" to avoid data races just as they would should they perform
+.\" the accesses themselves rather than by calling the library function.
+.\" Standard I/O
+.\" .RI ( "FILE *" )
+.\" streams are the exception to the general rule,
+.\" in that POSIX mandates the library to guard against data races
+.\" in many functions that manipulate objects of this specific opaque type.
+.\" We regard this as a convenience provided to users,
+.\" rather than as a general requirement whose expectations
+.\" should extend to other types.
+.\" 
+.\" In order to remind users that guarding certain arguments is their
+.\" responsibility, we will annotate functions that take objects of certain
+.\" types as arguments.
+.\" We draw the line for objects passed by users as follows:
+.\" objects whose types are exposed to users,
+.\" and that users are expected to access directly,
+.\" such as memory buffers, strings,
+.\" and various user-visible structured types, do
+.\" .I not
+.\" give reason for functions to be annotated with
+.\" .IR race .
+.\" It would be noisy and redundant with the general requirement,
+.\" and not many would be surprised by the library's lack of internal
+.\" guards when accessing objects that can be accessed directly by users.
+.\" 
+.\" As for objects that are opaque or opaque-like,
+.\" in that they are to be manipulated only by passing them
+.\" to library functions (e.g.,
+.\" .IR FILE ,
+.\" .IR DIR ,
+.\" .IR obstack ,
+.\" .IR iconv_t ),
+.\" there might be additional expectations as to internal coordination
+.\" of access by the library.
+.\" We will annotate, with
+.\" .I race
+.\" followed by a colon and the argument name,
+.\" functions that take such objects but that do not take
+.\" care of synchronizing access to them by default.
+.\" For example,
+.\" .I FILE
+.\" stream
+.\" .I unlocked
+.\" functions
+.\" .RB ( unlocked_stdio (3))
+.\" will be annotated,
+.\" but those that perform implicit locking on
+.\" .I FILE
+.\" streams by default will not,
+.\" even though the implicit locking may be disabled on a per-stream basis.
+.\" 
+.\" In either case, we will not regard as MT-Unsafe functions that may
+.\" access user-supplied objects in unsafe ways should users fail to ensure
+.\" the accesses are well defined.
+.\" The notion prevails that users are expected to safeguard against
+.\" data races any user-supplied objects that the library accesses
+.\" on their behalf.
+.\" 
+.\" .\" The above describes @mtsrace; @mtasurace is described below.
+.\" 
+.\" This user responsibility does not apply, however,
+.\" to objects controlled by the library itself,
+.\" such as internal objects and static buffers used
+.\" to return values from certain calls.
+.\" When the library doesn't guard them against concurrent uses,
+.\" these cases are regarded as MT-Unsafe and AS-Unsafe (although the
+.\" .I race
+.\" mark under AS-Unsafe will be omitted
+.\" as redundant with the one under MT-Unsafe).
+.\" As in the case of user-exposed objects,
+.\" the mark may be followed by a colon and an identifier.
+.\" The identifier groups all functions that operate on a
+.\" certain unguarded object; users may avoid the MT-Safety issues related
+.\" with unguarded concurrent access to such internal objects by creating a
+.\" non-recursive mutex related with the identifier,
+.\" and always holding the mutex when calling any function marked
+.\" as racy on that identifier,
+.\" as they would have to should the identifier be
+.\" an object under user control.
+.\" The non-recursive mutex avoids the MT-Safety issue,
+.\" but it trades one AS-Safety issue for another,
+.\" so use in asynchronous signals remains undefined.
+.\" 
+.\" When the identifier relates to a static buffer used to hold return values,
+.\" the mutex must be held for as long as the buffer remains in use
+.\" by the caller.
+.\" Many functions that return pointers to static buffers offer reentrant
+.\" variants that store return values in caller-supplied buffers instead.
+.\" In some cases, such as
+.\" .BR tmpname (3),
+.\" the variant is chosen not by calling an alternate entry point,
+.\" but by passing a non-NULL pointer to the buffer in which the
+.\" returned values are to be stored.
+.\" These variants are generally preferable in multi-threaded programs,
+.\" although some of them are not MT-Safe because of other internal buffers,
+.\" also documented with
+.\" .I race
+.\" notes.
 .TP
 .I const
 Functions marked with

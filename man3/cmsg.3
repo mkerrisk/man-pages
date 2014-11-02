@@ -198,11 +198,16 @@ UNIX domain socket using
 struct msghdr msg = {0};
 struct cmsghdr *cmsg;
 int myfds[NUM_FD]; /* Contains the file descriptors to pass. */
-char buf[CMSG_SPACE(sizeof myfds)];  /* ancillary data buffer */
+union {
+    /* ancillary data buffer, wrapped in a union in order to ensure it is
+       suitably aligned */
+    char buf[CMSG_SPACE(sizeof myfds)];
+    struct cmsghdr align;
+} u;
 int *fdptr;
 
-msg.msg_control = buf;
-msg.msg_controllen = sizeof buf;
+msg.msg_control = u.buf;
+msg.msg_controllen = sizeof u.buf;
 cmsg = CMSG_FIRSTHDR(&msg);
 cmsg\->cmsg_level = SOL_SOCKET;
 cmsg\->cmsg_type = SCM_RIGHTS;

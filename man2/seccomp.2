@@ -349,39 +349,50 @@ operation (which does not support
 #include <linux/seccomp.h>
 #include <sys/prctl.h>
 
-static int install_filter(int syscall, int arch, int error)
+static int
+install_filter(int syscall, int arch, int error)
 {
     struct sock_filter filter[] = {
-        /* Load architecture. */
-        BPF_STMT(BPF_LD+BPF_W+BPF_ABS,
+        /* Load architecture */
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, arch))),
-        /* Jump forward 4 instructions on architecture mismatch. */
-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, arch, 0, 4),
-        /* Load syscall number. */
-        BPF_STMT(BPF_LD+BPF_W+BPF_ABS,
+
+        /* Jump forward 4 instructions on architecture mismatch */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, arch, 0, 4),
+
+        /* Load syscall number */
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, nr))),
-        /* Jump forward 1 instruction on syscall mismatch. */
-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, syscall, 0, 1),
-        /* Matching arch and syscall: return specific errno. */
-        BPF_STMT(BPF_RET+BPF_K,
-                 SECCOMP_RET_ERRNO|(error & SECCOMP_RET_DATA)),
-        /* Destination of syscall mismatch: Allow other syscalls. */
-        BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
-        /* Destination of arch mismatch: Kill process. */
-        BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
+
+        /* Jump forward 1 instruction on syscall mismatch */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, syscall, 0, 1),
+
+        /* Matching arch and syscall: return specific errno */
+        BPF_STMT(BPF_RET + BPF_K,
+                 SECCOMP_RET_ERRNO | (error & SECCOMP_RET_DATA)),
+
+        /* Destination of syscall mismatch: allow other syscalls */
+        BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_ALLOW),
+
+        /* Destination of arch mismatch: kill process. */
+        BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_KILL),
     };
+
     struct sock_fprog prog = {
-        .len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
+        .len = (unsigned short) (sizeof(filter) / sizeof(filter[0])),
         .filter = filter,
     };
+
     if (seccomp(SECCOMP_SET_MODE_FILTER, 0, &prog)) {
         perror("seccomp");
-        return EXIT_FAILURE;
+        return 1;
     }
-    return EXIT_SUCCESS;
+
+    return 0;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     if (argc < 5) {
         fprintf(stderr, "Usage:\\n"
@@ -389,19 +400,22 @@ int main(int argc, char **argv)
                 "Hint:  AUDIT_ARCH_I386: 0x%X\\n"
                 "       AUDIT_ARCH_X86_64: 0x%X\\n"
                 "\\n", AUDIT_ARCH_I386, AUDIT_ARCH_X86_64);
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
+
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
         perror("prctl");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
+
     if (install_filter(strtol(argv[1], NULL, 0),
                        strtol(argv[2], NULL, 0),
                        strtol(argv[3], NULL, 0)))
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
+
     execv(argv[4], &argv[4]);
     perror("execv");
-    return EXIT_FAILURE;
+    exit(EXIT_FAILURE);
 }
 .fi
 .SH SEE ALSO

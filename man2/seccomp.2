@@ -375,28 +375,28 @@ static int
 install_filter(int syscall, int arch, int error)
 {
     struct sock_filter filter[] = {
-        /* Load architecture */
+        /* [0] Load architecture */
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, arch))),
 
-        /* Jump forward 4 instructions on architecture mismatch */
+        /* [1] Jump forward 4 instructions on architecture mismatch */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, arch, 0, 4),
 
-        /* Load syscall number */
+        /* [2] Load syscall number */
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, nr))),
 
-        /* Jump forward 1 instruction on syscall mismatch */
+        /* [3] Jump forward 1 instruction on syscall mismatch */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, syscall, 0, 1),
 
-        /* Matching arch and syscall: return specific errno */
+        /* [4] Matching arch and syscall: return specific errno */
         BPF_STMT(BPF_RET + BPF_K,
                  SECCOMP_RET_ERRNO | (error & SECCOMP_RET_DATA)),
 
-        /* Destination of syscall mismatch: allow other syscalls */
+        /* [5] Destination of syscall mismatch: allow other syscalls */
         BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_ALLOW),
 
-        /* Destination of arch mismatch: kill process */
+        /* [6] Destination of architecture mismatch: kill process */
         BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_KILL),
     };
 

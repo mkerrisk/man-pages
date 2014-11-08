@@ -62,7 +62,8 @@ and
 .BR sigreturn (2).
 Other system calls result in the delivery of a
 .BR SIGKILL
-signal. Strict secure computing mode is useful for number-crunching
+signal
+Strict secure computing mode is useful for number-crunching
 applications that may need to execute untrusted byte code, perhaps
 obtained by reading from a pipe or socket.
 
@@ -84,11 +85,13 @@ This operation is functionally identical to the call:
 The system calls allowed are defined by a pointer to a Berkeley Packet
 Filter (BPF) passed via
 .IR args .
-This argument is a pointer to
+This arguMent is a pointer to a
 .IR "struct\ sock_fprog" ;
 it can be designed to filter arbitrary system calls and system call
 arguments.
-If the filter is invalid, the call will fail, returning
+If the filter is invalid,
+.BR seccomp ()
+fails, returning
 .BR EACCESS
 in
 .IR errno .
@@ -153,7 +156,7 @@ are:
 .RS
 .TP
 .BR SECCOMP_FILTER_FLAG_TSYNC
-When adding a new filter, synchronize all other threads of the current
+When adding a new filter, synchronize all other threads of the calling
 process to the same seccomp filter tree.
 .\" FIXME Nowhere in this page is the term "filter tree" defined.
 .\" There should be a definition somewhere.
@@ -195,7 +198,7 @@ struct sock_filter {    /* Filter block */
 .in
 
 When executing the instructions, the BPF program executes over the
-syscall information made available via:
+system call information made available via:
 
 .in +4n
 .nf
@@ -249,9 +252,9 @@ will show the address of the system call instruction, and
 .IR siginfo\->si_syscall
 and
 .IR siginfo\->si_arch
-will indicate which syscall was attempted.
+will indicate which system call was attempted.
 The program counter will be as though the system call happened
-(i.e., it will not point to the syscall instruction).
+(i.e., it will not point to the system call instruction).
 The return value register will contain an architecture\-dependent value;
 if resuming execution, set it to something sensible.
 (The architecture dependency is because replacing it with
@@ -267,7 +270,7 @@ portion of the return value will be passed as
 .IR si_errno .
 
 .BR SIGSYS
-triggered by seccomp will have a the value
+triggered by seccomp will have the value
 .BR SYS_SECCOMP
 in the
 .IR si_code
@@ -277,13 +280,14 @@ field.
 .\" FIXME What does "the return value" refer to in the next sentence?
 .\"       It is not obvious to me.
 Results in the lower 16-bits of the return value being passed
-to userland as the
+to user space as the
 .IR errno
 without executing the system call.
 .TP
 .BR SECCOMP_RET_TRACE
-When returned, this value will cause the kernel to attempt to
-notify a ptrace()-based tracer prior to executing the system call.
+When returned, this value will cause the kernel to attempt to notify a
+.BR ptrace (2)-based
+tracer prior to executing the system call.
 .\" FIXME I (mtk) reworded the following sentence substantially.
 .\" Please check it.
 If there is no tracer present,
@@ -307,26 +311,32 @@ via
 The tracer can skip the system call by changing the system call number
 to \-1.
 Alternatively, the tracer can change the system call
-requested by changing the system call to a valid syscall number.
+requested by changing the system call to a valid system call number.
 If the tracer asks to skip the system call, then the system call will
 appear to return the value that the tracer puts in the return value register.
 
 The seccomp check will not be run again after the tracer is notified.
 (This means that seccomp-based sandboxes
 .B "must not"
-allow use of ptrace\(emeven of other
+allow use of
+.BR ptrace (2)\(emeven
+of other
 sandboxed processes\(emwithout extreme care;
 ptracers can use this mechanism to escape.)
 .TP
 .BR SECCOMP_RET_ALLOW
 Results in the system call being executed.
-
+.PP
 If multiple filters exist, the return value for the evaluation of a
 given system call will always use the highest precedent value.
 
-Precedence is only determined using the
+.\" FIXME The following sentence is the first time that SECCOMP_RET_ACTION
+.\"       is mentioned. SECCOMP_RET_ACTION needs to be described in this
+.\"       man page.
+Precedence is determined using only the
 .BR SECCOMP_RET_ACTION
-mask.  When multiple filters return values of the same precedence,
+mask.
+When multiple filters return values of the same precedence,
 only the
 .BR SECCOMP_RET_DATA
 from the most recently installed filter will be returned.
@@ -368,10 +378,14 @@ are invalid for the given
 Another thread caused a failure during thread sync, but its ID could not
 be determined.
 .SH VERSIONS
-This system call first appeared in Linux 3.17.
+The
+.BR seccomp()
+system call first appeared in Linux 3.17.
 .\" FIXME Add glibc version
 .SH CONFORMING TO
-This system call is a nonstandard Linux extension.
+The
+.BR seccomp()
+system call is a nonstandard Linux extension.
 .SH NOTES
 .BR seccomp ()
 provides a superset of the functionality provided by the
@@ -499,18 +513,21 @@ install_filter(int syscall, int arch, int error)
         /* [1] Jump forward 4 instructions on architecture mismatch */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, arch, 0, 4),
 
-        /* [2] Load syscall number */
+        /* [2] Load system call number */
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, nr))),
 
-        /* [3] Jump forward 1 instruction on syscall mismatch */
+        /* [3] Jump forward 1 instruction on system call number
+               mismatch */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, syscall, 0, 1),
 
-        /* [4] Matching arch and syscall: return specific errno */
+        /* [4] Matching architecture and system call: return
+               specific errno */
         BPF_STMT(BPF_RET + BPF_K,
                  SECCOMP_RET_ERRNO | (error & SECCOMP_RET_DATA)),
 
-        /* [5] Destination of syscall mismatch: allow other syscalls */
+        /* [5] Destination of system call number mismatch: allow other
+               system calls */
         BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_ALLOW),
 
         /* [6] Destination of architecture mismatch: kill process */

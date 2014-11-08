@@ -1,6 +1,6 @@
 .\" Copyright (C) 2014 Kees Cook <keescook@chromium.org>
 .\" and Copyright (C) 2012 Will Drewry <wad@chromium.org>
-.\" and Copyright (C) 2008 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2008, 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -360,6 +360,103 @@ provides a superset of the functionality provided by the
 operation (which does not support
 .IR flags ).
 .SH EXAMPLE
+.\" FIXME Please carefully review the following new piece that
+.\"       demonstrates the use of your example program.
+The program below accepts four or more arguments.
+The first three arguments are a system call number,
+a numeric architecture identifier, and an error number.
+The program uses these values to construct a BPF filter
+that is used at run time to perform the following checks:
+.IP [1] 4
+If the program is not running on the specified architecture,
+the BPF filter causes system calls to fail with the error
+.BR ENOSYS .
+.IP [2]
+If the program attempts to execute the system call with the specified number,
+the BPF filter causes the system call to fail, with
+.I errno
+being set to the specified error number.
+.PP
+The remaining command-line arguments specify
+the pathname and additional arguments of a program
+that the example program should attempt to execute using
+.BR execve (3)
+(a library function that employs the
+.BR execve (2)
+system call).
+Some example runs of the program are shown below.
+
+First, we display the architecture that we are running on (x86-64)
+and then construct a shell function that looks up system call
+numbers on this architecture:
+
+.nf
+.in +4n
+$ \fBuname -m\fP
+x86_64
+$ \fBsyscall_nr() {
+    cat /usr/src/linux/arch/x86/syscalls/syscall_64.tbl | \\
+    awk '$2 != "x32" && $3 == "'$1'" { print $1 }' 
+}\fP
+.in
+.fi
+
+When the BPF filter rejects a system call (case [2] above),
+it causes the system call to fail with the error number
+specified on the command line.
+In the experiments shown here, we'll use error number 99:
+
+.nf
+.in +4n
+$ \fBerrno 99\fP
+EADDRNOTAVAIL 99 Cannot assign requested address
+.in
+.fi
+
+In the following example, we attempt to run the command
+.BR whoami (1),
+but the BPF filter rejects the
+.BR execve (2)
+system call, so that the command is not even executed:
+
+.nf
+.in +4n
+$ \fBsyscall_nr execve\fP
+59      
+$ \fB./a.out 59 0xC000003E 99 /bin/whoami\fP
+execv: Cannot assign requested address
+.in
+.fi
+
+In the next example, the BPF filter rejects the
+.BR write (2)
+system call, so that, although it is successfully started, the
+.BR whoami (1)
+command is not able to write output:
+
+.nf
+.in +4n
+$ \fBsyscall_nr write\fP
+1
+$ \fB./a.out 1 0xC000003E 99 /bin/whoami\fP
+.in
+.fi
+
+In the final example,
+the BPF filter rejects a system call that is not used by the
+.BR whoami (1)
+command, so it is able to successfully execute and produce output:
+
+.nf
+.in +4n
+$ \fBsyscall_nr preadv\fP
+295
+$ \fB./a.out 295 0xC000003E 99 /bin/whoami\fP
+cecilia
+.in
+.fi
+.SS Program source
+.fi
 .nf
 #include <errno.h>
 #include <stddef.h>

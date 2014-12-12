@@ -533,11 +533,16 @@ One of the following is true:
 The data written to
 .I uid_map
 .RI ( gid_map )
-consists of a single line that maps the writing process's filesystem user ID
+consists of a single line that maps the writing process's effective user ID
 (group ID) in the parent user namespace to a user ID (group ID)
 in the user namespace.
-The usual case here is that this single line provides a mapping for user ID
-of the process that created the namespace.
+The writing process must have the same effective user ID as the process
+that created the user namespace.
+In the case of
+.I gid_map
+the
+.I setgroups
+file must have been written to earlier and disabled the setgroups system call.
 .IP * 3
 The writing process has the
 .BR CAP_SETUID
@@ -552,6 +557,47 @@ Writes that violate the above rules fail with the error
 .\"
 .\" ============================================================
 .\"
+.SS Interaction with system calls that change the uid or gid values
+When in a user namespace where the
+.I uid_map
+or
+.I gid_map
+file has not been written the system calls that change user IDs
+or group IDs respectively will fail.  After the
+.I uid_map
+and
+.I gid_map
+file have been written only the mapped values may be used in
+system calls that change user IDs and group IDs.
+
+For user IDs these system calls include
+.BR setuid ,
+.BR setfsuid ,
+.BR setreuid ,
+and
+.BR setresuid .
+
+For group IDs these system calls include
+.BR setgid ,
+.BR setfsgid ,
+.BR setregid ,
+.BR setresgid ,
+and
+.BR setgroups.
+
+Writing
+.BR deny
+to the
+.I /proc/[pid]/setgroups
+file before writing to
+.I /proc/[pid]/gid_map
+will permanently disable the setgroups system call in a user namespace
+and allow writing to
+.I /proc/[pid]/gid_map
+without
+.BR CAP_SETGID
+in the parent user namespace.
+
 .SS Unmapped user and group IDs
 .PP
 There are various places where an unmapped user ID (group ID)

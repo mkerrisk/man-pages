@@ -126,9 +126,11 @@ operation will fail and return
 .BR EACCES
 in
 .IR errno .
-This requirement ensures that filter programs cannot be applied to child
-.\" FIXME What does "installed" in the following line mean?
-processes with greater privileges than the process that installed them.
+This requirement ensures that an unprivileged process cannot apply
+a malicious filter and then invoke a set-user-ID or
+other privileged program using
+.BR execve (2),
+thus potentially compromising that program
 
 If
 .BR prctl (2)
@@ -158,10 +160,12 @@ are:
 .BR SECCOMP_FILTER_FLAG_TSYNC
 When adding a new filter, synchronize all other threads of the calling
 process to the same seccomp filter tree.
-.\" FIXME Nowhere in this page is the term "filter tree" defined.
-.\" There should be a definition somewhere.
-.\" Is it: "the set of filters attached to a thread"?
-If any thread cannot do this,
+A "filter tree" is the ordered list of filters attached to a thread.
+(Attaching identical filters in separate
+.BR seccomp ()
+calls results in different filters from this perspective.)
+
+If any thread cannot synchronize to the same filter tree,
 the call will not attach the new seccomp filter,
 and will fail, returning the first thread ID found that cannot synchronize.
 Synchronization will fail if another thread is in
@@ -224,6 +228,9 @@ struct seccomp_data {
 .\"         including one that generates (say) the "higher priority"
 .\"         SECCOMP_RET_KILL condition.
 .\"       Can you clarify the above?
+.\" Andy Lutomirski:
+.\"	All of them are executed.  The precedence rules determine what happens
+.\"	if the filters return different values.
 A seccomp filter returns one of the values listed below.
 If multiple filters exist,
 the return value for the evaluation of a given system call
@@ -279,6 +286,8 @@ field.
 .BR SECCOMP_RET_ERRNO
 .\" FIXME What does "the return value" refer to in the next sentence?
 .\"       It is not obvious to me.
+.\"	Andy Lutomirski:
+.\"		The return value is the value returned by the BPF program.
 Results in the lower 16-bits of the return value being passed
 to user space as the
 .IR errno

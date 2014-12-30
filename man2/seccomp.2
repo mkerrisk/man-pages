@@ -611,24 +611,30 @@ install_filter(int syscall_nr, int t_arch, int error)
 .\"       was there a reason to use '+' rather than '|'? (To me, the
 .\"       latter is a little clearer in its intent.)
 .\"
+.\" FIXME I expanded comments [0], [1], [2], [3], [4] a little.
+.\"       Are they okay? */
+.\"
     struct sock_filter filter[] = {
-        /* [0] Load architecture */
+        /* [0] Load architecture from seccomp_data buffer into
+               accumulator */
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, arch))),
 
-        /* [1] Jump forward 4 instructions on architecture mismatch */
+        /* [1] Jump forward 4 instructions if architecture does not
+               match t_arch */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, t_arch, 0, 4),
 
-        /* [2] Load system call number */
+        /* [2] Load system call number from seccomp_data buffer into
+               accumulator */
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
                  (offsetof(struct seccomp_data, nr))),
 
-        /* [3] Jump forward 1 instruction on system call number
-               mismatch */
+        /* [3] Jump forward 1 instruction if system call number
+               does not match syscall_nr */
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, syscall_nr, 0, 1),
 
-        /* [4] Matching architecture and system call: return
-               specific errno */
+        /* [4] Matching architecture and system call: don't execute
+	       the system call, and return 'error' in 'errno' */
         BPF_STMT(BPF_RET + BPF_K,
                  SECCOMP_RET_ERRNO | (error & SECCOMP_RET_DATA)),
 

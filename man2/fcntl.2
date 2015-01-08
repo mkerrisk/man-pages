@@ -1329,9 +1329,33 @@ Seals are a property of an inode.
 Thus, all open file descriptors referring to the same inode share
 the same set of seals.
 Furthermore, seals can never be removed, only added.
-
+.TP
+.BR F_ADD_SEALS " (\fIint\fP; since Linux 3.17)"
+Add the seals given in the bit-mask argument
+.I arg
+to the set of seals of the inode referred to by the file descriptor
+.IR fd .
+Seals cannot be removed again.
+Once this call succeeds, the seals are enforced by the kernel immediately.
+If the current set of seals includes
+.BR F_SEAL_SEAL ,
+then this call will be rejected with
+.BR EPERM .
+Adding a seal that is already set is a no-op, in case
+.B F_SEAL_SEAL
+is not set already.
+.TP
+.BR F_GET_SEALS " (\fIvoid\fP; since Linux 3.17)"
+Return (as the function result) the current set of seals
+of the inode referred to by
+.IR fd .
+If no seals are set, 0 is returned.
+If the file does not support sealing, \-1 is returned and
+.I errno
+is set to
+.BR EINVAL .
+.PP
 The following set of seals is available so far:
-.RS
 .TP
 .BR F_SEAL_SEAL
 If this seal is set, any further call to
@@ -1376,6 +1400,19 @@ If you keep the size or shrink it, those calls still work as expected.
 If this seal is set, you cannot modify the contents of the file.
 Note that shrinking or growing the size of the file is
 still possible and allowed.
+.\" FIXME So, just to confirm my understanding of the previous sentence:
+.\"       Given a file with the F_SEAL_WRITE seal set, then:
+.\"
+.\"       Writing zeros into (say) the last 100 bytes of the file is
+.\"       NOT be permitted.
+.\"
+.\"       Shrinking the file by 100 bytes using ftruncate(), and then
+.\"       increasing the fil size by 100 bytes, which would have the
+.\"       effect of replacing the last hyndred bytes by zeros, IS permitted.
+.\"
+.\"       Either my understanding is incorrect, or the above two cases
+.\"       seem anomalous. Can you comment?
+.\"
 Thus, this seal is normally used in combination with one of the other seals.
 This seal affects
 .BR write (2)
@@ -1406,32 +1443,6 @@ Furthermore, if there are any asynchronous
 .\" FIXME Does this mean io_submit(2)?
 I/O operations pending on the file,
 all outstanding writes will be discarded.
-.RE
-.TP
-.BR F_ADD_SEALS " (\fIint\fP; since Linux 3.17)"
-Add the seals given in the bit-mask argument
-.I arg
-to the set of seals of the inode referred to by the file descriptor
-.IR fd .
-Seals cannot be removed again.
-Once this call succeeds, the seals are enforced by the kernel immediately.
-If the current set of seals includes
-.BR F_SEAL_SEAL ,
-then this call will be rejected with
-.BR EPERM .
-Adding a seal that is already set is a no-op, in case
-.B F_SEAL_SEAL
-is not set already.
-.TP
-.BR F_GET_SEALS " (\fIvoid\fP; since Linux 3.17)"
-Return (as the function result) the current set of seals
-of the inode referred to by
-.IR fd .
-If no seals are set, 0 is returned.
-If the file does not support sealing, \-1 is returned and
-.I errno
-is set to
-.BR EINVAL .
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
 .TP 0.9i

@@ -1,5 +1,5 @@
 .\" Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
-.\" starting from a version by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
 .\"
@@ -51,6 +51,7 @@ with the
 flag.
 
 The initial size of the file is set to 0.
+.\" FIXME I added the following sentence. Please review.
 Following the call, the file size should be set using
 .BR ftruncate (2).
 
@@ -165,6 +166,107 @@ Support in the GNU C library is pending.
 The
 .BR memfd_create ()
 system call is Linux-specific.
+.\" FIXME I added the NOTES section below. Please review.
+.SH NOTES
+.\" See also http://lwn.net/Articles/593918/
+.\" and http://lwn.net/Articles/594919/ and http://lwn.net/Articles/591108/
+The
+.BR memfd_create ()
+system call provides a simple alternative to manually mounting a
+.I tmpfs
+filesystem and creating and opening a file in that filesystem.
+The primary purpose of
+.BR memfd_create ()
+is to create files and associated file descriptors that are
+used with the file-sealing APIs provided by
+.BR fcntl (2).
+.SS File sealing
+In the absence of file sealing,
+processes that communicate via shared memory must either trust each other,
+or take measures to deal with the possibility that an untrusted peer
+may manipulate the shared memory region in problematics ways.
+For example, an untrusted peer might modify the contents of the
+shared memory at any time, or shrink the shared memory region.
+The former possibility leaves the local process vulnerable to
+time-of-check-to-time-of-use race conditions
+(typically dealt with by copying data from
+the shared memory region before checking and using it).
+The latter possibility leaves the local process vulnerable to
+.BR SIGBUS
+signals when an attempt is made to access a now-nonexistent
+location in the shared memory region.
+(Dealing with this possibility necessitates the use of a handler for the
+.BR SIGBUS
+signal.)
+
+Dealing with untrusted peers imposes extra complexity on
+code that employs shared memory.
+Memory sealing enables that extra complexity to be eliminated,
+by allowing a process to operate secure in the knowledge that
+its peer can't modify the shared memory in an undesired fashion.
+
+An example of the usage of the sealing mechanism is as follows:
+
+.IP 1. 3
+The first process creates a
+.I tmpfs
+file using 
+.BR memfd_create ().
+The call yields a file descriptor used in subsequent steps.
+.IP 2.
+The first process
+sizes the file created in the previous step using
+.BR ftruncate (2),
+maps it using
+.BR mmap (2),
+and populates the shared memory with the desired data.
+.IP 3.
+The first process uses the
+.BR fcntl (2)
+.B F_ADD_SEALS
+operation to place one or more seals on the file,
+in order to restrict further modifications on the file.
+(If placing the seal
+.BR F_SEAL_WRITE ,
+then it will be necessary to first unmap the shared writable mapping
+created in the previous step.)
+.IP 4.
+A second process obtains a file descriptor for the
+.I tmpfs
+file and maps it.
+This could happen in one of two ways:
+.RS
+.IP * 3
+The second process is created via
+.BR fork (2)
+and thus automatically inherits the file descriptor and mapping.
+.IP *
+The second process opens the file 
+.IR /proc/<pd>/fd/<fd> ,
+where
+.I <pid>
+is the PID of the first process (the one that called
+.BR memfd_create ()),
+and
+.I <fd>
+is the number of the file descriptor returned by the call to
+.BR memfd_create ()
+in that process.
+The second process then maps the file using
+.BR mmap (2).
+.RE
+.IP 5.
+The second process uses the
+.BR fcntl (2)
+.B F_GET_SEALS
+operation to retrieve the set of seals that has been applied to the file.
+This set can be inspected in order to determine what kinds of restrictions
+have been placed on file modifications.
+If desired, the second process can apply further seals
+to impose additional restrictions (so long as the
+.BR F_SEAL_SEAL
+seal has not yet been applied).
+.\"
 .\" FIXME Do we have any nice example program that could go in the man page?
 .SH SEE ALSO
 .BR fcntl (2),

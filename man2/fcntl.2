@@ -4,6 +4,7 @@
 .\" and Copyright (C) 1998 Jamie Lokier;
 .\" and Copyright (C) 2002-2010, 2014 Michael Kerrisk;
 .\" and Copyright (C) 2014 Jeff Layton
+.\" and Copyright (C) 2014 David Herrmann
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -59,7 +60,7 @@
 .\" 2010-06-17, Michael Kerrisk
 .\"	Document F_SETPIPE_SZ and F_GETPIPE_SZ.
 .\" 2014-07-08, David Herrmann <dh.herrmann@gmail.com>
-.\" Document F_ADD_SEALS and F_GET_SEALS
+.\"     Document F_ADD_SEALS and F_GET_SEALS
 .\"
 .TH FCNTL 2 2014-09-06 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -1310,15 +1311,25 @@ on this file from now on.
 The file is said to be sealed.
 The default set of seals depends on the type of the underlying
 file and filesystem.
-Currently, only shmem supports sealing.
+
+.\" FIXME I changed "shmem" to "tmpfs" in the next sentence. Okay?
+Currently, only the
+.I tmpfs
+filesystem supports sealing.
+(See
+.BR memfd_create (2)
+for a discussion of the uses of sealing.)
 On other filesystems, all
 .BR fcntl (2)
 operations that operate on seals will return
 .BR EINVAL .
+
 Seals are a property of an inode.
-Thus, all open files on an inode share the same set of seals.
+.\" FIXME: I reworded the following sentence a little. Please check it.
+Thus, all open file descriptors referring to the same inode share
+the same set of seals.
 Furthermore, seals can never be removed, only added.
-If a seal is set, it is guaranteed to be enforced immediately.
+
 The following set of seals is available so far:
 .RS
 .TP
@@ -1342,7 +1353,7 @@ with the
 .B O_TRUNC
 flag and
 .BR ftruncate (2).
-They will fail with
+Those calls will fail with
 .B EPERM
 if you try to shrink the file in question.
 Increasing the file size is still possible.
@@ -1352,16 +1363,17 @@ If this seal is set, the size of the file in question cannot be increased.
 This affects
 .BR write (2)
 if you write across size boundaries,
-.BR ftruncate (2)
+.BR ftruncate (2),
 and
 .BR fallocate (2).
 These calls will fail with
 .B EPERM
 if you use them to increase the file size or write beyond size boundaries.
+.\" FIXME What does "size boundaries" mean here?
 If you keep the size or shrink it, those calls still work as expected.
 .TP
 .BR F_SEAL_WRITE
-If this seal is set, you cannot modify data contents of the file.
+If this seal is set, you cannot modify the contents of the file.
 Note that shrinking or growing the size of the file is
 still possible and allowed.
 Thus, this seal is normally used in combination with one of the other seals.
@@ -1379,6 +1391,7 @@ Furthermore, trying to create new shared, writable memory-mappings via
 .BR mmap (2)
 will also fail with
 .BR EPERM .
+
 Setting
 .B F_SEAL_WRITE
 via
@@ -1388,27 +1401,29 @@ with
 will fail with
 .B EBUSY
 if any writable, shared mapping exists.
-You have to unmap those before you can add this seal.
+Such mappings must be unmapped before you can add this seal.
 Furthermore, if there are any asynchronous
-I/O operations pending on the file, all outstanding writes will be discarded.
+.\" FIXME Does this mean io_submit(2)?
+I/O operations pending on the file,
+all outstanding writes will be discarded.
 .RE
 .TP
-.BR F_ADD_SEALS " (\fIint\fP; since Linux TBD)"
-Add the seals given in
+.BR F_ADD_SEALS " (\fIint\fP; since Linux 3.17)"
+Add the seals given in the bit-mask argument
 .I arg
-to the set of seals of the inode pointed to by the file-descriptor
+to the set of seals of the inode referred to by the file descriptor
 .IR fd .
 Seals cannot be removed again.
 Once this call succeeds, the seals are enforced by the kernel immediately.
 If the current set of seals includes
-.B F_SEAL_SEAL
+.BR F_SEAL_SEAL ,
 then this call will be rejected with
 .BR EPERM .
 Adding a seal that is already set is a no-op, in case
 .B F_SEAL_SEAL
 is not set already.
 .TP
-.BR F_GET_SEALS " (\fIvoid\fP; since Linux TBD)"
+.BR F_GET_SEALS " (\fIvoid\fP; since Linux 3.17)"
 Return (as the function result) the current set of seals
 of the inode referred to by
 .IR fd .
@@ -1443,6 +1458,11 @@ behavior.
 .TP
 .BR F_GETPIPE_SZ ", " F_SETPIPE_SZ
 The pipe capacity.
+.TP
+.BR F_GET_SEALS
+A bit mask identifying the seals that have been set
+for the inode referred to by
+.IR fd .
 .TP
 All other commands
 Zero.

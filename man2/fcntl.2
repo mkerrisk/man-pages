@@ -58,6 +58,8 @@
 .\"     Document F_SETOWN_EX and F_GETOWN_EX
 .\" 2010-06-17, Michael Kerrisk
 .\"	Document F_SETPIPE_SZ and F_GETPIPE_SZ.
+.\" 2014-07-08, David Herrmann <dh.herrmann@gmail.com>
+.\" Document F_ADD_SEALS and F_GET_SEALS
 .\"
 .TH FCNTL 2 2014-09-06 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -1298,6 +1300,113 @@ of buffer space currently used to store data produces the error
 .BR F_GETPIPE_SZ " (\fIvoid\fP; since Linux 2.6.35)"
 Return (as the function result) the capacity of the pipe referred to by
 .IR fd .
+.SS File Sealing
+File seals limit the set of allowed operations on a given file. For each
+seal that is set on a file, a specific set of operations will fail with
+.B EPERM
+on this file from now on. The file is said to be sealed. The default set of
+seals depends on the type of the underlying file and filesystem. Currently, only
+shmem supports sealing. On other filesystems, all
+.BR fcntl (2)
+operations that operate on seals will return
+.BR EINVAL .
+Seals are a property of an inode. Thus, all open files on an inode share the
+same set of seals. Furthermore, seals can never be removed, only added. If a
+seal is set, it is guaranteed to be enforced immediately.
+The following set of seals is available so far:
+.RS
+.TP
+.BR F_SEAL_SEAL
+If this seal is set, any further call to
+.BR fcntl (2)
+with
+.B F_ADD_SEALS
+will fail with
+.BR EPERM .
+Therefore, this seal prevents any modifications to the set of seals itself. If
+the initial set of seals of a file includes
+.BR F_SEAL_SEAL ,
+then this effectively causes the set of seals to be constant and locked.
+.TP
+.BR F_SEAL_SHRINK
+If this seal is set, the file in question cannot be reduced in size. This
+affects
+.BR open (2)
+with the
+.B O_TRUNC
+flag and
+.BR ftruncate (2).
+They will fail with
+.B EPERM
+if you try to shrink the file in question. Increasing the file size is still
+possible.
+.TP
+.BR F_SEAL_GROW
+If this seal is set, the size of the file in question cannot be increased. This
+affects
+.BR write (2)
+if you write across size boundaries,
+.BR ftruncate (2)
+and
+.BR fallocate (2).
+These calls will fail with
+.B EPERM
+if you use them to increase the file size or write beyond size boundaries. If
+you keep the size or shrink it, those calls still work as expected.
+.TP
+.BR F_SEAL_WRITE
+If this seal is set, you cannot modify data contents of the file. Note that
+shrinking or growing the size of the file is still possible and allowed. Thus,
+this seal is normally used in combination with one of the other seals. This seal
+affects
+.BR write (2)
+and
+.BR fallocate (2)
+(only in combination with the
+.B FALLOC_FL_PUNCH_HOLE
+flag). Those calls will fail with
+.B EPERM
+if this seal is set. Furthermore, trying to create new shared, writable
+memory-mappings via
+.BR mmap (2)
+will also fail with
+.BR EPERM .
+Setting
+.B F_SEAL_WRITE
+via
+.BR fcntl (2)
+with
+.B F_ADD_SEALS
+will fail with
+.B EBUSY
+if any writable, shared mapping exists. You have to unmap
+those before you can add this seal. Furthermore, if there are any asynchronous
+I/O operations pending on the file, all outstanding writes will be discarded.
+.RE
+.TP
+.BR F_ADD_SEALS " (\fIint\fP; since Linux TBD)"
+Add the seals given in
+.I arg
+to the set of seals of the inode pointed to by the file-descriptor
+.IR fd .
+Seals cannot be removed again. Once this call succeeds, the seals are enforced
+by the kernel immediately. If the current set of seals includes
+.B F_SEAL_SEAL
+then this call will be rejected with
+.BR EPERM .
+Adding a seal that is already set is a no-op, in case
+.B F_SEAL_SEAL
+is not set already.
+.TP
+.BR F_GET_SEALS " (\fIvoid\fP; since Linux TBD)"
+Return (as the function result) the current set of seals of the inode referred
+to by
+.IR fd .
+If no seals are set, 0 is returned. If the file does not support sealing, -1 is
+returned and
+.I errno
+is set to
+.BR EINVAL .
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
 .TP 0.9i

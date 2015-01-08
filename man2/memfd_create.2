@@ -2,6 +2,9 @@
 .\" starting from a version by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
+.\"
+.\" FIXME What is _SW_3_PARA?
+.\" 
 .\" This program is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
 .\" the Free Software Foundation; either version 2 of the License, or
@@ -26,27 +29,46 @@ memfd_create \- create an anonymous file
 .BI "int memfd_create(const char *" name ", unsigned int " flags ");"
 .SH DESCRIPTION
 .BR memfd_create ()
-creates an anonymous file and returns a file-descriptor to it.
-The file behaves like regular files, thus can be modified,
-truncated, memory-mapped and more.
-However, unlike regular files it lives in main memory and has a volatile
-backing storage.
+creates an anonymous file and returns a file descriptor that refers to it.
+The file behaves like a regular file, and so can be modified,
+truncated, memory-mapped and so on.
+However, unlike a regular file,
+it lives in RAM and has a volatile backing storage.
+.\" FIXME In the following sentence I changed "released" to
+.\"       "destroyed". Okay?
 Once all references to the file are dropped, it is automatically released.
 Anonymous memory is used for all backing pages of the file.
-Therefore, they are subject to the same restrictions as other anonymous
-memory allocations like
+.\" FIXME In the following sentence I changed "they" to
+.\"       "files created by memfd_create()". Okay?
+Therefore, files created by
+.BR memfd_create ()
+are subject to the same restrictions as other anonymous
+.\" FIXME Can you give some examples on some of the restrictions please.
+memory allocations such as those allocated using
 .BR mmap (2)
-with
-.BR MAP_ANON .
+with the
+.BR MAP_ANONYMOUS
+flag.
 
 The initial size of the file is set to 0.
+Following the call, the file size should be set using
+.BR ftruncate (2).
+
+The name supplied in
 .I name
-is used as internal file-name and will occur as such in
+is used as an internal filename and will appear
+.\" FIXME What does "internal" in the previous line mean?
+as the target of the corresponding symbolic link in the directory
+.\" FIXME I added the previous line. Is it correct?
 .IR /proc/self/fd/ .
-The name is always prefixed with
-.BR memfd:
-and serves only debugging purposes.
+.\" FIXME In the next line, I added "as displayed in that 
+The displayed name is always prefixed with
+.IR memfd:
+and serves only for debugging purposes.
 Names do not affect the behavior of the memfd,
+.\" FIXME The term "memfd" appears here without having previously been
+.\"       defined. Would the correct definition "the memfd" be
+.\"       "the file descriptor created by memfd_create"?
 and as such multiple files can have the same name without any side effects.
 
 The following values may be bitwise ORed in
@@ -63,9 +85,6 @@ See the description of the
 flag in
 .BR open (2)
 for reasons why this may be useful.
-Furthermore,
-.B O_LARGEFILE
-is always set for memfds.
 .TP
 .BR MFD_ALLOW_SEALING
 Allow sealing operations (see
@@ -77,22 +96,34 @@ and
 on this file.
 The initial set of seals is empty.
 If this flag is not set, the initial set of seals will be
-.B F_SEAL_SEAL
-and as such no other seals can be set on the file.
+.BR F_SEAL_SEAL ,
+meaning that no other seals can be set on the file.
+.\" FIXME Why is the MFD_ALLOW_SEALING behavior not simply the default?
+.\"       Is it worth adding some text explaining this?
 .PP
-Unused bits must be cleared to 0.
+Unused bits in
+.I flags
+must be 0.
 
 As its return value,
 .BR memfd_create ()
 returns a new file descriptor that can be used to refer to the file.
-A copy of the file descriptor created by
-.BR memfd_create ()
-is inherited by the child produced by
-.BR fork (2).
-The duplicate file descriptor is associated with the same file.
-File descriptors created by
-.BR memfd_create ()
-are preserved across
+This file descriptor is opened for both reading and writing
+.RB ( O_RDWR )
+and
+.B O_LARGEFILE
+is set for the descriptor.
+
+With respect to
+.BR fork (2)
+and
+.BR execve (2),
+the usual semantics apply for the file descriptor created by
+.BR memfd_create ().
+A copy of the file descriptor is inherited by the child produced by
+.BR fork (2)
+and refers to the same file.
+The file descriptor is preserved across
 .BR execve (2),
 unless the close-on-exec flag has been set.
 .SH RETURN VALUE
@@ -104,6 +135,11 @@ On error, \-1 is returned and
 is set to indicate the error.
 .SH ERRORS
 .TP
+.B EFAULT
+The address in
+.IR name
+points to invalid memory.
+.TP
 .B EINVAL
 An unsupported value was specified in one of the arguments.
 .TP
@@ -113,18 +149,19 @@ The per-process limit on open file descriptors has been reached.
 .B ENFILE
 The system-wide limit on the total number of open files has been reached.
 .TP
-.B EFAULT
-The name given in
-.IR name
-points to invalid memory.
-.TP
 .B ENOMEM
 There was insufficient memory to create a new anonymous file.
 .SH VERSIONS
-to-be-defined
-.SH CONFORMING TO
+The
 .BR memfd_create ()
-is Linux-specific.
+system call first appeared in Linux 3.17.
+.SH CONFORMING TO
+The
+.BR memfd_create ()
+system call is Linux-specific.
+.\" FIXME Do we have any nice example program that could go in the man page?
 .SH SEE ALSO
 .BR fcntl (2),
+.\" FIXME Why the reference to shmget(2) in particular (and not,
+.\"       e.g., shm_open(3), mmap(2))?
 .BR shmget (2)

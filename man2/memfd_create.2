@@ -1,0 +1,127 @@
+.\" Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
+.\" starting from a version by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, see
+.\" <http://www.gnu.org/licenses/>.
+.\" %%%LICENSE_END
+.\"
+.TH MEMFD_CREATE 2 2014-07-08 Linux "Linux Programmer's Manual"
+.SH NAME
+memfd_create \- create an anonymous file
+.SH SYNOPSIS
+.B #include <sys/memfd.h>
+.sp
+.BI "int memfd_create(const char *" name ", unsigned int " flags ");"
+.SH DESCRIPTION
+.BR memfd_create ()
+creates an anonymous file and returns a file-descriptor to it. The file behaves
+like regular files, thus can be modified, truncated, memory-mapped and more.
+However, unlike regular files it lives in main memory and has a volatile
+backing storage. Once all references to the file are dropped, it is
+automatically released. Anonymous memory is used for all backing pages of the
+file. Therefore, they are subject to the same restrictions as other anonymous
+memory allocations like
+.BR mmap (2)
+with
+.BR MAP_ANON .
+
+The initial size of the file is set to 0.
+.I name
+is used as internal file-name and will occur as such in
+.IR /proc/self/fd/ .
+The name is always prefixed with
+.BR memfd:
+and serves only debugging purposes. Names do not affect the behavior of the
+memfd, and as such multiple files can have the same name without any side
+effects.
+
+The following values may be bitwise ORed in
+.IR flags
+to change the behaviour of
+.BR memfd_create ():
+.TP
+.BR MFD_CLOEXEC
+Set the close-on-exec
+.RB ( FD_CLOEXEC )
+flag on the new file descriptor.
+See the description of the
+.B O_CLOEXEC
+flag in
+.BR open (2)
+for reasons why this may be useful. Furthermore,
+.B O_LARGEFILE
+is always set for memfds.
+.TP
+.BR MFD_ALLOW_SEALING
+Allow sealing operations (see
+.BR fcntl (2)
+with
+.B F_ADD_SEALS
+and
+.BR F_GET_SEALS )
+on this file. The initial set of seals is empty. If this flag is not set, the
+initial set of seals will be
+.B F_SEAL_SEAL
+and as such no other seals can be set on the file.
+.PP
+Unused bits must be cleared to 0.
+
+As its return value,
+.BR memfd_create ()
+returns a new file descriptor that can be used to refer to the file.
+A copy of the file descriptor created by
+.BR memfd_create ()
+is inherited by the child produced by
+.BR fork (2).
+The duplicate file descriptor is associated with the same file.
+File descriptors created by
+.BR memfd_create ()
+are preserved across
+.BR execve (2),
+unless the close-on-exec flag has been set.
+.SH RETURN VALUE
+On success,
+.BR memfd_create ()
+returns a new file descriptor.
+On error, \-1 is returned and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EINVAL
+An unsupported value was specified in one of the arguments.
+.TP
+.B EMFILE
+The per-process limit on open file descriptors has been reached.
+.TP
+.B ENFILE
+The system-wide limit on the total number of open files has been
+reached.
+.TP
+.B EFAULT
+The name given in
+.IR name
+points to invalid memory.
+.TP
+.B ENOMEM
+There was insufficient memory to create a new anonymous file.
+.SH VERSIONS
+to-be-defined
+.SH CONFORMING TO
+.BR memfd_create ()
+is Linux-specific.
+.SH SEE ALSO
+.BR shmget (2),
+.BR fcntl (2),

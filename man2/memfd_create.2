@@ -1,5 +1,5 @@
-.\" Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
-.\" and Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
 .\"
@@ -268,8 +268,199 @@ If desired, the second process can apply further seals
 to impose additional restrictions (so long as the
 .BR F_SEAL_SEAL
 seal has not yet been applied).
-.\"
-.\" FIXME Do we have any nice example program that could go in the man page?
+.\" FIXME I added the EXAMPLE section below. Please review.
+.SH EXAMPLE
+Below are shown two example programs that demonstrate the use of
+.BR memfd_create ()
+and the file sealing API.
+
+The first program,
+.IR t_memfd_create.c ,
+creates a
+.I tmpfs
+file using
+.BR memfd_create (),
+sets a size for the file, maps it into memory,
+and optionally places some seals on the file.
+The program accepts up to three command-line arguments,
+of which the first two are required.
+The first argument is the name to associate with the file,
+the second argument is the size to be set for the file,
+and the optional third is a string of characters that specify
+seals to be set on file.
+
+The second program,
+.IR t_get_seals.c ,
+can be used to open an existing file that was created via
+.BR memfd_create ()
+and inspect the set of seals that have been applied to that file.
+
+The following shell session demonstrates the use of these programs.
+First we create a
+.I tmpfs
+file and set some seals on it:
+
+.in +4n
+.nf
+$ \fB./t_memfd_create my_memfd_file 4096 sw &\fP
+[1] 11775
+PID: 11775; fd: 3; /proc/11775/fd/3
+.fi
+.in
+
+At this point, the
+.I t_memfd_create
+program continues to run in the background.
+From another program, we can obtain a file descriptor for the
+memfd file by opening the
+.IR /proc/PID/fd
+file that corresponds to the descriptor opened by
+.BR memfd_create ().
+Using that pathname, we inspect the content of the
+.IR /proc/PID/fd
+symbolic link, and use our
+.I t_get_seals
+program to view the seals that have been placed on the file:
+
+.in +4n
+.nf
+$ \fBreadlink /proc/11775/fd/3\fP
+/memfd:my_memfd_file (deleted)
+$ \fB./t_get_seals /proc/11775/fd/3\fP
+Existing seals: WRITE SHRINK
+.fi
+.in
+.SS Program source: t_memfd_create.c
+\&
+.nf
+#include <sys/memfd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int fd;
+    unsigned int seals;
+    char *addr;
+    char *name, *seals_arg;
+    ssize_t len;
+
+    if (argc < 3) {
+        fprintf(stderr, "%s name size [seals]\\n", argv[0]);
+        fprintf(stderr, "\\t\(aqseals\(aq can contain any of the "
+                "following characters:\\n");
+        fprintf(stderr, "\\t\\tg \- F_SEAL_GROW\\n");
+        fprintf(stderr, "\\t\\ts \- F_SEAL_SHRINK\\n");
+        fprintf(stderr, "\\t\\tw \- F_SEAL_WRITE\\n");
+        fprintf(stderr, "\\t\\tS \- F_SEAL_SEAL\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    name = argv[1];
+    len = atoi(argv[2]);
+    seals_arg = argv[3];
+
+    /* Create an anonymous file in tmpfs; allow seals to be
+       placed on the file */
+
+    fd = memfd_create(name, MFD_ALLOW_SEALING);
+    if (fd == \-1)
+        errExit("memfd_create");
+
+    /* Size the file as specified on the command line */
+
+    if (ftruncate(fd, len) == \-1)
+        errExit("truncate");
+
+    printf("PID: %ld; fd: %d; /proc/%ld/fd/%d\\n",
+            (long) getpid(), fd, (long) getpid(), fd);
+
+    /* Code to map the file and populate the mapping with data
+       omitted */
+
+    /* If a \(aqseals\(aq command\-line argument was supplied, set some
+       seals on the file */
+
+    if (seals_arg != NULL) {
+        seals = 0;
+
+        if (strchr(seals_arg, \(aqg\(aq) != NULL)
+            seals |= F_SEAL_GROW;
+        if (strchr(seals_arg, \(aqs\(aq) != NULL)
+            seals |= F_SEAL_SHRINK;
+        if (strchr(seals_arg, \(aqw\(aq) != NULL)
+            seals |= F_SEAL_WRITE;
+        if (strchr(seals_arg, \(aqS\(aq) != NULL)
+            seals |= F_SEAL_SEAL;
+
+        if (fcntl(fd, F_ADD_SEALS, seals) == \-1)
+            errExit("fcntl");
+    }
+
+    /* Keep running, so that the file created by memfd_create()
+       continues to exist */
+
+    pause();
+
+    exit(EXIT_SUCCESS);
+}
+.fi
+.SS Program source: t_get_seals.c
+\&
+.nf
+#include <sys/memfd.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int fd;
+    unsigned int seals;
+
+    if (argc != 2) {
+        fprintf(stderr, "%s /proc/PID/fd/FD\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    fd = open(argv[1], O_RDWR);
+    if (fd == \-1)
+        errExit("open");
+
+    seals = fcntl(fd, F_GET_SEALS);
+    if (seals == \-1)
+        errExit("fcntl");
+
+    printf("Existing seals:");
+    if (seals & F_SEAL_SEAL)
+        printf(" SEAL");
+    if (seals & F_SEAL_GROW)
+        printf(" GROW");
+    if (seals & F_SEAL_WRITE)
+        printf(" WRITE");
+    if (seals & F_SEAL_SHRINK)
+        printf(" SHRINK");
+    printf("\\n");
+
+    /* Code to map the file and access the contents of the
+       resulting mapping omitted */
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR fcntl (2),
 .BR ftruncate (2),

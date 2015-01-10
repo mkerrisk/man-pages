@@ -109,19 +109,6 @@ needs to be mounted and available at the time of the call.
 .\" even where /proc is unavailable. Review future glibc releases to
 .\" see if the implementation is changed to use execveat(2).
 
-If
-.I fd
-is a file descriptor that refers to an interpreter script
-and has been marked as close-on-exec (see the discussion of the
-.BR FD_CLOEXEC
-in
-.BR fcntl (2)),
-.BR fexecve ()
-will fail to execute the script, since,
-by the time the script interpreter tries to access the script file,
-.I fd
-has already been closed.
-
 The idea behind
 .BR fexecve ()
 is to allow the caller to verify (checksum) the contents of
@@ -155,6 +142,26 @@ is used recursively,
 employing the close-on-exec flag prevents the file descriptor exhaustion
 that would result from the fact that each step in the recursion would
 cause one more file descriptor to be passed to the new program.
+(But see BUGS.)
+.SH BUGS
+If
+.I fd
+refers to a script (i.e., it is an executable text file that names
+a script interpreter with a first line that begins with the characters
+.IR #! )
+and the close-on-exec flag has been set for
+.IR fd ,
+then
+.BR fexecve ()
+fails with the error
+.BR ENOENT .
+This error occurs because,
+by the time the script interpreter is executed,
+.I fd
+has already been closed because of the close-on-exec flag.
+Thus, the close-on-exec flag can't be set on
+.I fd
+if it refers to a script, leading to the problems described in NOTES.
 .SH SEE ALSO
 .BR execve (2),
 .BR execveat (2)

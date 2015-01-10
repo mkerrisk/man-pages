@@ -149,6 +149,7 @@ was opened with the
 .B O_CLOEXEC
 flag, with the result that
 the program file is inaccessible to the launched interpreter.
+See BUGS.
 .TP
 .B ENOTDIR
 .I pathname
@@ -174,6 +175,29 @@ system call is also needed to allow
 to be implemented on systems that do not have the
 .I /proc
 filesystem mounted.
+.SH BUGS
+The
+.B ENOENT
+error described above means that it is not possible to set the
+close-on-exec flag on the file descriptor given to a call of the form:
+
+    execveat(fd, "", argv, envp, AT_EMPTY_PATH);
+
+However, the inability to set the close-on-exec flag means that a file
+descriptor referring to the script leaks through to the script itself.
+As well as wasting a file descriptor,
+this leakage can lead to file-descriptor exhaustion in scenarios
+where scripts recursively employ
+.BR exceveat ()
+(or a future
+.BR fexecve (3)
+implementation that might be based on
+.BR execveat ()).
+.\" For an example, see Michael Kerrisk's 2015-01-10 reply in this LKML
+.\" thread (http://thread.gmane.org/gmane.linux.kernel/1836105/focus=20229):
+.\"
+.\"     Subject: [PATCHv10 man-pages 5/5] execveat.2: initial man page for execveat(2)
+.\"     Date: Mon, 24 Nov 2014 11:53:59 +0000
 .SH SEE ALSO
 .BR execve (2),
 .BR openat (2),

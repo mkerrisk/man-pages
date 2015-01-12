@@ -152,13 +152,26 @@ is one of the following:
 .TP
 .BR FUTEX_WAIT " (since Linux 2.6.0)"
 .\" Strictly speaking, since some time in 2.5.x
-This operation atomically verifies that the futex address
+This operation tests that the value at the
+location pointed to by the futex address
 .I uaddr
 still contains the value
 .IR val ,
-and sleeps awaiting
+and then sleeps awaiting
 .B FUTEX_WAKE
-on this futex address.
+on the futex address.
+The test and sleep steps are performed atomically.
+If the futex value does not match
+.IR val ,
+then the call returns immediately with the error
+.BR EWOULDBLOCK .
+.\" FIXME I added the following sentence. Please confirm that it is correct.
+The purpose of the test step is to detect races where
+another process changes that value of the futex between
+the time it was last checked and the time of the
+.BR FUTEX_WAIT
+oepration.
+
 
 If the
 .I timeout
@@ -195,9 +208,17 @@ operation.
 .TP
 .BR FUTEX_WAKE " (since Linux 2.6.0)"
 .\" Strictly speaking, since Linux 2.5.x
-This operation wakes at most \fIval\fP
-processes waiting on this futex address (i.e., inside
-.BR FUTEX_WAIT ).
+This operation wakes at most
+.I val
+processes waiting (i.e., inside
+.BR FUTEX_WAIT )
+on the futex at the address
+.IR uaddr .
+Most commonly,
+.I val
+is specified as either 1 (wake up a single waiter) or
+.BR INT_MAX
+(wake up all waiters).
 
 The arguments
 .IR timeout ,

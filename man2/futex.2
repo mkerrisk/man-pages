@@ -10,14 +10,6 @@
 .\" Modified 2004-06-17 mtk
 .\" Modified 2004-10-07 aeb, added FUTEX_REQUEUE, FUTEX_CMP_REQUEUE
 .\"
-.\" FIXME .
-.\" See also https://bugzilla.kernel.org/show_bug.cgi?id=14303
-.\" 2.6.14 adds FUTEX_WAKE_OP
-.\"	commit 4732efbeb997189d9f9b04708dc26bf8613ed721
-.\"	Author: Jakub Jelinek <jakub@redhat.com>
-.\"	Date:   Tue Sep 6 15:16:25 2005 -0700
-.\"
-.\" FIXME .
 .\" 2.6.18 adds (Ingo Molnar) priority inheritance support:
 .\" FUTEX_LOCK_PI, FUTEX_UNLOCK_PI, and FUTEX_TRYLOCK_PI.  These need
 .\" to be documented in the manual page.  Probably there is sufficient
@@ -231,11 +223,162 @@ For
 this is executed if incrementing
 the count showed that there were waiters, once the futex value has been set
 to 1 (indicating that it is available).
+.\"
+.\" FIXME I added some FUTEX_WAKE_OP text, and I'd be happy if someone
+.\"       checked it.
 .TP
 .BR FUTEX_WAKE_OP " (since Linux 2.6.14)"
 .\" commit 4732efbeb997189d9f9b04708dc26bf8613ed721
-.\" FIXME to complete
-[As yet undocumented]
+.\"	Author: Jakub Jelinek <jakub@redhat.com>
+.\"	Date:   Tue Sep 6 15:16:25 2005 -0700
+This operation was added to support some user-space use cases
+where more than one futex must be handled at the same time.
+The most notable example is the implementation of
+.BR pthread_cond_signal (3),
+which requires operations on two futexes,
+the one used to implement the mutex and the one used in the implementation
+of the wait queue associated with the condition variable.
+.BR FUTEX_WAKE_OP
+allows such cases to be implemented without leading to
+high rates of contention and context switching.
+
+The
+.BR FUTEX_WAIT_OP
+operation is equivalent to atomically executing the following code:
+
+.in +4n
+.nf
+int oldval = *(int *) uaddr2;
+*(int *) uaddr2 = oldval \fIop\fP \fIoparg\fP;
+futex(uaddr, FUTEX_WAKE, val, 0, 0, 0);
+if (oldval \fIcmp\fP \fIcmparg\fP)
+    futex(uaddr2, FUTEX_WAKE, nr_wake2, 0, 0, 0);
+.fi
+.in
+
+In other words,
+.BR FUTEX_WAIT_OP
+does the following:
+.RS
+.IP * 3
+saves the original value of the futex at
+.IR uaddr2 ;
+.IP *
+performs an operation to modify the value of the futex at
+.IR uaddr2 ;
+.IP *
+wakes up a maximum of
+.I val
+waiters on the futex
+.IR uaddr ;
+and
+.IP *
+dependent on the results of a test of the original value of the futex at
+.IR uaddr2 ,
+wakes up a maximum of
+.I nr_wake2
+waiters on the futex
+.IR uaddr2 .
+.RE
+.IP
+The
+.I nr_wake2
+value is actually the
+.BR futex ()
+.I timeout
+argument (ab)used to specify how many of the waiters on the futex at
+.IR uaddr2
+are to be woken up;
+the kernel casts the
+.I timeout
+value to
+.IR u32 .
+
+The operation and comparison that are to be performed are encoded
+in the bits of the argument
+.IR val3 .
+Pictorially, the encoding is:
+
+.in +4n
+.nf
+        +-----+-----+---------------+---------------+
+        | op  | cmp |     oparg     |    cmparg     |
+        +-----+-----+---------------+---------------+
+# of bits: 4     4          12              12
+
+.fi
+.in
+
+Expressed in code, the encoding is:
+
+.in +4n
+.nf
+#define FUTEX_OP(op, oparg, cmp, cmparg) \\
+                (((op & 0xf) << 28) | \\
+                ((cmp & 0xf) << 24) | \\
+                ((oparg & 0xfff) << 12) | \\
+                (cmparg & 0xfff))
+.fi
+.in
+
+In the above,
+.I op
+and
+.I cmp
+are each one of the codes listed below.
+The
+.I oparg
+and
+.I cmparg
+components are literal numeric values, except as noted below.
+
+The
+.I op
+component has one of the following values:
+
+.in +4n
+.nf
+FUTEX_OP_SET        0  /* uaddr2 = oparg; */
+FUTEX_OP_ADD        1  /* uaddr2 += oparg; */
+FUTEX_OP_OR         2  /* uaddr2 |= oparg; */
+FUTEX_OP_ANDN       3  /* uaddr2 &= ~oparg; */
+FUTEX_OP_XOR        4  /* uaddr2 ^= oparg; */
+.fi
+.in
+
+In addition, bit-wise ORing the following value into
+.I op
+causes
+.IR "(1\ <<\ oparg)"
+to be used as the operand:
+
+.in +4n
+.nf
+FUTEX_OP_ARG_SHIFT  8  /* Use (1 << oparg) as operand */
+.fi
+.in
+
+The
+.I cmp
+field is one of the following:
+
+.in +4n
+.nf
+FUTEX_OP_CMP_EQ     0  /* if (oldval == cmparg) wake */
+FUTEX_OP_CMP_NE     1  /* if (oldval != cmparg) wake */
+FUTEX_OP_CMP_LT     2  /* if (oldval < cmparg) wake */
+FUTEX_OP_CMP_LE     3  /* if (oldval <= cmparg) wake */
+FUTEX_OP_CMP_GT     4  /* if (oldval > cmparg) wake */
+FUTEX_OP_CMP_GE     5  /* if (oldval >= cmparg) wake */
+.fi
+.in
+
+The return value of
+.BR FUTEX_WAKE_OP
+is the sum of the number of waiters woken on the futex
+.IR uaddr
+plus the number of waiters woken on the futex
+.IR uaddr2 .
 .TP
 .BR FUTEX_WAKE_BITSET " (since Linux 2.6.25)"
 .\" commit cd689985cf49f6ff5c8eddc48d98b9d581d9475d
@@ -420,6 +563,7 @@ was not less than 1000,000,000).
 .B EINVAL
 .RB ( FUTEX_WAIT ,
 .BR FUTEX_WAKE ,
+.BR FUTEX_WAKE_OP ,
 .BR FUTEX_REQUEUE ,
 .BR FUTEX_CMP_REQUEUE )
 .I uaddr
@@ -448,6 +592,15 @@ and the kernel state\(emthat is, it detected a waiter which waits in
 equals
 .IR uaddr2
 (i.e., an attempt was made to requeue to the same futex).
+.TP
+.B EINVAL
+.RB ( FUTEX_WAKE_OP )
+The kernel detected an inconsistency between the user-space state at
+.I uaddr
+and the kernel state; that is, it detected a waiter which waits in
+.B FUTEX_LOCK_PI
+on
+.IR uaddr .
 .TP
 .B EINVAL
 Invalid argument.

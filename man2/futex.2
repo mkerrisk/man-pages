@@ -258,6 +258,133 @@ For
 this is executed if incrementing
 the count showed that there were waiters, once the futex value has been set
 to 1 (indicating that it is available).
+.TP
+.BR FUTEX_FD " (from Linux 2.6.0 up to and including Linux 2.6.25)"
+.\" Strictly speaking, from Linux 2.5.x to 2.6.25
+This operation creates a file descriptor that is associated with the futex at
+.IR uaddr .
+.\" , suitable for .BR poll (2).
+The calling process must close the returned file descriptor after use.
+When another process performs a
+.BR FUTEX_WAKE
+on the futex, the file descriptor indicates as being readable with
+.BR select (2),
+.BR poll (2),
+and
+.BR epoll (7)
+
+The file descriptor can be used to obtain asynchronous notifications:
+if
+.I val
+is nonzero, then when another process executes a
+.BR FUTEX_WAKE ,
+the caller will receive the signal number that was passed in
+.IR val .
+
+The arguments
+.IR timeout ,
+.I uaddr2
+and
+.I val3
+are ignored.
+
+To prevent race conditions, the caller should test if the futex has
+been upped after
+.B FUTEX_FD
+returns.
+
+Because it was inherently racy,
+.B FUTEX_FD
+has been removed
+.\" commit 82af7aca56c67061420d618cc5a30f0fd4106b80
+from Linux 2.6.26 onward.
+.TP
+.BR FUTEX_REQUEUE " (since Linux 2.6.0)"
+.\" Strictly speaking: from Linux 2.5.70
+.\"
+.\" FIXME I added this warning. Okay?
+.IR "Avoid using this operation" .
+It is broken (unavoidably racy) for its intended purpose.
+Use
+.BR FUTEX_CMP_REQUEUE
+instead.
+
+This operation performs the same task as
+.BR FUTEX_CMP_REQUEUE ,
+except that no check is made using the value in
+.IR  val3 .
+(The argument
+.I val3
+is ignored.)
+.TP
+.BR FUTEX_CMP_REQUEUE " (since Linux 2.6.7)"
+This operation was added as a replacement for the earlier
+.BR FUTEX_REQUEUE ,
+because that operation was racy for its intended use.
+
+As with
+.BR FUTEX_REQUEUE ,
+the
+.BR FUTEX_CMP_REQUEUE
+operation is used to avoid a "thundering herd" effect when
+.B FUTEX_WAKE
+is used and all processes woken up need to acquire another futex.
+It differs from
+.BR FUTEX_REQUEUE
+in that it first checks whether the location
+.I uaddr
+still contains the value
+.IR val3 .
+If not, the operation fails with the error
+.BR EAGAIN .
+.\" FIXME I added the following sentence on rational for FUTEX_CMP_REQUEUE.
+.\"       Is it correct? SHould it be expanded?
+This additional feature of
+.BR FUTEX_CMP_REQUEUE
+can be used by the caller to (atomically) detect changes
+in the value of the target futex at
+.IR uaddr2 .
+
+The operation wakes up a maximum of
+.I val
+waiters that are waiting on the futex at
+.IR uaddr .
+If there are more than
+.I val
+waiters, then the remaining waiters are removed
+from the wait queue of the source futex at
+.I uaddr
+and added to the wait queue of the target futex at
+.IR uaddr2 .
+The
+.I timeout
+argument is (ab)used to specify a cap on the number of waiters
+that are requeued to the futex at
+.IR uaddr2 ;
+the kernel casts the
+.I timeout
+value to
+.IR u32 .
+
+.\" FIXME Please review the following new paragraph to see if it is
+.\"       accurate.
+Typical values to specify for
+.I val
+are 0 or or 1.
+(Specifying
+.BR INT_MAX
+is not useful, because it would make the
+.BR FUTEX_CMP_REQUEUE
+operation equivalent to
+.BR FUTEX_WAKE .)
+The cap value specified via the (abused)
+.I timeout
+argument is typically either 1 or
+.BR INT_MAX .
+(Specifying the argument as 0 is not useful, because it would make the
+.BR FUTEX_CMP_REQUEUE
+operation equivalent to
+.BR FUTEX_WAIT .)
 .\"
 .\" FIXME I added some FUTEX_WAKE_OP text, and I'd be happy if someone
 .\"       checked it.
@@ -519,133 +646,6 @@ arguments are ignored.
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
 .\" FIXME to complete
 [As yet undocumented]
-.TP
-.BR FUTEX_FD " (from Linux 2.6.0 up to and including Linux 2.6.25)"
-.\" Strictly speaking, from Linux 2.5.x to 2.6.25
-This operation creates a file descriptor that is associated with the futex at
-.IR uaddr .
-.\" , suitable for .BR poll (2).
-The calling process must close the returned file descriptor after use.
-When another process performs a
-.BR FUTEX_WAKE
-on the futex, the file descriptor indicates as being readable with
-.BR select (2),
-.BR poll (2),
-and
-.BR epoll (7)
-
-The file descriptor can be used to obtain asynchronous notifications:
-if
-.I val
-is nonzero, then when another process executes a
-.BR FUTEX_WAKE ,
-the caller will receive the signal number that was passed in
-.IR val .
-
-The arguments
-.IR timeout ,
-.I uaddr2
-and
-.I val3
-are ignored.
-
-To prevent race conditions, the caller should test if the futex has
-been upped after
-.B FUTEX_FD
-returns.
-
-Because it was inherently racy,
-.B FUTEX_FD
-has been removed
-.\" commit 82af7aca56c67061420d618cc5a30f0fd4106b80
-from Linux 2.6.26 onward.
-.TP
-.BR FUTEX_REQUEUE " (since Linux 2.6.0)"
-.\" Strictly speaking: from Linux 2.5.70
-.\"
-.\" FIXME I added this warning. Okay?
-.IR "Avoid using this operation" .
-It is broken (unavoidably racy) for its intended purpose.
-Use
-.BR FUTEX_CMP_REQUEUE
-instead.
-
-This operation performs the same task as
-.BR FUTEX_CMP_REQUEUE ,
-except that no check is made using the value in
-.IR  val3 .
-(The argument
-.I val3
-is ignored.)
-.TP
-.BR FUTEX_CMP_REQUEUE " (since Linux 2.6.7)"
-This operation was added as a replacement for the earlier
-.BR FUTEX_REQUEUE ,
-because that operation was racy for its intended use.
-
-As with
-.BR FUTEX_REQUEUE ,
-the
-.BR FUTEX_CMP_REQUEUE
-operation is used to avoid a "thundering herd" effect when
-.B FUTEX_WAKE
-is used and all processes woken up need to acquire another futex.
-It differs from
-.BR FUTEX_REQUEUE
-in that it first checks whether the location
-.I uaddr
-still contains the value
-.IR val3 .
-If not, the operation fails with the error
-.BR EAGAIN .
-.\" FIXME I added the following sentence on rational for FUTEX_CMP_REQUEUE.
-.\"       Is it correct? SHould it be expanded?
-This additional feature of
-.BR FUTEX_CMP_REQUEUE
-can be used by the caller to (atomically) detect changes
-in the value of the target futex at
-.IR uaddr2 .
-
-The operation wakes up a maximum of
-.I val
-waiters that are waiting on the futex at
-.IR uaddr .
-If there are more than
-.I val
-waiters, then the remaining waiters are removed
-from the wait queue of the source futex at
-.I uaddr
-and added to the wait queue of the target futex at
-.IR uaddr2 .
-The
-.I timeout
-argument is (ab)used to specify a cap on the number of waiters
-that are requeued to the futex at
-.IR uaddr2 ;
-the kernel casts the
-.I timeout
-value to
-.IR u32 .
-
-.\" FIXME Please review the following new paragraph to see if it is
-.\"       accurate.
-Typical values to specify for
-.I val
-are 0 or or 1.
-(Specifying
-.BR INT_MAX
-is not useful, because it would make the
-.BR FUTEX_CMP_REQUEUE
-operation equivalent to
-.BR FUTEX_WAKE .)
-The cap value specified via the (abused)
-.I timeout
-argument is typically either 1 or
-.BR INT_MAX .
-(Specifying the argument as 0 is not useful, because it would make the
-.BR FUTEX_CMP_REQUEUE
-operation equivalent to
-.BR FUTEX_WAIT .)
 .TP
 .BR FUTEX_CMP_REQUEUE_PI " (since Linux 2.6.31)"
 .\" commit 52400ba946759af28442dee6265c5c0180ac7122

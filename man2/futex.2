@@ -454,10 +454,48 @@ The selection is done by a bit-wise AND of the "wake" bitset
 (i.e., the value in
 .IR val3 )
 and the bitset which is stored in the kernel-internal
-state of the waiter (using
+state of the waiter (the "wait" biset that is set using
 .BR FUTEX_WAIT_BITSET ).
 All of the waiters for which the result of the AND is nonzero are woken up;
 the remaining waiters are left sleeping.
+
+.\" FIXME please review this paragraph that I added
+The effect of
+.BR FUTEX_WAIT_BITSET
+and
+.BR FUTEX_WAKE_BITSET
+is to allow selective wake-ups among multiple waiters that are waiting
+on the same futex;
+since a futex has a size of 32 bits,
+these operations provide 32 wakeup "channels".
+(The
+.BR FUTEX_WAIT
+and
+.BR FUTEX_WAKE
+operations correspond to
+.BR FUTEX_WAIT_BITSET
+and
+.BR FUTEX_WAKE_BITSET
+operations where the bitsets are all ones.)
+Note, however, that using this bitset multiplexing feature on a
+futex is less efficient than simply using multiple futexes,
+because employing bitset multiplexing requires the kernel
+to check all waiters on a futex,
+including those that are not interested in being woken up
+(i.e., they do not have the relevant bit set in their "wait" bitset).
+.\" According to http://locklessinc.com/articles/futex_cheat_sheet/:
+.\"
+.\"    "The original reason for the addition of these extensions
+.\"     was to improve the performance of pthread read-write locks
+.\"     in glibc. However, the pthreads library no longer uses the
+.\"     same locking algorithm, and these extensions are not used
+.\"     without the bitset parameter being all ones.
+.\" 
+.\" The page goes on to note that the FUTEX_WAIT_BITSET operation
+.\" is nevertheless used (with a bitset of all ones) in order to
+.\" obtain the absolute timeout functionality that is useful
+.\" for efficiently implementing Pthreads APIs (which use absolute
+.\" timeouts); FUTEX_WAIT provides only relative timeouts.
 
 The
 .I uaddr2

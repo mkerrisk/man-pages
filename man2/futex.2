@@ -435,14 +435,25 @@ plus the number of waiters woken on the futex
 .TP
 .BR FUTEX_FD " (from Linux 2.6.0 up to and including Linux 2.6.25)"
 .\" Strictly speaking, from Linux 2.5.x to 2.6.25
-To support asynchronous wakeups, this operation associates a file descriptor
-with a futex.
+This operation creates a file descriptor that is associated with the futex at
+.IR uaddr .
 .\" , suitable for .BR poll (2).
-If another process executes a
-.BR FUTEX_WAKE ,
-the process will receive the signal number that was passed in
-.IR val .
 The calling process must close the returned file descriptor after use.
+When another process performs a
+.BR FUTEX_WAKE
+on the futex, the file descriptor indicates as being readable with
+.BR select (2),
+.BR poll (2),
+and
+.BR epoll (7)
+
+The file descriptor can be used to obtain asynchronous notifications:
+if
+.I val
+is nonzero, then when another process executes a
+.BR FUTEX_WAKE ,
+the caller will receive the signal number that was passed in
+.IR val .
 
 The arguments
 .IR timeout ,
@@ -677,10 +688,17 @@ and the kernel state; that is, it detected a waiter which waits in
 on
 .IR uaddr .
 .TP
+.BR EINVAL
+.RB ( FUTEX_FD )
+The signal number supplied in
+.I val
+is invalid.
+.TP
 .B EINVAL
 Invalid argument.
 .TP
 .B ENFILE
+.RB ( FUTEX_FD )
 The system limit on the total number of open files has been reached.
 .TP
 .B ENOSYS

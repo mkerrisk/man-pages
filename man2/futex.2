@@ -688,21 +688,37 @@ PI futexes are operated on by specifying one of the following values in
 .TP
 .BR FUTEX_LOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
-This operation reads from the futex address provided by the
-.I uaddr
-argument, which contains the namespace-specific thread ID (TID)
+.\"
+.\" FIXME I did some significant rewording of tglx's text.
+.\"       Please check, in case I injected errors.
+.\"
+This operation is used after after an attempt to acquire
+the futex lock via an atomic user-space instruction failed
+because the futex has a nonzero value\(emspecifically,
+because it contained the namespace-specific TID of the lock owner.
 .\" FIXME In the preceding line, what does "namespace-specific" mean?
+.\"       (I kept those words from tglx.)
 .\"       That is, what kind of namespace are we talking about?
-of the lock owner.
-If the TID is 0, then the kernel tries to set the waiter's TID atomically.
-If the TID is nonzero or the take over fails,
-the kernel sets atomically the
+.\"       (I suppose we are talking PID namespaces here, but I want to
+.\"       be sure.)
+
+The operation checks the value of the futex at the address
+.IR uaddr .
+If the value is 0, then the kernel tries to atomically set the futex value to
+the caller's TID.
+If that fails,
+.\" FIXME What would be the cause of failure?
+or the futex value is nonzero,
+the kernel atomically sets the
 .B FUTEX_WAITERS
-bit, which signals the owner that it cannot unlock the futex in
-user space atomically by transitioning from TID to 0.
-After that, the kernel tries to find the task which is
-associated with the owner TID, creates or reuses kernel state on behalf
-of the owner and attaches the waiter to it.
+bit, which signals the futex owner that it cannot unlock the futex in
+user space atomically by setting the futex value to 0.
+After that, the kernel tries to find the thread which is
+associated with the owner TID,
+.\" FIXME Could I get a bit more detail on the next two lines?
+.\"       What is "creates or reuses kernel state" about?
+creates or reuses kernel state on behalf of the owner
+and attaches the waiter to it.
 .\" FIXME In the next line, what type of "priority" are we talking about?
 .\"       Realtime priorities for SCHED_FIFO and SCHED_RR?
 .\"       Or something else?
@@ -712,6 +728,10 @@ than one waiter exists.
 The owner inherits either the priority or the bandwidth of the waiter.
 .\" FIXME In the preceding line, what determines whether the
 .\"       owner inherits the priority versus the bandwidth?
+.\"
+.\" FIXME Could I get some help translating the next sentence into
+.\"       something that user-space developers (and I) can understand?
+.\"       In particular, what are "nexted locks" in this context?
 This inheritance follows the lock chain in the case of
 nested locking and performs deadlock detection.
 
@@ -747,6 +767,7 @@ arguments are ignored.
 .\" the point is that this condition, which is described in
 .\" Documentation/robust-futexes.txt, is not an error as such. However,
 .\" I'm not yet sure of how to describe it in the man page.)
+.\"
 .TP
 .BR FUTEX_TRYLOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc

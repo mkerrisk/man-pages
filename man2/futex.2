@@ -618,7 +618,9 @@ arguments are ignored.
 .\"
 .\"
 .SS Priority-inheritance futexes
-Linux also supports priority-inheritance (PI) futexes.
+Linux supports priority-inheritance (PI) futexes in order to handle
+priority-inversion problems that can be encountered with
+normal futex locks.
 .\"
 .\" FIXME ===== Start of adapted Hart/Guniguntala text =====
 .\"       The following text is drawn from the Hart/Guniguntala paper,
@@ -643,17 +645,25 @@ bit shall be set in the futex value; in other words, the futex value is:
 .PP
 With this policy in place,
 a user-space application can acquire an unowned
-lock or release an uncontended lock using an atomic
+lock or release an uncontended lock using a atomic
 .\" FIXME In the following line, I added "user-space". Okay?
-user-space instruction and their own TID.
-A non-zero futex value requires waiters to employ the
+user-space instructions (e.g.,
+.I cmpxchg
+on the x86 architecture).
+Locking an unowned lock simply consists of setting
+the futex value to the caller's TID.
+Releasing an uncontended lock simply requires setting the futex value to 0.
+
+If a futex is currently owned (i.e., has a nonzero value),
+waiters must employ the
 .B FUTEX_LOCK_PI
 operation to acquire the lock.
-The
+If a lock is contended (i.e., the
 .B FUTEX_WAITERS
-flag requires the lock owner to employ the
+bit is set in the futex value), the lock owner must employ the
 .B FUTEX_UNLOCK_PI
-operation to unlock.
+operation to release the lock.
+
 In the cases where callers are forced into the kernel
 (i.e., required to perform a
 .BR futex ()
@@ -746,7 +756,7 @@ It deals with the
 situation where the TID value at
 .I uaddr
 is 0, but the
-.B FUTEX_HAS_WAITER
+.B FUTEX_WAITERS
 bit is set.
 User space cannot handle this race free.
 .TP

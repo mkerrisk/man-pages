@@ -619,6 +619,34 @@ arguments are ignored.
 .\"
 .SS Priority-inheritance futexes
 Linux also supports priority-inheritance (PI) futexes.
+The PI futex operations diverge from the otherscw
+in that they impose a policy describing how
+the futex value is to be used.
+If the lock is unowned, the futex value shall be 0.
+If owned, it
+shall be the thread id (tid) of the owning thread.
+If there are threads contending for the lock, then
+the FUTEX_WAITERS flag is set.
+With this policy in
+place, userspace can atomically acquire an unowned
+lock or release an uncontended lock using an atomic
+instruction and their own tid.
+A non-zero futex
+value will force waiters into the kernel to lock.
+The
+FUTEX_WAITERS flag forces the owner into the kernel
+to unlock.
+If the callers are forced into the kernel,
+they then deal directly with an underlying rt_mutex
+which implements the priority inheritance semantics.
+After the rt_mutex is acquired, the futex value is updated accordingly,
+before the calling thread returns to userspace.
+
+It is important to note that the kernel will update the futex value prior
+to returning to userspace.
+Unlike other futex op codes,
+FUTEX_CMP_REQUEUE_PI (and FUTEX_WAIT_REQUEUE_PI, FUTEX_LOCK_PI are designed
+for the implementation of very specific IPC mechanisms).
 
 PI futexes are operated on by specifying one of the following values in
 .IR futex_op :

@@ -632,12 +632,41 @@ arguments are ignored.
 .TP
 .BR FUTEX_LOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
-.\" FIXME to complete
 .\"
 .\" FIXME Employs 'timeout' argument, with absolute time value on
 .\"       CLOCK_REALTIME clock; 'timeout' can be NULL
 .\"
-[As yet undocumented]
+This operation reads from the futex address provided by the
+.I uaddr
+argument, which contains the namespace-specific thread ID (TID)
+of the lock owner.
+If the TID is 0, then the kernel tries to set the waiter's TID atomically.
+If the TID is nonzero or the take over fails,
+the kernel sets atomically the
+.B FUTEX_WAITERS
+bit, which signals the owner that it cannot unlock the futex in
+user space atomically by transitioning from TID to 0.
+After that, the kernel tries to find the task which is
+associated with the owner TID, creates or reuses kernel state on behalf
+of the owner and attaches the waiter to it.
+The enqueing of the waiter is in descending priority order if more
+than one waiter exists.
+The owner inherits either the priority or the bandwidth of the waiter.
+This inheritance follows the lock chain in the case of
+nested locking and performs deadlock detection.
+
+The
+.I timeout
+.\" FIXME Is this true??????????????????????
+argument is handled as described in
+.BR FUTEX_WAIT .
+
+The arguments
+.IR uaddr2 ,
+.IR val ,
+and
+.IR val3
+are ignored.
 .TP
 .BR FUTEX_UNLOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc

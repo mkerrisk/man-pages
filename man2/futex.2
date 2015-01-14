@@ -619,33 +619,58 @@ arguments are ignored.
 .\"
 .SS Priority-inheritance futexes
 Linux also supports priority-inheritance (PI) futexes.
-The PI futex operations diverge from the otherscw
-in that they impose a policy describing how
-the futex value is to be used.
+.\"
+.\" FIXME ===== Start of adapted Hart/Guniguntala text =====
+.\"       The following text is drawn from the Hart/Guniguntala paper,
+.\"       but I have reworded some pieces significantly. Please check it.
+.\"
+The PI futex operations described below differ from the other
+futex operations in that they impose policy on the use of the futex value:
+.IP * 3
 If the lock is unowned, the futex value shall be 0.
-If owned, it
-shall be the thread id (tid) of the owning thread.
-If there are threads contending for the lock, then
-the FUTEX_WAITERS flag is set.
-With this policy in
-place, userspace can atomically acquire an unowned
-lock or release an uncontended lock using an atomic
-instruction and their own tid.
-A non-zero futex
-value will force waiters into the kernel to lock.
-The
-FUTEX_WAITERS flag forces the owner into the kernel
-to unlock.
-If the callers are forced into the kernel,
-they then deal directly with an underlying rt_mutex
-which implements the priority inheritance semantics.
-After the rt_mutex is acquired, the futex value is updated accordingly,
-before the calling thread returns to userspace.
+.IP *
+If the lock is owned, the futex value shall be the thread ID (TID; see
+.BR gettid (2))
+of the owning thread.
+.IP *
+.\" FIXME In the following line, I added "the lock is owned and". Okay?
+If the lock is owned and there are threads contending for the lock,
+then the
+.B FUTEX_WAITERS
+bit shall be set in the futex value; in other words, the futex value is:
 
-It is important to note that the kernel will update the futex value prior
-to returning to userspace.
-Unlike other futex op codes,
-FUTEX_CMP_REQUEUE_PI (and FUTEX_WAIT_REQUEUE_PI, FUTEX_LOCK_PI are designed
+    FUTEX_WAITERS | TID
+.PP
+With this policy in place,
+a user-space application can acquire an unowned
+lock or release an uncontended lock using an atomic
+.\" FIXME In the following line, I added "user-space". Okay?
+user-space instruction and their own TID.
+A non-zero futex value requires waiters to employ the
+.B FUTEX_LOCK_PI
+operation to acquire the lock.
+The
+.B FUTEX_WAITERS
+flag requires the lock owner to employ the
+.B FUTEX_UNLOCK_PI
+operation to unlock.
+In the cases where callers are forced into the kernel
+(i.e., required to perform a
+.BR futex ()
+operation),
+they then deal directly with a so-called RT-mutex,
+a kernel locking mechanism which implements the required
+priority-inheritance semantics.
+After the RT-mutex is acquired, the futex value is updated accordingly,
+before the calling thread returns to user space.
+.\" FIXME ===== End of adapted Hart/Guniguntala text =====
+
+It is important
+.\" FIXME We need some explanation here of why it is important to note this
+to note that the kernel will update the futex value prior
+to returning to user space.
+Unlike the other futex operations described above,
+the PI futex operations are designed
 for the implementation of very specific IPC mechanisms).
 
 PI futexes are operated on by specifying one of the following values in

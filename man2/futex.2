@@ -33,7 +33,8 @@ futex \- fast user-space locking
 .B "#include <sys/time.h>"
 .sp
 .BI "int futex(int *" uaddr ", int " futex_op ", int " val ,
-.BI "          const struct timespec *" timeout ,
+.BI "          const struct timespec *" timeout , \
+" \fR  /* or: \fBu32 \fIval2\fP */ 
 .BI "          int *" uaddr2 ", int " val3 );
 .\" int *? void *? u32 *?
 .fi
@@ -91,6 +92,7 @@ and
 .IR val3 )
 are required only for certain of the futex operations described below.
 Where one of these arguments is not required, it is ignored.
+
 For several blocking operations, the
 .I timeout
 argument is a pointer to a
@@ -99,6 +101,14 @@ structure that specifies a timeout for the operation.
 However,  notwithstanding the prototype shown above, for some operations,
 this argument is instead a four-byte integer whose meaning
 is determined by the operation.
+For these operations, the kernel casts the
+.I timeout
+value to
+.IR u32 ,
+and in the remainder of this page, this argument is referred to as
+.I val2
+when interpreted in this fashion.
+
 Where it is required,
 .IR uaddr2
 is a pointer to a second futex that is employed by the operation.
@@ -344,14 +354,10 @@ from the wait queue of the source futex at
 and added to the wait queue of the target futex at
 .IR uaddr2 .
 The
-.I timeout
-argument is (ab)used to specify a cap on the number of waiters
+.I val2
+argument specifies a cap on the number of waiters
 that are requeued to the futex at
-.IR uaddr2 ;
-the kernel casts the
-.I timeout
-value to
-.IR u32 .
+.IR uaddr2 .
 
 .\" FIXME Please review the following new paragraph to see if it is
 .\"       accurate.
@@ -364,9 +370,9 @@ is not useful, because it would make the
 .BR FUTEX_CMP_REQUEUE
 operation equivalent to
 .BR FUTEX_WAKE .)
-The cap value specified via the (abused)
-.I timeout
-argument is typically either 1 or
+The cap value specified via
+.I val2
+is typically either 1 or
 .BR INT_MAX .
 (Specifying the argument as 0 is not useful, because it would make the
 .BR FUTEX_CMP_REQUEUE
@@ -401,7 +407,7 @@ int oldval = *(int *) uaddr2;
 *(int *) uaddr2 = oldval \fIop\fP \fIoparg\fP;
 futex(uaddr, FUTEX_WAKE, val, 0, 0, 0);
 if (oldval \fIcmp\fP \fIcmparg\fP)
-    futex(uaddr2, FUTEX_WAKE, nr_wake2, 0, 0, 0);
+    futex(uaddr2, FUTEX_WAKE, val2, 0, 0, 0);
 .fi
 .in
 
@@ -425,24 +431,11 @@ and
 dependent on the results of a test of the original value of the futex at
 .IR uaddr2 ,
 wakes up a maximum of
-.I nr_wake2
+.I val2
 waiters on the futex
 .IR uaddr2 .
 .RE
 .IP
-The
-.I nr_wake2
-value is actually the
-.BR futex ()
-.I timeout
-argument (ab)used to specify how many of the waiters on the futex at
-.IR uaddr2
-are to be woken up;
-the kernel casts the
-.I timeout
-value to
-.IR u32 .
-
 The operation and comparison that are to be performed are encoded
 in the bits of the argument
 .IR val3 .
@@ -852,9 +845,9 @@ and added to the wait queue of the target futex at
 .IR uaddr2 .
 
 The
-.I val3
+.I val2
 and
-.I timeout
+.I val3
 arguments serve the same purposes as for
 .BR FUTEX_CMP_REQUEUE .
 .\" FIXME The page at http://locklessinc.com/articles/futex_cheat_sheet/

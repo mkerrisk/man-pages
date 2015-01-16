@@ -58,6 +58,19 @@ The following values can be specified in
 .BR KEXEC_ON_CRASH " (since Linux 2.6.13)"
 Execute the new kernel automatically on a system crash.
 .\" FIXME Explain in more detail how KEXEC_ON_CRASH is actually used
+This "crash kernel" is loaded into an area of reserved memory that
+is determined at boot time using the
+.I craskkernel
+kernel command-line parameter.
+The location of this reserved memory is exported to user space via the
+.I /proc/iomem
+file, in an entry labeled "Crash kernel".
+A user-space application can parse this file and prepare a list of
+segments (see below) that specify this reserved memory as destination.
+If this flag is specified, the kernel checks that the
+target segments specified in
+.I segments
+fall within the reserved region.
 .TP
 .BR KEXEC_PRESERVE_CONTEXT " (since Linux 2.6.27)"
 Preserve the system hardware and
@@ -116,11 +129,61 @@ struct kexec_segment {
 .fi
 .in
 .PP
-.\" FIXME Explain the details of how the kernel image defined by segments
-.\" is copied from the calling process into previously reserved memory.
 The kernel image defined by
 .I segments
-is copied from the calling process into previously reserved memory.
+is copied from the calling process into
+the kernel either in regular
+memory or in reserved memory (if
+.BR KEXEC_ON_CRASH
+is set).
+The kernel first performs various sanity checks on the
+information passed in
+.IR segments .
+If these checks pass, the kernel copies the segment data to kernel memory.
+Each segment specified in
+.I segments
+is copied as follows:
+.IP * 3
+.I buf
+and
+.I bufz
+identify a memory region in the caller's virtual address space
+that is the source of the copy.
+.IP *
+.I mem
+and
+.I memsz
+specify a physical address range that is the target of the copy.
+.IP *
+The number of bytes transferred is the minimum of
+.I bufsz
+and
+.IR memsz .
+If
+.I bufsz
+is greater than
+.IR memsz ,
+then the excess bytes in the user-space buffer are ignored.
+If
+.I bufsz
+is less than
+.IR memsz ,
+then the excess bytes in the kernel buffer are zeroed out.
+.PP
+In case of a normal kexec (i.e., the
+.BR KEXEC_ON_CRASH
+flag is not set), the segment data is loaded in any available memory
+and is moved to the final destination at kexec reboot time (e.g., when the
+.BR kexec (8)
+command is executed with the
+.I \-e
+option).
+
+In case of kexec on panic (i.e., the
+.BR KEXEC_ON_CRASH
+flag is set), the segment data is
+loaded to reserved memory at the time of the call, and, after a crash,
+the kexec mechanism simply passes control to that kernel.
 
 The
 .BR kexec_load ()
@@ -157,6 +220,8 @@ Unload the currently loaded kernel.
 .BR KEXEC_FILE_ON_CRASH
 Load the new kernel in the memory region reserved for the crash kernel.
 This kernel is booted if the currently running kernel crashes.
+.\" FIXME Do we need to have a statement here about to the ways
+.\" in which KEXEC_ON_CRASH and KEXEC_FILE_ON_CRASH are the same/different?
 .TP
 .BR KEXEC_FILE_NO_INITRAMFS
 Loading initrd/initramfs is optional.
@@ -179,6 +244,19 @@ On error, \-1 is returned and
 .I errno
 is set to indicate the error.
 .SH ERRORS
+.TP
+.B EADDRNOTAVAIL
+.\" See kernel/kexec.::sanity_check_segment_list in the 3.19 kernel source
+The
+.B KEXEC_ON_CRASH
+flags was specified, but the region specified by the
+.I mem
+and
+.I memsz
+fields of one of the
+.I segments
+entries lies outside the range of memory reserved for the crash kernel.
+.I kexec_segment.mem
 .TP
 .B EBUSY
 Another crash kernel is already being loaded

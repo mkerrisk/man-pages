@@ -50,8 +50,8 @@ described in
 When a futex operation did not finish uncontended in user space, a
 .BR futex ()
 call needs to be made to the kernel to arbitrate.
-Arbitration can either mean putting the calling
-process to sleep or, conversely, waking a waiting process.
+Arbitration can either mean putting the caller
+to sleep or, conversely, waking a waiting process or thread.
 .PP
 Callers of
 .BR futex ()
@@ -185,7 +185,7 @@ then the call fails immediately with the error
 .BR EAGAIN .
 .\" FIXME I added the following sentence. Please confirm that it is correct.
 The purpose of the test step is to detect races where
-another process changes the value of the futex between
+another process or thread changes the value of the futex between
 the time it was last checked and the time of the
 .BR FUTEX_WAIT
 operation.
@@ -213,7 +213,8 @@ are ignored.
 For
 .BR futex (7),
 this call is executed if decrementing the count gave a negative value
-(indicating contention), and will sleep until another process releases
+(indicating contention),
+and will sleep until another process or thread releases
 the futex and executes the
 .B FUTEX_WAKE
 operation.
@@ -225,7 +226,7 @@ operation.
 .\" Strictly speaking, since Linux 2.5.x
 This operation wakes at most
 .I val
-processes waiting (i.e., inside
+of the waiters that are waiting (i.e., inside
 .BR FUTEX_WAIT )
 on the futex at the address
 .IR uaddr .
@@ -259,8 +260,8 @@ once the futex value has been set to 1 (indicating that it is available).
 .\" Strictly speaking, from Linux 2.5.x to 2.6.25
 This operation creates a file descriptor that is associated with the futex at
 .IR uaddr .
-The calling process must close the returned file descriptor after use.
-When another process performs a
+The caller must close the returned file descriptor after use.
+When another process or thread performs a
 .BR FUTEX_WAKE
 on the futex, the file descriptor indicates as being readable with
 .BR select (2),
@@ -271,7 +272,7 @@ and
 The file descriptor can be used to obtain asynchronous notifications:
 if
 .I val
-is nonzero, then when another process executes a
+is nonzero, then when another process or thread executes a
 .BR FUTEX_WAKE ,
 the caller will receive the signal number that was passed in
 .IR val .
@@ -329,7 +330,8 @@ the
 .BR FUTEX_CMP_REQUEUE
 operation is used to avoid a "thundering herd" effect when
 .B FUTEX_WAKE
-is used and all processes woken up need to acquire another futex.
+is used and all of the waiters that are woken up
+need to acquire another futex.
 It differs from
 .BR FUTEX_REQUEUE
 in that it first checks whether the location
@@ -632,27 +634,27 @@ Linux supports priority-inheritance (PI) futexes in order to handle
 priority-inversion problems that can be encountered with
 normal futex locks.
 Priority inversion is the problem that occurs when a high-priority
-process is blocked waiting to acquire a lock held by a low-priority process,
-while processes at an intermediate priority continuously preempt
-the low-priority process from the CPU.
-Consequently, the low-priority process makes no progress toward
-releasing the lock, and the high-priority process remains blocked.
+task is blocked waiting to acquire a lock held by a low-priority task,
+while tasks at an intermediate priority continuously preempt
+the low-priority task from the CPU.
+Consequently, the low-priority task makes no progress toward
+releasing the lock, and the high-priority task remains blocked.
 
 Priority inheritance is a mechanism for dealing with
 the priority-inversion problem.
-With this mechanism, when a high-priority process becomes blocked
-by a lock held by a low-priority process,
+With this mechanism, when a high-priority task becomes blocked
+by a lock held by a low-priority task,
 the latter's priority is temporarily raised to that of the former,
-so that it is not preempted by any intermediate level processes,
+so that it is not preempted by any intermediate level tasks,
 and can thus make progress toward releasing the lock.
 To be effective, priority inheritance must be transitive,
-meaning that if a high-priority process blocks on a lock
-held by a lower-priority process that is itself blocked by lock
-held by another intermediate-priority process
+meaning that if a high-priority task blocks on a lock
+held by a lower-priority task that is itself blocked by lock
+held by another intermediate-priority task
 (and so on, for chains of arbitrary length),
-then both of those process
-(or more generally, all of the processes in a lock chain)
-have their priorities raised to be the same as the high-priority process.
+then both of those task
+(or more generally, all of the tasks in a lock chain)
+have their priorities raised to be the same as the high-priority task.
 
 .\" FIXME ===== Start of adapted Hart/Guniguntala text =====
 .\"       The following text is drawn from the Hart/Guniguntala paper,
@@ -972,23 +974,24 @@ The return value on success depends on the operation,
 as described in the following list:
 .TP
 .B FUTEX_WAIT
-Returns 0 if the process was woken by a
+Returns 0 if the caller was woken by a
 .B FUTEX_WAKE
 or
 .B FUTEX_WAKE_BITSET
 call.
 .TP
 .B FUTEX_WAKE
-Returns the number of processes woken up.
+Returns the number of waiters that were woken up.
 .TP
 .B FUTEX_FD
 Returns the new file descriptor associated with the futex.
 .TP
 .B FUTEX_REQUEUE
-Returns the number of processes woken up.
+Returns the number of waiters that were woken up.
 .TP
 .B FUTEX_CMP_REQUEUE
-Returns the total number of processes woken up or requeued to the futex at
+Returns the total number of waiters that were woken up or
+requeued to the futex at
 .IR uaddr2 .
 If this value is greater than
 .IR val ,
@@ -1005,7 +1008,7 @@ and
 .TP
 .B FUTEX_WAIT_BITSET
 .\" FIXME Is the following correct?
-Returns 0 if the process was woken by a
+Returns 0 if the caller was woken by a
 .B FUTEX_WAKE
 or
 .B FUTEX_WAKE_BITSET
@@ -1013,7 +1016,7 @@ call.
 .TP
 .B FUTEX_WAKE_BITSET
 .\" FIXME Is the following correct?
-Returns the number of processes woken up.
+Returns the number of waiters that were woken up.
 .TP
 .B FUTEX_LOCK_PI
 .\" FIXME Is the following correct?
@@ -1029,7 +1032,8 @@ Returns 0 if the futex was successfully unlocked.
 .TP
 .B FUTEX_CMP_REQUEUE_PI
 .\" FIXME Is the following correct?
-Returns the total number of processes woken up or requeued to the futex at
+Returns the total number of waiters that were woken up or
+requeued to the futex at
 .IR uaddr2 .
 If this value is greater than
 .IR val ,

@@ -30,7 +30,7 @@
 .\" Modified 2001-11-13, aeb
 .\" Modified 2004-12-01 mtk and Martin Schulze <joey@infodrom.org>
 .\"
-.TH TZSET 3  2014-08-19 "" "Linux Programmer's Manual"
+.TH TZSET 3  2015-01-16 "" "Linux Programmer's Manual"
 .SH NAME
 tzset, tzname, timezone, daylight \- initialize time conversion information
 .SH SYNOPSIS
@@ -75,15 +75,14 @@ the year when daylight saving time applies).
 .PP
 If the
 .B TZ
-variable does not appear in the environment, the \fItzname\fP
-variable is initialized with the best approximation of local wall clock
-time, as specified by the
-.BR tzfile (5)-format
-file \fIlocaltime\fP
-found in the system timezone directory (see below).
-(One also often sees
-.I /etc/localtime
-used here, a symlink to the right file in the system timezone directory.)
+variable does not appear in the environment, the system timezone is used.
+The system timezone is configured by copying, or linking, a file in the
+.BR tzfile "(5) format to"
+.IR /etc/localtime .
+A timezone database of these files may be located in the system
+timezone directory (see the \fBFILES\fP section below).
+
+
 .PP
 If the
 .B TZ
@@ -118,7 +117,7 @@ The second format is used when there is daylight saving time:
 .I std offset dst [offset],start[/time],end[/time]
 .RE
 .sp
-There are no spaces in the specification.
+There are no spaces in either specification.
 The initial \fIstd\fP and
 \fIoffset\fP specify the standard timezone, as described above.
 The \fIdst\fP string and \fIoffset\fP specify the name and offset for the
@@ -170,47 +169,41 @@ from a file:
 :[filespec]
 .RE
 .sp
-If the file specification \fIfilespec\fP is omitted, the timezone
-information is read from the file
-.I localtime
-in the system timezone directory, which nowadays usually is
-.IR /usr/share/zoneinfo .
-This file is in
+If the file specification \fIfilespec\fP is omitted, or its value cannot
+be interpreted, Coordinated Universal Time (UTC) is used.  A correct
+\%\fIfilespec\fP will be a path pointing to a file in the
 .BR tzfile (5)
-format.
-If \fIfilespec\fP is given, it specifies another
-.BR tzfile (5)-format
-file to read the timezone information from.
-If \fIfilespec\fP does not begin with a \(aq/\(aq, the file specification is
-relative to the system timezone directory.
+format. A timezone database of these files may be located in the system
+timezone directory (see the \fBFILES\fP section below).  If
+\fIfilespec\fP does not begin with a \(aq/\(aq, the file specification
+is relative to the system timezone directory. If the colon is omitted
+each of the above three \fBTZ\fP formats will be tried in order.
 .PP
 Here's an example, once more for New Zealand:
 .nf
 
     TZ=":Pacific/Auckland"
 .fi
+.SH ENVIRONMENT
+.TP
+.B TZ
+.RB If \ TZ
+is set, its value takes precedence over the system configured timezone.
+.TP
+.B TZDIR
+.RB If \ TZDIR
+is set, its value takes precedence over the system configured timezone
+database directory path.
 .SH FILES
-Under glibc,
-the system timezone directory is determined using the
-.BR TZDIR
-the environment variable.
-If
-.BR TZDIR
-is not set, the default depends on the system setup, but is normally
-.IR /usr/share/zoneinfo .
-.LP
-This timezone directory contains the files
-
-.nf
-    localtime      local timezone file
-    posixrules     rules for POSIX-style TZ's
-.fi
-.LP
-Often,
-.I /etc/localtime
-is a symbolic link to the file
-.I localtime
-or to the correct timezone file in the system timezone directory.
+.TP
+.B /etc/localtime
+The system timezone file.
+.TP
+.B /usr/share/zoneinfo/
+The system timezone database directory.
+.PP
+Above are the current standard file locations, but they are
+configurable when glibc is compiled.
 .SH CONFORMING TO
 SVr4, POSIX.1-2001, 4.3BSD.
 .SH NOTES

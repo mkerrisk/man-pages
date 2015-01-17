@@ -940,14 +940,6 @@ via
 without requeueing on
 .IR uaddr2 .
 
-.\" FIXME Somewhere around here, something needs to be said about
-.\"       the pairing semantics of FUTEX_CMP_REQUEUE_PI and
-.\"       FUTEX_WAIT_REQUEUE_PI. (The Hart/Guniguntala paper says
-.\"       "FUTEX_WAIT_REQUEUE_PI and FUTEX_CMP_REQUEUE_PI must be
-.\"       paired only with each other." Could someone propose
-.\"       a statement about this pairing requirement and why it
-.\"       is needed?)
-.\"
 .\" FIXME Please check the following. tglx said "The timeout argument
 .\"       is handled as described in FUTEX_WAIT.", but the truth is
 .\"       as below, AFAICS
@@ -968,6 +960,45 @@ argument is ignored.
 .\"       FUTEX_BITSET_MATCH_ANY before calling futex_wait_requeue_pi().
 .\"       I'm not sure we need to say anything about this though.
 .\"       Comments?
+
+The
+.BR FUTEX_WAIT_REQUEUE_PI
+and
+.BR FUTEX_CMP_REQUEUE_PI
+were added to support a fairly specific use case:
+support for priority-inheritance-aware POSIX threads condition variables.
+The idea is that these operations should always be paired,
+in order to ensure that user space and the kernel remain in sync.
+Thus, in the
+.BR FUTEX_WAIT_REQUEUE_PI
+operation, the user-space application pre-specifies the target
+of the requeue that takes place in the
+.BR FUTEX_CMP_REQUEUE_PI
+operation.
+.\"
+.\" Darren Hart notes that a patch to allow glibc to fully support
+.\" PI-aware pthreds condition variables has not yet been accepted into
+.\" glibc. The story is complex, and can be found at
+.\" https://sourceware.org/bugzilla/show_bug.cgi?id=11588
+.\" Darren notes that in the meantime, the patch is shipped with various
+.\" PREEMPT_RT enabled Linux systems.
+.\"
+.\" Related to the preceding, Darren proposed that somewhere, man-pages
+.\" should document the following point:
+.\"       While the Linux kernel, since 2.6.31, supports requeueing of
+.\"       priority-inheritance (PI) aware mutexes via the
+.\"       FUTEX_WAIT_REQUEUE_PI and FUTEX_CMP_REQUEUE_PI futex operations,
+.\"       the glibc implementation does not yet take full advantage of this.
+.\"       Specifically, the condvar internal data lock remains a non-PI aware
+.\"       mutex, regardless of the type of the pthread_mutex associated with
+.\"       the condvar. This can lead to an unbounded priority inversion on
+.\"       the internal data lock even when associating a PI aware
+.\"       pthread_mutex with a condvar during a pthread_cond*_wait
+.\"       operation. For this reason, it is not recommended to rely on
+.\"       priority inheritance when using pthread condition variables.
+.\" The problem is that the obvious somewhere to place this text
+.\" is the pthread_cond*wait(3) man page. However, such a man page
+.\" does not currently exist.
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"

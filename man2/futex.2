@@ -668,6 +668,25 @@ then both of those task
 (or more generally, all of the tasks in a lock chain)
 have their priorities raised to be the same as the high-priority task.
 
+.\" FIXME XXX The following is my attempt at a definition of PI futexes,
+.\"       based on mail discussions with Darren Hart. Does it seem okay?
+From a user-space perspective,
+what makes a futex PI-aware is a policy agreement between user space
+and the kernel about the value of the futex (described in a moment),
+coupled with the use of the PI futex operations described below
+(in particular,
+.BR FUTEX_LOCK_PI ,
+.BR FUTEX_TRYLOCK_PI ,
+and
+.BR FUTEX_CMP_REQUEUE_PI ).
+.\" Quoting Darren Hart:
+.\"     These opcodes paired with the PI futex value policy (described below)
+.\"     defines a "futex" as PI aware. These were created very specifically
+.\"     in support of PI pthread_mutexes, so it makes a lot more sense to
+.\"     talk about a PI aware pthread_mutex, than a PI aware futex, since
+.\"     there is a lot of policy and scaffolding that has to be built up
+.\"     around it to use it properly (this is what a PI pthread_mutex is).
+
 .\" FIXME XXX ===== Start of adapted Hart/Guniguntala text =====
 .\"       The following text is drawn from the Hart/Guniguntala paper,
 .\"       but I have reworded some pieces significantly. Please check it.
@@ -688,7 +707,12 @@ then the
 bit shall be set in the futex value; in other words, the futex value is:
 
     FUTEX_WAITERS | TID
+
 .PP
+Note that a PI futex never just has the value
+.BR FUTEX_WAITERS ,
+which is a permissible state for non-PI futexes.
+
 With this policy in place,
 a user-space application can acquire an unowned
 lock or release an uncontended lock using atomic
@@ -728,13 +752,6 @@ to returning to user space.
 Unlike the other futex operations described above,
 the PI futex operations are designed
 for the implementation of very specific IPC mechanisms.
-.\"
-.\" FIXME We don't quite have a definition anywhere of what a PI futex
-.\"       is (vs a non-PI futex). Below, we have the information that
-.\"       FUTEX_CMP_REQUEUE_PI requeues from a non-PI futex to a
-.\"       PI futex, but what determines whether the futex is of one
-.\"       kind of the other? We should have such a definition somewhere
-.\"       about here.
 .\"
 .\" FIXME XXX In discussing errors for FUTEX_CMP_REQUEUE_PI, Darren Hart
 .\"       made the observation that "EINVAL is returned if the non-pi 

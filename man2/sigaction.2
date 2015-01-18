@@ -43,6 +43,8 @@
 .\"	out of this page into separate pages.
 .\" 2010-06-11 Andi Kleen, add hwpoison signal extensions
 .\" 2010-06-11 mtk, improvements to discussion of various siginfo_t fields.
+.\" 2015-01-17, Kees Cook <keescook@chromium.org>
+.\"	Added notes on ptrace SIGTRAP and SYS_SECCOMP.
 .\"
 .TH SIGACTION 2 2014-12-31 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -416,10 +418,6 @@ and
 fill in
 .I si_addr
 with the address of the fault.
-.\" FIXME . SIGTRAP also sets the following for ptrace_notify() ?
-.\"     info.si_code = exit_code;
-.\"     info.si_pid = task_pid_vnr(current);
-.\"     info.si_uid = current_uid();  /* Real UID */
 On some architectures,
 these signals also fill in the
 .I si_trapno
@@ -438,6 +436,20 @@ For example, if a full page was corrupted,
 .I si_addr_lsb
 contains
 .IR log2(sysconf(_SC_PAGESIZE)) .
+When
+.BR SIGTRAP
+is delivered in response to a
+.BR ptrace (2)
+event (PTRACE_EVENT_foo),
+.I si_addr
+is not populated, but
+.I si_pid
+and
+.I si_uid
+are populated with the respective process ID and user ID responsible for
+delivering the trap. In the case of
+.BR seccomp (2)
+the tracee will be shown as delivering the event.
 .B BUS_MCERR_*
 and
 .I si_addr_lsb
@@ -457,9 +469,8 @@ The
 .I si_fd
 field indicates the file descriptor for which the I/O event occurred.
 .IP *
-The
 .B SIGSYS
-signal that is (since Linux 3.5)
+(since Linux 3.5)
 .\" commit a0727e8ce513fe6890416da960181ceb10fbfae6
 generated when a seccomp filter returns
 .B SECCOMP_RET_TRAP
@@ -467,13 +478,26 @@ fills in
 .IR si_call_addr ,
 .IR si_syscall ,
 .IR si_arch ,
-and various other fields as described in
+.IR si_errno ,
+and other fields as described in
 .BR seccomp (2).
 .PP
 .I si_code
 is a value (not a bit mask)
-indicating why this signal was sent.
-The following list shows the values which can be placed in
+indicating why this signal was sent. For a
+.BR ptrace (2)
+event,
+.I si_code
+will contain
+.BR SIGTRAP
+and have the ptrace event in the high byte:
+
+.nf
+    (SIGTRAP | PTRACE_EVENT_foo << 8).
+.fi
+
+For a regular signal, the following list shows the values which can be
+placed in
 .I si_code
 for any signal, along with reason that the signal was generated.
 .RS 4
@@ -514,9 +538,6 @@ or
 .\" SI_DETHREAD is defined in 2.6.9 sources, but isn't implemented
 .\" It appears to have been an idea that was tried during 2.5.6
 .\" through to 2.5.24 and then was backed out.
-.\"
-.\" FIXME .
-.\" Eventually need to add the SYS_SECCOMP code here (see seccomp(2))
 .RE
 .PP
 The following values can be placed in
@@ -691,6 +712,19 @@ high priority input available
 .B POLL_HUP
 device disconnected
 .RE
+.PP
+The following value can be placed in
+.I si_code
+for a
+.BR SIGSYS
+signal:
+.RS 4
+.TP 15
+.BR SYS_SECCOMP " (since Linux 3.5)"
+triggered by a
+.BR seccomp (2)
+filter rule
+.RE
 .SH RETURN VALUE
 .BR sigaction ()
 returns 0 on success; on error, \-1 is returned, and
@@ -830,6 +864,7 @@ See
 .BR killpg (2),
 .BR pause (2),
 .BR restart_syscall (2),
+.BR seccomp (2)
 .BR sigaltstack (2),
 .BR signal (2),
 .BR signalfd (2),

@@ -40,6 +40,8 @@
 .\"        PTRACE_SETSIGINFO, PTRACE_SYSEMU, PTRACE_SYSEMU_SINGLESTEP
 .\"    (Thanks to Blaisorblade, Daniel Jacobowitz and others who helped.)
 .\" 2011-09, major update by Denys Vlasenko <vda.linux@googlemail.com>
+.\" 2015-01, Kees Cook <keescook@chromium.org>
+.\"    Added PTRACE_O_TRACESECCOMP, PTRACE_EVENT_SECCOMP
 .\"
 .TH PTRACE 2 2014-08-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -566,6 +568,30 @@ value such that
 
 The PID of the new process can (since Linux 2.6.18) be retrieved with
 .BR PTRACE_GETEVENTMSG .
+.TP
+.BR PTRACE_O_TRACESECCOMP " (since Linux 3.5)"
+Stop the tracee when a
+.BR seccomp (2)
+.BR SECCOMP_RET_TRACE
+rule is triggered. A
+.BR waitpid (2)
+by the tracer will return a
+.I status
+value such that
+
+.nf
+  status>>8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP<<8))
+.fi
+
+While this triggers a
+.BR PTRACE_EVENT
+stop, it is similar to a syscall-enter-stop, in that the tracee has
+not yet entered the syscall that seccomp triggered on. The seccomp
+event message data (from the
+.BR SECCOMP_RET_DATA
+portion of the seccomp filter rule)
+can be retrieved with
+.BR PTRACE_GETEVENTMSG .
 .RE
 .TP
 .BR PTRACE_GETEVENTMSG " (since Linux 2.5.46)"
@@ -585,6 +611,13 @@ For
 and
 .BR PTRACE_EVENT_CLONE ,
 this is the PID of the new process.
+For
+.BR PTRACE_EVENT_SECCOMP ,
+this is the
+.BR seccomp (2)
+filter's
+.BR SECCOMP_RET_DATA
+associated with the triggered rule.
 .RI ( addr
 is ignored.)
 .TP
@@ -1310,6 +1343,17 @@ or
 if
 .B PTRACE_SEIZE
 was used.
+.TP
+.B PTRACE_EVENT_SECCOMP
+Stop triggered by a
+.BR seccomp (2)
+rule on tracee syscall entry when
+.BR PTRACE_O_TRACESECCOMP
+has been set by the tracer. The seccomp event message data (from the
+.BR SECCOMP_RET_DATA
+portion of the seccomp filter rule)
+can be retrieved with
+.BR PTRACE_GETEVENTMSG .
 .LP
 .B PTRACE_GETSIGINFO
 on
@@ -2082,6 +2126,7 @@ attach.)
 .BR execve (2),
 .BR fork (2),
 .BR gettid (2),
+.BR seccomp (2),
 .BR sigaction (2),
 .BR tgkill (2),
 .BR vfork (2),

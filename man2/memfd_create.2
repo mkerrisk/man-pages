@@ -1,9 +1,7 @@
 .\" Copyright (C) 2014 Michael Kerrisk <mtk.manpages@gmail.com>
 .\" and Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
 .\"
-.\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
-.\"
-.\" FIXME What is _SW_3_PARA?
+.\" %%%LICENSE_START(GPLv2+)
 .\" 
 .\" This program is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
@@ -34,16 +32,17 @@ The file behaves like a regular file, and so can be modified,
 truncated, memory-mapped, and so on.
 However, unlike a regular file,
 it lives in RAM and has a volatile backing storage.
-.\" FIXME In the following sentence I changed "released" to
-.\"       "destroyed". Okay?
 Once all references to the file are dropped, it is automatically released.
 Anonymous memory is used for all backing pages of the file.
-.\" FIXME In the following sentence I changed "they" to
-.\"       "files created by memfd_create()". Okay?
 Therefore, files created by
 .BR memfd_create ()
-are subject to the same restrictions as other anonymous
-.\" FIXME Can you give some examples of some of the restrictions please.
+have the same semantics as other anonymous
+.\" David Herrmann:
+.\"     memfd uses VM_NORESERVE so each page is accounted on first access.
+.\"     This means, the overcommit-limits (see __vm_enough_memory()) and the
+.\"     memory-cgroup limits (mem_cgroup_try_charge()) are applied. Note that
+.\"     those are accounted on "current" and "current->mm", that is, the
+.\"     process doing the first page access.
 memory allocations such as those allocated using
 .BR mmap (2)
 with the
@@ -51,25 +50,21 @@ with the
 flag.
 
 The initial size of the file is set to 0.
-.\" FIXME I added the following sentence. Please review.
 Following the call, the file size should be set using
 .BR ftruncate (2).
+(Alternatively, the file may be populated by calls to
+.BR write (2)
+or similar.)
 
 The name supplied in
 .I name
-is used as an internal filename and will be displayed
-.\" FIXME What does "internal" in the previous line mean?
+is used as a filename and will be displayed
 as the target of the corresponding symbolic link in the directory
-.\" FIXME I added the previous line. Is it correct?
 .IR /proc/self/fd/ .
-.\" FIXME In the next line, I added "as displayed in that 
 The displayed name is always prefixed with
 .IR memfd:
 and serves only for debugging purposes.
-Names do not affect the behavior of the memfd,
-.\" FIXME The term "memfd" appears here without having previously been
-.\"       defined. Would the correct definition of "the memfd" be
-.\"       "the file descriptor created by memfd_create"?
+Names do not affect the behavior of the file descriptor,
 and as such multiple files can have the same name without any side effects.
 
 The following values may be bitwise ORed in
@@ -167,7 +162,6 @@ Support in the GNU C library is pending.
 The
 .BR memfd_create ()
 system call is Linux-specific.
-.\" FIXME I added the NOTES section below. Please review.
 .SH NOTES
 .\" See also http://lwn.net/Articles/593918/
 .\" and http://lwn.net/Articles/594919/ and http://lwn.net/Articles/591108/
@@ -181,6 +175,20 @@ The primary purpose of
 is to create files and associated file descriptors that are
 used with the file-sealing APIs provided by
 .BR fcntl (2).
+
+The
+.BR memfd_create ()
+system call also has uses without file sealing
+(which is why file-sealing is disabled, unless explicitly requested with the
+.BR MFD_ALLOW_SEALING
+flag).
+In particular, it can be used as an alternative to creating files in
+.IR tmp
+or as an alternative to using the
+.BR  open (2)
+.B O_TMPFILE
+in cases where there is no intention to actually link the
+resulting file into the filesystem.
 .SS File sealing
 In the absence of file sealing,
 processes that communicate via shared memory must either trust each other,
@@ -235,12 +243,26 @@ created in the previous step.)
 A second process obtains a file descriptor for the
 .I tmpfs
 file and maps it.
-This could happen in one of two ways:
+Among the possible ways in which this could happen are the following:
 .RS
 .IP * 3
+The process that called
+.BR memfd_create ()
+could transfer the resulting file descriptor to the second process
+via a UNIX domain socket (see
+.BR unix (7)
+and
+.BR cmsg (3)).
+The second process then maps the file using
+.BR mmap (2).
+.IP *
 The second process is created via
 .BR fork (2)
 and thus automatically inherits the file descriptor and mapping.
+(Note that in this case and the next,
+there is a natural trust relationship between the two processes,
+since they are running under the same user ID.
+Therefore, file sealing would not normally be necessary.)
 .IP *
 The second process opens the file 
 .IR /proc/<pd>/fd/<fd> ,
@@ -268,7 +290,6 @@ If desired, the second process can apply further seals
 to impose additional restrictions (so long as the
 .BR F_SEAL_SEAL
 seal has not yet been applied).
-.\" FIXME I added the EXAMPLE section below. Please review.
 .SH EXAMPLE
 Below are shown two example programs that demonstrate the use of
 .BR memfd_create ()
@@ -312,7 +333,9 @@ At this point, the
 .I t_memfd_create
 program continues to run in the background.
 From another program, we can obtain a file descriptor for the
-memfd file by opening the
+file created by
+.BR memfd_create ()
+by opening the
 .IR /proc/PID/fd
 file that corresponds to the descriptor opened by
 .BR memfd_create ().
@@ -465,6 +488,5 @@ main(int argc, char *argv[])
 .BR fcntl (2),
 .BR ftruncate (2),
 .BR mmap (2),
-.\" FIXME Why the reference to shmget(2) in particular (and not,
-.\"       e.g., shm_open(3))?
-.BR shmget (2)
+.BR shmget (2),
+.BR shm_open (3)

@@ -137,9 +137,9 @@ in the location pointed to by
 .IR "(int\ *) arg2" .
 .TP
 .BR PR_SET_DUMPABLE " (since Linux 2.3.20)"
-Set the state of the flag determining whether core dumps are produced
-for the calling process upon delivery of a signal whose default behavior is
-to produce a core dump.
+Set the state of the "dumpable" flag,
+which determines whether core dumps are produced for the calling process
+upon delivery of a signal whose default behavior is to produce a core dump.
 
 In kernels up to and including 2.6.12,
 .I arg2
@@ -159,17 +159,53 @@ for security reasons, this feature has been removed.
 .\" From:       Marcel Holtmann <marcel () holtmann ! org>
 .\" Date:       2006-07-12 11:12:00
 (See also the description of
-.I /proc/sys/fs/suid_dumpable
+.I /proc/sys/fs/\:suid_dumpable
 in
 .BR proc (5).)
 
-Normally, this flag is set for a process by default, but it is cleared
-when a set-user-ID or set-group-ID program,
-or a program that has file capabilities associated with it (see
-.BR capabilities (7)),
-is executed.
-It is also set by various system calls that manipulate process UIDs and GIDs.
-
+Normally, this flag is set to 1.
+However, it is reset to the current value contained in the file
+.IR /proc/sys/fs/\:suid_dumpable
+(which by default has the value 0),
+if any of the following attributes of the process
+are changed by the operations listed below:
+.\" See kernel/cred.c::commit_creds() (Linux 3.18 sources)
+.RS
+.IP * 3
+The effective user or group ID is changed.
+.IP *
+The filesystem user or group ID is changed (see
+.BR credentials (7)).
+.IP *
+The process's set of permitted capabilities (see
+.BR capabilities (7))
+is changed such that its new set of capabilities is
+not a subset of its previous set of capabilities.
+.RE
+.IP
+The operations that may trigger changes to the dumpable flag include:
+.\" Look for uses of commit_creds() in the kernel source code
+.RS
+.IP * 3
+execution
+.RB ( execve (2))
+of a set-user-ID or set-group-ID program,
+or a program that has capabilities (see
+.BR capabilities (7));
+.IP *
+.BR capset (2);
+and
+.IP *
+system calls that change process credentials
+.RB ( setuid (2)
+.BR setgid (2),
+.BR setresuid (2),
+.BR setresgid (2),
+.BR setgroups (2),
+and so on).
+.\" Also certain namespace operations; 
+.RE
+.IP
 Processes that are not dumpable can not be attached via
 .BR ptrace (2)
 .BR PTRACE_ATTACH .

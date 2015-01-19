@@ -1315,7 +1315,6 @@ For an overview of file sealing, a discussion of its purpose,
 and some code examples, see
 .BR memfd_create (2).
 
-.\" FIXME I changed "shmem" to "tmpfs" in the next sentence. Okay?
 Currently, only the
 .I tmpfs
 filesystem supports sealing.
@@ -1325,7 +1324,6 @@ operations that operate on seals will return
 .BR EINVAL .
 
 Seals are a property of an inode.
-.\" FIXME: I reworded the following sentence a little. Please check it.
 Thus, all open file descriptors referring to the same inode share
 the same set of seals.
 Furthermore, seals can never be removed, only added.
@@ -1358,7 +1356,7 @@ If the file does not support sealing, \-1 is returned and
 is set to
 .BR EINVAL .
 .PP
-The following set of seals is available so far:
+The following seals are available:
 .TP
 .BR F_SEAL_SEAL
 If this seal is set, any further call to
@@ -1378,9 +1376,10 @@ This affects
 .BR open (2)
 with the
 .B O_TRUNC
-flag and
+flag as well as
+.BR truncate (2)
+and
 .BR ftruncate (2).
-.\" FIXME and also truncate(2)?
 Those calls will fail with
 .B EPERM
 if you try to shrink the file in question.
@@ -1390,34 +1389,27 @@ Increasing the file size is still possible.
 If this seal is set, the size of the file in question cannot be increased.
 This affects
 .BR write (2)
-if you write across size boundaries,
+beyond the end of the file,
+.BR truncate (2),
 .BR ftruncate (2),
-.\" FIXME and also truncate(2)?
 and
 .BR fallocate (2).
 These calls will fail with
 .B EPERM
-if you use them to increase the file size or write beyond size boundaries.
-.\" FIXME What does "size boundaries" mean here?
+if you use them to increase the file size.
 If you keep the size or shrink it, those calls still work as expected.
 .TP
 .BR F_SEAL_WRITE
 If this seal is set, you cannot modify the contents of the file.
 Note that shrinking or growing the size of the file is
 still possible and allowed.
-.\" FIXME So, just to confirm my understanding of the previous sentence:
-.\"       Given a file with the F_SEAL_WRITE seal set, then:
-.\"
-.\"       * Writing zeros into (say) the last 100 bytes of the file is
-.\"         NOT be permitted.
-.\"
-.\"       * Shrinking the file by 100 bytes using ftruncate(), and then
-.\"         increasing the file size by 100 bytes, which would have the
-.\"         effect of replacing the last hundred bytes by zeros, IS
-.\"         permitted.
-.\"
-.\"       Either my understanding is incorrect, or the above two cases
-.\"       seem a little anomalous. Can you comment?
+.\" One or more other seals are typically used with F_SEAL_WRITE
+.\" because, given a file with the F_SEAL_WRITE seal set, then,
+.\" while it would no longer be possinle to (say) write zeros into
+.\" the last 100 bytes of a file, it would still be possible
+.\" to (say) shrink the file by 100 bytes using ftruncate(), and
+.\" then increase the file size by 100 bytes, which would have
+.\" the effect of replacing the last hundred bytes by zeros.
 .\"
 Thus, this seal is normally used in combination with one of the other seals.
 This seal affects
@@ -1445,9 +1437,9 @@ will fail with
 .B EBUSY
 if any writable, shared mapping exists.
 Such mappings must be unmapped before you can add this seal.
-Furthermore, if there are any asynchronous
-.\" FIXME Does this mean io_submit(2)?
-I/O operations pending on the file,
+Furthermore, if there are any asynchronous I/O operations
+.RB ( io_submit (2))
+pending on the file,
 all outstanding writes will be discarded.
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
@@ -1530,7 +1522,6 @@ NFS), but can sometimes happen locally.
 The value specified in
 .I cmd
 is not recognized by this kernel.
-.\" FIXME I added the following error case. Is it correct?
 .TP
 .B EINVAL
 .I cmd

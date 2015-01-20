@@ -226,7 +226,6 @@ first appeared in Linux 2.6.30; library support was added in glibc 2.10.
 .BR pwritev ():
 nonstandard, but present also on the modern BSDs.
 .SH NOTES
-.SS C library/kernel ABI differences
 POSIX.1-2001 allows an implementation to place a limit on
 the number of items that can be passed in
 .IR iov .
@@ -236,28 +235,48 @@ in
 .I <limits.h>
 or at run time via the return value from
 .IR sysconf(_SC_IOV_MAX) .
-On Linux, the limit advertised by these mechanisms is 1024,
-which is the true kernel limit.
-However, the glibc wrapper functions do some extra work if
-they detect that the underlying kernel system call failed because this
-limit was exceeded.
+On modern Linux systems, the limit is 1024.
+Back in Linux 2.0 days, this limit was 16.
+\"
+.SS Historical C library/kernel ABI differences
+To deal with the fact that
+.B IOV_MAX
+was so low on early versions of Linux,
+the glibc wrapper functions for
+.BR readv ()
+and
+.BR writev ()
+did some extra work if they detected that the underlying kernel
+system call failed because this limit was exceeded.
 In the case of
 .BR readv (),
-the wrapper function allocates a temporary buffer large enough
+the wrapper function allocated a temporary buffer large enough
 for all of the items specified by
 .IR iov ,
-passes that buffer in a call to
+passed that buffer in a call to
 .BR read (2),
-copies data from the buffer to the locations specified by the
+copied data from the buffer to the locations specified by the
 .I iov_base
 fields of the elements of
 .IR iov ,
-and then frees the buffer.
+and then freed the buffer.
 The wrapper function for
 .BR writev ()
-performs the analogous task using a temporary buffer and a call to
+performed the analogous task using a temporary buffer and a call to
 .BR write (2).
-
+   
+The need for this extra effort in the glibc wrapper functions
+went away with Linux 2.2 and later.
+However, glibc continued to provide this behavior until version 2.10.
+Starting with glibc version 2.9,
+the wrapper functions provide this behavior only if the library detects
+that the system is running a Linux kernel older than version 2.6.18
+(an arbitrarily selected kernel version).
+And since glibc 2.20
+(which requires a minimum Linux kernel version of 2.6.32),
+the glibc wrapper functions always just directly invoke the system calls.
+\"
+.SS C library/kernel ABI differences
 The raw
 .BR preadv ()
 and

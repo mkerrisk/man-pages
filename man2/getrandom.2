@@ -55,20 +55,17 @@ Therefore
 should not be used for Monte Carlo simulations or other
 programs/algorithms which are doing probabilistic sampling.
 
-.\" FIXME is the following paragraph correct?
 By default,
 .BR getrandom ()
 draws entropy from the
 .IR /dev/urandom
-pool, and, if that pool has been initialized and
-.IR buflen
-is less than or equal to 256 (see NOTES, below),
-then the call never blocks when drawing from that pool
-and always returns the number of bytes requested in
-.IR buflen .
+pool.
 This behavior can be changed via the
 .I flags
 argument.
+If the
+.IR /dev/urandom
+pool has been initialized, reading from that pool never blocks.
 
 The
 .I flags
@@ -157,17 +154,27 @@ was introduced in version 3.17 of the Linux kernel.
 This system call is Linux-specific.
 .SH NOTES
 .SS Interruption by a signal handler
-.\" FIXME Here, I think there needs to be an opening paragraph that describes
-.\" the cases where getrandom() can block. This should cover the cases with
-.\" GRND_RANDOM and without GRND_RANDOM. Reading the existing page, I am
-.\" still not completely confident that I know what the cases are.
+A call to
+.BR getrandom ()
+can only block when called without the
+.B GRND_NONBLOCK
+flag.
+When reading from
+.I /dev/urandom
+.RB ( GRND_RANDOM
+is not set)
+blocking only occurs if the entropy pool has not been initialized yet.
+When reading from
+.I /dev/random
+.RB ( GRND_RANDOM
+is set)
+blocking occurs if not enough random bytes are available.
+
 The reaction of
 .BR getrandom ()
 in case of an interruption of a blocking call by a signal
 when reading from
 .I /dev/urandom
-.RB ( GRND_RANDOM
-is not set)
 depends on the initialization state of the entropy buffer
 and on the request size
 .IR buflen .
@@ -184,8 +191,6 @@ Instead, it will return all of the bytes that have been requested.
 .PP
 When reading from
 .I /dev/random
-.RB ( GRND_RANDOM
-is set)
 these guarantees do
 .I not
 apply.

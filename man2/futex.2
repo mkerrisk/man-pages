@@ -312,8 +312,6 @@ from Linux 2.6.26 onward.
 .TP
 .BR FUTEX_REQUEUE " (since Linux 2.6.0)"
 .\" Strictly speaking: from Linux 2.5.70
-.\"
-.\" FIXME XXX I added this warning. Okay?
 .IR "Avoid using this operation" .
 It is broken (unavoidably racy) for its intended purpose.
 Use
@@ -563,7 +561,7 @@ for further details.
 
 The
 .BR FUTEX_WAIT_BITSET
-also interprets the
+operation also interprets the
 .I timeout
 argument differently from
 .BR FUTEX_WAIT .
@@ -600,19 +598,8 @@ The effect of
 .BR FUTEX_WAIT_BITSET
 and
 .BR FUTEX_WAKE_BITSET
-is to allow selective wake-ups among multiple waiters that are waiting
-on the same futex;
-since a futex has a size of 32 bits,
-these operations provide 32 wakeup "channels".
-(The
-.BR FUTEX_WAIT
-and
-.BR FUTEX_WAKE
-operations correspond to
-.BR FUTEX_WAIT_BITSET
-and
-.BR FUTEX_WAKE_BITSET
-operations where the bitsets are all ones.)
+is to allow selective wake-ups among multiple waiters that are blocked
+on the same futex.
 Note, however, that using this bitset multiplexing feature on a
 futex is less efficient than simply using multiple futexes,
 because employing bitset multiplexing requires the kernel
@@ -638,6 +625,16 @@ The
 and
 .I timeout
 arguments are ignored.
+
+The
+.BR FUTEX_WAIT
+and
+.BR FUTEX_WAKE
+operations correspond to
+.BR FUTEX_WAIT_BITSET
+and
+.BR FUTEX_WAKE_BITSET
+operations where the bitsets are all ones.
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
@@ -1042,11 +1039,7 @@ The return value on success depends on the operation,
 as described in the following list:
 .TP
 .B FUTEX_WAIT
-Returns 0 if the caller was woken by a
-.B FUTEX_WAKE
-or
-.B FUTEX_WAKE_BITSET
-call.
+Returns 0 if the caller was woken up.
 .TP
 .B FUTEX_WAKE
 Returns the number of waiters that were woken up.
@@ -1067,7 +1060,6 @@ then difference is the number of waiters requeued to the futex at
 .IR uaddr2 .
 .TP
 .B FUTEX_WAKE_OP
-.\" FIXME XXX Is the following correct?
 Returns the total number of waiters that were woken up.
 This is the sum of the woken waiters on the two futexes at
 .I uaddr
@@ -1075,31 +1067,21 @@ and
 .IR uaddr2 .
 .TP
 .B FUTEX_WAIT_BITSET
-.\" FIXME XXX Is the following correct?
-Returns 0 if the caller was woken by a
-.B FUTEX_WAKE
-or
-.B FUTEX_WAKE_BITSET
-call.
+Returns 0 if the caller was woken up.
 .TP
 .B FUTEX_WAKE_BITSET
-.\" FIXME XXX Is the following correct?
 Returns the number of waiters that were woken up.
 .TP
 .B FUTEX_LOCK_PI
-.\" FIXME XXX Is the following correct?
 Returns 0 if the futex was successfully locked.
 .TP
 .B FUTEX_TRYLOCK_PI
-.\" FIXME XXX Is the following correct?
 Returns 0 if the futex was successfully locked.
 .TP
 .B FUTEX_UNLOCK_PI
-.\" FIXME XXX Is the following correct?
 Returns 0 if the futex was successfully unlocked.
 .TP
 .B FUTEX_CMP_REQUEUE_PI
-.\" FIXME XXX Is the following correct?
 Returns the total number of waiters that were woken up or
 requeued to the futex at
 .IR uaddr2 .
@@ -1109,7 +1091,6 @@ then difference is the number of waiters requeued to the futex at
 .IR uaddr2 .
 .TP
 .B FUTEX_WAIT_REQUEUE_PI
-.\" FIXME XXX Is the following correct?
 Returns 0 if the caller was successfully requeued to the futex at
 .IR uaddr2 .
 .\"
@@ -1128,6 +1109,14 @@ The value pointed to by
 was not equal to the expected value
 .I val
 at the time of the call.
+
+.BR Note :
+on Linux, the symbolic names
+.B EAGAIN
+and
+.B EWOULDBLOCK
+(both of which appear in differnt parts of the kernel futex code)
+have the same value.
 .TP
 .B EAGAIN
 .RB ( FUTEX_CMP_REQUEUE ,
@@ -1145,6 +1134,7 @@ now.)
 .\" FIXME XXX Should there be an EAGAIN case for FUTEX_TRYLOCK_PI?
 .\"       It seems so, looking at the handling of the rt_mutex_trylock()
 .\"       call in futex_lock_pi()
+.\"       (Davidlohr also thinks so.)
 .\" 
 .TP
 .BR EAGAIN
@@ -1159,23 +1149,14 @@ The futex owner thread ID of
 is about to exit,
 but has not yet handled the internal state cleanup.
 Try again.
-.\"
-.\" FIXME XXX Is there not also an EAGAIN error case on 'uaddr2' for
-.\"       FUTEX_REQUEUE and FUTEX_CMP_REQUEUE via
-.\"           futex_requeue() ==> futex_proxy_trylock_atomic() ==> 
-.\"               futex_lock_pi_atomic() ==> attach_to_pi_owner() ==> EAGAIN?
 .TP
 .BR EDEADLK
 .RB ( FUTEX_LOCK_PI ,
-.BR FUTEX_TRYLOCK_PI )
+.BR FUTEX_TRYLOCK_PI ,
+.BR FUTEX_CMP_REQUEUE_PI )
 The futex at
 .I uaddr
 is already locked by the caller.
-.\"
-.\" FIXME XXX Is there not also an EDEADLK error case on 'uaddr2' for
-.\"       FUTEX_REQUEUE and FUTEX_CMP_REQUEUE via
-.\"           futex_requeue() ==> futex_proxy_trylock_atomic() ==> 
-.\"               futex_lock_pi_atomic() ==> attach_to_pi_owner() ==> EDEADLK?
 .TP
 .BR EDEADLK
 .\" FIXME I reworded tglx's text somewhat; is the following okay?
@@ -1404,11 +1385,6 @@ The caller is not allowed to attach itself to the futex at
 the futex at
 .IR uaddr2 ).
 (This may be caused by a state corruption in user space.)
-.\"
-.\" FIXME XXX Is there not also an EPERM error case on 'uaddr2' for
-.\"       FUTEX_REQUEUE and FUTEX_CMP_REQUEUE via
-.\"           futex_requeue() ==> futex_proxy_trylock_atomic() ==> 
-.\"               futex_lock_pi_atomic() ==> attach_to_pi_owner() ==> EPERM?
 .TP
 .BR EPERM
 .RB ( FUTEX_UNLOCK_PI )
@@ -1416,17 +1392,13 @@ The caller does not own the futex.
 .TP
 .BR ESRCH
 .RB ( FUTEX_LOCK_PI ,
-.BR FUTEX_TRYLOCK_PI )
+.BR FUTEX_TRYLOCK_PI ,
+.BR FUTEX_CMP_REQUEUE_PI )
 .\" FIXME I reworded the following sentence a bit differently from
 .\"       tglx's formulation. Is it okay?
 The thread ID in the futex at
 .I uaddr
 does not exist.
-.\"
-.\" FIXME XXX Is there not also an ESRCH error case on 'uaddr2' for
-.\"       FUTEX_REQUEUE and FUTEX_CMP_REQUEUE via
-.\"           futex_requeue() ==> futex_proxy_trylock_atomic() ==> 
-.\"               futex_lock_pi_atomic() ==> attach_to_pi_owner() ==> ESRCH?
 .TP
 .BR ESRCH
 .RB ( FUTEX_CMP_REQUEUE_PI )

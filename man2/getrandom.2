@@ -72,20 +72,10 @@ No such guarantees apply for larger buffer sizes.
 For example, if the call is interrupted by a signal handler,
 it may return a partially filled buffer, or fail with the error
 .BR EINTR .
-.\" Tested with buffer sizes > 256 bytes: both partial reads
-.\" and EINTR can occur, with the former being more frequent.
-.\"
-.\" mtk: In the absence of signals, in my testing, even very large reads
-.\" return full buffers. I found that reads of up to 33554431 always
-.\" returned a filled buffer. Specifying 'buflen' > 33554431 always
-.\" returned just 33554431 bytes. (I'm not sure where that number comes from.
 If the pool has not yet been initialized, then the call blocks, unless
 .B GRND_RANDOM
 is specified in
 .IR flags .
-.\" FIXME We need a bit more information here.
-.\"       The reader will ask: when is /dev/urandom initialized?
-.\"       There should be some text here to explain that.
 
 The
 .I flags
@@ -179,6 +169,25 @@ was introduced in version 3.17 of the Linux kernel.
 .SH CONFORMING TO
 This system call is Linux-specific.
 .SH NOTES
+.SS Maximum number of bytes returned
+As of Linux 3.19 the following limits apply:
+.IP * 3
+When reading from
+.I /dev/urandom
+a maximum of 33554431 bytes is returned by a single call to
+.BR getrandom ()
+on a system where
+.I int
+has a size of 32 bits.
+.IP *
+When reading from
+.I /dev/random
+a maximum of 512 bytes is returned.
+.SS Initilization of the entropy pool
+The kernel collects bits of entropy from environment.
+When a sufficient number of random bits has been collected the
+.I /dev/urandom
+entropy pool is set to initialized.
 .SS Interruption by a signal handler
 A call to
 .BR getrandom ()

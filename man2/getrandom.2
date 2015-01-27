@@ -66,6 +66,10 @@ argument.
 If the
 .IR /dev/urandom
 pool has been initialized, reading from that pool never blocks.
+If the pool has not yet been initialized, then the call blocks, unless
+.B GRND_RANDOM
+is specified in
+.IR flags .
 
 The
 .I flags
@@ -87,15 +91,17 @@ If the number of available bytes in
 is less than requested in
 .IR buflen ,
 the call returns just the available random bytes.
-If no random byte is available, the behavior depends on the
-presence of
+If no random bytes are available, the behavior depends on the presence of
 .B GRND_NONBLOCK
 in the
 .I flags
 argument.
 .TP
 .B GRND_NONBLOCK
-By default, if there is no random byte available at all,
+By default, if there are no random bytes available at all (when reading from
+.IR /dev/random ),
+or the entropy pool has not yet been initialized (when reading from
+.IR /dev/urandom ),
 .BR getrandom ()
 blocks until data is available.
 If the
@@ -113,7 +119,11 @@ returns the number of bytes that were copied to the buffer
 .IR buf .
 This may be less than the number of bytes requested via
 .I buflen
-if insufficient entropy was present in the
+if
+.BR GRND_RANDOM
+was specified in
+.IR flags
+and insufficient entropy was present in the
 .IR /dev/random
 pool, or if the system call was interrupted by a signal.
 .PP

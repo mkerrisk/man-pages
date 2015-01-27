@@ -646,25 +646,6 @@ calls on "slow" devices.
 A "slow" device is one where the I/O call may block for an
 indefinite time, for example, a terminal, pipe, or socket.
 (A disk is not a slow device according to this definition.)
-A
-.BR read (2)
-on an
-.BR eventfd (2),
-.BR signalfd (2),
-.BR timerfd (2),
-.BR fanotify (7),
-or
-.BR inotify (7)
-file descriptor is also considered to be a "slow" operation.
-(Before Linux 3.8,
-.\" commit 1ca39ab9d21ac93f94b9e3eb364ea9a5cf2aba06
-reads from an
-.BR inotify (7)
-file descriptor were not restartable;
-when interrupted by a signal handler,
-.BR read (2)
-always failed with the error
-.BR EINTR .)
 If an I/O call on a slow device has already transferred some
 data by the time it is interrupted by a signal handler,
 then the call will return a success status
@@ -695,7 +676,7 @@ Socket interfaces:
 .BR send (2),
 .BR sendto (2),
 and
-.\" FIXME . What about sendmmsg()?
+.\" FIXME What about sendmmsg()?
 .BR sendmsg (2),
 unless a timeout has been set on the socket (see below).
 .IP *
@@ -718,7 +699,9 @@ and
 .IP *
 .BR futex (2)
 .B FUTEX_WAIT
-(since Linux 2.6.22; beforehand, always failed with
+(since Linux 2.6.22;
+.\" commit 72c1bbf308c75a136803d2d76d0e18258be14c7a
+beforehand, always failed with
 .BR EINTR ).
 .IP *
 .BR getrandom (2).
@@ -727,11 +710,16 @@ and
 .BR pthread_cond_wait (3),
 and related APIs.
 .IP *
+.BR futex (2)
+.BR FUTEX_WAIT_BITSET .
+.IP *
 POSIX semaphore interfaces:
 .BR sem_wait (3)
 and
 .BR sem_timedwait (3)
-(since Linux 2.6.22; beforehand, always failed with
+(since Linux 2.6.22;
+.\" as a consequence of the 2.6.22 changes in the futex() implementation
+beforehand, always failed with
 .BR EINTR ).
 .RE
 .PP
@@ -761,14 +749,14 @@ and
 .BR recvmsg (2).
 .IP *
 "Output" socket interfaces, when a timeout
-.RB ( SO_SNDTIMEO )
+.RB ( SO_RCVTIMEO )
 has been set on the socket using
 .BR setsockopt (2):
 .BR connect (2),
 .BR send (2),
 .BR sendto (2),
 and
-.\" FIXME . What about sendmmsg()?
+.\" FIXME What about sendmmsg()?
 .BR sendmsg (2).
 .IP *
 Interfaces used to wait for signals:
@@ -800,6 +788,11 @@ Sleep interfaces:
 .BR nanosleep (2),
 and
 .BR usleep (3).
+.IP *
+.BR read (2)
+from an
+.BR inotify (7)
+file descriptor.
 .IP *
 .BR io_getevents (2).
 .RE
@@ -836,15 +829,18 @@ and
 .BR recvmsg (2).
 .IP *
 "Output" socket interfaces, when a timeout
-.RB ( SO_SNDTIMEO )
+.RB ( SO_RCVTIMEO )
 has been set on the socket using
 .BR setsockopt (2):
 .BR connect (2),
 .BR send (2),
 .BR sendto (2),
 and
-.\" FIXME . What about sendmmsg()?
-.BR sendmsg (2).
+.\" FIXME What about sendmmsg()?
+.BR sendmsg (2),
+if a send timeout
+.RB ( SO_SNDTIMEO )
+has been set.
 .IP * 2
 .BR epoll_wait (2),
 .BR epoll_pwait (2).
@@ -855,8 +851,6 @@ and
 .BR sigtimedwait (2),
 .BR sigwaitinfo (2).
 .IP *
-Linux 3.7 and earlier:
-.\" commit 1ca39ab9d21ac93f94b9e3eb364ea9a5cf2aba06
 .BR read (2)
 from an
 .BR inotify (7)
@@ -903,7 +897,6 @@ POSIX.1, except as noted.
 .BR signalfd (2),
 .BR sigpending (2),
 .BR sigprocmask (2),
-.BR sigreturn (2),
 .BR sigsuspend (2),
 .BR sigwaitinfo (2),
 .BR abort (3),

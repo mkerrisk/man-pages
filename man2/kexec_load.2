@@ -57,7 +57,6 @@ The following values can be specified in
 .TP
 .BR KEXEC_ON_CRASH " (since Linux 2.6.13)"
 Execute the new kernel automatically on a system crash.
-.\" FIXME Explain in more detail how KEXEC_ON_CRASH is actually used
 This "crash kernel" is loaded into an area of reserved memory that
 is determined at boot time using the
 .I craskkernel
@@ -146,24 +145,24 @@ is copied as follows:
 .IP * 3
 .I buf
 and
-.I bufz
+.I bufsz
 identify a memory region in the caller's virtual address space
 that is the source of the copy.
+The value in
+.I bufsz
+may not exceed the value in the
+.I memsz
+field.
 .IP *
 .I mem
 and
 .I memsz
 specify a physical address range that is the target of the copy.
+The values specified in both fields must be multiples of
+the system page size.
 .IP *
-The number of bytes transferred is the minimum of
 .I bufsz
-and
-.IR memsz .
-If
-.I bufsz
-is greater than
-.IR memsz ,
-then the excess bytes in the user-space buffer are ignored.
+bytes are copied from the source buffer to the target kernel buffer.
 If
 .I bufsz
 is less than
@@ -218,10 +217,10 @@ The following values can be specified in
 Unload the currently loaded kernel.
 .TP
 .BR KEXEC_FILE_ON_CRASH
-Load the new kernel in the memory region reserved for the crash kernel.
+Load the new kernel in the memory region reserved for the crash kernel
+(as for
+.BR KEXEC_ON_CRASH).
 This kernel is booted if the currently running kernel crashes.
-.\" FIXME Do we need to have a statement here about to the ways
-.\" in which KEXEC_ON_CRASH and KEXEC_FILE_ON_CRASH are the same/different?
 .TP
 .BR KEXEC_FILE_NO_INITRAMFS
 Loading initrd/initramfs is optional.
@@ -256,7 +255,15 @@ and
 fields of one of the
 .I segments
 entries lies outside the range of memory reserved for the crash kernel.
-.I kexec_segment.mem
+.TP
+.B EADDRNOTAVAIL
+The value in a
+.I mem
+or
+.I memsz
+field in one of the
+.I segments
+entries is not a multiple of the system page size.
 .TP
 .B EBUSY
 Another crash kernel is already being loaded
@@ -267,10 +274,22 @@ or a crash kernel is already in use.
 is invalid.
 .TP
 .B EINVAL
+The value of a
+.I bufsz
+field in one of the
+.I segments
+entries exceeds the value in the corresponding
+.I memsz
+field.
+.TP
+.B EINVAL
 .IR nr_segments
 exceeds
 .BR KEXEC_SEGMENT_MAX
 (16).
+.TP
+.B EINVAL
+Two or more of the kernel target buffers overlap.
 .TP
 .B ENOEXEC
 .I kernel_fd

@@ -114,19 +114,23 @@ The 64-bit base changes when a new 32-bit segment selector is loaded.
 is disabled in some kernels.
 
 Context switches for 64-bit segment bases are rather expensive.
-It may be a faster alternative to set a 32-bit base using a
-segment selector by setting up an LDT with
-.BR modify_ldt (2)
-or using the
+As an optimization, if a 32-bit TLS base address is used,
+.BR arch_prctl (2)
+may use a real TLS entry as if
 .BR set_thread_area (2)
-system call in kernel 2.5 or later.
-.BR arch_prctl ()
-is needed only when you want to set bases that are larger than 4GB.
+had been called instead of manipulating the segment base register directly.
 Memory in the first 2GB of address space can be allocated by using
 .BR mmap (2)
 with the
 .B MAP_32BIT
 flag.
+
+As a result, using
+.BR arch_prctl (2)
+and
+.BR set_thread_area (2)
+in the same thread is dangerous, as they may overwrite each other's
+TLS entries.
 
 As of version 2.7, glibc provides no prototype for
 .BR arch_prctl ().
@@ -134,7 +138,9 @@ You have to declare it yourself for now.
 This may be fixed in future glibc versions.
 
 .I FS
-may be already used by the threading library.
+may be already used by the threading library.  Glibc programs that use
+.I ARCH_SET_FS
+directly are very likely to crash.
 .SH SEE ALSO
 .BR mmap (2),
 .BR modify_ldt (2),

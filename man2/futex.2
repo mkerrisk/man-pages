@@ -1418,6 +1418,193 @@ This system call is Linux-specific.
 .SH NOTES
 Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
+.\"
+.\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.\"
+.SH EXAMPLE
+.\" FIXME Is it worth having an example program?
+.\" FIXME Anything obviously broken in the example program?
+.\"
+The program below deomonstrates use of futexes in a program
+where parent and child use a pair of futexes located inside a
+shared anonymous mapping to synchronize access to a shared resource:
+the terminal.
+The two processes each write
+.IR nloops
+(a command-line argument that defaults to 5 if omitted)
+messages to the terminal and employ a synchronization protocol
+that ensures that they alternate in writing messages.
+Upon running this program we see output such as the following:
+
+.in +4n
+.nf
+$ \fB./futex_demo\fP
+Parent (18534) 0
+Child  (18535) 0
+Parent (18534) 1
+Child  (18535) 1
+Parent (18534) 2
+Child  (18535) 2
+Parent (18534) 3
+Child  (18535) 3
+Parent (18534) 4
+Child  (18535) 4
+.fi
+.in
+.SS Program source
+\&
+.nf
+/* futex_demo.c
+
+   Usage: futex_demo [nloops]
+                    (Default: 5)
+
+   Demonstrate the use of futexes in a program where parent and child
+   use a pair of futexes located inside a shared anonymous mapping to
+   synchronize access to a shared resource: the terminal. The two
+   processes each write \(aqnum\-loops\(aq messages to the terminal and employ
+   a synchronization protocol that ensures that they alternate in
+   writing messages.
+*/
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
+#include <sys/time.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+static int *futex1, *futex2, *iaddr;
+
+static int
+futex(int *uaddr, int futex_op, int val,
+      const struct timespec *timeout, int *uaddr2, int val3)
+{
+    return syscall(SYS_futex, uaddr, futex_op, val,
+                   timeout, uaddr, val3);
+}
+
+/* Acquire the futex pointed to by \(aqfutexp\(aq: wait for its value to
+   become 1, and then set the value to 0. */
+
+static void
+fwait(int *futexp)
+{
+    int s;
+
+    /* __sync_bool_compare_and_swap(ptr, oldval, newval) is a gcc
+       built\-in function.  It atomically performs the equivalent of:
+
+           if (*ptr == oldval)
+               *ptr = newval;
+
+       It returns true if the test yielded true and *ptr was updated.
+       The alternative here would be to employ the equivalent atomic
+       machine\-language instructions.  For further information, see
+       the GCC Manual. */
+
+    /* Maybe the futex is already available: */
+
+    if (__sync_bool_compare_and_swap(futexp, 1, 0))
+        return;
+
+    /* No; we must wait for the futex value to be changed */
+
+    while (1) {
+        s = futex(futexp, FUTEX_WAIT, 0, NULL, NULL, 0);
+        if (s == \-1 && errno != EAGAIN)
+            errExit("futex\-FUTEX_WAIT");
+
+        /* Is the futex now available? */
+
+        if (__sync_bool_compare_and_swap(futexp, 1, 0))
+            break;      /* Yes */
+
+        /* Futex is still not available; wait again */
+    }
+}
+
+/* Release the futex pointed to by \(aqfutexp\(aq: if the futex currently
+   has the value 0, set its value to 1 and the wake any futex waiters,
+   so that if the peer is blocked in fpost(), it can proceed. */
+
+static void
+fpost(int *futexp)
+{
+    int s;
+
+    /* __sync_bool_compare_and_swap() was described in comments above */
+
+    if (__sync_bool_compare_and_swap(futexp, 0, 1)) {
+
+        s = futex(futexp, FUTEX_WAKE, 1, NULL, NULL, 0);
+        if (s  == \-1)
+            errExit("futex\-FUTEX_WAKE");
+    }
+}
+
+int
+main(int argc, char *argv[])
+{
+    pid_t childPid;
+    int j, nloops;
+
+    setbuf(stdout, NULL);
+
+    nloops = (argc > 1) ? atoi(argv[1]) : 5;
+
+    /* Create a shared anonymous mapping that will hold the futexes.
+       Since the futexes are being shared between processes, we
+       subsequently use the "shared" futex operations (i.e., not the
+       ones suffixed "_PRIVATE") */
+
+    iaddr = mmap(NULL, sizeof(int) * 2, PROT_READ | PROT_WRITE,
+                MAP_ANONYMOUS | MAP_SHARED, \-1, 0);
+    if (iaddr == MAP_FAILED)
+        errExit("mmap");
+
+    futex1 = &iaddr[0];
+    futex2 = &iaddr[1];
+
+    *futex1 = 0;        /* State: unavailable */
+    *futex2 = 1;        /* State: available */
+
+    /* Create a child process that inherits the shared anonymous
+       mappping */
+
+    childPid = fork();
+    if (childPid == 1)
+        errExit("fork");
+
+    if (childPid == 0) {        /* Child */
+        for (j = 0; j < nloops; j++) {
+            fwait(futex1);
+            printf("Child  (%ld) %d\\n", (long) getpid(), j);
+            fpost(futex2);
+        }
+
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Parent falls through to here */
+
+    for (j = 0; j < nloops; j++) {
+        fwait(futex2);
+        printf("Parent (%ld) %d\\n", (long) getpid(), j);
+        fpost(futex1);
+    }
+
+    wait(NULL);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .ad l
 .BR get_robust_list (2),

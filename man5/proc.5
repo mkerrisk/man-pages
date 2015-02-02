@@ -75,15 +75,92 @@ There is a numerical subdirectory for each running process; the
 subdirectory is named by the process ID.
 Each such subdirectory contains the following
 pseudo-files and directories.
-.\" FIXME Describe /proc/[pid]/attr and
-.\"     /proc/[pid]/task/[tid]/attr
-.\"	This is a directory
-.\"     Added in 2.6.0
-.\"	CONFIG_SECURITY
-.\"	https://lwn.net/Articles/28222/
+.TP
+.I /proc/[pid]/attr
+.\" https://lwn.net/Articles/28222/
+.\" From:    Stephen Smalley <sds@epoch.ncsc.mil>
+.\" To:	     LKML and others
+.\" Subject: [RFC][PATCH] Process Attribute API for Security Modules
+.\" Date:    08 Apr 2003 16:17:52 -0400
+.\"
 .\"	http://www.nsa.gov/research/_files/selinux/papers/module/x362.shtml
 .\"
-.\"	fscreate, current, prev, and exec present in Linux 2.6.0
+The files in this directory provide an API for security modules.
+The contents of this directory are files that can be read and written
+in order to set security-related attributes.
+This directory was added to support SELinux,
+but the intention was that the API be general enough to support
+other security modules.
+For the purpose of explanation,
+examples of how SELinux uses these files are provided below.
+
+This directory is present only if the kernel was configured with
+.BR CONFIG_SECURITY .
+.TP
+.IR /proc/[pid]/attr/current " (since Linux 2.6.0)"
+The contents of this file represent the current
+security attributes of the process.
+
+In SELinux, this file is used to get the security context of a process,
+but not to set the security context (a write is always denied),
+since SELinux limits process security transitions to
+.BR execve (2)
+(see the description of
+.IR /proc/[pid]/attr/exec ,
+below).
+Other security modules may choose to support "set" operations via
+writes to this node.
+.TP
+.IR /proc/[pid]/attr/exec " (since Linux 2.6.0)"
+This file represents the attributes to assign to the
+process upon a subsequent
+.BR execve (2).
+
+In SELinux,
+this is needed to support role/domain transitions, and
+.BR execve (2)
+is the preferred point to make such transitions because it offers better
+control over the initialization of the process in the new security label
+and the inheritance of state.
+In SELinux, this attribute is reset on
+.BR execve (2)
+so that the new program reverts to the default behavior for any
+.BR execve (2)
+calls that it may make.
+In SELinux, a process can set
+only its own
+.I /proc/[pid]/attr/exec
+attribute.
+.TP
+.IR /proc/[pid]/attr/fscreate " (since Linux 2.6.0)"
+This file represents the attributes to assign to files
+created by subsequent calls to
+.BR open (2),
+.BR mkdir (2),
+.BR symlink (2),
+and
+.BR mknod (2)
+
+SELinux employs this file to support creation of a file
+(using the aforementioned system calls)
+in a secure state,
+so that there is no risk of inappropriate access being obtained
+between the time of creation and the time that attributes are set.
+In SELinux, this attribute is reset on
+.BR execve (2),
+so that the new program reverts to the default behavior for
+any file creation calls it may make, but the attribute will persist
+across multiple file creation calls within a program unless it is
+explicitly reset.
+In SELinux, a process can set only its own
+.IR /proc/[pid]/attr/fscreate
+attribute.
+.TP
+.IR /proc/[pid]/attr/prev " (since Linux 2.6.0)"
+This file contains the security context of the process before the last
+.BR execve (2);
+that is, the previous value of
+.IR /proc/[pid]/attr/current .
 .\"	keycreate added in Linux 2.6.18
 .\"		commit 4eb582cf1fbd7b9e5f466e3718a59c957e75254e
 .\"		/Documentation/keys.txt

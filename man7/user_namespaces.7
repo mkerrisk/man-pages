@@ -539,10 +539,14 @@ in the user namespace.
 The writing process must have the same effective user ID as the process
 that created the user namespace.
 In the case of
-.I gid_map
+.IR gid_map ,
 the
-.I setgroups
-file must have been written to earlier and disabled the setgroups system call.
+.I /proc/[pid]/setgroups
+file (see
+.BR proc (5))
+must have been written to earlier and disabled the
+.BR setgroups (2)
+system call.
 .IP * 3
 The writing process has the
 .BR CAP_SETUID
@@ -557,47 +561,54 @@ Writes that violate the above rules fail with the error
 .\"
 .\" ============================================================
 .\"
-.SS Interaction with system calls that change the uid or gid values
-When in a user namespace where the
+.SS Interaction with system calls that change process UIDs or GIDs
+In a user namespace where the
 .I uid_map
-or
+file has not been written, the system calls that change user IDs will fail.
+Similarly, if the
 .I gid_map
-file has not been written the system calls that change user IDs
-or group IDs respectively will fail.  After the
+file has not been written, the system calls that change group IDs will fail.
+After the
 .I uid_map
 and
 .I gid_map
-file have been written only the mapped values may be used in
-system calls that change user IDs and group IDs.
+files have been written, only the mapped values may be used in
+system calls that change user and group IDs.
 
-For user IDs these system calls include
-.BR setuid ,
-.BR setfsuid ,
-.BR setreuid ,
+For user IDs, the relevant system calls include
+.BR setuid (2),
+.BR setfsuid (2),
+.BR setreuid (2),
 and
-.BR setresuid .
-
-For group IDs these system calls include
-.BR setgid ,
-.BR setfsgid ,
-.BR setregid ,
-.BR setresgid ,
+.BR setresuid (2).
+For group IDs, the relevant system calls include
+.BR setgid (2),
+.BR setfsgid (2),
+.BR setregid (2),
+.BR setresgid (2),
 and
-.BR setgroups.
+.BR setgroups (2).
 
 Writing
-.BR deny
+.RI \(dq deny \(dq
 to the
 .I /proc/[pid]/setgroups
 file before writing to
 .I /proc/[pid]/gid_map
-will permanently disable the setgroups system call in a user namespace
-and allow writing to
+.\" Things changed in Linux 3.19
+.\" commit 9cc46516ddf497ea16e8d7cb986ae03a0f6b92f8
+.\" commit 66d2f338ee4c449396b6f99f5e75cd18eb6df272
+.\" http://lwn.net/Articles/626665/
+will permanently disable
+.BR setgroups (2)
+in a user namespace and allow writing to
 .I /proc/[pid]/gid_map
-without
+without having the
 .BR CAP_SETGID
-in the parent user namespace.
-
+capability in the parent user namespace.
+.\"
+.\" ============================================================
+.\"
 .SS Unmapped user and group IDs
 .PP
 There are various places where an unmapped user ID (group ID)

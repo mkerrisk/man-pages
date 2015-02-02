@@ -1208,24 +1208,61 @@ are not available if the main thread has already terminated
 .\"       CONFIG_SCHEDSTATS
 .TP
 .IR /proc/[pid]/setgroups " (since Linux 3.19)"
-This file reports
-.BR allow
+.\" 
+.\" commit 9cc46516ddf497ea16e8d7cb986ae03a0f6b92f8
+.\" commit 66d2f338ee4c449396b6f99f5e75cd18eb6df272
+.\" http://lwn.net/Articles/626665/
+.\" http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-8989
+.\"
+This file displays the string
+.RI \(dq allow \(dq
 if the
 .BR setgroups (2)
-system call is permitted in the current user namespace, and
-.BR deny
+system call is permitted in the process's user namespace, and
+.RI \(dq deny \(dq
 if
 .BR setgroups (2)
 is not permitted.
-Either of the strings
-.BR allow
-and
-.BR deny
-may be written to this file before
+A privileged process (one with the
+.BR CAP_SYS_ADMIN
+capability in the namespace)
+.\" Should it be "parent namespace" in the line above?
+may write either of the strings
+.RI \(dq allow \(dq
+or
+.RI \(dq deny \(dq
+to this file before writing a group ID mapping
+for this user namespace to the file
+.IR /proc/[pid]/gid_map .
+The default value of this file in the initial user namesapce is
+.RI " allow ".
+
+Once
 .IR /proc/[pid]/gid_map
-is written to (enabling
-.BR setgroups (2))
-in a user namespace.
+has been written to
+(which has the effect of enabling
+.BR setgroups (2)
+in the user namespace),
+it is no longer possible to deny
+.BR setgroups (2)
+by writing to
+.IR /proc/[pid]/setgroups .
+
+A child user namespace inherits the
+.IR /proc/[pid]/gid_map
+setting from its parent.
+
+If the
+.I setgroups
+file has the value
+.IR \(dq deny \(dq,
+then the
+.BR setgroups (2)
+system call can't subsequently be reenabled (by writing
+.RI \(dq allow \(dq
+to the file) in this user namespace.
+This restriction also propagates down to all child user namespaces of
+this user namespace.
 .TP
 .IR /proc/[pid]/smaps " (since Linux 2.6.14)"
 This file shows memory consumption for each of the process's mappings.

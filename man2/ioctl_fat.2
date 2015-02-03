@@ -23,24 +23,24 @@
 .\" %%%LICENSE_END
 .TH IOCTl-FAT 2 2015-01-23 "Linux" "Linux Programmer's Manual"
 .SH "NAME"
-ioctl-fat \- manipulating the FAT filesystem
+ioctl_fat \- manipulating the FAT filesystem
 .SH SYNOPSIS
 .nf
 .B #include <linux/msdos_fs.h>
 .br
 .B #include <sys/ioctl.h>
 .sp
-.BI "int ioctl(int " fd ", FAT_IOCTL_GET_ATTRIBUTES, uint32_t * " attr);
-.BI "int ioctl(int " fd ", FAT_IOCTL_SET_ATTRIBUTES, uint32_t * " attr);
-.BI "int ioctl(int " fd ", FAT_IOCTL_GET_VOLUME_ID, uint32_t * " id);
+.BI "int ioctl(int " fd ", FAT_IOCTL_GET_ATTRIBUTES, uint32_t * " attr );
+.BI "int ioctl(int " fd ", FAT_IOCTL_SET_ATTRIBUTES, uint32_t * " attr );
+.BI "int ioctl(int " fd ", FAT_IOCTL_GET_VOLUME_ID, uint32_t * " id );
 .BI "int ioctl(int " fd ", VFAT_IOCTL_READDIR_BOTH,
-.BI "          struct __fat_dirent[2] " entry);
+.BI "          struct __fat_dirent[2] " entry );
 .BI "int ioctl(int " fd ", VFAT_IOCTL_READDIR_SHORT,
-.BI "          struct __fat_dirent[2] " entry);
+.BI "          struct __fat_dirent[2] " entry );
 .SH DESCRIPTION
 The
 .BR ioctl (2)
-function can be used to read and write metadata of the FAT filesystems that
+system call can be used to read and write metadata of FAT filesystems that
 are not accessible using other system calls.
 .SS Reading and setting file attributes
 Files and directories in the FAT filesystem possess an attribute bit mask that
@@ -51,7 +51,7 @@ and written with
 .PP
 The
 .I fd
-argument contains a file descriptor for the file or directory.
+argument contains a file descriptor for a file or directory.
 It is sufficient to create the file descriptor by calling
 .BR open (2)
 with the
@@ -60,8 +60,8 @@ flag.
 .PP
 The
 .I attr
-argument contains a pointer to the bit mask.
-The bits of the bit mask are
+argument contains a pointer to a bit mask.
+The bits of the bit mask are:
 .TP
 .B ATTR_RO
 This bit specifies that the file or directory is read-only.
@@ -89,7 +89,7 @@ The zero value
 .B ATTR_NONE
 can be used to indicate that no attribute bit is set.
 .SS Reading the volume label
-Fat filesystems are identified by a volume label.
+FAT filesystems are identified by a volume label.
 The volume label can be read with
 .BR FAT_IOCTL_GET_VOLUME_ID .
 .PP
@@ -107,7 +107,7 @@ The
 .I id
 argument is a pointer to the field that will be filled with the volume ID.
 Typically the volume label is displayed to the user as a group of two
-16-bit fields.
+16-bit fields:
 .PP
 .in +4n
 .nf
@@ -134,14 +134,14 @@ It is sufficient to create the file descriptor by calling
 with the
 .B O_RDONLY
 flag.
-The file descriptor can be only used once to iterate over the directory
+The file descriptor can be used only once to iterate over the directory
 entries by calling
 .BR ioctl (2)
 repeatedly.
 .PP
 The
 .I entry
-argument is a two-element array of the following structures.
+argument is a two-element array of the following structures:
 
 .in +4n
 .nf
@@ -157,14 +157,17 @@ struct __fat_dirent {
 The first entry in the array is for the short filename.
 The second entry is for the long filename.
 .PP
-Field
+The field
 .I d_reclen
-specifies the length of the filename in field
+contains the length of the filename in the field
 .IR d_name .
 A length of 0 for the short filename signals that the end of the directory
 has been reached.
+.\" FIXME Missing here are explanations of the fileds ;d_ino' and 'd_off'
 .SH RETURN VALUE
-On error, -1 is returned, and errno is set to indicate the error.
+On error, \-1 is returned, and
+.I errno
+is set to indicate the error.
 .SH ERRORS
 .TP
 .B ENOTDIR
@@ -172,16 +175,22 @@ This error is returned by
 .B VFAT_IOCTL_READDIR_SHORT
 and
 .B VFAT_IOCTL_READDIR_SHORT
-if the file descriptor does not point to a directory.
+if
+.I fd
+does not refer to a directory.
 .TP
 .B ENOTTY
-This error signals that the file descriptor is not for a FAT filesystem.
+The file descriptor
+.I fd
+does not refer to an object in a FAT filesystem.
 .PP
-For further error values see
+For further error values, see
 .BR ioctl (2).
 .SH VERSIONS
 .B FAT_IOCTL_GET_VOLUME_ID
-was introduced in version 3.11 of the Linux kernel.
+was introduced in version 3.11
+.\" commit 6e5b93ee55d401f1619092fb675b57c28c9ed7ec
+of the Linux kernel.
 .PP
 .BR FAT_IOCTL_GET_ATTRIBUTES ,
 .BR FAT_IOCTL_SET_ATTRIBUTES ,
@@ -193,14 +202,16 @@ were introduced before version 2.6.28 of the Linux kernel.
 This API is Linux-specific.
 .SH EXAMPLE
 .SS Toggling the archive flag
-The following program demonstrates the usage of the ioctl API to manipulate
-file attributes.
-It reads and displays the archive attribute of a file.
-After inverting the value of the attribute, it reads and displays it again.
+The following program demonstrates the usage of
+.BR ioctl ()
+to manipulate file attributes.
+The program reads and displays the archive attribute of a file.
+After inverting the value of the attribute,
+the program reads and displays the attribute again.
 .PP
 The following was recorded when applying the program for the file
-.IR /mnt/user/foo .
-.SS Example output
+.IR /mnt/user/foo :
+
 .in +4n
 .nf
 # ./toggle_archive_flag /mnt/user/foo
@@ -294,13 +305,14 @@ main(int argc, char *argv[])
 .fi
 .in
 .SS Reading the volume label
-The following program demonstrates the usage of the ioctl API to
-display the volume label of a FAT filesystem.
+The following program demonstrates the use of
+.BR ioctl (2)
+to display the volume label of a FAT filesystem.
 .PP
 The following output was recorded when applying the program for
 directory
-.IR /mnt/user .
-.SS Example output
+.IR /mnt/user :
+
 .in +4n
 .nf
 $ ./display_volume_id /mnt/user
@@ -357,12 +369,13 @@ main(int argc, char *argv[])
 .fi
 .in
 .SS Listing a directory
-The following program demonstrates the usage of the ioctl API to
-list a directory.
+The following program demonstrates the use of
+.BR ioctl (2)
+to list a directory.
 .PP
-The following was recorded when applying the program for the directory
-.IR /mnt/user .
-.SS Example output
+The following was recorded when applying the program to the directory
+.IR /mnt/user :
+
 .in +4n
 .nf
 $ ./fat_dir /mnt/user
@@ -424,6 +437,7 @@ main(int argc, char *argv[])
          */
         printf("%s \-> '%s'\\n", entry[0].d_name, entry[1].d_name);
     }
+
     if (ret == \-1) {
         perror("VFAT_IOCTL_READDIR_BOTH");
         exit(EXIT_FAILURE);

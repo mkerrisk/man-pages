@@ -148,27 +148,52 @@ are GNU extensions.
 .SH NOTES
 In glibc 2.2, these functions use the DES algorithm.
 .SH EXAMPLE
-You need to link with libcrypt to compile this example with glibc.
-To do useful work, the
-.I key[]
-and
-.I txt[]
-arrays must be filled with a useful bit pattern.
-.sp
 .nf
 #define _XOPEN_SOURCE
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <crypt.h>
 
 int
 main(void)
 {
-    char key[64];      /* bit pattern for key */
-    char txt[64];      /* bit pattern for messages */
+    char key[64];
+    char orig[9] = "eggplant";
+    char buf[64];
+    char txt[9];
+    int i, j;
 
-    setkey(key);
-    encrypt(txt, 0);   /* encode */
-    encrypt(txt, 1);   /* decode */
+    for (i = 0; i < 64; i++) {
+        key[i] = rand() & 1;
+    }
+
+    for (i = 0; i < 8; i++) {
+        for (j = 0; j < 8; j++) {
+            buf[i * 8 + j] = orig[i] >> j & 1;
+        }
+        setkey(key);
+    }
+    printf("Before encrypting: %s\\n", orig);
+
+    encrypt(buf, 0);
+    for (i = 0; i < 8; i++) {
+        for (j = 0, txt[i] = \(aq\\0\(aq; j < 8; j++) {
+            txt[i] |= buf[i * 8 + j] << j;
+        }
+        txt[8] = \(aq\\0\(aq;
+    }
+    printf("After encrypting:  %s\\n", txt);
+
+    encrypt(buf, 1);
+    for (i = 0; i < 8; i++) {
+        for (j = 0, txt[i] = \(aq\\0\(aq; j < 8; j++) {
+            txt[i] |= buf[i * 8 + j] << j;
+        }
+        txt[8] = \(aq\\0\(aq;
+    }
+    printf("After decrypting:  %s\\n", txt);
+    exit(EXIT_SUCCESS);
 }
 .fi
 .SH SEE ALSO

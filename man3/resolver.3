@@ -1,4 +1,5 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and (C) Copyright 2015 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -31,6 +32,7 @@
 .\"
 .TH RESOLVER 3 2015-03-29 "GNU" "Linux Programmer's Manual"
 .SH NAME
+res_ninit, res_nquery, res_nsearch, res_nquerydomain, res_nmkquery, res_nsend,
 res_init, res_query, res_search, res_querydomain, res_mkquery, res_send,
 dn_comp, dn_expand \- resolver routines
 .SH SYNOPSIS
@@ -38,6 +40,48 @@ dn_comp, dn_expand \- resolver routines
 .B #include <netinet/in.h>
 .B #include <arpa/nameser.h>
 .B #include <resolv.h>
+
+.B struct __res_state;
+.B typedef struct __res_state *res_state;
+
+.B int res_ninit(void);
+
+.BI "int res_nquery(res_state " statep );
+.BI "           const char *" dname ", int " class ", int " type ,
+.BI "           unsigned char *" answer ", int " anslen );
+
+.BI "int res_nsearch(res_state " statep ,
+.BI "           const char *" dname ", int " class ", int " type ,
+.BI "           unsigned char *" answer ", int " anslen );
+
+.BI "int res_nquerydomain(res_state " statep ,
+.BI "           const char *" name ", const char *" domain ,
+.BI "           int " class ", int " type ", unsigned char *" answer ,
+.BI "           int " anslen );
+
+.BI "int res_nmkquery(res_state " statep ,
+.BI "           int " op ", const char *" dname ", int " class ,
+.BI "           int " type ", const unsigned char *" data ", int " datalen ,
+.BI "           const unsigned char *" newrr ,
+.BI "           unsigned char *" buf ", int " buflen );
+
+.BI "int res_nsend(res_state " statep ,
+.BI "           const unsigned char *" msg ", int " msglen ,
+.BI "           unsigned char *" answer ", int " anslen );
+
+.BI "int dn_comp(const char *" exp_dn ", unsigned char *" comp_dn ,
+.BI "           int " length ", unsigned char **" dnptrs ,
+.BI "           unsigned char **" lastdnptr );
+
+.BI "int dn_expand(const unsigned char *" msg ,
+.BI "           const unsigned char *" eomorig ,
+.BI "           const unsigned char *" comp_dn ", char *" exp_dn ,
+.BI "           int " length );
+.fi
+
+.SS Deprecated
+
+.nf
 .B extern struct __res_state _res;
 
 .B int res_init(void);
@@ -54,28 +98,43 @@ dn_comp, dn_expand \- resolver routines
 
 .BI "int res_mkquery(int " op ", const char *" dname ", int " class ,
 .BI "           int " type ", const unsigned char *" data ", int " datalen ,
-.BI "           const unsigned char *" newrr ", unsigned char *" buf ", int " buflen );
+.BI "           const unsigned char *" newrr ,
+.BI "           unsigned char *" buf ", int " buflen );
 
 .BI "int res_send(const unsigned char *" msg ", int " msglen ,
 .BI "           unsigned char *" answer ", int " anslen );
-
-.BI "int dn_comp(const char *" exp_dn ", unsigned char *" comp_dn ,
-.BI "           int " length ", unsigned char **" dnptrs ,
-.BI "           unsigned char **" lastdnptr );
-
-.BI "int dn_expand(const unsigned char *" msg ", const unsigned char *" eomorig ,
-.BI "           const unsigned char *" comp_dn ", char *" exp_dn ,
-.BI "           int " length );
 .fi
 .sp
 Link with \fI\-lresolv\fP.
 .SH DESCRIPTION
-These functions make queries to and interpret the responses from Internet
-domain name servers.
-.PP
-The
+.B Note:
+This page is incomplete (various resolver functions provided by glibc
+are not described) and likely out of date.
+
+The functions described below make queries to and interpret
+the responses from Internet domain name servers.
+
+The API consists of a set of more modern, reentrant functions
+and an older set of nonreentrant functions that have been superseded.
+The traditional resolver interfaces such as
 .BR res_init ()
-function reads the configuration files (see
+and
+.BR res_query ()
+use some static (global) state stored in the
+.I _res
+structure, rendering these functions non-thread-safe.
+BIND 8.2 introduced a set of new interfaces
+.BR res_ninit (),
+.BR res_nquery (),
+and so on, which take a
+.I res_state
+as their first argument, so you can use a per-thread resolver state.
+
+The
+.BR res_ninit ()
+and
+.BR res_init ()
+functions read the configuration files (see
 .BR resolv.conf (5))
 to get the default domain name and name
 server address(es).
@@ -83,43 +142,54 @@ If no server is given, the local host is tried.
 If no domain is given, that associated with the local host is used.
 It can be overridden with the environment variable
 .BR LOCALDOMAIN .
+.BR res_ninit ()
+or
 .BR res_init ()
 is normally executed by the first call to one of the
 other functions.
-.PP
+
 The
+.BR res_nquery ()
+and
 .BR res_query ()
-function queries the name server for the
+functions query the name server for the
 fully qualified domain name \fIname\fP of specified \fItype\fP and
 \fIclass\fP.
 The reply is left in the buffer \fIanswer\fP of length
 \fIanslen\fP supplied by the caller.
-.PP
+
 The
+.BR res_nsearch ()
+and
 .BR res_search ()
-function makes a query and waits for the response
-like
+functions make a query and waits for the response like
+.BR res_nquery ()
+and
 .BR res_query (),
-but in addition implements the default and search
+but in addition they implement the default and search
 rules controlled by
 .B RES_DEFNAMES
 and
 .B RES_DNSRCH
 (see description of
 \fI_res\fP options below).
-.PP
+
 The
+.BR res_nquerydomain ()
+and
 .BR res_querydomain ()
-function makes a query using
-.BR res_query ()
+functions make a query using
+.BR res_nquery ()/ res_query ()
 on the concatenation of \fIname\fP and \fIdomain\fP.
-.PP
+
 The following functions are lower-level routines used by
-.BR res_query ().
-.PP
+.BR res_query ()/ res_query ().
+
 The
+.BR res_nmkquery ()
+and
 .BR res_mkquery ()
-function constructs a query message in \fIbuf\fP
+functions construct a query message in \fIbuf\fP
 of length \fIbuflen\fP for the domain name \fIdname\fP.
 The query type
 \fIop\fP is usually
@@ -127,16 +197,17 @@ The query type
 but can be any of the types defined in
 \fI<arpa/nameser.h>\fP.
 \fInewrr\fP is currently unused.
-.PP
+
 The
+.BR res_nsend ()
+and
 .BR res_send ()
-function sends a preformatted query given in
+function send a preformatted query given in
 \fImsg\fP of length \fImsglen\fP and returns the answer in \fIanswer\fP
 which is of length \fIanslen\fP.
-It will call
-.BR res_init (),
-if it
-has not already been called.
+They will call
+.BR res_ninit ()/ res_init ()
+if it has not already been called.
 .PP
 The
 .BR dn_comp ()
@@ -160,16 +231,25 @@ The compressed name is contained
 in a query or reply message, and \fImsg\fP points to the beginning of
 the message.
 .PP
-The resolver routines use global configuration and state information
-contained in the structure \fI_res\fP, which is defined in
-\fI<resolv.h>\fP.
-The only field that is normally manipulated by the
-user is \fI_res.options\fP.
+The resolver routines use configuration and state information
+contained in a
+.IR __res_state
+structure (either passed as the
+.IR statep
+argument, or in the global variable
+.IR _res ,
+in the case of the older nonreentrant functions).
+The only field of this structure that is normally manipulated by the
+user is the
+.IR options
+field.
 This field can contain the bitwise "OR"
 of the following options:
 .TP
 .B RES_INIT
 True if
+.BR res_ninit ()
+or
 .BR res_init ()
 has been called.
 .TP
@@ -319,15 +399,22 @@ and
 
 .SH RETURN VALUE
 The
+.BR res_ninit ()
+and
 .BR res_init ()
-function returns 0 on success, or \-1 if an error
+functions return 0 on success, or \-1 if an error
 occurs.
 .PP
 The
+.BR res_nquery (),
 .BR res_query (),
+.BR res_nsearch (),
 .BR res_search (),
+.BR res_nquerydomain (),
 .BR res_querydomain (),
-.BR res_mkquery ()
+.BR res_nmkquery (),
+.BR res_mkquery (),
+.BR res_nsend (),
 and
 .BR res_send ()
 functions return the length
@@ -352,3 +439,6 @@ of the compressed name, or \-1 if an error occurs.
 .BR resolver (5),
 .BR hostname (7),
 .BR named (8)
+
+The GNU C library source file
+.IR resolv/README .

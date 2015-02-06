@@ -157,25 +157,61 @@ struct __fat_dirent {
 The first entry in the array is for the short filename.
 The second entry is for the long filename.
 .PP
+Fields
+.I d_ino
+and
+.I d_off
+are only filled for long filenames.
+Field
+.I d_ino
+holds the inode number of the directory.
+Field
+.I d_off
+holds the offset of the file entry in the directory.
+As these values are not available for short filenames, the user code should
+simply ignore them.
+.PP
 The field
 .I d_reclen
 contains the length of the filename in the field
 .IR d_name .
-A length of 0 for the short filename signals that the end of the directory
-has been reached.
-.\" FIXME Missing here are explanations of the fileds ;d_ino' and 'd_off'
+To keep backwards compatibility a length of 0 for the short filename signals
+that the end of the directory has been reached.
+The user code should rely on the return value to identify the end of the
+directory.
+If no long filename exists, field
+.I d_reclen
+is set to 0 and
+.I d_name
+is a character string of length 0 for the long filename.
 .SH RETURN VALUE
 On error, \-1 is returned, and
 .I errno
 is set to indicate the error.
+.PP
+For
+.B VFAT_IOCTL_READDIR_BOTH
+and
+.B VFAT_IOCTL_READDIR_SHORT
+a return value of 1 signals that a new directory entry has been read and
+a return value of 0 signals that the end of the directory has been reached.
 .SH ERRORS
+.TP
+.B ENOENT
+This error is returned by
+.B VFAT_IOCTL_READDIR_BOTH
+and
+.B VFAT_IOCTL_READDIR_SHORT
+if the file descriptor
+.I fd
+refers to a removed, but still open directory.
 .TP
 .B ENOTDIR
 This error is returned by
-.B VFAT_IOCTL_READDIR_SHORT
+.B VFAT_IOCTL_READDIR_BOTH
 and
 .B VFAT_IOCTL_READDIR_SHORT
-if
+if the file descriptor
 .I fd
 does not refer to a directory.
 .TP
@@ -431,10 +467,12 @@ main(int argc, char *argv[])
 
         /*
          * If an error occurs, the return value is \-1.
-         * If d_reclen is zero, the end of the directory
-         * list has been reached.
+         * If the end of the directory list has been reached,
+         * the return value is 0.
+         * For backward compatibility the end of the directory
+         * list is also signaled by d_reclen == 0.
          */
-        if (ret == \-1 || entry[0].d_reclen == 0)
+        if (ret < 1)
             break;
 
         /*

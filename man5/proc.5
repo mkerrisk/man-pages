@@ -1220,11 +1220,16 @@ if processes in the user namespace that contains the process
 .I pid
 are permitted to employ the
 .BR setgroups (2)
-system call, and
+system call; it displays
 .RI \(dq deny \(dq
 if
 .BR setgroups (2)
 is not permitted in that user namespace.
+(Note, however, that calls to
+.BR setgroups (2)
+are also not permitted if
+.IR /proc/[pid]/gid_map
+has not yet been set.)
 
 A privileged process (one with the
 .BR CAP_SYS_ADMIN
@@ -1232,13 +1237,32 @@ capability in the namespace) may write either of the strings
 .RI \(dq allow \(dq
 or
 .RI \(dq deny \(dq
-to this file before writing a group ID mapping
+to this file
+.I before
+writing a group ID mapping
 for this user namespace to the file
 .IR /proc/[pid]/gid_map .
 Writing the string
 .RI \(dq deny \(dq
 prevents any process in the user namespace from employing
 .BR setgroups (2).
+In other words, it is permitted to write to
+.I /proc/[pid]/setgroups
+so long as calling
+.BR setgroups (2)
+is not allowed because
+.I /proc/[pid]gid_map
+has not been set.
+This ensures that a process cannot transition from a state where
+.BR setgroups (2)
+is allowed to a state where
+.BR setgroups (2)
+is denied;
+a process can only transition from
+.BR setgroups (2)
+being disallowed to
+.BR setgroups (2)
+being allowed.
 
 The default value of this file in the initial user namespace is
 .RI \(dq allow \(dq.

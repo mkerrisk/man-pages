@@ -24,7 +24,8 @@
 .\"
 .TH SIGWAITINFO 2 2014-08-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
-sigwaitinfo, sigtimedwait \- synchronously wait for queued signals
+sigwaitinfo, sigtimedwait, rt_sigtimedwait \- synchronously wait
+for queued signals
 .SH SYNOPSIS
 .nf
 .B #include <signal.h>
@@ -186,18 +187,32 @@ On Linux,
 is a library function implemented on top of
 .BR sigtimedwait ().
 
-The raw
-.BR sigtimedwait ()
-system call has a fifth argument,
+The original Linux system call was named
+.BR sigtimedwait ().
+However, with the addition of real-time signals in Linux 2.2,
+the fixed-size, 32-bit
+.I sigset_t
+type supported by that system call was no longer fit for purpose.
+Consequently, a new system call,
+.BR rt_sigtimedwait (),
+was added to support an enlarged
+.IR sigset_t
+type.
+The new system call takes a fourth argument,
 .IR "size_t sigsetsize" ,
-which specifies the size in bytes of the
-.IR set
-argument.
+which specifies the size in bytes of the signal set in
+.IR set .
+This argument is currently required to have the value
+.IR sizeof(sigset_t)
+(or the error
+.B EINVAL
+results).
 The glibc
 .BR sigtimedwait ()
-wrapper function specifies this argument as a fixed value
-(equal to
-.IR sizeof(sigset_t) ).
+wrapper function hides these details from us, transparently calling
+.BR rt_sigtimedwait ()
+when the kernel provides it.
+.\"
 .SH SEE ALSO
 .BR kill (2),
 .BR sigaction (2),

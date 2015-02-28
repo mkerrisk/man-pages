@@ -1582,24 +1582,15 @@ fwait(int *futexp)
        machine\-language instructions.  For further information, see
        the GCC Manual. */
 
-    /* Maybe the futex is already available: */
-
-    if (__sync_bool_compare_and_swap(futexp, 1, 0))
-        return;
-
-    /* No; we must wait for the futex value to be changed */
-
     while (1) {
-        s = futex(futexp, FUTEX_WAIT, 0, NULL, NULL, 0);
-        if (s == \-1 && errno != EAGAIN)
-            errExit("futex\-FUTEX_WAIT");
-
-        /* Is the futex now available? */
-
+        /* Is the futex available? */
         if (__sync_bool_compare_and_swap(futexp, 1, 0))
             break;      /* Yes */
 
-        /* Futex is still not available; wait again */
+        /* Futex is not available; wait */
+        s = futex(futexp, FUTEX_WAIT, 0, NULL, NULL, 0);
+        if (s == \-1 && errno != EAGAIN)
+            errExit("futex\-FUTEX_WAIT");
     }
 }
 

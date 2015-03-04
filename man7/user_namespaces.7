@@ -716,6 +716,45 @@ to the file) in this user namespace.
 .BR EPERM .)
 This restriction also propagates down to all child user namespaces of
 this user namespace.
+
+The
+.I /proc/[pid]/setgroups
+file was added in Linux 3.19,
+but was backported to many earlier stable kernel series,
+because it addresses a security issue.
+The issue concerned files with permissions such as "rwx\-\-\-rwx".
+Such files give fewer permissions to "group" than they do to "other".
+This means that dropping groups using
+.BR setgroups (2)
+might allow a process file access that it did not formerly have.
+Before the existence of user namespaces this was not a concern,
+since only a privileged process (one with the
+.BR CAP_SETGID
+capability) could call
+.BR setgroups (2).
+However, with the introduction of user namespaces,
+it became possible for an unprivileged process to create
+a new namespace in which the user had all privileges.
+This then allowed formerly unprivileged
+users to drop groups and thus gain file access
+that they did not previously have.
+The
+.I /proc/[pid]/setgroups
+file was added to address this security issue,
+by denying any pathway for an unprivleged process to drop groups with
+.BR setgroups (2).
+.\"
+.\" /proc/PID/setgroups
+.\"	[allow == setgroups() is allowed, "deny" == setgroups() is disallowed]
+.\"	* Can write if have CAP_SYS_ADMIN in NS
+.\"	* Must write BEFORE writing to /proc/PID/gid_map
+.\"
+.\" setgroups()
+.\"	* Must already have written to gid_maps
+.\"	* /proc/PID/setgroups must be "allow"
+.\"
+.\" /proc/PID/gid_map -- writing
+.\"	* Must already have written "deny" to /proc/PID/setgroups
 .\"
 .\" ============================================================
 .\"

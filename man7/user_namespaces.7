@@ -527,31 +527,46 @@ or inside the parent user namespace of the process
 The mapped user IDs (group IDs) must in turn have a mapping
 in the parent user namespace.
 .IP 4.
-One of the following is true:
+One of the following two cases applies:
 .RS
 .IP * 3
+.IR Either
+the writing process has the
+.BR CAP_SETUID
+.RB ( CAP_SETGID )
+capability in the parent user namespace.
+.RS
+.IP + 3
+No further restrictions apply:
+a privileged process can make mappings to arbitrary user IDs (group IDs)
+in the parent user namespace.
+.RE
+.IP * 3
+.IR Or
+otherwise all of the following restrictions apply:
+.RS
+.IP + 3
 The data written to
 .I uid_map
 .RI ( gid_map )
 consists of a single line that maps the writing process's effective user ID
 (group ID) in the parent user namespace to a user ID (group ID)
 in the user namespace.
+.IP +
 The writing process must have the same effective user ID as the process
 that created the user namespace.
+.IP +
 In the case of
 .IR gid_map ,
-the
-.I /proc/[pid]/setgroups
-file (see below) must have been written to earlier and disabled the
+use of the
 .BR setgroups (2)
-system call.
-.IP * 3
-The writing process has the
-.BR CAP_SETUID
-.RB ( CAP_SETGID )
-capability in the parent user namespace.
-Thus, a privileged process can make mappings to arbitrary user IDs (group IDs)
-in the parent user namespace.
+system call must first be denied by writing
+.RI \(dq deny \(dq
+to the
+.I /proc/[pid]/setgroups
+file (see below) before writing to
+.IR gid_map .
+.RE
 .RE
 .PP
 Writes that violate the above rules fail with the error

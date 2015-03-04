@@ -642,11 +642,6 @@ system call; it displays
 if
 .BR setgroups (2)
 is not permitted in that user namespace.
-(Note, however, that calls to
-.BR setgroups (2)
-are also not permitted if
-.IR /proc/[pid]/gid_map
-has not yet been set.)
 
 A privileged process (one with the
 .BR CAP_SYS_ADMIN
@@ -663,11 +658,20 @@ Writing the string
 .RI \(dq deny \(dq
 prevents any process in the user namespace from employing
 .BR setgroups (2).
-In other words, it is permitted to write to
+Note that regardless of the value in the
 .I /proc/[pid]/setgroups
-so long as calling
+file, calls to
 .BR setgroups (2)
-is not allowed because
+are also not permitted if
+.IR /proc/[pid]/gid_map
+has not yet been set.
+
+The essence of the restrictions described in the preceding
+paragraph is that it is permitted to write to
+.I /proc/[pid]/setgroups
+only so long as calling
+.BR setgroups (2)
+is disallowed because
 .I /proc/[pid]gid_map
 has not been set.
 This ensures that a process cannot transition from a state where
@@ -708,6 +712,8 @@ then the
 system call can't subsequently be reenabled (by writing
 .RI \(dq allow \(dq
 to the file) in this user namespace.
+(Attempts to do so will fail with the error
+.BR EPERM .)
 This restriction also propagates down to all child user namespaces of
 this user namespace.
 .\"

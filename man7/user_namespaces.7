@@ -542,9 +542,7 @@ In the case of
 .IR gid_map ,
 the
 .I /proc/[pid]/setgroups
-file (see
-.BR proc (5))
-must have been written to earlier and disabled the
+file (see below) must have been written to earlier and disabled the
 .BR setgroups (2)
 system call.
 .IP * 3
@@ -606,6 +604,97 @@ in a user namespace and allow writing to
 without having the
 .BR CAP_SETGID
 capability in the parent user namespace.
+.\"
+.\" ============================================================
+.\"
+.SS The /proc/[pid]/setgroups file
+.\" 
+.\" commit 9cc46516ddf497ea16e8d7cb986ae03a0f6b92f8
+.\" commit 66d2f338ee4c449396b6f99f5e75cd18eb6df272
+.\" http://lwn.net/Articles/626665/
+.\" http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-8989
+.\"
+The
+.I /proc/[pid]/setgroups
+file displays the string
+.RI \(dq allow \(dq
+if processes in the user namespace that contains the process
+.I pid
+are permitted to employ the
+.BR setgroups (2)
+system call; it displays
+.RI \(dq deny \(dq
+if
+.BR setgroups (2)
+is not permitted in that user namespace.
+(Note, however, that calls to
+.BR setgroups (2)
+are also not permitted if
+.IR /proc/[pid]/gid_map
+has not yet been set.)
+
+A privileged process (one with the
+.BR CAP_SYS_ADMIN
+capability in the namespace) may write either of the strings
+.RI \(dq allow \(dq
+or
+.RI \(dq deny \(dq
+to this file
+.I before
+writing a group ID mapping
+for this user namespace to the file
+.IR /proc/[pid]/gid_map .
+Writing the string
+.RI \(dq deny \(dq
+prevents any process in the user namespace from employing
+.BR setgroups (2).
+In other words, it is permitted to write to
+.I /proc/[pid]/setgroups
+so long as calling
+.BR setgroups (2)
+is not allowed because
+.I /proc/[pid]gid_map
+has not been set.
+This ensures that a process cannot transition from a state where
+.BR setgroups (2)
+is allowed to a state where
+.BR setgroups (2)
+is denied;
+a process can only transition from
+.BR setgroups (2)
+being disallowed to
+.BR setgroups (2)
+being allowed.
+
+The default value of this file in the initial user namespace is
+.RI \(dq allow \(dq.
+
+Once
+.IR /proc/[pid]/gid_map
+has been written to
+(which has the effect of enabling
+.BR setgroups (2)
+in the user namespace),
+it is no longer possible to deny
+.BR setgroups (2)
+by writing to
+.IR /proc/[pid]/setgroups .
+
+A child user namespace inherits the
+.IR /proc/[pid]/gid_map
+setting from its parent.
+
+If the
+.I setgroups
+file has the value
+.RI \(dq deny \(dq,
+then the
+.BR setgroups (2)
+system call can't subsequently be reenabled (by writing
+.RI \(dq allow \(dq
+to the file) in this user namespace.
+This restriction also propagates down to all child user namespaces of
+this user namespace.
 .\"
 .\" ============================================================
 .\"

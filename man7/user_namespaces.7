@@ -1074,6 +1074,50 @@ update_map(char *mapping, char *map_file)
     close(fd);
 }
 
+/* Linux 3.19 made a change in the handling of setgroups(2) and the
+   \(aqgid_map\(aq file to address a security issue. The issue allowed
+   *unprivileged* users to employ user namespaces in order to drop
+   The upshot of the 3.19 changes is that in order to update the
+   \(aqgid_maps\(aq file, use of the setgroups() system call in this
+   user namespace must first be disabled by writing "deny" to one of
+   the /proc/PID/setgroups files for this namespace.  That is the
+   purpose of the following function. */
+
+static void
+proc_setgroups_write(pid_t child_pid, char *str)
+{
+    char setgroups_path[PATH_MAX];
+    int fd;
+
+    snprintf(setgroups_path, PATH_MAX, "/proc/%ld/setgroups",
+            (long) child_pid);
+
+    fd = open(setgroups_path, O_RDWR);
+    if (fd == \-1) {
+
+        /* We may be on a system that doesn\(aqt support
+           /proc/PID/setgroups. In that case, the file won\(aqt exist,
+           and the system won\(aqt impose the restrictions that Linux 3.19
+           added. That\(aqs fine: we don\(aqt need to do anything in order
+           to permit \(aqgid_map\(aq to be updated.
+
+           However, if the error from open() was something other than
+           the ENOENT error that is expected for that case,  let the
+           user know. */
+
+        if (errno != ENOENT)
+            fprintf(stderr, "ERROR: open %s: %s\\n", setgroups_path,
+                strerror(errno));
+        return;
+    }
+
+    if (write(fd, str, strlen(str)) == \-1)
+        fprintf(stderr, "ERROR: write %s: %s\\n", setgroups_path,
+            strerror(errno));
+
+    close(fd);
+}
+
 static int              /* Start function for cloned child */
 childFunc(void *arg)
 {
@@ -1180,13 +1224,6 @@ main(int argc, char *argv[])
                 argv[0], (long) child_pid);
 
     /* Update the UID and GID maps in the child */
-.\" FIXME: Alban Crequy notes:
-.\"     The program userns_child_exec.c in user_namespaces.7 should be updated
-.\"     to write in /proc/.../setgroups, near the line:
-.\"     /* Update the UID and GID maps in the child */
-.\"     
-.\"     Otherwise, the example given in the manpage does not work:
-.\"     $ ./userns_child_exec -p -m -U -M '0 1000 1' -G '0 1000 1' bash
 
     if (uid_map != NULL || map_zero) {
         snprintf(map_path, PATH_MAX, "/proc/%ld/uid_map",
@@ -1198,6 +1235,8 @@ main(int argc, char *argv[])
         update_map(uid_map, map_path);
     }
     if (gid_map != NULL || map_zero) {
+        proc_setgroups_write(child_pid, "deny");
+
         snprintf(map_path, PATH_MAX, "/proc/%ld/gid_map",
                 (long) child_pid);
         if (map_zero) {

@@ -25,6 +25,9 @@
 #
 
 for file in "$@" ; do 
+   # Do not process files that are redirects.
+   grep -qE "^\.so man.*" "$file"
+   if test $? -ne 0; then
     words=$(MANWIDTH=2000 man -l "$file" 2> /dev/null | col -b | \
 	tr ' \008' '\012' | sed -e '/^$/d' | \
 	sed 's/ *$//' | 
@@ -33,4 +36,5 @@ for file in "$@" ; do
     if test -n "$words"; then
         echo "$file: $words"
     fi
+   fi
 done

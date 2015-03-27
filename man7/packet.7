@@ -36,7 +36,8 @@ for raw packets including the link-level header or
 .B SOCK_DGRAM
 for cooked packets with the link-level header removed.
 The link-level header information is available in a common format in a
-.IR sockaddr_ll .
+.IR sockaddr_ll
+structure.
 .I protocol
 is the IEEE 802.3 protocol number in network byte order.
 See the
@@ -44,7 +45,7 @@ See the
 include file for a list of allowed protocols.
 When protocol
 is set to
-.B htons(ETH_P_ALL)
+.BR htons(ETH_P_ALL) ,
 then all protocols are received.
 All incoming packets of that protocol type will be passed to the packet
 socket before they are passed to the protocols implemented in the kernel.
@@ -60,8 +61,8 @@ When receiving a packet, the address is still parsed and
 passed in a standard
 .I sockaddr_ll
 address structure.
-When transmitting a packet, the user supplied buffer
-should contain the physical layer header.
+When transmitting a packet, the user-supplied buffer
+should contain the physical-layer header.
 That packet is then
 queued unmodified to the network driver of the interface defined by the
 destination address.
@@ -76,7 +77,7 @@ operates on a slightly higher level.
 The physical header is removed before the packet is passed to the user.
 Packets sent through a
 .B SOCK_DGRAM
-packet socket get a suitable physical layer header based on the
+packet socket get a suitable physical-layer header based on the
 information in the
 .I sockaddr_ll
 destination address before they are queued.
@@ -103,24 +104,25 @@ When the
 flag is passed to
 .BR recvmsg (2),
 .BR recv (2),
-.BR recvfrom (2)
+or
+.BR recvfrom (2),
 the real length of the packet on the wire is always returned,
 even when it is longer than the buffer.
 .SS Address types
 The
 .I sockaddr_ll
-is a device independent physical layer address.
+structure is a device-independent physical-layer address.
 
 .in +4n
 .nf
 struct sockaddr_ll {
     unsigned short sll_family;   /* Always AF_PACKET */
-    unsigned short sll_protocol; /* Physical layer protocol */
+    unsigned short sll_protocol; /* Physical-layer protocol */
     int            sll_ifindex;  /* Interface number */
     unsigned short sll_hatype;   /* ARP hardware type */
     unsigned char  sll_pkttype;  /* Packet type */
     unsigned char  sll_halen;    /* Length of address */
-    unsigned char  sll_addr[8];  /* Physical layer address */
+    unsigned char  sll_addr[8];  /* Physical-layer address */
 };
 .fi
 .in
@@ -146,23 +148,23 @@ Valid types are
 .B PACKET_HOST
 for a packet addressed to the local host,
 .B PACKET_BROADCAST
-for a physical layer broadcast packet,
+for a physical-layer broadcast packet,
 .B PACKET_MULTICAST
-for a packet sent to a physical layer multicast address,
+for a packet sent to a physical-layer multicast address,
 .B PACKET_OTHERHOST
 for a packet to some other host that has been caught by a device driver
 in promiscuous mode, and
 .B PACKET_OUTGOING
-for a packet originated from the local host that is looped back to a packet
+for a packet originating from the local host that is looped back to a packet
 socket.
 These types make sense only for receiving.
 .I sll_addr
 and
 .I sll_halen
-contain the physical layer (e.g., IEEE 802.3) address and its length.
+contain the physical-layer (e.g., IEEE 802.3) address and its length.
 The exact interpretation depends on the device.
 
-When you send packets it is enough to specify
+When you send packets, it is enough to specify
 .IR sll_family ,
 .IR sll_addr ,
 .IR sll_halen ,
@@ -172,7 +174,7 @@ The other fields should be 0.
 and
 .I sll_pkttype
 are set on received packets for your information.
-For bind only
+For bind, only
 .I sll_protocol
 and
 .I sll_ifindex
@@ -188,7 +190,7 @@ with level
 .TP
 .BR PACKET_DROP_MEMBERSHIP
 .PD
-Packet sockets can be used to configure physical layer multicasting
+Packet sockets can be used to configure physical-layer multicasting
 and promiscuous mode.
 .B PACKET_ADD_MEMBERSHIP
 adds a binding and
@@ -204,25 +206,25 @@ struct packet_mreq {
     int            mr_ifindex;    /* interface index */
     unsigned short mr_type;       /* action */
     unsigned short mr_alen;       /* address length */
-    unsigned char  mr_address[8]; /* physical layer address */
+    unsigned char  mr_address[8]; /* physical-layer address */
 };
 .fi
 .in
 
-.B mr_ifindex
+.I mr_ifindex
 contains the interface index for the interface whose status
 should be changed.
 The
-.B mr_type
-parameter specifies which action to perform.
+.I mr_type
+field specifies which action to perform.
 .B PACKET_MR_PROMISC
 enables receiving all packets on a shared medium (often known as
 "promiscuous mode"),
 .B PACKET_MR_MULTICAST
-binds the socket to the physical layer multicast group specified in
-.B mr_address
+binds the socket to the physical-layer multicast group specified in
+.I mr_address
 and
-.BR mr_alen ,
+.IR mr_alen ,
 and
 .B PACKET_MR_ALLMULTI
 sets the socket up to receive all multicast packets arriving at
@@ -294,7 +296,7 @@ implements a round-robin algorithm.
 .BR PACKET_FANOUT_CPU
 selects the socket based on the CPU that the packet arrived on.
 .BR PACKET_FANOUT_ROLLOVER
-processes all data on a single socket, moves to the next when one
+processes all data on a single socket, moving to the next when one
 becomes backlogged.
 .BR PACKET_FANOUT_RND
 selects the socket using a pseudo-random number generator.
@@ -308,7 +310,7 @@ IP fragmentation causes packets from the same flow to have different
 flow hashes.
 The flag
 .BR PACKET_FANOUT_FLAG_DEFRAG ,
-if set, causes packet to be defragmented before fanout is applied, to
+if set, causes packets to be defragmented before fanout is applied, to
 preserve order even in this case.
 Fanout mode and options are communicated in the second 16 bits of the
 integer option value.
@@ -387,6 +389,7 @@ ownership of the slot back to the socket by setting
 .I tp_status
 equal to
 .BR TP_STATUS_KERNEL .
+
 Packet sockets implement multiple variants of the packet ring.
 The implementation details are described in
 .IR Documentation/networking/packet_mmap.txt
@@ -527,7 +530,7 @@ Interface address contained an invalid interface index.
 .TP
 .B EPERM
 User has insufficient privileges to carry out this operation.
-
+.PP
 In addition, other errors may be generated by the low-level driver.
 .SH VERSIONS
 .B AF_PACKET
@@ -567,14 +570,16 @@ encapsulation with the protocol filled in.
 
 Packet sockets are not subject to the input or output firewall chains.
 .SS Compatibility
-In Linux 2.0, the only way to get a packet socket was by calling
-.BI "socket(AF_INET, SOCK_PACKET, " protocol )\fR.
-This is still supported but strongly deprecated.
+In Linux 2.0, the only way to get a packet socket was with the call:
+
+    socket(AF_INET, SOCK_PACKET, protocol)
+
+This is still supported, but deprecated and strongly discouraged.
 The main difference between the two methods is that
 .B SOCK_PACKET
 uses the old
 .I struct sockaddr_pkt
-to specify an interface, which doesn't provide physical layer
+to specify an interface, which doesn't provide physical-layer
 independence.
 
 .in +4n
@@ -641,7 +646,7 @@ RFC\ 1700 for the IEEE 802.3 IP encapsulation.
 
 The
 .I <linux/if_ether.h>
-include file for physical layer protocols.
+include file for physical-layer protocols.
 
 The Linux kernel source tree.
 .IR /Documentation/networking/filter.txt

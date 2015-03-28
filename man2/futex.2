@@ -43,15 +43,15 @@ The
 system call provides a method for waiting until a certain condition becomes
 true.
 It is typically used as a blocking construct in the context of
-shared-memory synchronization: The program implements the majority of the
-synchronization in user space, and uses one of operations of the system call
-when it is likely that it has to block for a longer time until the condition
-becomes true.
+shared-memory synchronization: The program implements the majority of
+the synchronization in user space, and uses one of operations of
+the system call when it is likely that it has to block for
+a longer time until the condition becomes true.
 The program uses another operation of the system call to wake
 anyone waiting for a particular condition.
 
-The condition is represented by the futex word, which is an address in memory
-supplied to the
+The condition is represented by the futex word, which is an address
+in memory supplied to the
 .BR futex ()
 system call, and the value at this memory location.
 (While the virtual addresses for the same memory in separate
@@ -61,16 +61,17 @@ in different locations will correspond for
 .BR futex ()
 calls.)
 
-When executing a futex operation that requests to block a thread, the kernel
-will only block if the futex word has the value that the calling thread
-supplied as expected value.
+When executing a futex operation that requests to block a thread,
+the kernel will only block if the futex word has the value that the
+calling thread supplied as expected value.
 The load from the futex word, the comparison with
 the expected value,
 and the actual blocking will happen atomically and totally
-ordered with respect to concurrently executing futex operations on the same
-futex word, such as operations that wake threads blocked on this futex word.
-Thus, the futex word is used to connect the synchronization in user space with
-the implementation of blocking by the kernel; similar to an atomic
+ordered with respect to concurrently executing futex operations
+on the same futex word,
+such as operations that wake threads blocked on this futex word.
+Thus, the futex word is used to connect the synchronization in user spac
+with the implementation of blocking by the kernel; similar to an atomic
 compare-and-exchange operation that potentially changes shared memory,
 blocking via a futex is an atomic compare-and-block operation.
 See NOTES for
@@ -78,19 +79,21 @@ a detailed specification of the synchronization semantics.
 
 One example use of futexes is implementing locks.
 The state of the lock (i.e.,
-acquired or not acquired) can be represented as an atomically accessed flag
-in shared memory.
-In the uncontended case, a thread can access or modify the
-lock state with atomic instructions, for example atomically changing it from
-not acquired to acquired using an atomic compare-and-exchange instruction.
-If a thread cannot acquire a lock because it is already acquired by another
-thread, it can request to block if and only the lock is still acquired by
-using the lock's flag as futex word and expecting a value that represents the
-acquired state.
+acquired or not acquired) can be represented as an atomically accessed
+flag in shared memory.
+In the uncontended case,
+a thread can access or modify the lock state with atomic instructions,
+for example atomically changing it from not acquired to acquired
+using an atomic compare-and-exchange instruction.
+If a thread cannot acquire a lock because
+it is already acquired by another thread,
+it can request to block if and only the lock is still acquired by
+using the lock's flag as futex word and expecting a value that
+represents the acquired state.
 When releasing the lock, a thread has to first reset the
-lock state to not acquired and then execute the futex operation that wakes
-one thread blocked on the futex word that is the lock's flag (this can be
-be further optimized to avoid unnecessary wake-ups).cw
+lock state to not acquired and then execute the futex operation that
+wakes one thread blocked on the futex word that is the lock's flag
+(this can be be further optimized to avoid unnecessary wake-ups).
 See
 .BR futex (7)
 for more detail on how to use futexes.
@@ -98,8 +101,9 @@ for more detail on how to use futexes.
 Besides the basic wait and wake-up futex functionality, there are further
 futex operations aimed at supporting more complex use cases.
 Also note that
-no explicit initialization or destruction are necessary to use futexes; the
-kernel maintains a futex (i.e., the kernel-internal implementation artifact)
+no explicit initialization or destruction are necessary to use futexes;
+the kernel maintains a futex
+(i.e., the kernel-internal implementation artifact)
 only while operations such as
 .BR FUTEX_WAIT ,
 described below, are being performed on a particular futex word.
@@ -143,7 +147,8 @@ when interpreted in this fashion.
 
 Where it is required, the
 .IR uaddr2
-argument is a pointer to a second futex word that is employed by the operation.
+argument is a pointer to a second futex word that is employed
+by the operation.
 The interpretation of the final integer argument,
 .IR val3 ,
 depends on the operation.
@@ -165,8 +170,8 @@ are as follows:
 .\" commit 34f01cc1f512fa783302982776895c73714ebbc2
 This option bit can be employed with all futex operations.
 It tells the kernel that the futex is process-private and not shared
-with another process (i.e., it is only being used for synchronization between
-threads of the same process).
+with another process (i.e., it is only being used for synchronization
+between threads of the same process).
 This allows the kernel to choose the fast path for validating
 the user-space address and avoids expensive VMA lookups,
 taking reference counts on file backing store, and so on.
@@ -310,18 +315,22 @@ are ignored.
 
 .\" FIXME(Torvald) I think we should remove this.  Or maybe adapt to
 .\"          a different example.
-.\" For
-.\" .BR futex (7),
-.\" this is executed if incrementing the count showed that there were waiters,
-.\" FIXME How does "incrementing the count showed that there were waiters"?
-.\" once the futex value has been set to 1 (indicating that it is available).
+.\"     For
+.\"     .BR futex (7),
+.\"     this is executed if incrementing the count showed that
+.\"     there were waiters,
+.\"     once the futex value has been set to 1
+.\"     (indicating that it is available).
+.\"
+.\" FIXME How does "incrementing the count show that there were waiters"?
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
 .TP
 .BR FUTEX_FD " (from Linux 2.6.0 up to and including Linux 2.6.25)"
 .\" Strictly speaking, from Linux 2.5.x to 2.6.25
-This operation creates a file descriptor that is associated with the futex at
+This operation creates a file descriptor that is associated with
+the futex at
 .IR uaddr .
 The caller must close the returned file descriptor after use.
 When another process or thread performs a
@@ -346,7 +355,8 @@ and
 .I val3
 are ignored.
 
-.\" FIXME(Torvald) We never define "upped".  Maybe just remove that sentence?
+.\" FIXME(Torvald) We never define "upped".  Maybe just remove the
+.\"      following sentence?
 To prevent race conditions, the caller should test if the futex has
 been upped after
 .B FUTEX_FD
@@ -411,21 +421,23 @@ that are requeued to the futex at
 .\" threads to wake or requeue part of the atomic operation?
 The load from
 .I uaddr
-is an atomic memory access (i.e., using atomic machine instructions of the
-respective architecture).
+is an atomic memory access (i.e., using atomic machine instructions of
+the respective architecture).
 This load, the comparison with
 .IR val3 ,
-and the requeueing of any waiters are performed atomically and totally ordered
-with respect to other operations on the same futex word.
+and the requeueing of any waiters are performed atomically and totally
+ordered with respect to other operations on the same futex word.
 
 This operation was added as a replacement for the earlier
 .BR FUTEX_REQUEUE .
 The difference is that the check of the value at
 .I uaddr
-can be used to ensure that requeueing only happens under certain conditions.
+can be used to ensure that requeueing only happens under certain
+conditions.
 Both operations can be used to avoid a "thundering herd" effect when
 .B FUTEX_WAKE
-is used and all of the waiters that are woken need to acquire another futex.
+is used and all of the waiters that are woken need to acquire
+another futex.
 
 .\" FIXME Please review the following new paragraph to see if it is
 .\"       accurate.
@@ -460,9 +472,9 @@ operation equivalent to
 .\" commit 4732efbeb997189d9f9b04708dc26bf8613ed721
 .\"	Author: Jakub Jelinek <jakub@redhat.com>
 .\"	Date:   Tue Sep 6 15:16:25 2005 -0700
-.\" FIXME(Torvald) The glibc condvar implementation is currently being revised
-.\" (e.g., to not use an internal lock anymore).
-.\" It is probably more future-proof to remove this paragraph.
+.\" FIXME(Torvald) The glibc condvar implementation is currently being
+.\"     revised (e.g., to not use an internal lock anymore).
+.\"     It is probably more future-proof to remove this paragraph.
 This operation was added to support some user-space use cases
 where more than one futex must be handled at the same time.
 The most notable example is the implementation of
@@ -476,9 +488,9 @@ high rates of contention and context switching.
 
 The
 .BR FUTEX_WAIT_OP
-operation is equivalent to execute the following code atomically and totally
-ordered with respect to other futex operations on any of the two supplied
-futex words:
+operation is equivalent to execute the following code atomically
+and totally ordered with respect to other futex operations on
+any of the two supplied futex words:
 
 .in +4n
 .nf
@@ -499,8 +511,8 @@ saves the original value of the futex word at
 .IR uaddr2
 and performs an operation to modify the value of the futex at
 .IR uaddr2 ;
-this is an atomic read-modify-write memory access (i.e., using atomic machine
-instructions of the respective architecture)
+this is an atomic read-modify-write memory access (i.e., using atomic
+machine instructions of the respective architecture)
 .IP *
 wakes up a maximum of
 .I val
@@ -508,7 +520,8 @@ waiters on the futex for the futex word at
 .IR uaddr ;
 and
 .IP *
-dependent on the results of a test of the original value of the futex word at
+dependent on the results of a test of the original value of the
+futex word at
 .IR uaddr2 ,
 wakes up a maximum of
 .I val2
@@ -752,7 +765,8 @@ futex word:
 .IP * 3
 If the lock is not acquired, the futex word's value shall be 0.
 .IP *
-If the lock is acquired, the futex word's value shall be the thread ID (TID;
+If the lock is acquired, the futex word's value shall
+be the thread ID (TID;
 see
 .BR gettid (2))
 of the owning thread.
@@ -773,12 +787,12 @@ which is a permissible state for non-PI futexes.
 With this policy in place,
 a user-space application can acquire a not-acquired
 lock or release a lock that no other threads try to acquire using atomic
-instructions executed in user space (e.g., a compare-and-swap operation such
-as
+instructions executed in user space (e.g., a compare-and-swap operation
+such as
 .I cmpxchg
 on the x86 architecture).
-Acquiring a lock simply consists of using compare-and-swap to atomically set
-the futex word's value to the caller's TID if its previous value was 0.
+Acquiring a lock simply consists of using compare-and-swap to atomically
+set the futex word's value to the caller's TID if its previous value was 0.
 Releasing a lock requires using compare-and-swap to set the futex word's
 value to 0 if the previous value was the expected TID.
 
@@ -788,7 +802,8 @@ waiters must employ the
 operation to acquire the lock.
 If other threads are waiting for the lock, then the
 .B FUTEX_WAITERS
-bit is set in the futex value; in this case, the lock owner must employ the
+bit is set in the futex value;
+in this case, the lock owner must employ the
 .B FUTEX_UNLOCK_PI
 operation to release the lock.
 
@@ -1078,17 +1093,17 @@ operation.
 .\" Related to the preceding, Darren proposed that somewhere, man-pages
 .\" should document the following point:
 .\"
-.\"       While the Linux kernel, since 2.6.31, supports requeueing of
-.\"       priority-inheritance (PI) aware mutexes via the
-.\"       FUTEX_WAIT_REQUEUE_PI and FUTEX_CMP_REQUEUE_PI futex operations,
-.\"       the glibc implementation does not yet take full advantage of this.
-.\"       Specifically, the condvar internal data lock remains a non-PI aware
-.\"       mutex, regardless of the type of the pthread_mutex associated with
-.\"       the condvar. This can lead to an unbounded priority inversion on
-.\"       the internal data lock even when associating a PI aware
-.\"       pthread_mutex with a condvar during a pthread_cond*_wait
-.\"       operation. For this reason, it is not recommended to rely on
-.\"       priority inheritance when using pthread condition variables.
+.\"     While the Linux kernel, since 2.6.31, supports requeueing of
+.\"     priority-inheritance (PI) aware mutexes via the
+.\"     FUTEX_WAIT_REQUEUE_PI and FUTEX_CMP_REQUEUE_PI futex operations,
+.\"     the glibc implementation does not yet take full advantage of this.
+.\"     Specifically, the condvar internal data lock remains a non-PI aware
+.\"     mutex, regardless of the type of the pthread_mutex associated with
+.\"     the condvar. This can lead to an unbounded priority inversion on
+.\"     the internal data lock even when associating a PI aware
+.\"     pthread_mutex with a condvar during a pthread_cond*_wait
+.\"     operation. For this reason, it is not recommended to rely on
+.\"     priority inheritance when using pthread condition variables.
 .\"
 .\" The problem is that the obvious location for this text is
 .\" the pthread_cond*wait(3) man page. However, such a man page
@@ -1106,13 +1121,14 @@ as described in the following list:
 .TP
 .B FUTEX_WAIT
 Returns 0 if the caller was woken up.
-Note that a wake-up can also be
-caused by common futex usage patterns in unrelated code that happened to have
-previously used the futex word's memory location (e.g., typical futex-based
-implementations of Pthreads mutexes can cause this under some conditions).
-Therefore, callers should always conservatively assume that a return value of
-0 can mean a spurious wake-up, and use the futex word's value (i.e., the user
-space synchronization scheme) to decide whether to continue to block or not.
+Note that a wake-up can also be caused by common futex usage patterns
+in unrelated code that happened to have previously used the futex word's
+memory location (e.g., typical futex-based implementations of
+Pthreads mutexes can cause this under some conditions).
+Therefore, callers should always conservatively assume that a return
+value of 0 can mean a spurious wake-up, and use the futex word's value
+(i.e., the user space synchronization scheme)
+    to decide whether to continue to block or not.
 .TP
 .B FUTEX_WAKE
 Returns the number of waiters that were woken up.
@@ -1129,13 +1145,14 @@ requeued to the futex for the futex word at
 .IR uaddr2 .
 If this value is greater than
 .IR val ,
-then difference is the number of waiters requeued to the futex for the futex
-word at
+then difference is the number of waiters requeued to the futex for the
+futex word at
 .IR uaddr2 .
 .TP
 .B FUTEX_WAKE_OP
 Returns the total number of waiters that were woken up.
-This is the sum of the woken waiters on the two futexes for the futex words at
+This is the sum of the woken waiters on the two futexes for
+the futex words at
 .I uaddr
 and
 .IR uaddr2 .
@@ -1164,13 +1181,13 @@ requeued to the futex for the futex word at
 .IR uaddr2 .
 If this value is greater than
 .IR val ,
-then difference is the number of waiters requeued to the futex for the futex
-word at
+then difference is the number of waiters requeued to the futex for
+the futex word at
 .IR uaddr2 .
 .TP
 .B FUTEX_WAIT_REQUEUE_PI
-Returns 0 if the caller was successfully requeued to the futex for the futex
-word at
+Returns 0 if the caller was successfully requeued to the futex for
+the futex word at
 .IR uaddr2 .
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -1241,10 +1258,10 @@ is already locked by the caller.
 .TP
 .BR EDEADLK
 .\" FIXME I reworded tglx's text somewhat; is the following okay?
-.\" FIXME XXX I see that kernel/locking/rtmutex.c uses EDEADLK in some places,
-.\"       and EDEADLOCK in others. On almost all architectures these
-.\"       constants are synonymous. Is there a reason that both names
-.\"       are used?
+.\" FIXME XXX I see that kernel/locking/rtmutex.c uses EDEADLK in some
+.\"       iplaces, and EDEADLOCK in others. On almost all architectures
+.\"       these constants are synonymous. Is there a reason that both
+.\"       names are used?
 .RB ( FUTEX_CMP_REQUEUE_PI )
 While requeueing a waiter to the PI futex for the futex word at
 .IR uaddr2 ,
@@ -1475,8 +1492,8 @@ and the timeout expired before the operation completed.
 Futexes were first made available in a stable kernel release
 with Linux 2.6.0.
 
-Initial futex support was merged in Linux 2.5.7 but with different semantics
-from what was described above.
+Initial futex support was merged in Linux 2.5.7 but with different
+semantics from what was described above.
 A four-argument system call with the semantics
 described in this page was introduced in Linux 2.5.40.
 In Linux 2.5.70, one argument
@@ -1719,5 +1736,6 @@ Futex example library, futex-*.tar.bz2 at
 .\" FIXME Are there any other resources that should be listed
 .\"       in the SEE ALSO section?
 .\" FIXME(Torvald) We should probably refer to the glibc code here, in
-.\"       particular the glibc-internal futex wrapper functions that are WIP,
-.\"       and the generic pthread_mutex_t and perhaps condvar implementations.
+.\"       particular the glibc-internal futex wrapper functions that are
+.\"       WIP, and the generic pthread_mutex_t and perhaps condvar
+.\"       implementations.

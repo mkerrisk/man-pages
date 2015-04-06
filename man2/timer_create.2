@@ -242,11 +242,29 @@ for further information.
 .\"
 .SS C library/kernel ABI differences
 Part of the implementation of the POSIX timers API is provided by glibc.
+.\" See nptl/sysdeps/unix/sysv/linux/timer_create.c
 In particular:
 .IP * 3
-The functionality for
+Much of the functionality for
 .BR SIGEV_THREAD
 is implemented within glibc, rather than the kernel.
+(This is necessarily so,
+since the thread involved in handling the notification is one
+that must be managed by the C library POSIX threads implementation.)
+Although the notification delivered to the process is via a thread,
+internally the NPTL implementation uses a
+.I sigev_notify
+value of
+.BR SIGEV_THREAD_ID
+along with a real-time signal that is reserved by the implementation (see
+.BR nptl (7)).
+.IP *
+The implementation of the default case where
+.I evp
+is NULL is handled inside glibc,
+which invokes the underlying system call with a suitably populated
+.I sigevent
+structure.
 .IP *
 The timer IDs presented at user level are maintained by glibc,
 which maps these IDs to the timer IDs employed by the kernel.
@@ -259,7 +277,9 @@ Prior to this,
 glibc provided an incomplete user-space implementation
 .RB ( CLOCK_REALTIME
 timers only) using POSIX threads,
-and current glibc falls back to this implementation on systems
+and in glibc versions before 2.17,
+.\" glibc commit 93a78ac437ba44f493333d7e2a4b0249839ce460
+the implementation falls back to this technique on systems
 running pre-2.6 Linux kernels.
 .SH EXAMPLE
 The program below takes two arguments: a sleep period in seconds,

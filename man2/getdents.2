@@ -1,4 +1,5 @@
 .\" Copyright (C) 1995 Andries Brouwer (aeb@cwi.nl)
+.\" and Copyright 2008, 2015 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -29,22 +30,24 @@
 .\"
 .TH GETDENTS 2  2012-08-03 "Linux" "Linux Programmer's Manual"
 .SH NAME
-getdents \- get directory entries
+getdents, getdents64 \- get directory entries
 .SH SYNOPSIS
 .nf
 .BI "int getdents(unsigned int " fd ", struct linux_dirent *" dirp ,
 .BI "             unsigned int " count );
+.BI "int getdents64(unsigned int " fd ", struct linux_dirent64 *" dirp ,
+.BI "             unsigned int " count );
 .fi
 
 .IR Note :
-There is no glibc wrapper for this system call; see NOTES.
+There are no glibc wrappers for these system calls; see NOTES.
 .SH DESCRIPTION
-This is not the function you are interested in.
+These are not the interfaces you are interested in.
 Look at
 .BR readdir (3)
 for the POSIX conforming C library interface.
-This page documents the bare kernel system call interface.
-.PP
+This page documents the bare kernel system call interfaces.
+.SS getdents()
 The system call
 .BR getdents ()
 reads several
@@ -138,6 +141,41 @@ have full support for returning the file type in
 .IR d_type .
 All applications must properly handle a return of
 .BR DT_UNKNOWN .
+.SS getdents64()
+The original Linux
+.BR getdents ()
+system call did not handle large filesystems and large file offsets.
+Consequently, Linux 2.4 added
+.BR getdents64 (),
+with wider types for the
+.I d_ino
+and
+.I d_off
+fields.
+In addition,
+.BR getdents64 ()
+supports an explicit
+.I d_type
+field.
+
+The
+.BR getdents64 ()
+system call is like
+.BR getdents (),
+except that its second argument is a pointer to a buffer containing
+structures of the following type:
+
+.nf
+.in +4n
+struct linux_dirent64 {
+    ino64_t        d_ino;    /* 64-bit inode number */
+    off64_t        d_off;    /* 64-bit offset to next structure */
+    unsigned short d_reclen; /* Size of this dirent */
+    unsigned char  d_type;   /* File type */
+    char           d_name[]; /* Filename (null-terminated) */
+};
+.in
+.fi
 .SH RETURN VALUE
 On success, the number of bytes read is returned.
 On end of directory, 0 is returned.
@@ -165,30 +203,19 @@ File descriptor does not refer to a directory.
 SVr4.
 .\" SVr4 documents additional ENOLINK, EIO error conditions.
 .SH NOTES
-Glibc does not provide a wrapper for this system call; call it using
+Glibc does not provide a wrapper for these system calls; call them using
 .BR syscall (2).
 You will need to define the
 .I linux_dirent
+or
+.I linux_dirent64
 structure yourself.
 However, you probably want to use
 .BR readdir (3)
 instead.
 
-This call supersedes
+These calls supersede
 .BR readdir (2).
-
-The original Linux
-.BR getdents ()
-system call did not handle large filesystems and large file offsets.
-Consequently, Linux 2.4 added
-.BR getdents64 (),
-with wider types for the
-.I d_ino
-and
-.I d_off
-fields employed in the
-.IR linux_dirent
-structure.
 .SH EXAMPLE
 .\" FIXME The example program needs to be revised, since it uses the older
 .\" getdents() system call and the structure with smaller field widths.

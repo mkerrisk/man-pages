@@ -809,18 +809,52 @@ structure have led to three successive versions of
 and
 .I sys_stat64()
 (slot
-.IR __NR_stat64 ).
-The first two of these were already present in Linux 1.0
-(albeit with different names); the last was added in Linux 2.4.
+.IR __NR_stat64 )
+on 32-bit platforms such as i386.
+The first two versions were already present in Linux 1.0
+(albeit with different names);
+.\" See include/asm-i386/stat.h in the Linux 2.4 source code for the 
+.\" various versions of the structure definitions
+the last was added in Linux 2.4.
+Similar remarks apply for
+.BR fstat ()
+and
+.BR lstat ().
+
+The kernel-internal versions of the
+.I stat
+structure dealt with by the different versions are, respectively:
+.RS
+.TP
+.IR __old_kernel_stat
+The original structure, with rather narrow fields, and no padding.
+.TP
+.IR stat
+Larger
+.I st_ino
+field and padding added to various parts of the structure to
+allow for future expansion.
+.TP
+.IR stat64
+Even larger
+.I st_ino
+field,
+larger
+.I st_uid
+and
+.I st_gid
+fields to accommodate the Linux-2.4 expansion of UIDs and GIDs to 32 bits,
+and various other enlarged fields and further padding in the structure.
+(Various padding bytes were eventually consumed in Linux 2.6,
+with the advent of 32-bit device IDs and nanosecond components
+for the timestamp fields.)
+.RE
+.PP
 The glibc
 .BR stat ()
 wrapper function hides these details from applications,
 invoking the most recent version of the system call provided by the kernel,
 and repacking the returned information if required for old binaries.
-Similar remarks apply for
-.BR fstat ()
-and
-.BR lstat ().
 .\"
 .\" A note from Andries Brouwer, July 2007
 .\"
@@ -849,6 +883,12 @@ and
 .\" interface, rather than the libc-kernel interface.
 .\"
 .\" (Note that the details depend on gcc being used as c compiler.)
+
+On modern 64-bit systems, life is simpler: there is a single
+.BR stat ()
+system call and the kernel deals with a
+.I stat
+structure that contains fields of a sufficient size.
 
 The underlying system call employed by the glibc
 .BR fstatat ()

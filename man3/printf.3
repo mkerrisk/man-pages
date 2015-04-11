@@ -1079,48 +1079,33 @@ To allocate a sufficiently large string and print into it
 char *
 make_message(const char *fmt, ...)
 {
-    int n;
-    int size = 100;     /* Guess we need no more than 100 bytes */
-    char *p, *np;
+    int size = 0;
+    char *p = NULL;
     va_list ap;
 
+    /* Determine required size */
+
+    va_start(ap, fmt);
+    size = vsnprintf(p, size, fmt, ap);
+    va_end(ap);
+
+    if (size < 0)
+        return NULL;
+
+    size++;		/* For '\\0' */
     p = malloc(size);
     if (p == NULL)
         return NULL;
 
-    while (1) {
-
-        /* Try to print in the allocated space */
-
-        va_start(ap, fmt);
-        n = vsnprintf(p, size, fmt, ap);
-        va_end(ap);
-
-        /* Check error code */
-
-        if (n < 0) {
-            free(p);
-            return NULL;
-        }
-
-        /* If that worked, return the string */
-
-        if (n < size)
-            return p;
-
-        /* Else try again with more space */
-
-        size = n + 1;       /* Precisely what is needed */
-
-
-        np = realloc(p, size);
-        if (np == NULL) {
-            free(p);
-            return NULL;
-        } else {
-            p = np;
-        }
+    va_start(ap, fmt);
+    size = vsnprintf(p, size, fmt, ap);
+    if (size < 0) {
+	free(p);
+	return NULL;
     }
+    va_end(ap);
+
+    return p;
 }
 .fi
 .PP

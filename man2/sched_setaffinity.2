@@ -1,5 +1,5 @@
 .\" Copyright (C) 2002 Robert Love
-.\" and Copyright (C) 2006 Michael Kerrisk
+.\" and Copyright (C) 2006, 2015 Michael Kerrisk
 .\"
 .\" %%%LICENSE_START(GPLv2+_DOC_FULL)
 .\" This is free documentation; you can redistribute it and/or
@@ -223,6 +223,116 @@ system call returns the size (in bytes) of the
 .I cpumask_t
 data type that is used internally by the kernel to
 represent the CPU set bit mask.
+.SH EXAMPLE
+The program below creates a child process.
+The parent and child then each assign themselves to a specified CPU
+and execute identical loops that consume some CPU time.
+Before terminating, the parent waits for the child to complete.
+The program takes three command-line arguments:
+the CPU number for the parent,
+the CPU number for the child,
+and the number of loop iterations that both processes should perform.
+
+As the sample runs below demonstrate, the amount of real and CPU time
+consumed when running the program will depend on intra-core caching effects
+and whether the processes are using the same CPU.
+
+We first employ
+.BR lscpu (1)
+to determine that this (x86)
+system has two cores, each with two CPUs:
+
+.in +4n
+.nf
+$ \fBlscpu | grep -i 'core.*:|socket'\fP
+Thread(s) per core:    2
+Core(s) per socket:    2
+Socket(s):             1
+.fi
+.in
+
+We then time the operation of the example program for three cases:
+both processes running on the same CPU;
+both processes running on different CPUs on the same core;
+and both processes running on different CPUs on different cores.
+
+.in +4n
+.nf
+$ \fBtime \-p ./a.out 0 0 100000000\fP
+real 14.75
+user 3.02
+sys 11.73
+$ \fBtime \-p ./a.out 0 1 100000000\fP
+real 11.52
+user 3.98
+sys 19.06
+$ \fBtime \-p ./a.out 0 3 100000000\fP
+real 7.89
+user 3.29
+sys 12.07
+.fi
+.in
+.SS Program source
+\&
+.nf
+#define _GNU_SOURCE
+#include <sched.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    cpu_set_t set;
+    int parentCPU, childCPU;
+    int nloops, j;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s parent\-cpu child\-cpu num\-loops\\n",
+                argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    parentCPU = atoi(argv[1]);
+    childCPU = atoi(argv[2]);
+    nloops = atoi(argv[3]);
+
+    CPU_ZERO(&set);
+
+    switch (fork()) {
+    case \-1:            /* Error */
+        errExit("fork");
+
+    case 0:             /* Child */
+        CPU_SET(childCPU, &set);
+
+        if (sched_setaffinity(getpid(), sizeof(set), &set) == \-1)
+            errExit("sched_setaffinity");
+
+        for (j = 0; j < nloops; j++)
+            getppid();
+
+        exit(EXIT_SUCCESS);
+
+    default:            /* Parent */
+        CPU_SET(parentCPU, &set);
+
+        if (sched_setaffinity(getpid(), sizeof(set), &set) == \-1)
+            errExit("sched_setaffinity");
+
+        for (j = 0; j < nloops; j++)
+            getppid();
+
+        wait(NULL);     /* Wait for child to terminate */
+        exit(EXIT_SUCCESS);
+    }
+}
+.fi
 .SH SEE ALSO
 .ad l
 .nh

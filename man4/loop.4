@@ -202,6 +202,75 @@ argument.
 On success, the device number is returned as the result of the call.
 If the device is in use, the call fails with the error
 .BR EBUSY .
+.SH EXAMPLE
+The program below uses the
+.I /dev/loop-control
+device to find a free loop device, opens the loop device,
+opens a file to be used as the underlying storage for the device,
+and then associates the loop device with the backing store.
+The following shell session demonstrates the use of the program:
+
+.nf
+.in +4n
+$ \fBdd if=/dev/zero of=file.img bs=1MiB count=10\fP
+10+0 records in
+10+0 records out
+10485760 bytes (10 MB) copied, 0.00609385 s, 1.7 GB/s
+$ \fBsudo ./mnt_loop file.img\fP
+loopname = /dev/loop5
+.in
+.fi
+.SS Program source
+\&
+.nf
+
+#include <fcntl.h>
+#include <linux/loop.h>
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int loopctlfd, loopfd, backingfile;
+    long devnr;
+    char loopname[4096];
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s backing\-file\\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    loopctlfd = open("/dev/loop\-control", O_RDWR);
+    if (loopctlfd == \-1)
+        errExit("open: /dev/loop\-control");
+
+    devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE);
+    if (devnr == \-1)
+        errExit("ioctl\-LOOP_CTL_GET_FREE");
+
+    sprintf(loopname, "/dev/loop%ld", devnr);
+    printf("loopname = %s\\n", loopname);
+
+    loopfd = open(loopname, O_RDWR);
+    if (loopfd == \-1)
+        errExit("open: loopname");
+
+    backingfile = open(argv[1], O_RDWR);
+    if (backingfile == \-1)
+        errExit("open: backing\-file");
+
+    if (ioctl(loopfd, LOOP_SET_FD, backingfile) == \-1)
+        errExit("ioctl\-LOOP_SET_FD");
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH FILES
 .IR /dev/loop* :
 the loop block special device files

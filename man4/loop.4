@@ -1,6 +1,6 @@
-.\" loop.4
 .\" Copyright 2002 Urs Thuermann (urs@isnogud.escape.de)
 .\"
+.\" %%%LICENSE_START(GPLv2+_DOC_FULL)
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
 .\" published by the Free Software Foundation; either version 2 of
@@ -20,28 +20,30 @@
 .\" License along with this manual; if not, write to the Free
 .\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
 .\" USA.
-.\"
-.\" $Id: loop.4,v 1.2 2005/12/05 19:03:01 urs Exp urs $
+.\" %%%LICENSE_END
 .\"
 .TH LOOP 4 "2005-12-05" "Linux" "Linux Programmer's Manual"
 .SH NAME
-loop \- Driver for loop devices
+loop \- driver for loop devices
 .SH SYNOPSIS
 #include <linux/loop.h>
-...
 .SH DESCRIPTION
 The loop device is a block device that maps its data blocks not to a
-physical device like a hard disk or CDROM drive, but to the blocks of
-a regular file in a file system or to another block device.  This can
-be useful for example to provide a block device for a file system
+physical device such as a hard disk or optical disk drive,
+but to the blocks of
+a regular file in a filesystem or to another block device.
+This can be useful for example to provide a block device for a filesystem
 image stored in a file, so that it can be mounted with the
 .BR mount (8)
-command.  You could do
+command.
+You could do
 .nf
 .IP
-# dd if=/dev/fd0 of=floppy.img
-# losetup /dev/loop0 floppy/img
-# mount /dev/loop0 /mnt
+$ \fBdd if=/dev/zero of=file.img bs=1MiB count=10\fP
+$ \fBsudo losetup /dev/loop4 file.img \fP
+$ \fBsudo mkfs -t ext4 /dev/loop4\fP
+$ \fBsudo mkdir /myloopdev\fP
+$ \fBsudo mount /dev/loop4 /myloopdev\fP
 .fi
 .LP
 See
@@ -51,38 +53,49 @@ for another example.
 A transfer function can be specified for each loop device for
 encryption and decryption purposes.
 
-The following ioctl's are provided by the loop block device:
+The following
+.BR ioctl (2)
+operations are provided by the loop block device:
 .TP
 .B LOOP_SET_FD
 Associate the loop device with the open file whose file descriptor is
-passed as the ioctl command argument.
+passed as the (third)
+.BR ioctl (2)
+argument.
 .TP
 .B LOOP_CLR_FD
 Disassociate the loop device from any file descriptor.
 .TP
 .B LOOP_SET_STATUS
-Set the status of the loop device as defined by the struct loop_info
-passed as command argument.  The loop_info structure is defined in
-<linux/loop.h> as
-.PP
-.RS
+Set the status of the loop device as defined by the
+.IR "struct loop_info"
+passed as the (third)
+.BR ioctl (2)
+argument.
+The
+.I loop_info
+structure is defined in
+.I <linux/loop.h>
+as:
+
 .nf
-.ft B
+.in +4n
 struct loop_info {
-        int             lo_number;      /* ioctl r/o */
-        dev_t           lo_device;      /* ioctl r/o */
-        unsigned long   lo_inode;       /* ioctl r/o */
-        dev_t           lo_rdevice;     /* ioctl r/o */
-        int             lo_offset;
-        int             lo_encrypt_type;
-        int             lo_encrypt_key_size;    /* ioctl w/o */
-        int             lo_flags;       /* ioctl r/o */
-        char            lo_name[LO_NAME_SIZE];
-        unsigned char   lo_encrypt_key[LO_KEY_SIZE]; /* ioctl w/o */
-        unsigned long   lo_init[2];
-        char            reserved[4];
+    int           lo_number;            /* ioctl r/o */
+    dev_t         lo_device;            /* ioctl r/o */
+    unsigned long lo_inode;             /* ioctl r/o */
+    dev_t         lo_rdevice;           /* ioctl r/o */
+    int           lo_offset;
+    int           lo_encrypt_type;
+    int           lo_encrypt_key_size;  /* ioctl w/o */
+    int           lo_flags;             /* ioctl r/o */
+    char          lo_name[LO_NAME_SIZE];
+    unsigned char lo_encrypt_key[LO_KEY_SIZE];
+                                        /* ioctl w/o */
+    unsigned long lo_init[2];
+    char          reserved[4];
 };
-.ft R
+.in
 .fi
 
 The encryption type should be one of
@@ -95,46 +108,47 @@ The encryption type should be one of
 .BR LO_CRYPT_IDEA ,
 .BR LO_CRYPT_DUMMY ,
 .BR LO_CRYPT_SKIPJACK .
-.RE
 .TP
 .B LOOP_GET_STATUS
-Get the status of the loop device.  The ioctl command argument must be
-a pointer to a struct loop_info.
+Get the status of the loop device.
+The (third)
+.BR ioctl (2)
+argument must be a pointer to a
+.IR "struct loop_info" .
 .PP
-Since Linux kernel 2.6 there are two new ioctl's:
+Since Linux 2.6, there are two new
+.BR ioctl (2)
+operations:
 .TP
 .BR LOOP_SET_STATUS64 ", " LOOP_GET_STATUS64
 These are similar to
 .BR LOOP_SET_STATUS " and " LOOP_GET_STATUS
-described above but use the loop_info64 structure, that has some
-additional fields and a larger range for some other fields:
-.PP
-.RS
-.nf
-.ft B
-struct loop_info64 {
-        __u64   lo_device;                   /* ioctl r/o */
-        __u64   lo_inode;                    /* ioctl r/o */
-        __u64   lo_rdevice;                  /* ioctl r/o */
-        __u64   lo_offset;
-        __u64   lo_sizelimit;/* bytes, 0 == max available */
-        __u32   lo_number;                   /* ioctl r/o */
-        __u32   lo_encrypt_type;
-        __u32   lo_encrypt_key_size;         /* ioctl w/o */
-        __u32   lo_flags;                    /* ioctl r/o */
-        __u8    lo_file_name[LO_NAME_SIZE];
-        __u8    lo_crypt_name[LO_NAME_SIZE];
-        __u8    lo_encrypt_key[LO_KEY_SIZE]; /* ioctl w/o */
-        __u64   lo_init[2];
-};
-.fi
-.RE
+described above but use the
+.I loop_info64
+structure,
+which has some additional fields and a larger range for some other fields:
 
+.nf
+.in +4n
+struct loop_info64 {
+    uint64_t lo_device;                   /* ioctl r/o */
+    uint64_t lo_inode;                    /* ioctl r/o */
+    uint64_t lo_rdevice;                  /* ioctl r/o */
+    uint64_t lo_offset;
+    uint64_t lo_sizelimit;/* bytes, 0 == max available */
+    uint32_t lo_number;                   /* ioctl r/o */
+    uint32_t lo_encrypt_type;
+    uint32_t lo_encrypt_key_size;         /* ioctl w/o */
+    uint32_t lo_flags;                    /* ioctl r/o */
+    uint8_t  lo_file_name[LO_NAME_SIZE];
+    uint8_t  lo_crypt_name[LO_NAME_SIZE];
+    uint8_t  lo_encrypt_key[LO_KEY_SIZE]; /* ioctl w/o */
+    uint64_t lo_init[2];
+};
+.in
+.fi
 .SH FILES
 /dev/loop[0-7]: The loop block special device files
-
 .SH "SEE ALSO"
 .BR losetup (8),
 .BR mount (8)
-
-

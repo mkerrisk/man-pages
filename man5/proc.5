@@ -64,7 +64,84 @@ It is commonly mounted at
 .IR /proc .
 Most of it is read-only, but some files allow kernel variables to be
 changed.
-.LP
+.SS Mount options
+The
+.I proc
+filesystem supports the following mount options:
+.TP
+.BR hidepid "=\fIn\fP (since Linux 3.3)"
+.\" commit 0499680a42141d86417a8fbaa8c8db806bea1201
+This option controls who can access the information in
+.IR /proc/[pid]
+directories.
+The argument,
+.IR n ,
+is one of the following values:
+.RS
+.TP 4
+0
+Everybody may access all
+.IR /proc/[pid]
+directories.
+This is the traditional behavior,
+and the default if this mount option is not specified.
+.TP
+1
+Users may not access files and subdirectories inside any
+.IR /proc/[pid]
+directories but their own (the
+.IR /proc/[pid]
+directories themselves remain visible).
+Sensitive files such as
+.IR /proc/[pid]cmdline
+and
+.IR /proc/[pid]status
+are now protected against other users.
+This makes it impossible to learn whether any user is running a
+specific program
+(so long as the program doesn't otherwise reveal itself by its behavior).
+.\" As an additional bonus, since
+.\" .IR /proc/[pid]cmdline
+.\" is unaccessible for other users,
+.\" poorly written programs passing sensitive information via
+.\" program arguments are now protected against local eavesdroppers.
+.TP
+2
+As for mode 1, but in addition the
+.IR /proc/[pid]
+directories belonging to other users become invisible.
+This means that
+.IR /proc/[pid]
+entries can no longer be used to discover the PIDs on the system.
+This doesn't hide the fact that a process with a specific PID value exists
+(it can be learned by other means, for example, by "kill -0 $PID"),
+but it hides a process's UID and GID,
+which could otherwise be learned by employing
+.BR stat (2)
+on a
+.IR /proc/[pid]
+directory.
+This greatly complicates an attacker's task of gathering
+information about running processes (e.g., discovering whether
+some daemon is running with elevated privileges,
+whether another user is running some sensitive program,
+whether other users are running any program at all, and so on).
+.RE
+.TP
+.BR gid "=\fIgid\fP (since Linux 3.3)"
+.\" commit 0499680a42141d86417a8fbaa8c8db806bea1201
+Specifies the ID of a group whose members are authorized to
+learn process information otherwise prohibited by
+.BR hidepid
+(ie/e/, users in this group behave as though
+.I /proc
+was mounted with
+.IR hidepid=0 .
+This group should be used instead of approaches such as putting
+nonroot users into the
+.BR sudoers (5)
+file.
+.SS Files and directories
 The following list describes many of the files and directories under the
 .I /proc
 hierarchy.

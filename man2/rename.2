@@ -200,6 +200,56 @@ of the rename.
 Return an error if
 .IR newpath
 already exists.
+.TP
+.BR RENAME_WHITEOUT " (since Linux 3.18)"
+.\" commit 0d7a855526dd672e114aff2ac22b60fc6f155b08
+This operation makes sense only for overlay/union
+filesystem implementations.
+
+Specifying
+.B RENAME_WHITEOUT
+creates a "whiteout" object at the source of
+the rename at the same time as performing the rename.
+The whole operation is atomic,
+so that if the rename succeeds then the whiteout will also have been created.
+
+A "whiteout" is an object that has special meaning in union/overlay
+filesystem constructs.
+In these constructs,
+multiple layers exist and only the top one is ever modified.
+A whiteout on an upper layer will effectively hide a
+matching file in the lower layer,
+making it appear as if the file didn't exist.
+
+When a file that exists on the lower layer is renamed,
+the file is first copied up (if not already on the upper layer)
+and then renamed on the upper, read-write layer. 
+At the same time, the source file needs to be "whiteouted"
+(so that the version of the source file in the lower layer
+is rendered invisible).
+The whole operation needs to be done atomically.
+
+When not part of a union/overlay,
+the whiteout appears as a character device with a {0,0} device number.
+
+.B RENAME_WHITEOUT
+requires the same privileges as creating a device node (i.e., the
+.BR CAP_MKNOD
+capability).
+
+.B RENAME_WHITEOUT
+can't be employed together with
+.BR RENAME_EXCHANGE .
+
+.B RENAME_WHITEOUT
+requires support from the underlying filesystem.
+Among the filesystems that provide that support are
+shmem (since Linux 3.18),
+.\" shmem: commit 46fdb794e3f52ef18b859ebc92f0a9d7db21c5df
+ext4 (since Linux 3.18),
+.\" ext4: commit cd808deced431b66b5fa4e5c193cb7ec0059eaff
+and XFS (since Linux 4.1).
+.\" XFS: commit 7dcf5c3e4527cfa2807567b00387cf2ed5e07f00
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -387,6 +437,14 @@ were specified in
 .IR flags .
 .TP
 .B EINVAL
+Both
+.B RENAME_WHITEOUT
+and
+.B RENAME_EXCHANGE
+were specified in
+.IR flags .
+.TP
+.B EINVAL
 The filesystem does not support one of the flags in
 .IR flags .
 .TP
@@ -397,6 +455,14 @@ contains
 and
 .IR newpath
 does not exist.
+.TP
+.B EPERM
+.B RENAME_WHITEOUT
+was specified in
+.IR flags ,
+but the caller does not have the
+.B CAP_MKNOD
+capability.
 .SH VERSIONS
 .BR renameat ()
 was added to Linux in kernel 2.6.16;

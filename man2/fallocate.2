@@ -229,57 +229,51 @@ ext4, for extent-based files (since Linux 3.15)
 SMB3 (since Linux 3.17)
 .\" commit 30175628bf7f521e9ee31ac98fa6d6fe7441a556
 .SS Increasing file space
-flag (available since Linux 4.1)
-.\" commit dd46c787788d5bf5b974729d43e4c405814a4c7d
 Specifying the
 .BR FALLOC_FL_INSERT_RANGE
-flag in
+flag
+(available since Linux 4.1)
+.\" commit dd46c787788d5bf5b974729d43e4c405814a4c7d
+in
 .I mode
-will increase the file space by inserting a hole within the file size without
+increases the file space by inserting a hole within the file size without
 overwriting any existing data.
 The hole will start at
 .I offset
 and continue for
 .I len
 bytes.
-For inserting hole inside file, the contents of the file starting at
+When inserting the hole inside file, the contents of the file starting at
 .I offset
-will be shifted towards right by
+will be shifted upward (i.e., to a higher file offset) by
 .I len
 bytes.
-Inserting a hole inside the file will increase the file size by
+Inserting a hole inside a file increases the file size by
 .I len
 bytes.
 
-This mode has the same limitation as
+This mode has the same limitations as
 .BR FALLOC_FL_COLLAPSE_RANGE
-regarding the
-granularity of the operation.
+regarding the granularity of the operation.
 If the granularity requirements are not met,
 .BR fallocate ()
 will fail with the error
 .BR EINVAL.
 If the
 .I offset
-overlaps with end of file OR if it is greater than end of file, an error is
-returned.
-For such type of operations, i.e. inserting a hole at the end of file,
-.BR ftruncate(2)
+is equal to or greater than the end of file, an error is returned.
+For such operations (i.e., inserting a hole at the end of file),
+.BR ftruncate (2)
 should be used.
-In case
-.IR offset + len
-exceeds the maximum file size, errno will be set to
-.B EFBIG.
 
 No other flags may be specified in
 .IR mode
 in conjunction with
 .BR FALLOC_FL_INSERT_RANGE .
 
-As of Linux 4.1,
 .B FALLOC_FL_INSERT_RANGE
-is supported by
-XFS.
+requires filesystem support, which is currently provided only by
+XFS (since Linux 4.1).
 .\" commit a904b1ca5751faf5ece8600e18cd3b674afcca1b
 .SH RETURN VALUE
 On success,
@@ -302,7 +296,7 @@ exceeds the maximum file size.
 .I mode
 is
 .BR FALLOC_FL_INSERT_RANGE ,
-the current file size+len exceeds the maximum file size.
+and the current file size+\fIlen\fP exceeds the maximum file size.
 .TP
 .B EINTR
 A signal was caught during execution.
@@ -351,11 +345,11 @@ is not a multiple of the filesystem block size.
 .TP
 .B EINVAL
 .I mode
-contains either of
+contains one of
 .B FALLOC_FL_COLLAPSE_RANGE
 or
 .B FALLOC_FL_INSERT_RANGE
-and other flags;
+and also other flags;
 no other flags are permitted with
 .BR FALLOC_FL_COLLAPSE_RANGE
 or

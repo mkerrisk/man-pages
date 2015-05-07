@@ -228,6 +228,59 @@ ext4, for extent-based files (since Linux 3.15)
 .IP *
 SMB3 (since Linux 3.17)
 .\" commit 30175628bf7f521e9ee31ac98fa6d6fe7441a556
+.SS Increasing file space
+flag (available since Linux 4.1)
+.\" commit dd46c787788d5bf5b974729d43e4c405814a4c7d
+Specifying the
+.BR FALLOC_FL_INSERT_RANGE
+flag in
+.I mode
+will increase the file space by inserting a hole within the file size without
+overwriting any existing data.
+The hole will start at
+.I offset
+and continue for
+.I len
+bytes.
+For inserting hole inside file, the contents of the file starting at
+.I offset
+will be shifted towards right by
+.I len
+bytes.
+Inserting a hole inside the file will increase the file size by
+.I len
+bytes.
+
+This mode has the same limitation as
+.BR FALLOC_FL_COLLAPSE_RANGE
+regarding the
+granularity of the operation.
+If the granularity requirements are not met,
+.BR fallocate ()
+will fail with the error
+.BR EINVAL.
+If the
+.I offset
+overlaps with end of file OR if it is greater than end of file, an error is
+returned.
+For such type of operations, i.e. inserting a hole at the end of file,
+.BR ftruncate(2)
+should be used.
+In case
+.IR offset + len
+exceeds the maximum file size, errno will be set to
+.B EFBIG.
+
+No other flags may be specified in
+.IR mode
+in conjunction with
+.BR FALLOC_FL_INSERT_RANGE .
+
+As of Linux 4.1,
+.B FALLOC_FL_INSERT_RANGE
+is supported by
+XFS.
+.\" commit a904b1ca5751faf5ece8600e18cd3b674afcca1b
 .SH RETURN VALUE
 On success,
 .BR fallocate ()
@@ -244,6 +297,12 @@ is not a valid file descriptor, or is not opened for writing.
 .B EFBIG
 .IR offset + len
 exceeds the maximum file size.
+.TP
+.B EFBIG
+.I mode
+is
+.BR FALLOC_FL_INSERT_RANGE ,
+the current file size+len exceeds the maximum file size.
 .TP
 .B EINTR
 A signal was caught during execution.
@@ -273,7 +332,17 @@ reaches or passes the end of the file.
 .B EINVAL
 .I mode
 is
-.BR FALLOC_FL_COLLAPSE_RANGE ,
+.BR FALLOC_FL_INSERT_RANGE
+and the range specified by
+.I offset
+reaches or passes the end of the file.
+.TP
+.B EINVAL
+.I mode
+is
+.BR FALLOC_FL_COLLAPSE_RANGE
+or
+.BR FALLOC_FL_INSERT_RANGE ,
 but either
 .I offset
 or
@@ -282,18 +351,24 @@ is not a multiple of the filesystem block size.
 .TP
 .B EINVAL
 .I mode
-contains both
+contains either of
 .B FALLOC_FL_COLLAPSE_RANGE
+or
+.B FALLOC_FL_INSERT_RANGE
 and other flags;
 no other flags are permitted with
-.BR FALLOC_FL_COLLAPSE_RANGE .
+.BR FALLOC_FL_COLLAPSE_RANGE
+or
+.BR FALLOC_FL_INSERT_RANGE .
 .TP
 .B EINVAL
 .I mode
 is
 .BR FALLOC_FL_COLLAPSE_RANGE
 or
-.BR FALLOC_FL_ZERO_RANGE ,
+.BR FALLOC_FL_ZERO_RANGE
+or
+.BR FALLOC_FL_INSERT_RANGE ,
 but the file referred to by
 .I fd
 is not a regular file.
@@ -345,6 +420,8 @@ specifies
 .BR FALLOC_FL_PUNCH_HOLE
 or
 .BR FALLOC_FL_COLLAPSE_RANGE
+or
+.BR FALLOC_FL_INSERT_RANGE
 and
 the file referred to by
 .I fd
@@ -363,7 +440,9 @@ refers to a pipe or FIFO.
 .B ETXTBSY
 .I mode
 specifies
-.BR FALLOC_FL_COLLAPSE_RANGE ,
+.BR FALLOC_FL_COLLAPSE_RANGE
+or
+.BR FALLOC_FL_INSERT_RANGE ,
 but the file referred to by
 .IR fd
 is currently being executed.

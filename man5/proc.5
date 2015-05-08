@@ -4151,6 +4151,56 @@ This file
 specifies the system-wide maximum number of System V shared memory
 segments that can be created.
 .TP
+.IR /proc/sys/kernel/sysctl_writes_strict " (since Linux 3.16)"
+.\" commit f88083005ab319abba5d0b2e4e997558245493c8
+.\" commit 2ca9bb456ada8bcbdc8f77f8fc78207653bbaa92
+.\" commit f4aacea2f5d1a5f7e3154e967d70cf3f711bcd61
+.\" commit 24fe831c17ab8149413874f2fd4e5c8a41fcd294
+The value in this file determines how the file offset affects
+the behavior of updating entries in files under
+.IR /proc/sys .
+The file has three possible values:
+.RS
+.TP 4
+\-1
+This provides legacy handling, with no printk warnings.
+Each
+.BR write (2)
+must fully contain the value to be written,
+and multiple writes on the same file descriptor
+will overwrite the entire value, regardless of the file position.
+.TP
+0
+(default) This provides the same behavior as for \-1,
+but printk warnings are written for processes that
+perform writes when the file offset is not 0.
+.TP
+1
+Respect the file offset when writing strings into
+.I /proc/sys
+files.
+Multiple writes will
+.I append
+to the value buffer.
+Anything written beyond the maximum length
+of the value buffer will be ignored.
+Writes to numeric
+.I /proc/sys
+entries must always be at file offset 0 and the value must be
+fully contained in the buffer provided to
+.BR write (2).
+.\" FIXME .
+.\"     With /proc/sys/kernel/sysctl_writes_strict==1, writes at an
+.\"     offset other than 0 do not generate an error. Instead, the
+.\"     write() succeeds, but the file is left unmodified.
+.\"     This is surprising. The behavior may change in the future.
+.\"     See thread.gmane.org/gmane.linux.man/9197
+.\"		From: Michael Kerrisk (man-pages <mtk.manpages@...>
+.\"		Subject: sysctl_writes_strict documentation + an oddity?
+.\"		Newsgroups: gmane.linux.man, gmane.linux.kernel
+.\"		Date: 2015-05-09 08:54:11 GMT
+.RE
+.TP
 .I /proc/sys/kernel/sysrq
 This file controls the functions allowed to be invoked by the SysRq key.
 By default,

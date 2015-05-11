@@ -9,12 +9,15 @@ MANDIR=$(prefix)/share/man
 
 GZIP=gzip -9
 BZIP2=bzip2 -9
+LZMA=xz -9
 
 all: screen remove install
 
 allgz: gz all
 
 allbz: bz2 all
+
+allxz: xz all
 
 screen:
 	mkdir -p not_installed
@@ -35,6 +38,9 @@ gz:
 
 bz2:
 	for i in man?; do $(BZIP2) "$$i"/*; done
+
+xz:
+	for i in man?; do $(LZMA) "$$i"/*; done
 
 # Use with
 #  make HTDIR=/some/dir HTOPTS=whatever html

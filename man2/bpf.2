@@ -34,21 +34,28 @@ bpf - perform a command on an extended BPF map or program
 .SH DESCRIPTION
 The
 .BR bpf ()
-system call performs a range of operations on extended
-Berkeley Packet Filter which can be characterized as
-"a universal in-kernel virtual machine".
-The extended BPF (or eBPF) is similar to
+system call performs a range of operations related to extended
+Berkeley Packet Filters.
+Extended BPF (or eBPF) is similar to
 the original BPF (or classic BPF) used to filter network packets.
-Both statically analyze the programs before loading them into the kernel to
-ensure that they cannot harm the running system.
+For both BPF and eBPF programs,
+the kernel statically analyzes the programs before loading them,
+in order to ensure that they cannot harm the running system.
 .P
 eBPF extends classic BPF in multiple ways including the ability to call
-in-kernel helper functions and access shared data structures such as BPF maps.
+in-kernel helper functions (via the
+.B BPF_CALL
+opcode extension provided by eBPF)
+and access shared data structures such as BPF maps.
 The programs can be written in a restricted C that is compiled into
+.\" FIXME In the next line, what is "a restricted C"? Where does
+.\"       one get further information about it?
 eBPF bytecode and executed on the in-kernel virtual machine or
 just-in-time compiled into native code.
 .SS Extended BPF Design/Architecture
 .P
+.\" FIXME In the following line, what does "different data types" mean?
+.\"       Are the values in a map not just blobs?
 BPF maps are a generic data structure for storage of different data types.
 A user process can create multiple maps (with key/value-pairs being
 opaque bytes of data) and access them via file descriptors.
@@ -61,18 +68,24 @@ They are loaded by the user
 process and automatically unloaded when the process exits.
 Each BPF program is a set of instructions that is safe to run until
 its completion.
-The BPF verifier statically determines that the program
+The in-kernel BPF verifier statically determines that the program
 terminates and is safe to execute.
+.\" FIXME In the following sentence, what does "takes hold" mean?
 During verification, the program takes hold of maps that it intends to use,
 so selected maps cannot be removed until the program is unloaded.
-The program can be attached to different events.
+
+BPF programs can be attached to different events.
+.\" FIXME: In the next sentence , "packets" are not "events". What
+.\" do you really mean to say here? ("the arrival of a network packet"?)
 These events can be packets, tracing
-events and other types that may be added in the future.
-A new event triggers
-execution of the program which may store information about the event in the maps.
-Beyond storing data the programs may call into in-kernel helper functions.
+events, and other types that may be added in the future.
+A new event triggers execution of the BPF program, which
+may store information about the event in the maps.
+Beyond storing data, BPF programs may call into in-kernel helper functions.
 The same program can be attached to multiple events and different programs can
 access the same map:
+.\" FIXME Can maps be shared between processes? (E.g., what happens
+.\"       when fork() is called?)
 
 .in +4n
 .nf
@@ -88,72 +101,84 @@ event A     event B     event C     on eth0    on eth1
 .fi
 .in
 .SS Arguments
-The
+The operation to be performed by the
 .BR bpf ()
-system call operation is determined by
+system call is determined by the
 .IR cmd
-which can be one of the following:
+argument, which can be one of the following:
 .TP
 .B BPF_MAP_CREATE
-Create a map with the given type and attributes and return map FD
+Create a map with the specified type and attributes and return 
+a file descriptor that refers to the map.
 .TP
 .B BPF_MAP_LOOKUP_ELEM
-Look up element by key in a given map and return its value
+Look up an element by key in a specified map and return its value.
 .TP
 .B BPF_MAP_UPDATE_ELEM
-Create or update element (key/value pair) in a given map
+Create or update an element (key/value pair) in a specified map.
 .TP
 .B BPF_MAP_DELETE_ELEM
-Look up and delete element by key in a given map
+Look up and delete an element by key in a specified map.
 .TP
 .B BPF_MAP_GET_NEXT_KEY
-Look up element by key in a given map and return key of next element
+Look up an element by key in a specified map and return the key
+of the next element.
 .TP
 .B BPF_PROG_LOAD
-Verify and load BPF program
+Verify and load a BPF program.
 .PP
+The
 .I attr
-is a pointer to a union of type
-.I bpf_attr
-as defined below.
-
+argument is a pointer to a union of type
+.IR bpf_attr
+(see below);
 .I size
-is the size of the union.
+is the size of the union pointed to by
+.IR attr .
 .P
+The
+.I bpf_attr
+union consists of various anonymous structures that are used by different
+.BR bpf ()
+commands:
+
+.in +4n
 .nf
 union bpf_attr {
-    struct { /* anonymous struct used by BPF_MAP_CREATE command */
-        __u32          map_type;
-        __u32          key_size;    /* size of key in bytes */
-        __u32          value_size;  /* size of value in bytes */
-        __u32          max_entries; /* maximum number of entries
-                                       in a map */
+    struct {    /* Used by BPF_MAP_CREATE */
+        __u32         map_type;
+        __u32         key_size;    /* size of key in bytes */
+        __u32         value_size;  /* size of value in bytes */
+        __u32         max_entries; /* maximum number of entries
+                                      in a map */
     };
 
-    struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-        __u32          map_fd;
-        __aligned_u64  key;
+    struct {    /* Used by BPF_MAP_*_ELEM commands */
+        __u32         map_fd;
+        __aligned_u64 key;
         union {
             __aligned_u64 value;
             __aligned_u64 next_key;
         };
-        __u64          flags;
+        __u64         flags;
     };
 
-    struct { /* anonymous struct used by BPF_PROG_LOAD command */
-        __u32          prog_type;
-        __u32          insn_cnt;
-        __aligned_u64  insns;      /* 'const struct bpf_insn *' */
-        __aligned_u64  license;    /* 'const char *' */
-        __u32          log_level;  /* verbosity level of verifier */
-        __u32          log_size;   /* size of user buffer */
-        __aligned_u64  log_buf;    /* user supplied 'char *' buffer */
+    struct {    /* Used by BPF_PROG_LOAD */
+        __u32         prog_type;
+        __u32         insn_cnt;
+        __aligned_u64 insns;      /* 'const struct bpf_insn *' */
+        __aligned_u64 license;    /* 'const char *' */
+        __u32         log_level;  /* verbosity level of verifier */
+        __u32         log_size;   /* size of user buffer */
+        __aligned_u64 log_buf;    /* user supplied 'char *'
+                                     buffer */
     };
 } __attribute__((aligned(8)));
 .fi
+.in
 .SS BPF maps
 Maps are a generic data structure for storage of different types
-and sharing data between kernel and user space.
+and sharing data between the kernel and user-space programs.
 
 Each map type has the following attributes:
 
@@ -168,16 +193,23 @@ key size in bytes
 value size in bytes
 .PD
 .PP
-The following wrapper functions demonstrate how this system
-call can be used to access the maps.
+The following wrapper functions demonstrate how various
+.BR bpf ()
+commands can be used to access the maps.
 The functions use the
 .IR cmd
 argument to invoke different operations.
-.TP
+.TP 4
 .B BPF_MAP_CREATE
+The
+.B BPF_MAP_CREATE
+command creates a new map.
+
+.in +4n
 .nf
-int bpf_create_map(enum bpf_map_type map_type, int key_size,
-                   int value_size, int max_entries)
+int
+bpf_create_map(enum bpf_map_type map_type, int key_size,
+               int value_size, int max_entries)
 {
     union bpf_attr attr = {
         .map_type = map_type,
@@ -189,16 +221,17 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
     return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 }
 .fi
+.in
 
-The
-.BR bpf ()
-system call creates a map of
-.I map_type
-type and given attributes
+The new map has the type specified by
+.IR map_type ,
+and attributes as specified in
 .IR key_size ,
 .IR value_size ,
+and
 .IR max_entries .
-On success, it returns a process-local file descriptor.
+.\" FIXME: In the next sentence, what does "process-local" mean?
+On success, this operation returns a process-local file descriptor.
 On error, \-1 is returned and
 .I errno
 is set to
@@ -216,13 +249,13 @@ is calling
 .BR bpf_map_*_elem ()
 helper functions with a correctly initialized
 .I key
-and that the program doesn't access map element
+and that the program doesn't access the map element
 .I value
 beyond the specified
 .IR value_size .
-For example, when a map is created with
-.IR "key_size = 8"
-and the program calls
+For example, when a map is created with a
+.IR key_size
+of 8 and the program calls
 
 .in +4n
 .nf
@@ -233,17 +266,18 @@ bpf_map_lookup_elem(map_fd, fp - 4)
 the program will be rejected,
 since the in-kernel helper function
 
-     bpf_map_lookup_elem(map_fd, void *key)
+    bpf_map_lookup_elem(map_fd, void *key)
 
 expects to read 8 bytes from
 .I key
 pointer, but
 .IR "fp\ -\ 4"
+.\" FIXME I'm lost! What is 'fp' in this context?
 starting address will cause out-of-bounds stack access.
 
-Similarly, when a map is created with
-.I "value_size = 1"
-and the program calls
+Similarly, when a map is created with a
+.I value_size
+of 1 and the program calls
 
 .in +4n
 .nf
@@ -258,22 +292,26 @@ pointer beyond the specified 1 byte
 .I value_size
 limit.
 
-Currently two
+Currently, two
 .I map_type
 are supported:
 
 .in +4n
 .nf
 enum bpf_map_type {
-   BPF_MAP_TYPE_UNSPEC,
-   BPF_MAP_TYPE_HASH,
-   BPF_MAP_TYPE_ARRAY,
+    BPF_MAP_TYPE_UNSPEC,
+    BPF_MAP_TYPE_HASH,
+    BPF_MAP_TYPE_ARRAY,
 };
 .fi
 .in
+.\" FIXME Explain the purpose of BPF_MAP_TYPE_UNSPEC
 
 .I map_type
 selects one of the available map implementations in the kernel.
+.\" FIXME We need an explanation of BPF_MAP_TYPE_HASH here
+.\" FIXME We need an explanation of BPF_MAP_TYPE_ARRAY here
+.\" FIXME We need an explanation of why one might choose HASH versus ARRAY
 For all map types,
 programs access maps with the same
 .BR bpf_map_lookup_elem ()/
@@ -281,8 +319,17 @@ programs access maps with the same
 helper functions.
 .TP
 .B BPF_MAP_LOOKUP_ELEM
+The
+.B BPF_MAP_LOOKUP_ELEM
+command looks up an element with a given
+.I key
+in the map referred to by the file descriptor
+.IR fd .
+
+.in +4n
 .nf
-int bpf_lookup_elem(int fd, void *key, void *value)
+int
+bpf_lookup_elem(int fd, void *key, void *value)
 {
     union bpf_attr attr = {
         .map_fd = fd,
@@ -293,23 +340,33 @@ int bpf_lookup_elem(int fd, void *key, void *value)
     return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
 }
 .fi
+.in
 
-The
-.BR bpf ()
-system call looks up an element with a given
-.I key
-in a map
-.IR fd .
-If an element is found, it returns zero and stores element's value into
+If an element is found,
+the operation returns zero and stores the element's value into
 .I value.
-If no element is found, it returns \-1 and sets
+.\" FIXME Here, I think we need some statement about what 'value' must
+.\"       point to. Presumable, it must be a buffer at least as large as
+.\"       the map's 'value_size' attribute?
+
+If no element is found, the operation returns \-1 and sets
 .I errno
 to
 .BR ENOENT .
 .TP
 .B BPF_MAP_UPDATE_ELEM
+The
+.B BPF_MAP_UPDATE_ELEM
+command
+creates or updates an element with a given
+.I key/value
+in the map referred to by the file descriptor
+.IR fd .
+
+.in +4n
 .nf
-int bpf_update_elem(int fd, void *key, void *value, __u64 flags)
+int
+bpf_update_elem(int fd, void *key, void *value, __u64 flags)
 {
     union bpf_attr attr = {
         .map_fd = fd,
@@ -321,22 +378,24 @@ int bpf_update_elem(int fd, void *key, void *value, __u64 flags)
     return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
 }
 .fi
+.in
 
-The call creates or updates an element with a given
-.I key/value
-in a map
-.I fd
-according to
+The
 .I flags
-which can have one of 3 possible values:
-
-.nf
-#define BPF_ANY      0 /* create new element or update existing */
-#define BPF_NOEXIST  1 /* create new element if it didn't exist */
-#define BPF_EXIST    2 /* update existing element */
-.fi
-
-On success, it returns zero.
+argument should be specified as one of the following:
+.RS
+.TP
+.B BPF_ANY
+Create a new element or update an existing element.
+.TP
+.B BPF_NOEXIST
+Create a new element only if it did not exist.
+.TP
+.B BPF_EXIST
+Update an existing element.
+.RE
+.IP
+On success, the operation returns zero.
 On error, \-1 is returned and
 .I errno
 is set to
@@ -346,29 +405,39 @@ is set to
 or
 .BR E2BIG .
 .B E2BIG
-indicates that the number of elements in the map reached
+indicates that the number of elements in the map reached the
 .I max_entries
 limit specified at map creation time.
 .B EEXIST
-will be returned from a call to
-
-    bpf_update_elem(fd, key, value, BPF_NOEXIST)
-
-if the element with
+will be returned if
+.I flags
+specifies
+.B BPF_NOEXIST
+and the element with
 .I key
 already exists in the map.
 .B ENOENT
-will be returned from a call to
-
-    bpf_update_elem(fd, key, value, BPF_EXIST)
-
-if the element with
+will be returned if 
+.I flags
+specifies
+.B BPF_EXIST
+and the element with
 .I key
 doesn't exist in the map.
 .TP
 .B BPF_MAP_DELETE_ELEM
+The
+.B BPF_MAP_DELETE_ELEM
+command
+deleted the element whose key is
+.I key
+from the map referred to by the file descriptor
+.IR fd .
+
+.in +4n
 .nf
-int bpf_delete_elem(int fd, void *key)
+int
+bpf_delete_elem(int fd, void *key)
 {
     union bpf_attr attr = {
         .map_fd = fd,
@@ -378,20 +447,29 @@ int bpf_delete_elem(int fd, void *key)
     return bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
 }
 .fi
+.in
 
-The call deletes an element in a map
-.I fd
-with a given
-.IR key .
-Returns zero on success.
-If the element is not found, it returns \-1 and sets
+On success, zero is returned.
+If the element is not found, \-1 is returned and
 .I errno
-to
+is set to
 .BR ENOENT .
 .TP
 .B BPF_MAP_GET_NEXT_KEY
+The
+.B BPF_MAP_GET_NEXT_KEY
+command looks up an element by
+.I key
+in the map referred to by the file descriptor
+.IR fd 
+and sets the
+.I next_key
+pointer to the key of the next element.
+
 .nf
-int bpf_get_next_key(int fd, void *key, void *next_key)
+.in +4n
+int
+bpf_get_next_key(int fd, void *key, void *next_key)
 {
     union bpf_attr attr = {
         .map_fd = fd,
@@ -402,24 +480,19 @@ int bpf_get_next_key(int fd, void *key, void *next_key)
     return bpf(BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
 }
 .fi
+.in
 
-The call looks up an element by
-.I key
-in a given map
-.I fd
-and sets the
-.I next_key
-pointer to the key of the next element.
+.\" FIXME Need to explain the return value on success here.
 If
 .I key
-is not found, it returns zero and sets the
+is not found, the operation returns zero and sets the
 .I next_key
 pointer to the key of the first element.
 If
 .I key
-is the last element, it returns \-1 and sets
+is the last element, \-1 is returned and
 .I errno
-to
+is set to
 .BR ENOENT .
 Other possible
 .I errno
@@ -432,25 +505,28 @@ and
 This method can be used to iterate over all elements in the map.
 .TP
 .B close(map_fd)
-will delete the map
+Delete the map referred to by the file descriptor
 .IR map_fd .
-When the user space program that created maps exits all maps will
+When the user-space program that created a map exits, all maps will
 be deleted automatically.
-
+.\" FIXME What are the semantics when a file descriptor is duplicated
+.\"       (dup() etc.)? (I.e., when is a map deallocated automatically?)
+.\"
 .SS BPF programs
-
-.TP
+.TP 4
 .B BPF_PROG_LOAD
-This
-.IR cmd
-is used to load an extended BPF program into the kernel.
+The
+.B BPF_PROG_LOAD
+command is used to load an extended BPF program into the kernel.
 
+.in +4n
 .nf
 char bpf_log_buf[LOG_BUF_SIZE];
 
-int bpf_prog_load(enum bpf_prog_type prog_type,
-                  const struct bpf_insn *insns, int insn_cnt,
-                  const char *license)
+int
+bpf_prog_load(enum bpf_prog_type prog_type,
+              const struct bpf_insn *insns, int insn_cnt,
+              const char *license)
 {
     union bpf_attr attr = {
         .prog_type = prog_type,
@@ -465,6 +541,7 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
     return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 .fi
+.in
 
 .I prog_type
 is one of the available program types:
@@ -473,27 +550,29 @@ is one of the available program types:
 .nf
 enum bpf_prog_type {
     BPF_PROG_TYPE_UNSPEC,
+.\" FIXME Explain the purpose of BPF_PROG_TYPE_UNSPEC
     BPF_PROG_TYPE_SOCKET_FILTER,
     BPF_PROG_TYPE_SCHED_CLS,
+.\" FIXME BPF_PROG_TYPE_SCHED_CLS appears not to exist?
 };
 .fi
 .in
 
 By picking
 .IR prog_type ,
-the program author selects a set of helper functions callable from
-the program and the corresponding format of
+the program author selects a set of helper functions that can be called from
+the BPF program and the corresponding format of
 .I struct bpf_context
 (which is the data blob passed into the program as the first argument).
-For example, the programs loaded with
+For example, programs loaded with
 
     prog_type = BPF_PROG_TYPE_SOCKET_FILTER
 
 may call the
 .BR bpf_map_lookup_elem ()
 helper,
-whereas some future types may not.
-The set of functions available to the programs under a given type may increase
+whereas some future program types may not.
+The set of functions available to BPF programs of a given type may increase
 in the future.
 
 Currently, the set of functions for
@@ -511,6 +590,7 @@ bpf_map_delete_elem(map_fd, void *key)
 .fi
 .in
 
+.\" FIXME The next sentence fragment is incomplete
 and
 .I bpf_context
 is a pointer to a
@@ -520,6 +600,8 @@ Programs cannot access fields of
 directly.
 
 More program types may be added in the future.
+.\" FIXME The following sentence is grammatically broken.
+.\"       What should it say?
 Like
 .B BPF_PROG_TYPE_KPROBE
 and
@@ -527,51 +609,61 @@ and
 for it may be defined as a pointer to a
 .IR "struct pt_regs" .
 
+The fields of
+.I bpf_attr
+are set as follows:
+.RS
+.IP * 3
 .I insns
-array of
+is an array of
 .I "struct bpf_insn"
 instructions.
-
+.IP *
 .I insn_cnt
-number of instructions in the program.
-
+is the number of instructions in the program referred to by
+.IR insns .
+.IP *
 .I license
-license string, which must be GPL compatible to call helper functions
+is a license string, which must be GPL compatible to call helper functions
+.\" FIXME Maybe we should list the GPL compatible strings that can be
+.\"       specified?
 marked
 .IR gpl_only .
-
+.IP *
 .I log_buf
-user supplied buffer that the in-kernel verifier is using to store the
-verification log.
+is a pointer to a caller-allocated buffer in which the in-kernel
+verifier can store the verification log.
 This log is a multi-line string that can be checked by
 the program author in order to understand how the verifier came to
 the conclusion that the BPF program is unsafe.
 The format of the output can change at any time as the verifier evolves.
-
+.IP *
 .I log_size
-size of user buffer.
+size of the buffer pointed to by
+.IR log_bug .
 If the size of the buffer is not large enough to store all
 verifier messages, \-1 is returned and
 .I errno
 is set to
 .BR ENOSPC .
-
+.IP *
 .I log_level
 verbosity level of the verifier.
 A value of zero means that the verifier will
 not provide a log.
-
+.RE
 .TP
 .B close(prog_fd)
 will unload the BPF program.
 .P
-The maps are accessible from programs and used to exchange data between
-programs and between them and user space.
+Maps are accessible from BPF programs and are used to exchange data between
+BPF programs and between BPF programs and user-space programs.
 Programs process various events (like kprobe, packets) and
 store their data into maps.
-User space fetches data from the maps.
-Either the same or a different map may be used by user space as a configuration
-space to alter program behavior on the fly.
+User-space programs fetch data from the maps.
+.\" FIXME We need some elaboration here... What does the next sentence mean?
+Either the same or a different map may be used by user space
+as a configuration space to alter program behavior on the fly.
 .SS Events
 Once a program is loaded, it can be attached to an event.
 Various kernel
@@ -580,19 +672,19 @@ For example:
 
 .in +4n
 .nf
-setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF,
+setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_BPF,
            &prog_fd, sizeof(prog_fd));
 .fi
 .in
 
 will attach the program
 .I prog_fd
-to socket
-.I sock
+to the socket
+.IR sockfd ,
 which was received from a prior call to
 .BR socket (2).
 
-In the future
+In the future,
 
 .in +4n
 .nf
@@ -608,6 +700,7 @@ which was received by prior call to
 .BR perf_event_open (2).
 
 .SH EXAMPLES
+.\" FIXME It would be nice if this was a complete working example
 .nf
 /* bpf+sockets example:
  * 1. create array map of 256 elements
@@ -617,7 +710,8 @@ which was received by prior call to
  * 3. attach prog_fd to raw socket via setsockopt()
  * 4. print number of received TCP/UDP packets every second
  */
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     int sock, map_fd, prog_fd, key;
     long long value = 0, tcp_cnt, udp_cnt;
@@ -645,12 +739,16 @@ int main(int argc, char **argv)
                                 /* if (r0 == 0) goto pc+2 */
         BPF_MOV64_IMM(BPF_REG_1, 1),                /* r1 = 1 */
         BPF_XADD(BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0),
+.\" FIXME What does 'lock' in the line below mean?
                                 /* lock *(u64 *) r0 += r1 */
         BPF_MOV64_IMM(BPF_REG_0, 0),                /* r0 = 0 */
         BPF_EXIT_INSN(),                            /* return r0 */
     };
 
     prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog,
+.\" FIXME The next line looks wrong. Should it not be
+.\"
+.\"           sizeof(prog) / sizeof(struct bpf_insn) ?
                             sizeof(prog), "GPL");
 
     sock = open_raw_sock("lo");
@@ -747,7 +845,7 @@ even though all program instructions are valid, the program has been
 rejected because it was deemed unsafe.
 This may be because it may have
 accessed a disallowed memory region or an uninitialized stack/register or
-because the function contraints don't match the actual types or because
+because the function constraints don't match the actual types or because
 there was a misaligned memory access.
 In this case, it is recommended to call
 .BR bpf ()
@@ -767,8 +865,7 @@ indicates that the element with the given
 was not found.
 .TP
 .BR E2BIG
-program is too large or
-a map reached
+The BPF program is too large or a map reached the
 .I max_entries
 limit (maximum number of elements).
 .SH VERSIONS
@@ -780,9 +877,14 @@ The
 .BR bpf ()
 system call is Linux-specific.
 .SH NOTES
-These commands may be used only by a privileged process (one having the
+In the current implementation, all
+.BR bpf ()
+commands require the caller to have the
 .B CAP_SYS_ADMIN
-capability).
+capability.
 .SH SEE ALSO
+.BR seccomp (2),
+.BR socket (7)
+
 Both classic and extended BPF are explained in the kernel source file
 .IR Documentation/networking/filter.txt .

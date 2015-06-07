@@ -75,10 +75,10 @@ the maps that the eBPF program uses,
 so that the selected maps cannot be removed until the program is unloaded.
 
 eBPF programs can be attached to different events.
-.\" FIXME: In the next sentence , "packets" are not "events". What
-.\" do you really mean to say here? ("the arrival of a network packet"?)
-These events can be packets, tracing
-events, and other types that may be added in the future.
+These events can be the arrival of network packets, tracing
+events, classification event by qdisc (for eBPF programs attached to a
+.BR tc (8)
+classifier), and other types that may be added in the future.
 A new event triggers execution of the eBPF program, which
 may store information about the event in the maps.
 Beyond storing data, eBPF programs may call a fixed set of
@@ -126,7 +126,8 @@ Look up an element by key in a specified map and return the key
 of the next element.
 .TP
 .B BPF_PROG_LOAD
-Verify and load an eBPF program.
+Verify and load an eBPF program,
+returning a new file descriptor associated with the program.
 .PP
 The
 .I attr
@@ -173,6 +174,10 @@ union bpf_attr {
         __u32         log_size;   /* size of user buffer */
         __aligned_u64 log_buf;    /* user supplied 'char *'
                                      buffer */
+	__u32         kern_version;
+                                  /* checked when prog_type=kprobe
+                                     (since Linux 4.1) */
+.\"                 commit 2541517c32be2531e0da59dfd7efc1ce844644f5
     };
 } __attribute__((aligned(8)));
 .fi
@@ -300,13 +305,12 @@ are supported:
 .in +4n
 .nf
 enum bpf_map_type {
-    BPF_MAP_TYPE_UNSPEC,
+    BPF_MAP_TYPE_UNSPEC,    /* Reserve 0 as invalid map type */
     BPF_MAP_TYPE_HASH,
     BPF_MAP_TYPE_ARRAY,
 };
 .fi
 .in
-.\" FIXME Explain the purpose of BPF_MAP_TYPE_UNSPEC
 
 .I map_type
 selects one of the available map implementations in the kernel.
@@ -519,6 +523,10 @@ be deleted automatically.
 The
 .B BPF_PROG_LOAD
 command is used to load an eBPF program into the kernel.
+The return value for this command is a new file descriptor associated
+with this program.
+.\" FIXME What is the effect of closing this FD?
+.\" FIXME What is the effect of duplicating this FD?
 
 .in +4n
 .nf
@@ -550,8 +558,7 @@ is one of the available program types:
 .in +4n
 .nf
 enum bpf_prog_type {
-    BPF_PROG_TYPE_UNSPEC,
-.\" FIXME Explain the purpose of BPF_PROG_TYPE_UNSPEC
+    BPF_PROG_TYPE_UNSPEC,   /* Reserve 0 as invalid program type */
     BPF_PROG_TYPE_SOCKET_FILTER,
     BPF_PROG_TYPE_SCHED_CLS,
 .\" FIXME BPF_PROG_TYPE_SCHED_CLS appears not to exist?
@@ -652,6 +659,7 @@ is set to
 verbosity level of the verifier.
 A value of zero means that the verifier will
 not provide a log.
+.\" FIXME We need text here to describe 'kern_version'
 .RE
 .TP
 .B close(prog_fd)

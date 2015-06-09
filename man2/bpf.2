@@ -48,10 +48,11 @@ in-kernel helper functions (via the
 opcode extension provided by eBPF)
 and access shared data structures such as BPF maps.
 The programs can be written in a restricted C that is compiled into
-.\" FIXME In the next line, what is "a restricted C"? Where does
-.\"       one get further information about it?
 eBPF bytecode and executed on the in-kernel virtual machine or
 just-in-time compiled into native code.
+(Various features are omitted from this restricted C, such as loops, 
+global variables, variadic functions, floating-point numbers,
+and passing structures as function arguments.)
 .SS Extended BPF Design/Architecture
 .P
 .\" FIXME In the following line, what does "different data types" mean?
@@ -209,7 +210,8 @@ argument to invoke different operations.
 .B BPF_MAP_CREATE
 The
 .B BPF_MAP_CREATE
-command creates a new map.
+command creates a new map,
+returning a new file descriptor that refers to the map.
 
 .in +4n
 .nf
@@ -308,6 +310,7 @@ enum bpf_map_type {
     BPF_MAP_TYPE_UNSPEC,    /* Reserve 0 as invalid map type */
     BPF_MAP_TYPE_HASH,
     BPF_MAP_TYPE_ARRAY,
+    BPF_MAP_TYPE_PROG_ARRAY,
 };
 .fi
 .in
@@ -349,10 +352,10 @@ bpf_lookup_elem(int fd, void *key, void *value)
 
 If an element is found,
 the operation returns zero and stores the element's value into
-.IR value .
-.\" FIXME Here, I think we need some statement about what 'value' must
-.\"       point to. Presumable, it must be a buffer at least as large as
-.\"       the map's 'value_size' attribute?
+.IR value ,
+which must point to a buffer of
+.I value_size
+bytes.
 
 If no element is found, the operation returns \-1 and sets
 .I errno
@@ -487,7 +490,11 @@ bpf_get_next_key(int fd, void *key, void *next_key)
 .fi
 .in
 
-.\" FIXME Need to explain the return value on success here.
+If
+.I key
+is found, the operation returns zero and sets the
+.I next_key
+pointer to the key of the next element.
 If
 .I key
 is not found, the operation returns zero and sets the
@@ -667,12 +674,13 @@ will unload the eBPF program.
 .P
 Maps are accessible from eBPF programs and are used to exchange data between
 eBPF programs and between eBPF programs and user-space programs.
-Programs process various events (like kprobe, packets) and
-store their data into maps.
-User-space programs fetch data from the maps.
-.\" FIXME We need some elaboration here... What does the next sentence mean?
-Either the same or a different map may be used by user space
-as a configuration space to alter program behavior on the fly.
+For example,
+eBPF programs can process various events (like kprobe, packets) and
+store their data into a map,
+and user-space programs can then fetch data from the map.
+Conversely, user-space programs can use a map as a configuration mechanism,
+populating the map with values checked by the eBPF program,
+which then modifies its behavior on the fly according to those values.
 .SS Events
 Once a program is loaded, it can be attached to an event.
 Various kernel
@@ -755,9 +763,6 @@ main(int argc, char **argv)
     };
 
     prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog,
-.\" FIXME The next line looks wrong. Should it not be
-.\"
-.\"           sizeof(prog) / sizeof(struct bpf_insn) ?
                             sizeof(prog), "GPL");
 
     sock = open_raw_sock("lo");
@@ -777,6 +782,10 @@ main(int argc, char **argv)
     return 0;
 }
 .fi
+
+Some complete working code can be found in
+.IR samples/bpf
+directory in the kernel source tree.
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
 .TP

@@ -241,6 +241,48 @@ system call returns the size (in bytes) of the
 .I cpumask_t
 data type that is used internally by the kernel to
 represent the CPU set bit mask.
+.SS Handling systems with more than 1024 CPUs
+The
+.I cpu_set_t
+data type used by glibc has a fixed size of 128 bytes,
+meaning that the maximum CPU number that can be represented is 1023.
+.\" FIXME . See https://sourceware.org/bugzilla/show_bug.cgi?id=15630
+.\" and https://sourceware.org/ml/libc-alpha/2013-07/msg00288.html
+If the system has more than 1024 CPUs, then calls of the form:
+
+    sched_getaffinity(pid, sizeof(cpu_set_t), &mask);
+
+will fail with the error
+.BR EINVAL ,
+the error produced by the underlying system call for the case where the
+.I mask
+size specified in
+.I cpusetsize
+is smaller than the size of the affinity mask used by the kernel.
+.PP
+The underlying system calls (which represent CPU masks as bit masks of type
+.IR "unsigned long\ *" )
+impose no restriction on the size of the mask.
+To handle systems with more than 1024 CPUs, one must dynamically allocate the
+.I mask
+argument using
+.BR CPU_ALLOC (3)
+and manipulate the mask using the "_S" macros described in
+.BR CPU_ALLOC (3).
+Using an allocation based on the number of online CPUs:
+
+    cpu_set_t *mask = CPU_ALLOC(CPU_ALLOC_SIZE(
+                                sysconf(_SC_NPROCESSORS_CONF)));
+
+is probably sufficient, although the value returned by the
+.BR sysconf ()
+call can in theory change during the lifetime of the process.
+Alternatively, one can obtain a value that is guaranteed to be
+stable for the lifetime of the process by probing for the size
+of the required mask using
+.BR sched_getaffinity ()
+calls with increasing mask sizes until the call does not fail with the error
+.BR EINVAL .
 .SH EXAMPLE
 The program below creates a child process.
 The parent and child then each assign themselves to a specified CPU

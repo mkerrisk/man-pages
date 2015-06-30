@@ -284,6 +284,17 @@ and they run on the same processors.
 Instead, the mask
 .BR __X32_SYSCALL_BIT
 is used on the system call number to tell the two ABIs apart.
+.\" As noted by Dave Drysdale in a note at the end of 
+.\" https://lwn.net/Articles/604515/
+.\"     One additional detail to point out for the x32 ABI case:
+.\"     the syscall number gets a high bit set (__X32_SYSCALL_BIT),
+.\"     to mark it as an x32 call.
+.\"
+.\"     If x32 support is included in the kernel, then __SYSCALL_MASK
+.\"     will have a value that is not all-ones, and this will trigger
+.\"     an extra instruction in system_call to mask off the extra bit,
+.\"     so that the syscall table indexing still works. 
+
 This means that in order to create a seccomp-based
 blacklist for system calls performed through the x86-64 ABI,
 it is necessary to not only check that
@@ -300,7 +311,7 @@ When checking values from
 against a blacklist, keep in mind that arguments are often
 silently truncated before being processed, but after the seccomp check.
 For example, this happens if the i386 ABI is used on an
-x86-64 kernel: Although the kernel will normally not look beyond
+x86-64 kernel: although the kernel will normally not look beyond
 the 32 lowest bits of the arguments, the values of the full
 64-bit registers will be present in the seccomp data.
 A less surprising example is that if the x86-64 ABI is used to perform

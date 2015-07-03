@@ -1,4 +1,5 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2015 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -63,6 +64,48 @@ T}	Thread safety	MT-Safe
 .TE
 .SH CONFORMING TO
 SVr4, 4.3BSD, C89, C99, POSIX.1-2001.
+.SH NOTES
+Failure to observe the requirement that the memory areas
+do not overlap has been the source of real bugs.
+(POSIX and the C standards are explicit that employing
+.BR memcpy ()
+with overlapping areas produces undefined behavior.)
+Most notably, in glibc 2.13
+.\" glibc commit 6fb8cbcb58a29fff73eb2101b34caa19a7f88eba
+a performance optimization of
+.BR memcpy ()
+on some platforms (including x86-64) included changing the order
+.\" From forward copying to backward copying
+in which bytes were copied from
+.I src
+to
+.IR dest .
+
+This change revealed breakages in a number of applications that performed
+copying with overlapping areas.
+.\" Adobe Flash player was the highest profile example:
+.\"   https://bugzilla.redhat.com/show_bug.cgi?id=638477
+.\"   Reported: 2010-09-29 02:35 EDT by JCHuynh
+.\"   Bug 638477 - Strange sound on mp3 flash website
+.\"
+.\"   https://sourceware.org/bugzilla/show_bug.cgi?id=12518
+.\"   Bug 12518 - memcpy acts randomly (and differently) with overlapping areas
+.\"   Reported:       2011-02-25 02:26 UTC by Linus Torvalds
+.\"
+Under the previous implementation,
+the order in which the bytes were copied had fortuitously hidden the bug,
+which was revealed when the copying order was reversed.
+In glibc 2.14,
+.\" glibc commit 0354e355014b7bfda32622e0255399d859862fcd
+a versioned symbol was added so that old binaries
+(i.e., those linked against glibc versions earlier than 2.14)
+employed a
+.BR memcpy ()
+implementation that safely handles the overlapping buffers case
+(by providing an "older"
+.BR memcpy ()
+implementation that was aliased to
+.BR memmove (3)).
 .SH SEE ALSO
 .BR bcopy (3),
 .BR memccpy (3),

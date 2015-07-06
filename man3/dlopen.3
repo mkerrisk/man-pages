@@ -34,8 +34,8 @@
 .\"
 .TH DLOPEN 3 2015-03-29 "Linux" "Linux Programmer's Manual"
 .SH NAME
-dladdr, dlclose, dlerror, dlopen, dlsym, dlvsym \- programming interface to
-dynamic linking loader
+dlclose, dlerror, dlopen, dlsym, dlvsym \-
+programming interface to dynamic linking loader
 .SH SYNOPSIS
 .B #include <dlfcn.h>
 .sp
@@ -345,51 +345,16 @@ Constructor routines are executed before
 returns, and destructor routines are executed before
 .BR dlclose ()
 returns.
-.SS Glibc extensions: dladdr() and dlvsym()
-Glibc adds two functions not described by POSIX, with prototypes
+.SS Glibc extension: dlvsym()
+Glibc adds the following function not described by POSIX,
+with prototype as follows:
 .sp
 .nf
 .BR "#define _GNU_SOURCE" "         /* See feature_test_macros(7) */"
 .B #include <dlfcn.h>
 .sp
-.BI "int dladdr(void *" addr ", Dl_info *" info );
-.sp
 .BI "void *dlvsym(void *" handle ", char *" symbol ", char *" version );
 .fi
-.PP
-The function
-.BR dladdr ()
-takes a function pointer and tries to resolve name
-and file where it is located.
-Information is stored in the
-.I Dl_info
-structure:
-.sp
-.in +4n
-.nf
-typedef struct {
-    const char *dli_fname;  /* Pathname of shared object that
-                               contains address */
-    void       *dli_fbase;  /* Address at which shared object
-                               is loaded */
-    const char *dli_sname;  /* Name of symbol whose definition
-                               overlaps \fIaddr\fP */
-    void       *dli_saddr;  /* Exact address of symbol named
-                               in \fIdli_sname\fP */
-} Dl_info;
-.fi
-.in
-.PP
-If no symbol matching
-.I addr
-could be found, then
-.I dli_sname
-and
-.I dli_saddr
-are set to NULL.
-.PP
-.BR dladdr ()
-returns 0 on error, and nonzero on success.
 .PP
 The function
 .BR dlvsym (),
@@ -397,6 +362,15 @@ provided by glibc since version 2.1,
 does the same as
 .BR dlsym ()
 but takes a version string as an additional argument.
+.SH VERSIONS
+.BR dlopen (),
+.BR dlsym (),
+.BR dlclose (),
+and
+.BR dlerror ()
+are present in glibc 2.0 and later.
+.BR dlvsym ()
+first appeared in glibc 2.1.
 .SH CONFORMING TO
 POSIX.1-2001 describes
 .BR dlclose (),
@@ -430,38 +404,8 @@ can be used to register an exit handler that is automatically
 called when a library is unloaded.
 .SS History
 The dlopen interface standard comes from SunOS.
-That system also has
-.BR dladdr (),
-but not
+That system does not have
 .BR dlvsym ().
-.SH BUGS
-Sometimes, the function pointers you pass to
-.BR dladdr ()
-may surprise you.
-On some architectures (notably i386 and x86_64),
-.I dli_fname
-and
-.I dli_fbase
-may end up pointing back at the object from which you called
-.BR dladdr (),
-even if the function used as an argument should come from
-a dynamically linked library.
-.PP
-The problem is that the function pointer will still be resolved
-at compile time, but merely point to the
-.I plt
-(Procedure Linkage Table)
-section of the original object (which dispatches the call after
-asking the dynamic linker to resolve the symbol).
-To work around this,
-you can try to compile the code to be position-independent:
-then, the compiler cannot prepare the pointer
-at compile time anymore and today's
-.BR gcc (1)
-will generate code that just loads the final symbol address from the
-.I got
-(Global Offset Table) at run time before passing it to
-.BR dladdr ().
 .SH EXAMPLE
 Load the math library, and print the cosine of 2.0:
 .nf

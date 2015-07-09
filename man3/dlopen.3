@@ -34,7 +34,7 @@
 .\"
 .TH DLOPEN 3 2015-03-29 "Linux" "Linux Programmer's Manual"
 .SH NAME
-dlclose, dlerror, dlopen, dlsym, dlvsym \-
+dlclose, dlerror, dlopen, dlmopen, dlsym, dlvsym \-
 programming interface to dynamic linking loader
 .SH SYNOPSIS
 .B #include <dlfcn.h>
@@ -50,6 +50,8 @@ programming interface to dynamic linking loader
 .B #define _GNU_SOURCE
 .br
 .B #include <dlfcn.h>
+.sp
+.BI "void *dlmopen (Lmid_t " lmid ", const char *" filename ", int " flags );
 .sp
 .BI "void *dlvsym(void *" handle ", char *" symbol ", char *" version );
 .sp
@@ -236,6 +238,41 @@ may force symbol resolution for a library earlier loaded with
 If
 .BR dlopen ()
 fails for any reason, it returns NULL.
+.SS dlmopen()
+This function performs the same task as
+.BR dlopen ()\(emthe
+.I filename
+and
+.I flags
+arguments, as well as the return value, are the same.
+It differs in that it accepts an additional argument,
+.IR lmid ,
+that specifies the link map in which the shared library should be loaded.
+(By comparison,
+.BR dlopen ()
+adds the dynamically loaded library to the same link map as
+the shared object from which the
+.BR dlopen ()
+call is made.)
+
+The
+.I lmid
+argument is either the ID of an existing link map
+.\" FIXME: Is using dlinfo() RTLD_DI_LMID the right technique?
+(which can be obtained using the
+.BR dlinfo (3)
+.B RTLD_DI_LMID
+request) or one of the following special values:
+.TP
+.B LM_ID_BASE
+Load the shared library in the initial link map
+(i.e., the application's link map).
+.TP
+.B LM_ID_NEWLM
+Create a new link map and load the shared library in that map.
+The glibc implementation supports a maximum of
+.\" DL_NNS
+16 link maps.
 .SS dlsym()
 The function
 .BR dlsym ()
@@ -360,6 +397,8 @@ returns.
 and
 .BR dlerror ()
 are present in glibc 2.0 and later.
+.BR dlmopen ()
+first appeared in glibc 2.3.4.
 .BR dlvsym ()
 first appeared in glibc 2.1.
 .SH CONFORMING TO
@@ -370,8 +409,10 @@ POSIX.1-2001 describes
 and
 .BR dlsym ().
 The
+.BR dlmopen ()
+and
 .BR dlvsym ()
-function is a GNU extension.
+functions are GNU extensions.
 .SH NOTES
 The symbols
 .B RTLD_DEFAULT
@@ -399,7 +440,9 @@ called when a library is unloaded.
 .SS History
 The dlopen interface standard comes from SunOS.
 That system does not have
-.BR dlvsym ().
+.BR dlvsym (),
+but does have
+.BR dlmopen ().
 .SH EXAMPLE
 Load the math library, and print the cosine of 2.0:
 .nf

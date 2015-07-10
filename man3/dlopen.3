@@ -76,10 +76,11 @@ it was last called.
 .SS dlopen()
 The function
 .BR dlopen ()
-loads the dynamic library file named by the null-terminated
+loads the dynamic shared object (shared library)
+file named by the null-terminated
 string
 .I filename
-and returns an opaque "handle" for the dynamic library.
+and returns an opaque "handle" for the loaded object.
 If
 .I filename
 is NULL, then the returned handle is for the main program.
@@ -87,7 +88,7 @@ If
 .I filename
 contains a slash ("/"), then it is interpreted as a (relative
 or absolute) pathname.
-Otherwise, the dynamic linker searches for the library as follows
+Otherwise, the dynamic linker searches for the object as follows
 (see
 .BR ld.so (8)
 for further details):
@@ -120,11 +121,13 @@ and
 .I /usr/lib
 are searched (in that order).
 .PP
-If the library has dependencies on other shared libraries,
+If the object specified by
+.I filename
+has dependencies on other shared objects,
 then these are also automatically loaded by the dynamic linker
 using the same rules.
 (This process may occur recursively,
-if those libraries in turn have dependencies, and so on.)
+if those objects in turn have dependencies, and so on.)
 .PP
 One of the following two values must be included in
 .IR flags :
@@ -135,13 +138,13 @@ Only resolve symbols as the code that references them is executed.
 If the symbol is never referenced, then it is never resolved.
 (Lazy binding is performed only for function references;
 references to variables are always immediately bound when
-the library is loaded.)
+the shared object is loaded.)
 .TP
 .B RTLD_NOW
 If this value is specified, or the environment variable
 .B LD_BIND_NOW
 is set to a nonempty string,
-all undefined symbols in the library are resolved before
+all undefined symbols in the shared object are resolved before
 .BR dlopen ()
 returns.
 If this cannot be done, an error is returned.
@@ -150,34 +153,34 @@ Zero or more of the following values may also be ORed in
 .IR flags :
 .TP
 .B RTLD_GLOBAL
-The symbols defined by this library will be
-made available for symbol resolution of subsequently loaded libraries.
+The symbols defined by this shared object will be
+made available for symbol resolution of subsequently loaded shared object.
 .TP
 .B RTLD_LOCAL
 This is the converse of
 .BR RTLD_GLOBAL ,
 and the default if neither flag is specified.
-Symbols defined in this library are not made available to resolve
-references in subsequently loaded libraries.
+Symbols defined in this shared object are not made available to resolve
+references in subsequently loaded shared objects.
 .TP
 .BR RTLD_NODELETE " (since glibc 2.2)"
-Do not unload the library during
+Do not unload the shared object during
 .BR dlclose ().
-Consequently, the library's static variables are not reinitialized
-if the library is reloaded with
+Consequently, the object's static variables are not reinitialized
+if the object is reloaded with
 .BR dlopen ()
 at a later time.
 This flag is not specified in POSIX.1-2001.
 .\" (But it is present on Solaris.)
 .TP
 .BR RTLD_NOLOAD " (since glibc 2.2)"
-Don't load the library.
-This can be used to test if the library is already resident
+Don't load the shared object.
+This can be used to test if the object is already resident
 .RB ( dlopen ()
-returns NULL if it is not, or the library's handle if it is resident).
-This flag can also be used to promote the flags on a library
+returns NULL if it is not, or the object's handle if it is resident).
+This flag can also be used to promote the flags on a shared object
 that is already loaded.
-For example, a library that was previously loaded with
+For example, a shared object that was previously loaded with
 .B RTLD_LOCAL
 can be reopened with
 .BR RTLD_NOLOAD\ |\ RTLD_GLOBAL .
@@ -189,10 +192,10 @@ This flag is not specified in POSIX.1-2001.
 .\" Inimitably described by UD in
 .\" http://sources.redhat.com/ml/libc-hacker/2004-09/msg00083.html.
 Place the lookup scope of the symbols in this
-library ahead of the global scope.
-This means that a self-contained library will use
+shared object ahead of the global scope.
+This means that a self-contained object will use
 its own symbols in preference to global symbols with the same name
-contained in libraries that have already been loaded.
+contained in objects that have already been loaded.
 This flag is not specified in POSIX.1-2001.
 .PP
 If
@@ -201,27 +204,27 @@ is NULL, then the returned handle is for the main program.
 When given to
 .BR dlsym (),
 this handle causes a search for a symbol in the main program,
-followed by all shared libraries loaded at program startup,
-and then all shared libraries loaded by
+followed by all shared objects loaded at program startup,
+and then all shared objects loaded by
 .BR dlopen ()
 with the flag
 .BR RTLD_GLOBAL .
 .PP
-External references in the library are resolved using the libraries
-in that library's dependency list and any other libraries previously
-opened with the
+External references in the shared object are resolved using the
+shared objects in that object's dependency list and any other
+objects previously opened with the
 .B RTLD_GLOBAL
 flag.
 If the executable was linked with the flag "\-rdynamic"
 (or, synonymously, "\-\-export\-dynamic"),
 then the global symbols in the executable will also be used
-to resolve references in a dynamically loaded library.
+to resolve references in a dynamically loaded shared object.
 .PP
-If the same library is loaded again with
+If the same shared object is loaded again with
 .BR dlopen (),
-the same library handle is returned.
+the same object handle is returned.
 The dl library maintains reference
-counts for library handles, so a dynamic library is not
+counts for object handles, so a dynamically loaded shared object is not
 deallocated until
 .BR dlclose ()
 has been called on it as many times as
@@ -288,20 +291,20 @@ The glibc implementation supports a maximum of
 .SS dlsym()
 The function
 .BR dlsym ()
-takes a "handle" of a dynamic library returned by
+takes a "handle" of a dynamic loaded shared object returned by
 .BR dlopen ()
 and the
 null-terminated symbol name, returning the address where that symbol is
 loaded into memory.
 If the symbol is not found, in the specified
-library or any of the libraries that were automatically loaded by
+object or any of the shared objects that were automatically loaded by
 .BR dlopen ()
-when that library was loaded,
+when that object was loaded,
 .BR dlsym ()
 returns NULL.
 (The search performed by
 .BR dlsym ()
-is breadth first through the dependency tree of these libraries.)
+is breadth first through the dependency tree of these shared objects.)
 Since the value of the symbol could actually be NULL (so that a
 NULL return from
 .BR dlsym ()
@@ -319,24 +322,24 @@ There are two special pseudo-handles:
 .TP
 .B RTLD_DEFAULT
 Find the first occurrence of the desired symbol
-using the default library search order.
+using the default shared object search order.
 The search will include global symbols in the executable
 and its dependencies,
-as well as symbols in libraries that were dynamically loaded with the
+as well as symbols in shared objects that were dynamically loaded with the
 .BR RTLD_GLOBAL
 flag.
 .TP
 .BR RTLD_NEXT
 Find the next occurrence of the desired symbol in the search order
-after the current library.
+after the current object.
 This allows one to provide a wrapper
-around a function in another shared library, so that, for example,
-the definition of a function in a preloaded library
+around a function in another shared object, so that, for example,
+the definition of a function in a preloaded shared object
 (see
 .B LD_PRELOAD
 in
 .BR ld.so (8))
-can find and invoke the "real" function provided in another library
+can find and invoke the "real" function provided in another shared object
 (or for that matter, the "next" definition of the function in cases
 where there are multiple layers of preloading).
 .SS dlvsym()
@@ -348,10 +351,11 @@ but takes a version string as an additional argument.
 .SS dlclose()
 The function
 .BR dlclose ()
-decrements the reference count on the dynamic library handle
+decrements the reference count on the
+dynamically loaded shared object referred to by
 .IR handle .
 If the reference count drops to zero,
-then the dynamic library is unloaded.
+then the object is unloaded.
 All shared objects that were automatically loaded when
 .BR dlopen ()
 was invoked on the object referred to by
@@ -366,14 +370,14 @@ The linker recognizes special symbols
 .B _init
 and
 .BR _fini .
-If a dynamic library exports a routine named
+If a dynamically loaded shared object exports a routine named
 .BR _init (),
 then that code is executed after the loading, before
 .BR dlopen ()
 returns.
-If the dynamic library exports a routine named
+If the shared object exports a routine named
 .BR _fini (),
-then that routine is called just before the library is unloaded.
+then that routine is called just before the object is unloaded.
 In case you need to avoid linking against the system startup files,
 this can be done by using the
 .BR gcc (1)
@@ -391,7 +395,7 @@ since the constructor/destructor routines will not be executed
 .\" void _init(void) __attribute__((constructor));
 .\" void _fini(void) __attribute__((destructor));
 .LP
-Instead, libraries should export routines using the
+Instead, shared objects should export routines using the
 .B __attribute__((constructor))
 and
 .B __attribute__((destructor))
@@ -448,7 +452,7 @@ was defined before including it.
 Since glibc 2.2.3,
 .BR atexit (3)
 can be used to register an exit handler that is automatically
-called when a library is unloaded.
+called when a shared object is unloaded.
 .\"
 .SS dlmopen() and namespaces
 A link-map list defines an isolated namespace for the
@@ -473,7 +477,7 @@ since it prevents a shared object's symbols from being available to
 other shared object.
 In some cases,
 we may want to make the symbols provided by a dynamically
-loaded library available to (a subset of) other shared objects
+loaded shared object available to (a subset of) other shared objects
 without exposing those symbols to the entire application.
 This can be achieved by using a separate namespace and the
 .B RTLD_GLOBAL
@@ -563,7 +567,7 @@ with the following command:
     gcc \-rdynamic \-o foo foo.c \-ldl
 .in
 .PP
-Libraries exporting (the obsolete)
+Shared objects exporting (the obsolete)
 .BR _init ()
 and
 .BR _fini ()

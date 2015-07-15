@@ -248,8 +248,14 @@ This function performs the same task as
 .I filename
 and
 .I flags
-arguments, as well as the return value, are the same.
-It differs in that it accepts an additional argument,
+arguments, as well as the return value, are the same,
+except for the differences noted below.
+
+The
+.BR dlmopen ()
+function differs from
+.BR dlopen ()
+primarily in that it accepts an additional argument,
 .IR lmid ,
 that specifies the link-map list (also referred to as a
 .IR namespace )
@@ -283,10 +289,33 @@ The object must have been correctly
 (statically) linked
 to reference all of the other shared objects that it requires,
 since the new namespace is initially empty.
-
+.PP
+Note the following restrictions for
+.BR dlmopen ():
+.IP * 3
 The glibc implementation supports a maximum of
 .\" DL_NNS
 16 namespaces.
+.IP *
+.\" dlerror(): "invalid mode"
+The value
+.BR RTLD_GLOBAL
+cannot be specified in
+.IR flags .
+More generally, the
+.BR RTLD_GLOBAL
+flag can be used with
+.BR dlopen ()
+.\" Otherwise: one gets SIGSEGV.
+only when loading a library into the initial namespace.
+.IP *
+.\" dlerror(): "invalid namespace"
+If
+.I handle
+is NULL, then the only permitted value for
+.I lmid
+is
+.BR LM_ID_BASE .
 .\"
 .SS dlsym()
 The function
@@ -479,9 +508,8 @@ In some cases,
 we may want to make the symbols provided by a dynamically
 loaded shared object available to (a subset of) other shared objects
 without exposing those symbols to the entire application.
-This can be achieved by using a separate namespace and the
-.B RTLD_GLOBAL
-flag.
+.\" FIXME It's still not clear to me what dlmopen() gives us that
+.\" RTLD_LOCAL did not...
 
 Possible uses of
 .BR dlmopen ()

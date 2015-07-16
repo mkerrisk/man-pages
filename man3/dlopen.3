@@ -230,9 +230,7 @@ deallocated until
 has been called on it as many times as
 .BR dlopen ()
 has succeeded on it.
-The
-.BR _init ()
-routine, if present, is called only once.
+Any initialization returns (see below) are called just once.
 But a subsequent call with
 .B RTLD_NOW
 may force symbol resolution for a shared object earlier loaded with
@@ -485,47 +483,65 @@ Using
 this can be achieved by loading the same shared object file into
 different namespaces.
 .\"
-.SS The obsolete symbols _init() and _fini()
-The linker recognizes special symbols
+.SS Initialization and finalization functions
+Shared objects may export functions using the
+.B __attribute__((constructor))
+and
+.B __attribute__((destructor))
+function attributes.
+Constructor functions are executed before
+.BR dlopen ()
+returns, and destructor functions are executed before
+.BR dlclose ()
+returns.
+A shared object may export multiple constructors and destructors,
+and priorities can be associated with each function
+to determine the order in which they are executed.
+See the
+.BR gcc
+info pages (under "Function attributes")
+.\" info gcc "C Extensions" "Function attributes"
+for further information.
+
+An older method of (partially) achieving the same result is via the use of
+two special symbols recognized by the linker:
 .B _init
 and
 .BR _fini .
 If a dynamically loaded shared object exports a routine named
 .BR _init (),
-then that code is executed after the loading, before
+then that code is executed after loading a shared object, before
 .BR dlopen ()
 returns.
 If the shared object exports a routine named
 .BR _fini (),
 then that routine is called just before the object is unloaded.
-In case you need to avoid linking against the system startup files,
+In this case, one must avoid linking against the system startup files,
+which contain default versions of these files;
 this can be done by using the
 .BR gcc (1)
 .I \-nostartfiles
 command-line option.
 .LP
-Using these routines, or the gcc
-.B \-nostartfiles
-or
-.B \-nostdlib
-options, is not recommended.
-Their use may result in undesired behavior,
-since the constructor/destructor routines will not be executed
-(unless special measures are taken).
-.\" void _init(void) __attribute__((constructor));
-.\" void _fini(void) __attribute__((destructor));
-.LP
-Instead, shared objects should export routines using the
-.B __attribute__((constructor))
+Use of
+.B _init
 and
-.B __attribute__((destructor))
-function attributes.
-See the gcc info pages for information on these.
-Constructor routines are executed before
-.BR dlopen ()
-returns, and destructor routines are executed before
-.BR dlclose ()
-returns.
+.BR _fini
+is now deprecated in favor of the aforementioned
+constructors and destructors,
+which among other advantages,
+permit multiple initialization and finalization functions to be defined.
+.\"
+.\" Using these routines, or the gcc
+.\" .B \-nostartfiles
+.\" or
+.\" .B \-nostdlib
+.\" options, is not recommended.
+.\" Their use may result in undesired behavior,
+.\" since the constructor/destructor routines will not be executed
+.\" (unless special measures are taken).
+.\" .\" void _init(void) __attribute__((constructor));
+.\" .\" void _fini(void) __attribute__((destructor));
 .\"
 .SS History
 The dlopen interface standard comes from SunOS.

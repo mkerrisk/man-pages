@@ -263,31 +263,10 @@ Load the shared object in the initial namespace
 .TP
 .B LM_ID_NEWLM
 Create a new namespace and load the shared object in that namespace.
-The object must have been correctly
-(statically) linked
+The object must have been correctly linked
 to reference all of the other shared objects that it requires,
 since the new namespace is initially empty.
 .PP
-Note the following restrictions for
-.BR dlmopen ():
-.IP * 3
-The glibc implementation supports a maximum of
-.\" DL_NNS
-16 namespaces.
-.IP *
-.\" dlerror(): "invalid mode"
-The value
-.BR RTLD_GLOBAL
-cannot be specified in
-.IR flags .
-More generally, the
-.BR RTLD_GLOBAL
-flag can be used with
-.BR dlopen ()
-.\" Otherwise: one gets SIGSEGV.
-only when loading a library into the initial namespace.
-.IP *
-.\" dlerror(): "invalid namespace"
 If
 .I handle
 is NULL, then the only permitted value for
@@ -307,10 +286,23 @@ All shared objects that were automatically loaded when
 was invoked on the object referred to by
 .I handle
 are recursively closed in the same manner.
-.LP
-The function
+.SH RETURN VALUE
+On success,
+.BR dlopen ()
+and
+.BR dlmopen ()
+return a non-NULL handle for the loaded library.
+On error
+(file could not be found, was not readable, had the wrong format,
+or caused errors during loading),
+these functions return NULL.
+
+On success,
 .BR dlclose ()
-returns 0 on success, and nonzero on error.
+returns 0; on error, ir returns a nonzero value.
+
+Errors from these functions can be diagnosed using
+.BR dlerror (3).
 .SH VERSIONS
 .BR dlopen ()
 and
@@ -367,8 +359,9 @@ In some cases,
 we may want to make the symbols provided by a dynamically
 loaded shared object available to (a subset of) other shared objects
 without exposing those symbols to the entire application.
-.\" FIXME It's still not clear to me what dlmopen() gives us that
-.\" RTLD_LOCAL did not...
+This can be achieved by using a separate namespace and the
+.B RTLD_GLOBAL
+flag.
 
 Possible uses of
 .BR dlmopen ()
@@ -378,12 +371,16 @@ any undefined symbols from the plugin framework to be resolved to plugin
 symbols.
 Another use is to load the same object more than once.
 Without the use of
-.BR dlopen (),
+.BR dlmopen (),
 this would require the creation of distinct copies of the shared object file.
 Using
-.BR dlopen (),
+.BR dlmopen (),
 this can be achieved by loading the same shared object file into
 different namespaces.
+
+The glibc implementation supports a maximum of
+.\" DL_NNS
+16 namespaces.
 .\"
 .SS Initialization and finalization functions
 Shared objects may export functions using the
@@ -502,6 +499,21 @@ main(int argc, char **argv)
     exit(EXIT_SUCCESS);
 }
 .fi
+.SH BUGS
+As at glibc 2.21, specifying the
+.BR RTLD_GLOBAL
+flag when calling
+.BR dlmopen ()
+.\" dlerror(): "invalid mode"
+generates an error.
+Furthermore, specifying
+.BR RTLD_GLOBAL
+when calling
+.BR dlopen ()
+results in a program crash
+.RB ( SIGSEGV )
+if the call is made from any object loaded in a
+namespace other than the initial namespace.
 .SH SEE ALSO
 .BR ld (1),
 .BR ldd (1),

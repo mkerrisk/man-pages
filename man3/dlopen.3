@@ -34,7 +34,7 @@
 .\"
 .TH DLOPEN 3 2015-03-29 "Linux" "Linux Programmer's Manual"
 .SH NAME
-dlclose, dlerror, dlopen, dlmopen, dlsym, dlvsym \-
+dlclose, dlerror, dlopen, dlmopen \-
 programming interface to dynamic linking loader
 .SH SYNOPSIS
 .B #include <dlfcn.h>
@@ -43,8 +43,6 @@ programming interface to dynamic linking loader
 .sp
 .B "char *dlerror(void);"
 .sp
-.BI "void *dlsym(void *" handle ", const char *" symbol );
-.sp
 .BI "int dlclose(void *" handle );
 .sp
 .B #define _GNU_SOURCE
@@ -52,8 +50,6 @@ programming interface to dynamic linking loader
 .B #include <dlfcn.h>
 .sp
 .BI "void *dlmopen (Lmid_t " lmid ", const char *" filename ", int " flags );
-.sp
-.BI "void *dlvsym(void *" handle ", char *" symbol ", char *" version );
 .sp
 Link with \fI\-ldl\fP.
 .SH DESCRIPTION
@@ -314,67 +310,6 @@ is NULL, then the only permitted value for
 .I lmid
 is
 .BR LM_ID_BASE .
-.\"
-.SS dlsym()
-The function
-.BR dlsym ()
-takes a "handle" of a dynamic loaded shared object returned by
-.BR dlopen ()
-and the
-null-terminated symbol name, returning the address where that symbol is
-loaded into memory.
-If the symbol is not found, in the specified
-object or any of the shared objects that were automatically loaded by
-.BR dlopen ()
-when that object was loaded,
-.BR dlsym ()
-returns NULL.
-(The search performed by
-.BR dlsym ()
-is breadth first through the dependency tree of these shared objects.)
-Since the value of the symbol could actually be NULL (so that a
-NULL return from
-.BR dlsym ()
-need not indicate an error), the correct way to test for an error
-is to call
-.BR dlerror ()
-to clear any old error conditions, then call
-.BR dlsym (),
-and then call
-.BR dlerror ()
-again, saving its return value into a variable, and check whether
-this saved value is not NULL.
-.PP
-There are two special pseudo-handles:
-.TP
-.B RTLD_DEFAULT
-Find the first occurrence of the desired symbol
-using the default shared object search order.
-The search will include global symbols in the executable
-and its dependencies,
-as well as symbols in shared objects that were dynamically loaded with the
-.BR RTLD_GLOBAL
-flag.
-.TP
-.BR RTLD_NEXT
-Find the next occurrence of the desired symbol in the search order
-after the current object.
-This allows one to provide a wrapper
-around a function in another shared object, so that, for example,
-the definition of a function in a preloaded shared object
-(see
-.B LD_PRELOAD
-in
-.BR ld.so (8))
-can find and invoke the "real" function provided in another shared object
-(or for that matter, the "next" definition of the function in cases
-where there are multiple layers of preloading).
-.SS dlvsym()
-The function
-.BR dlvsym ()
-does the same as
-.BR dlsym ()
-but takes a version string as an additional argument.
 .SS dlclose()
 The function
 .BR dlclose ()
@@ -394,37 +329,22 @@ The function
 returns 0 on success, and nonzero on error.
 .SH VERSIONS
 .BR dlopen (),
-.BR dlsym (),
 .BR dlclose (),
 and
 .BR dlerror ()
 are present in glibc 2.0 and later.
 .BR dlmopen ()
 first appeared in glibc 2.3.4.
-.BR dlvsym ()
-first appeared in glibc 2.1.
 .SH CONFORMING TO
 POSIX.1-2001 describes
 .BR dlclose (),
 .BR dlerror (),
-.BR dlopen (),
 and
-.BR dlsym ().
+.BR dlopen ().
 The
 .BR dlmopen ()
-and
-.BR dlvsym ()
-functions are GNU extensions.
+function is a GNU extension.
 .SH NOTES
-The symbols
-.B RTLD_DEFAULT
-and
-.B RTLD_NEXT
-are defined by
-.I <dlfcn.h>
-only when
-.B _GNU_SOURCE
-was defined before including it.
 .\" .LP
 .\" The string returned by
 .\" .BR dlerror ()
@@ -544,11 +464,7 @@ permit multiple initialization and finalization functions to be defined.
 .\" .\" void _fini(void) __attribute__((destructor));
 .\"
 .SS History
-The dlopen interface standard comes from SunOS.
-That system does not have
-.BR dlvsym (),
-but does have
-.BR dlmopen ().
+These functions are part of the dlopen API, derived from SunOS.
 .SH EXAMPLE
 Load the math library, and print the cosine of 2.0:
 .nf
@@ -631,6 +547,7 @@ as the example name:
 .BR dl_iterate_phdr (3),
 .BR dladdr (3),
 .BR dlinfo (3),
+.BR dlsym (3),
 .BR rtld-audit (7),
 .BR ld.so (8),
 .BR ldconfig (8)

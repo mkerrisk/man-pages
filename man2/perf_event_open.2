@@ -256,7 +256,7 @@ struct perf_event_attr {
     __u32 sample_stack_user;    /* size of stack to dump on
                                    samples */
     __u32 __reserved_2;         /* Align to u64 */
-
+    __u64 sample_regs_intr;     /* regs to dump on samples */
 };
 .fi
 .in
@@ -350,6 +350,11 @@ and
 .I sample_stack_user
 in Linux 3.7.
 .\" commit 1659d129ed014b715b0b2120e6fd929bdd33ed03
+.B PERF_ATTR_SIZE_VER4
+is 104 corresponding to the addition of
+.I sample_regs_intr
+in Linux 3.19.
+.\" commit 60e2364e60e86e81bc6377f49779779e6120977f
 .TP
 .I "config"
 This specifies which event you want, in conjunction with
@@ -752,6 +757,24 @@ event must be measured or no values will be recorded.
 Also note that some perf_event measurements, such as sampled
 cycle counting, may cause extraneous aborts (by causing an
 interrupt during a transaction).
+.TP
+.BR PERF_SAMPLE_REGS_INTR " (since Linux 3.19)"
+.\" commit 60e2364e60e86e81bc6377f49779779e6120977f
+Records a subset of the current CPU register state
+as specified by
+.IR sample_regs_intr .
+Unlike
+.B PERF_SAMPLE_REGS_USER
+the register values will return kernel register
+state if the overflow happened while kernel
+code is running.
+If the CPU supports hardware sampling of
+register state (i.e. PEBS on Intel x86) and
+.I precise_ip
+is set higher than zero then the register
+values returned are those captured by
+hardware at the time of the sampled
+instruction's retirement.
 .RE
 .TP
 .IR "read_format"
@@ -1855,6 +1878,9 @@ struct {
     u64   weight;     /* if PERF_SAMPLE_WEIGHT */
     u64   data_src;   /* if PERF_SAMPLE_DATA_SRC */
     u64   transaction;/* if PERF_SAMPLE_TRANSACTION */
+    u64   abi;        /* if PERF_SAMPLE_REGS_INTR */
+    u64   regs[weight(mask)];
+                      /* if PERF_SAMPLE_REGS_INTR */
 };
 .fi
 .RS 4
@@ -2242,6 +2268,27 @@ the high 32 bits of the field by shifting right by
 .B PERF_TXN_ABORT_SHIFT
 and masking with
 .BR PERF_TXN_ABORT_MASK .
+.TP
+.IR abi ", " regs[weight(mask)]
+If
+.B PERF_SAMPLE_REGS_INTR
+is enabled, then the user CPU registers are recorded.
+
+The
+.I abi
+field is one of
+.BR PERF_SAMPLE_REGS_ABI_NONE ", " PERF_SAMPLE_REGS_ABI_32 " or "
+.BR PERF_SAMPLE_REGS_ABI_64 .
+
+The
+.I regs
+field is an array of the CPU registers that were specified by
+the
+.I sample_regs_intr
+attr field.
+The number of values is the number of bits set in the
+.I sample_regs_intr
+bit mask.
 .RE
 .TP
 .B PERF_RECORD_MMAP2

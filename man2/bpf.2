@@ -1,4 +1,5 @@
 .\" Copyright (C) 2015 Alexei Starovoitov <ast@kernel.org>
+.\" and Copyright (C) 2015 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -24,13 +25,12 @@
 .\"
 .TH BPF 2 2015-03-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
-bpf - perform a command on an extended BPF map or program
+bpf - perform a command on an extended eBPF map or program
 .SH SYNOPSIS
 .nf
 .B #include <linux/bpf.h>
 .sp
 .BI "int bpf(int cmd, union bpf_attr *attr, unsigned int size);
-
 .SH DESCRIPTION
 The
 .BR bpf ()
@@ -48,29 +48,56 @@ a fixed set of in-kernel helper functions
 (via the
 .B BPF_CALL
 opcode extension provided by eBPF)
-and access shared data structures such as BPF maps.
+and access shared data structures such as eBPF maps.
 .SS Extended BPF Design/Architecture
-.P
+.\"
 .\" FIXME In the following line, what does "different data types" mean?
 .\"       Are the values in a map not just blobs?
+.\" Daniel Borkman commented:
+.\"     Sort of, currently, these blobs can have different sizes of keys
+.\"     and values (you can even have structs as keys). For the map itself
+.\"     they are treated as blob internally. However, recently, bpf tail call
+.\"     got added where you can lookup another program from an array map and
+.\"     call into it. Here, that particular type of map can only have entries
+.\"     of type of eBPF program fd. I think, if needed, adding a paragraph to
+.\"     the tail call could be done as follow-up after we have an initial man
+.\"     page in the tree included.
+.\"
 BPF maps are a generic data structure for storage of different data types.
 A user process can create multiple maps (with key/value-pairs being
 opaque bytes of data) and access them via file descriptors.
-.\" FIXME What does the next sentence mean?
+eBPF programs can access maps from inside the kernel in parallel.
+.\"
+.\" FIXME What does the previous sentence mean?
+.\"
 .\" Isn't "from inside the kernel" redundant? (I mean: all eBPF programs
 .\" are running inside the kernel, right?)
 .\" And what does "in parallel" mean?
 .\" Would a simpler version of this sentence be correct? As in:
 .\"     "Different eBPF programs can access the same maps in parallel."
 .\" ?
-.\" (Actually, the page already says soomething like that lower down.)
-eBPF programs can access maps from inside the kernel in parallel.
+.\" (Actually, the page already says something like that lower down.)
+.\"
 It's up to the user process and eBPF program to decide what they store
 inside maps.
 .P
 eBPF programs are similar to kernel modules.
 They are loaded by the user
 process and automatically unloaded when the process exits.
+.\"
+.\" FIXME Daniel Borkmann commented about the preceding sentence:
+.\"
+.\"     Generally that's true. Btw, in 4.1 kernel, tc(8) also got support for
+.\"     eBPF classifier and actions, and here it's slightly different: in tc,
+.\"     we load the programs, maps etc, and push down the eBPF program fd in
+.\"     order to let the kernel hold reference on the program itself.
+.\"     
+.\"     Thus, there, the program fd that the application owns is gone when the
+.\"     application terminates, but the eBPF program itself still lives on
+.\"     inside the kernel.
+.\"
+.\" Probably something should be said about this in this man page.
+.\"
 Each program is a set of instructions that is safe to run until
 its completion.
 An in-kernel verifier statically determines that the eBPF program
@@ -190,7 +217,7 @@ union bpf_attr {
 } __attribute__((aligned(8)));
 .fi
 .in
-.SS BPF maps
+.SS eBPF maps
 Maps are a generic data structure for storage of different types
 and sharing data between the kernel and user-space programs.
 
@@ -213,7 +240,7 @@ commands can be used to access the maps.
 The functions use the
 .IR cmd
 argument to invoke different operations.
-.TP 4
+.TP
 .B BPF_MAP_CREATE
 The
 .B BPF_MAP_CREATE
@@ -313,7 +340,7 @@ Currently, the following values are supported for
 .in +4n
 .nf
 enum bpf_map_type {
-    BPF_MAP_TYPE_UNSPEC,      /* Reserve 0 as invalid map type */
+    BPF_MAP_TYPE_UNSPEC,  /* Reserve 0 as invalid map type */
     BPF_MAP_TYPE_HASH,
     BPF_MAP_TYPE_ARRAY,
     BPF_MAP_TYPE_PROG_ARRAY,
@@ -331,87 +358,7 @@ eBPF programs access maps with the same
 and
 .BR bpf_map_update_elem ()
 helper functions.
-
-The map types are as follows
-.RS
-.TP
-.B BPF_MAP_TYPE_HASH
-.\" commit 0f8e4bd8a1fc8c4185f1630061d0a1f2d197a475
-.\" FIXME Please review the following list of points, which draws
-.\" heavily from the commit message, but reworks the text significantly
-.\" and so may have introduced errors.
-Hash-table BPF maps have the following characteristics:
-.RS
-.IP * 3
-Maps are created and destroyed by user-space programs.
-Both user-space and eBPF programs
-can perform lookuo, update, and delete operations.
-.IP *
-The kernel takes care of allocating and freeing key/value pairs.
-.IP *
-The
-.BR map_update_elem ()
-helper with fail to insert new element when the
-.I max_entries
-limit is reached.
-(This ensures that eBPF programs cannot exhaust memory.)
-.IP *
-.BR map_update_elem ()
-replaces existing elements atomically.
-.RE
-.IP
-Hash-table maps are 
-optimized for speed of lookup.
-.TP
-.B BPF_MAP_TYPE_ARRAY
-.\" commit 28fbcfa08d8ed7c5a50d41a0433aad222835e8e3
-.\" FIXME Please review the following list of points, which draws
-.\" heavily from the commit message, but reworks the text significantly
-.\" and so may have introduced errors.
-Array BPF maps have the following characteristics:
-.RS
-.IP * 3
-Optimized for fastest possible lookup.
-In the future ithe verifier/JIT compiler
-may recognize lookup() operations that employ a constant key
-and optimize it into constant pointer.
-It is possible to optimize a non-constant
-key into direct pointer arithmetic as well, since pointers and
-.I value_size
-are constant for the life of the eBPF program.
-In other words,
-.BR array_map_lookup_elem ()
-may be 'inlined' by the verifier/JIT compiler
-while preserving concurrent access to this map from user space.
-.IP *
-All array elements pre-allocated and zero initialized at init time
-.IP *
-The key is an array index, and must be exactly four bytes.
-.IP *
-.BR map_delete_elem ()
-fails with the error
-.BR EINVAL ,
-since elements cannot be deleted.
-.IP *
-.BR map_update_elem ()
-replaces elements in an non-atomic fashion;
-for atomic updates, a hash-table map should be used instead.
-.RE
-.IP
-Among the uses for array maps are the following:
-.RS
-.IP * 3
-As "global" eBPF variables: an array of 1 element whose key is (index) 0
-and where the value is a collection of 'global' variables which
-eBPF programs can use to keep state between events.
-.IP *
-Aggregation of tracing events into a fixed set of buckets.
-.RE
-.TP
-.BR BPF_MAP_TYPE_PROG_ARRAY " (since Linux 4.2)"
-.\" FIXME: we need documentation of BPF_MAP_TYPE_PROG_ARRAY
-[To be completed]
-.RE
+Further details of the various map types are given below.
 .TP
 .B BPF_MAP_LOOKUP_ELEM
 The
@@ -607,15 +554,94 @@ This method can be used to iterate over all elements in the map.
 Delete the map referred to by the file descriptor
 .IR map_fd .
 When the user-space program that created a map exits, all maps will
-be deleted automatically.
-.SS BPF programs
-.TP 4
-.B BPF_PROG_LOAD
+be deleted automatically (but see NOTES).
+.\"
+.SS eBPF map types
+The following map types are supported:
+.TP
+.B BPF_MAP_TYPE_HASH
+.\" commit 0f8e4bd8a1fc8c4185f1630061d0a1f2d197a475
+.\" FIXME Please review the following list of points, which draws
+.\" heavily from the commit message, but reworks the text significantly
+.\" and so may have introduced errors.
+Hash-table maps have the following characteristics:
+.RS
+.IP * 3
+Maps are created and destroyed by user-space programs.
+Both user-space and eBPF programs
+can perform lookuo, update, and delete operations.
+.IP *
+The kernel takes care of allocating and freeing key/value pairs.
+.IP *
+The
+.BR map_update_elem ()
+helper with fail to insert new element when the
+.I max_entries
+limit is reached.
+(This ensures that eBPF programs cannot exhaust memory.)
+.IP *
+.BR map_update_elem ()
+replaces existing elements atomically.
+.RE
+.IP
+Hash-table maps are 
+optimized for speed of lookup.
+.TP
+.B BPF_MAP_TYPE_ARRAY
+.\" commit 28fbcfa08d8ed7c5a50d41a0433aad222835e8e3
+.\" FIXME Please review the following list of points, which draws
+.\" heavily from the commit message, but reworks the text significantly
+.\" and so may have introduced errors.
+Array maps have the following characteristics:
+.RS
+.IP * 3
+Optimized for fastest possible lookup.
+In the future ithe verifier/JIT compiler
+may recognize lookup() operations that employ a constant key
+and optimize it into constant pointer.
+It is possible to optimize a non-constant
+key into direct pointer arithmetic as well, since pointers and
+.I value_size
+are constant for the life of the eBPF program.
+In other words,
+.BR array_map_lookup_elem ()
+may be 'inlined' by the verifier/JIT compiler
+while preserving concurrent access to this map from user space.
+.IP *
+All array elements pre-allocated and zero initialized at init time
+.IP *
+The key is an array index, and must be exactly four bytes.
+.IP *
+.BR map_delete_elem ()
+fails with the error
+.BR EINVAL ,
+since elements cannot be deleted.
+.IP *
+.BR map_update_elem ()
+replaces elements in an non-atomic fashion;
+for atomic updates, a hash-table map should be used instead.
+.RE
+.IP
+Among the uses for array maps are the following:
+.RS
+.IP * 3
+As "global" eBPF variables: an array of 1 element whose key is (index) 0
+and where the value is a collection of 'global' variables which
+eBPF programs can use to keep state between events.
+.IP *
+Aggregation of tracing events into a fixed set of buckets.
+.RE
+.TP
+.BR BPF_MAP_TYPE_PROG_ARRAY " (since Linux 4.2)"
+.\" FIXME: we need documentation of BPF_MAP_TYPE_PROG_ARRAY
+[To be completed]
+.\"
+.SS eBPF programs
 The
 .B BPF_PROG_LOAD
 command is used to load an eBPF program into the kernel.
 The return value for this command is a new file descriptor associated
-with this program.
+with this eBPF program.
 
 .in +4n
 .nf
@@ -649,69 +675,19 @@ is one of the available program types:
 enum bpf_prog_type {
     BPF_PROG_TYPE_UNSPEC,        /* Reserve 0 as invalid
                                     program type */
-    BPF_PROG_TYPE_SOCKET_FILTER, /* Since Linux 3.19 */
-    BPF_PROG_TYPE_KPROBE,        /* Since Linux 4.1 */
-    BPF_PROG_TYPE_SCHED_CLS,     /* Since Linux 4.1 */
-    BPF_PROG_TYPE_SCHED_ACT,     /* Since Linux 4.1 */
+    BPF_PROG_TYPE_SOCKET_FILTER,
+    BPF_PROG_TYPE_KPROBE,
+    BPF_PROG_TYPE_SCHED_CLS,
+    BPF_PROG_TYPE_SCHED_ACT,
 };
 .fi
 .in
 
-By picking
-.IR prog_type ,
-the program author selects a set of helper functions that can be called from
-the eBPF program and the corresponding format of
-.I struct bpf_context
-(which is the data blob passed into the program as the first argument).
-For example, programs loaded with
+For further details of eBPF program types, see below.
 
-    prog_type = BPF_PROG_TYPE_SOCKET_FILTER
-
-may call the
-.BR bpf_map_lookup_elem ()
-helper,
-whereas some future program types may not.
-The set of functions available to eBPF programs of a given type may increase
-in the future.
-
-Currently, the set of functions for
-.B BPF_PROG_TYPE_SOCKET_FILTER
-is:
-
-.in +4n
-.nf
-bpf_map_lookup_elem(map_fd, void *key)
-                    /* look up key in a map_fd */
-bpf_map_update_elem(map_fd, void *key, void *value)
-                    /* update key/value */
-bpf_map_delete_elem(map_fd, void *key)
-                    /* delete key in a map_fd */
-.fi
-.in
-
-.\" FIXME The next sentence fragment is incomplete
-and
-.I bpf_context
-is a pointer to a
-.IR "struct sk_buff" .
-Programs cannot access fields of
-.I sk_buff
-directly.
-
-More program types may be added in the future.
-.\" FIXME The following sentence is grammatically broken.
-.\"       What should it say?
-Like
-.B BPF_PROG_TYPE_KPROBE
-and
-.I bpf_context
-for it may be defined as a pointer to a
-.IR "struct pt_regs" .
-
-The fields of
+The remaining fields of
 .I bpf_attr
 are set as follows:
-.RS
 .IP * 3
 .I insns
 is an array of
@@ -724,8 +700,6 @@ is the number of instructions in the program referred to by
 .IP *
 .I license
 is a license string, which must be GPL compatible to call helper functions
-.\" FIXME Maybe we should list the GPL compatible strings that can be
-.\"       specified?
 marked
 .IR gpl_only .
 .IP *
@@ -750,12 +724,13 @@ is set to
 verbosity level of the verifier.
 A value of zero means that the verifier will
 not provide a log.
-.\" FIXME We need text here to describe 'kern_version'
-.RE
-.TP
-.B close(prog_fd)
-will unload the eBPF program.
 .P
+Applying
+.BR close (2)
+to the file descriptor returned by
+.B BPF_PROG_LOAD
+will unload the eBPF program (but see NOTES).
+
 Maps are accessible from eBPF programs and are used to exchange data between
 eBPF programs and between eBPF programs and user-space programs.
 For example,
@@ -765,11 +740,93 @@ and user-space programs can then fetch data from the map.
 Conversely, user-space programs can use a map as a configuration mechanism,
 populating the map with values checked by the eBPF program,
 which then modifies its behavior on the fly according to those values.
+.SS eBPF program types
+By picking
+.IR prog_type ,
+the program author selects a set of helper functions that can be called from
+the eBPF program and the corresponding format of
+.I struct bpf_context
+(which is the data blob passed into the eBPF program as the first argument).
+For example, programs loaded with a
+.I prog_type
+of
+.B BPF_PROG_TYPE_SOCKET_FILTER
+may call the
+.BR bpf_map_lookup_elem ()
+helper,
+whereas some other program types may not be able to employ this helper.
+The set of functions available to eBPF programs of a given type may increase
+in the future.
+
+The following program types are supported:
+.TP
+.BR BPF_PROG_TYPE_SOCKET_FILTER " (since Linux 3.19)"
+Currently, the set of functions for
+.B BPF_PROG_TYPE_SOCKET_FILTER
+is:
+
+.in +4n
+.nf
+bpf_map_lookup_elem(map_fd, void *key)
+                    /* look up key in a map_fd */
+bpf_map_update_elem(map_fd, void *key, void *value)
+                    /* update key/value */
+bpf_map_delete_elem(map_fd, void *key)
+                    /* delete key in a map_fd */
+.fi
+.in
+
+.\" FIXME The following paragraph needs amending. Alexei commented:
+.\"
+.\"     Actually now in case of SOCKET_FILTER, SCHED_CLS, SCHED_ACT
+.\"     the program can now access skb fields.
+.\"     See 'struct __sk_buff' and commit 9bac3d6d548e5
+.\"
+.\" Do we want some text here to explain how the program access __sk_buff?
+The
+.I bpf_context
+argument is a pointer to a
+.IR "struct sk_buff" .
+Programs cannot access the fields of
+.I sk_buff
+directly.
+.\"
+.TP
+.BR BPF_PROG_TYPE_KPROBE " (since Linux 4.1)
+.\" commit 2541517c32be2531e0da59dfd7efc1ce844644f5
+[To be documented]
+.\" FIXME Document this program type
+.\"	  Describe allowed helper functions for this program type
+.\"	  Describe bpf_context for this program type
+.\" FIXME We need text here to describe 'kern_version'
+.TP
+.BR BPF_PROG_TYPE_SCHED_CLS " (since Linux 4.1)
+.\" commit 96be4325f443dbbfeb37d2a157675ac0736531a1
+.\" commit e2e9b6541dd4b31848079da80fe2253daaafb549
+[To be documented]
+.\" FIXME Document this program type
+.\"	  Describe allowed helper functions for this program type
+.\"	  Describe bpf_context for this program type
+.TP
+.BR BPF_PROG_TYPE_SCHED_ACT " (since Linux 4.1)
+.\" commit 94caee8c312d96522bcdae88791aaa9ebcd5f22c
+.\" commit a8cb5f556b567974d75ea29c15181c445c541b1f
+[To be documented]
+.\" FIXME Document this program type
+.\"	  Describe allowed helper functions for this program type
+.\"	  Describe bpf_context for this program type
 .SS Events
 Once a program is loaded, it can be attached to an event.
-Various kernel
-subsystems have different ways to do so.
-For example:
+Various kernel subsystems have different ways to do so.
+
+Since Linux 3.19,
+.\" commit 89aa075832b0da4402acebd698d0411dcc82d03e
+the following call will attach the program
+.I prog_fd
+to the socket
+.IR sockfd ,
+which was created by an earlier call to
+.BR socket (2):
 
 .in +4n
 .nf
@@ -778,28 +835,25 @@ setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_BPF,
 .fi
 .in
 
-will attach the program
+Since Linux 4.1,
+.\" commit 2541517c32be2531e0da59dfd7efc1ce844644f5
+the following call may be used to attach
+the eBPF program referred to by the file descriptor
 .I prog_fd
-to the socket
-.IR sockfd ,
-which was received from a prior call to
-.BR socket (2).
-
-In the future,
+to a perf event file descriptor,
+.IR event_fd ,
+that was created by a previous call to
+.BR perf_event_open (2):
 
 .in +4n
 .nf
 ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
 .fi
 .in
-
-may attach the program
-.I prog_fd
-to perf event
-.I event_fd
-which was received by prior call to
-.BR perf_event_open (2).
-
+.\"
+.\" FIXME 
+.\"
+.\"
 .SH EXAMPLES
 .\" FIXME It would be nice if this was a complete working example
 .nf
@@ -867,14 +921,14 @@ main(int argc, char **argv)
 }
 .fi
 
-Some complete working code can be found in
+Some complete working code can be found in the
 .IR samples/bpf
 directory in the kernel source tree.
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
 .TP
 .B BPF_MAP_CREATE
-The new file descriptor associated with the BPF map.
+The new file descriptor associated with the eBPF map.
 .TP
 .B BPF_PROG_LOAD
 The new file descriptor associated with the eBPF program.
@@ -1005,6 +1059,10 @@ just-in-time compiled into native code.
 (Various features are omitted from this restricted C, such as loops, 
 global variables, variadic functions, floating-point numbers,
 and passing structures as function arguments.)
+.\" FIXME Add pointers to examples
+.\"       samples/bpf/*_kern.c + samples/bpf/Makefile ?
+.\" There are also examples for the tc classifier, in the iproute2
+.\" project, in examples/bpf
 .SH SEE ALSO
 .BR seccomp (2),
 .BR socket (7),

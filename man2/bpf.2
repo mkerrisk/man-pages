@@ -25,7 +25,7 @@
 .\"
 .TH BPF 2 2015-03-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
-bpf - perform a command on an extended eBPF map or program
+bpf - perform a command on an extended BPF map or program
 .SH SYNOPSIS
 .nf
 .B #include <linux/bpf.h>
@@ -53,7 +53,7 @@ and access shared data structures such as eBPF maps.
 .\"
 .\" FIXME In the following line, what does "different data types" mean?
 .\"       Are the values in a map not just blobs?
-.\" Daniel Borkman commented:
+.\" Daniel Borkmann commented:
 .\"     Sort of, currently, these blobs can have different sizes of keys
 .\"     and values (you can even have structs as keys). For the map itself
 .\"     they are treated as blob internally. However, recently, bpf tail call
@@ -63,15 +63,14 @@ and access shared data structures such as eBPF maps.
 .\"     the tail call could be done as follow-up after we have an initial man
 .\"     page in the tree included.
 .\"
-BPF maps are a generic data structure for storage of different data types.
+eBPF maps are a generic data structure for storage of different data types.
 A user process can create multiple maps (with key/value-pairs being
 opaque bytes of data) and access them via file descriptors.
 Different eBPF programs can access the same maps in parallel.
 It's up to the user process and eBPF program to decide what they store
 inside maps.
 .P
-eBPF programs are similar to kernel modules.
-They are loaded by the user
+eBPF programs are loaded by the user
 process and automatically unloaded when the process exits.
 .\"
 .\" FIXME Daniel Borkmann commented about the preceding sentence:
@@ -80,7 +79,7 @@ process and automatically unloaded when the process exits.
 .\"     eBPF classifier and actions, and here it's slightly different: in tc,
 .\"     we load the programs, maps etc, and push down the eBPF program fd in
 .\"     order to let the kernel hold reference on the program itself.
-.\"     
+.\"
 .\"     Thus, there, the program fd that the application owns is gone when the
 .\"     application terminates, but the eBPF program itself still lives on
 .\"     inside the kernel.
@@ -93,11 +92,12 @@ An in-kernel verifier statically determines that the eBPF program
 terminates and is safe to execute.
 During verification, the kernel increments reference counts for each of
 the maps that the eBPF program uses,
-so that the selected maps cannot be removed until the program is unloaded.
+so that the attached maps can't be removed until the program is unloaded.
 
 eBPF programs can be attached to different events.
 These events can be the arrival of network packets, tracing
-events, classification event by qdisc (for eBPF programs attached to a
+events, classification events by network queueing  disciplines
+(for eBPF programs attached to a
 .BR tc (8)
 classifier), and other types that may be added in the future.
 A new event triggers execution of the eBPF program, which
@@ -109,13 +109,13 @@ eBPF programs can access the same map:
 
 .in +4n
 .nf
-tracing     tracing     tracing     packet     packet
-event A     event B     event C     on eth0    on eth1
- |             |          |           |          |
- |             |          |           |          |
- --> tracing <--      tracing       socket     socket
-      prog_1           prog_2       prog_3     prog_4
-      |  |               |            |
+tracing     tracing     tracing     packet      packet
+event A     event B     event C     on eth0     on eth1
+ |             |          |           |           |
+ |             |          |           |           |
+ --> tracing <--      tracing       socket    tc ingress
+      prog_1           prog_2       prog_3    classifier
+      |  |               |            |         prog_4
    |---  -----|  |-------|           map_3
  map_1       map_2
 .fi
@@ -142,7 +142,7 @@ The value provided in
 is one of the following:
 .TP
 .B BPF_MAP_CREATE
-Create a map with and return a file descriptor that refers to the map.
+Create a map and return a file descriptor that refers to the map.
 .TP
 .B BPF_MAP_LOOKUP_ELEM
 Look up an element by key in a specified map and return its value.
@@ -240,13 +240,15 @@ returning a new file descriptor that refers to the map.
 .in +4n
 .nf
 int
-bpf_create_map(enum bpf_map_type map_type, int key_size,
-               int value_size, int max_entries)
+bpf_create_map(enum bpf_map_type map_type,
+               unsigned int key_size,
+               unsigned int value_size,
+               unsigned int max_entries)
 {
     union bpf_attr attr = {
-        .map_type = map_type,
-        .key_size = key_size,
-        .value_size = value_size,
+        .map_type    = map_type,
+        .key_size    = key_size,
+        .value_size  = value_size,
         .max_entries = max_entries
     };
 
@@ -271,12 +273,12 @@ is set to
 or
 .BR ENOMEM .
 
-The attributes
+The
 .I key_size
 and
 .I value_size
-will be used by the verifier during program loading to check that the program
-is calling
+attributes will be used by the verifier during program loading
+to check that the program is calling
 .BR bpf_map_*_elem ()
 helper functions with a correctly initialized
 .I key
@@ -362,12 +364,12 @@ in the map referred to by the file descriptor
 .in +4n
 .nf
 int
-bpf_lookup_elem(int fd, void *key, void *value)
+bpf_lookup_elem(int fd, const void *key, void *value)
 {
     union bpf_attr attr = {
         .map_fd = fd,
-        .key = ptr_to_u64(key),
-        .value = ptr_to_u64(value),
+        .key    = ptr_to_u64(key),
+        .value  = ptr_to_u64(value),
     };
 
     return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
@@ -399,13 +401,14 @@ in the map referred to by the file descriptor
 .in +4n
 .nf
 int
-bpf_update_elem(int fd, void *key, void *value, __u64 flags)
+bpf_update_elem(int fd, const void *key, const void *value,
+                uint64_t flags)
 {
     union bpf_attr attr = {
         .map_fd = fd,
-        .key = ptr_to_u64(key),
-        .value = ptr_to_u64(value),
-        .flags = flags,
+        .key    = ptr_to_u64(key),
+        .value  = ptr_to_u64(value),
+        .flags  = flags,
     };
 
     return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
@@ -450,7 +453,7 @@ and the element with
 .I key
 already exists in the map.
 .B ENOENT
-will be returned if 
+will be returned if
 .I flags
 specifies
 .B BPF_EXIST
@@ -470,11 +473,11 @@ from the map referred to by the file descriptor
 .in +4n
 .nf
 int
-bpf_delete_elem(int fd, void *key)
+bpf_delete_elem(int fd, const void *key)
 {
     union bpf_attr attr = {
         .map_fd = fd,
-        .key = ptr_to_u64(key),
+        .key    = ptr_to_u64(key),
     };
 
     return bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
@@ -494,7 +497,7 @@ The
 command looks up an element by
 .I key
 in the map referred to by the file descriptor
-.IR fd 
+.IR fd
 and sets the
 .I next_key
 pointer to the key of the next element.
@@ -502,11 +505,11 @@ pointer to the key of the next element.
 .nf
 .in +4n
 int
-bpf_get_next_key(int fd, void *key, void *next_key)
+bpf_get_next_key(int fd, const void *key, void *next_key)
 {
     union bpf_attr attr = {
-        .map_fd = fd,
-        .key = ptr_to_u64(key),
+        .map_fd   = fd,
+        .key      = ptr_to_u64(key),
         .next_key = ptr_to_u64(next_key),
     };
 
@@ -572,7 +575,7 @@ limit is reached.
 replaces existing elements atomically.
 .RE
 .IP
-Hash-table maps are 
+Hash-table maps are
 optimized for speed of lookup.
 .TP
 .B BPF_MAP_TYPE_ARRAY
@@ -603,7 +606,11 @@ fails with the error
 since elements cannot be deleted.
 .IP *
 .BR map_update_elem ()
-replaces elements in an non-atomic fashion;
+replaces elements in a
+.B nonatomic
+fashion;
+.\" Daniel Borkmann: when you have a value_size of sizeof(long), you can
+.\" however use __sync_fetch_and_add() atomic builtin from the LLVM backend
 for atomic updates, a hash-table map should be used instead.
 .RE
 .IP
@@ -633,17 +640,17 @@ with this eBPF program.
 char bpf_log_buf[LOG_BUF_SIZE];
 
 int
-bpf_prog_load(enum bpf_prog_type prog_type,
+bpf_prog_load(enum bpf_prog_type type,
               const struct bpf_insn *insns, int insn_cnt,
               const char *license)
 {
     union bpf_attr attr = {
-        .prog_type = prog_type,
-        .insns = ptr_to_u64(insns),
-        .insn_cnt = insn_cnt,
-        .license = ptr_to_u64(license),
-        .log_buf = ptr_to_u64(bpf_log_buf),
-        .log_size = LOG_BUF_SIZE,
+        .prog_type = type,
+        .insns     = ptr_to_u64(insns),
+        .insn_cnt  = insn_cnt,
+        .license   = ptr_to_u64(license),
+        .log_buf   = ptr_to_u64(bpf_log_buf),
+        .log_size  = LOG_BUF_SIZE,
         .log_level = 1,
     };
 
@@ -687,13 +694,26 @@ is the number of instructions in the program referred to by
 is a license string, which must be GPL compatible to call helper functions
 marked
 .IR gpl_only .
+.\" Daniel Borkmann commented:
+.\"     Not strictly. So here, the same rules apply as with kernel modules.
+.\"     I.e. what the kernel checks for are the following license strings:
+.\"
+.\"     static inline int license_is_gpl_compatible(const char *license)
+.\"     {
+.\"     	return (strcmp(license, "GPL") == 0
+.\"     		|| strcmp(license, "GPL v2") == 0
+.\"     		|| strcmp(license, "GPL and additional rights") == 0
+.\"     		|| strcmp(license, "Dual BSD/GPL") == 0
+.\"     		|| strcmp(license, "Dual MIT/GPL") == 0
+.\"     		|| strcmp(license, "Dual MPL/GPL") == 0);
+.\"     }
 .IP *
 .I log_buf
 is a pointer to a caller-allocated buffer in which the in-kernel
 verifier can store the verification log.
 This log is a multi-line string that can be checked by
 the program author in order to understand how the verifier came to
-the conclusion that the BPF program is unsafe.
+the conclusion that the eBPF program is unsafe.
 The format of the output can change at any time as the verifier evolves.
 .IP *
 .I log_size
@@ -725,20 +745,25 @@ and user-space programs can then fetch data from the map.
 Conversely, user-space programs can use a map as a configuration mechanism,
 populating the map with values checked by the eBPF program,
 which then modifies its behavior on the fly according to those values.
+.\"
+.\"
 .SS eBPF program types
-By picking
-.IR prog_type ,
-the program author selects a set of helper functions that can be called from
-the eBPF program and the corresponding format of
-.I struct bpf_context
+The eBPF program type
+.RI ( prog_type )
+determines the subset of a kernel helper functions that the program
+may call.
+The program type also determines dthe program input (context)\(emthe
+format of
+.I "struct bpf_context"
 (which is the data blob passed into the eBPF program as the first argument).
-For example, programs loaded with a
-.I prog_type
-of
-.B BPF_PROG_TYPE_KPROBE
-may call the
-.BR bpf_probe_read ()
-helper, whereas other program types can't employ this helper.
+
+For example, a tracing program does not have the exact same
+subset of helper functions as a socket filter program
+(though they may have some helpers in common).
+Similarly,
+the input (context) for a tracing program is a set of register values,
+while for a socket filter it is a network packet.
+
 The set of functions available to eBPF programs of a given type may increase
 in the future.
 
@@ -764,7 +789,7 @@ The
 .I bpf_context
 argument is a pointer to a
 .IR "struct __sk_buff" .
-.\" FIXME: We need some text here to explain how the program 
+.\" FIXME: We need some text here to explain how the program
 .\"        accesses __sk_buff
 .\"        See 'struct __sk_buff' and commit 9bac3d6d548e5
 .\" Alexei commented:
@@ -967,8 +992,8 @@ are not set to zero.
 For
 .BR BPF_PROG_LOAD,
 indicates an attempt to load an invalid program.
-BPF programs can be deemed
-einvalid due to unrecognized instructions, the use of reserved fields, jumps
+eBPF programs can be deemed
+invalid due to unrecognized instructions, the use of reserved fields, jumps
 out of range, infinite loops or calls of unknown functions.
 .TP
 .BR EACCES
@@ -998,7 +1023,7 @@ indicates that the element with the given
 was not found.
 .TP
 .BR E2BIG
-The BPF program is too large or a map reached the
+The eBPF program is too large or a map reached the
 .I max_entries
 limit (maximum number of elements).
 .SH VERSIONS
@@ -1031,16 +1056,36 @@ referring to the object have been closed.
 
 eBPF programs can be written in a restricted C that is compiled (using the
 .B clang
-compiler) into eBPF bytecode and executed on the in-kernel virtual machine or
-just-in-time compiled into native code.
-(Various features are omitted from this restricted C, such as loops, 
+compiler) into eBPF bytecode.
+Various features are omitted from this restricted C, such as loops,
 global variables, variadic functions, floating-point numbers,
-and passing structures as function arguments.)
+and passing structures as function arguments.
 Some examples can be found in the
 .I samples/bpf/*_kern.c
 files in the kernel source tree.
 .\" There are also examples for the tc classifier, in the iproute2
 .\" project, in examples/bpf
+
+The kernel contains a just-in-time (JIT) compiler that translates
+eBPF bytecode into native machine code for better performance.
+The JIT compiler is disabled by default,
+but its operation can be controlled by writing one of the
+following integer strings to the file
+.IR /proc/sys/net/core/bpf_jit_enable :
+.IP 0 3
+Disable JIT compilation (default).
+.IP 1
+Normal compilation.
+.IP 2
+Debugging mode.
+The generated opcodes are dumped in hexadecimal into the kernel log.
+These opcodes can then be disassembled using the program
+.IR tools/net/bpf_jit_disasm.c
+provided in the kernel source tree.
+.\" .PP
+.\" The JIT compiler is currently available for the x86-64, arm64,
+.\" and s390 architectures.
+.\" FIXME: and others?
 .SH SEE ALSO
 .BR seccomp (2),
 .BR socket (7),

@@ -2595,6 +2595,16 @@ Support for this can be detected with the
 .I cap_usr_rdpmc
 field in the mmap page; documentation on how
 to calculate event values can be found in that section.
+
+Originally, when rdpmc support was enabled, any process (not just ones
+with an active perf event) could use the rdpmc instruction to access
+the counters.
+Starting with Linux 4.0
+.\" 7911d3f7af14a614617e38245fedf98a724e46a9
+rdpmc support is only allowed if an event is currently enabled
+in a process' context.
+To restore the old behavior, write the value 2 to
+.IR /sys/devices/cpu/rdpmc .
 .SS perf_event ioctl calls
 .PP
 Various ioctls act on
@@ -2783,11 +2793,18 @@ field of
 .I perf_event_attr
 to indicate that you wish to use this PMU.
 .TP
-.IR /sys/bus/event_source/devices/*/rdpmc " (since Linux 3.4)"
+.IR /sys/bus/event_source/devices/cpu/rdpmc " (since Linux 3.4)"
 .\" commit 0c9d42ed4cee2aa1dfc3a260b741baae8615744f
 If this file is 1, then direct user-space access to the
 performance counter registers is allowed via the rdpmc instruction.
 This can be disabled by echoing 0 to the file.
+
+As of Linux 4.0
+.\" a66734297f78707ce39d756b656bfae861d53f62
+.\" 7911d3f7af14a614617e38245fedf98a724e46a9
+the behavior has changed, so that 1 now means only allow access
+to processes with active perf events, with 2 indicating the old
+allow-anyone-access behavior.
 .TP
 .IR /sys/bus/event_source/devices/*/format/ " (since Linux 3.4)"
 .\" commit 641cc938815dfd09f8fa1ec72deb814f0938ac33

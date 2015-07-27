@@ -71,8 +71,11 @@ Thus, the futex word is used to connect the synchronization in user space
 with the implementation of blocking by the kernel; similar to an atomic
 compare-and-exchange operation that potentially changes shared memory,
 blocking via a futex is an atomic compare-and-block operation.
-See NOTES for
-a detailed specification of the synchronization semantics.
+.\" FIXME(Torvald Riegel):
+.\"      Eventually we want to have some text in NOTES to satisfy
+.\"      the reference in the following sentence
+.\" See NOTES for
+.\" a detailed specification of the synchronization semantics.
 
 One example use of futexes is implementing locks.
 The state of the lock (i.e.,
@@ -211,7 +214,7 @@ as an absolute time based on
 If this option is not set, the kernel treats
 .I timeout
 as relative time,
-.\" FIXME XXX I added CLOCK_MONOTONIC here. Okay?
+.\" FIXME XXX I added CLOCK_MONOTONIC below. Okay?
 measured against the
 .BR CLOCK_MONOTONIC
 clock.
@@ -259,7 +262,7 @@ to sleep.
 If the
 .I timeout
 argument is non-NULL, its contents specify a relative timeout for the wait,
-.\" FIXME XXX I added CLOCK_MONOTONIC here. Okay?
+.\" FIXME XXX I added CLOCK_MONOTONIC below. Okay?
 measured according to the
 .BR CLOCK_MONOTONIC
 clock.
@@ -294,8 +297,6 @@ are ignored.
 .\" Strictly speaking, since Linux 2.5.x
 This operation wakes at most
 .I val
-.\" FIXME(Torvald) I believe FUTEX_WAIT_BITSET waiters, for example,
-.\"       could also be woken (therefore, make it e.g. instead of i.e.)?
 of the waiters that are waiting (e.g., inside
 .BR FUTEX_WAIT )
 on the futex word at the address
@@ -376,9 +377,12 @@ from Linux 2.6.26 onward.
 .TP
 .BR FUTEX_REQUEUE " (since Linux 2.6.0)"
 .\" Strictly speaking: from Linux 2.5.70
-.\" FIXME(Torvald) Is there some indication that it is broken in general,
-.\" or is this comment implicitly speaking about the condvar (?) use case?
-.\" If the latter we might want to weaken the advice a little.
+.\" FIXME(Torvald) Is there some indication that FUTEX_REQUEUE is broken
+.\"     in general, or is this comment implicitly speaking about the
+.\"     condvar (?) use case? If the latter we might want to weaken the
+.\"     advice below a little.
+.\" [Anyone else have input on this?]
+.\" 
 .IR "Avoid using this operation" .
 It is broken for its intended purpose.
 Use
@@ -420,8 +424,8 @@ argument specifies an upper limit on the number of waiters
 that are requeued to the futex at
 .IR uaddr2 .
 
-.\" FIXME(Torvald) Is this correct?  Or is just the decision which
-.\" threads to wake or requeue part of the atomic operation?
+.\" FIXME(Torvald) Is the following correct?  Or is just the decision
+.\" which threads to wake or requeue part of the atomic operation?
 The load from
 .I uaddr
 is an atomic memory access (i.e., using atomic machine instructions of
@@ -478,6 +482,7 @@ operation equivalent to
 .\" FIXME(Torvald) The glibc condvar implementation is currently being
 .\"     revised (e.g., to not use an internal lock anymore).
 .\"     It is probably more future-proof to remove this paragraph.
+.\" [Torvald, do you have an update here?]
 This operation was added to support some user-space use cases
 where more than one futex must be handled at the same time.
 The most notable example is the implementation of
@@ -666,7 +671,7 @@ state of the waiter (the "wait" bitset that is set using
 All of the waiters for which the result of the AND is nonzero are woken up;
 the remaining waiters are left sleeping.
 
-.\" FIXME XXX Is this paragraph that I added okay?
+.\" FIXME XXX Is this next paragraph that I added okay?
 The effect of
 .BR FUTEX_WAIT_BITSET
 and
@@ -822,8 +827,10 @@ before the calling thread returns to user space.
 .\" FIXME ===== End of adapted Hart/Guniguntala text =====
 
 It is important to note
-.\" FIXME We need some explanation here of *why* it is important to
-.\"       note this. Can someone explain?
+.\" FIXME We need some explanation in the following paragraph of *why*
+.\"       it is important to note that "the kernel will update the
+.\"       futex word's value prior
+to returning to user space" . Can someone explain?
 that the kernel will update the futex word's value prior
 to returning to user space.
 Unlike the other futex operations described above,
@@ -835,7 +842,7 @@ for the implementation of very specific IPC mechanisms.
 .\"       to pi or op pairing semantics are violated."
 .\"       Probably there needs to be a general statement about this
 .\"       requirement, probably located at about this point in the page.
-.\"       Darren, care to take a shot at this?
+.\"       Darren (or someone else), care to take a shot at this?
 .\"
 .\" FIXME Somewhere on this page (I guess under the discussion of PI
 .\"       futexes) we need a discussion of the FUTEX_OWNER_DIED bit.
@@ -850,8 +857,10 @@ PI futexes are operated on by specifying one of the following values in
 .BR FUTEX_LOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
 .\"
-.\" FIXME I did some significant rewording of tglx's text.
-.\"       Please check, in case I injected errors.
+.\" FIXME I did some significant rewording of tglx's text to create
+.\"       the text below.
+.\"       Please check the following paragraph, in case I injected
+.\"       errors.
 .\"
 This operation is used after after an attempt to acquire
 the lock via an atomic user-space instruction failed
@@ -867,8 +876,9 @@ The operation checks the value of the futex word at the address
 .IR uaddr .
 If the value is 0, then the kernel tries to atomically set
 the futex value to the caller's TID.
+.\" FIXME What would be the cause(s) of failure referred to
+.\"       in the following sentence?
 If that fails,
-.\" FIXME What would be the cause of failure?
 or the futex word's value is nonzero,
 the kernel atomically sets the
 .B FUTEX_WAITERS
@@ -878,6 +888,7 @@ After that, the kernel tries to find the thread which is
 associated with the owner TID,
 .\" FIXME Could I get a bit more detail on the next two lines?
 .\"       What is "creates or reuses kernel state" about?
+.\"       (I think this needs to be clearer in the page)
 creates or reuses kernel state on behalf of the owner
 and attaches the waiter to it.
 .\" FIXME In the next line, what type of "priority" are we talking about?
@@ -896,7 +907,7 @@ The owner inherits either the priority or the bandwidth of the waiter.
 This inheritance follows the lock chain in the case of
 nested locking and performs deadlock detection.
 
-.\" FIXME tglx says "The timeout argument is handled as described in
+.\" FIXME tglx said "The timeout argument is handled as described in
 .\"       FUTEX_WAIT." However, it appears to me that this is not right.
 .\"       Is the following formulation correct?
 The
@@ -1230,7 +1241,7 @@ The value pointed to by
 is not equal to the expected value
 .IR val3 .
 .\" FIXME: Is the following sentence correct?
-.\" I would prefer to remove this sentence. --triegel@redhat.com
+.\" [I would prefer to remove this sentence. --triegel@redhat.com]
 (This probably indicates a race;
 use the safe
 .B FUTEX_WAKE
@@ -1264,11 +1275,11 @@ The futex word at
 is already locked by the caller.
 .TP
 .BR EDEADLK
-.\" FIXME I reworded tglx's text somewhat; is the following okay?
 .\" FIXME XXX I see that kernel/locking/rtmutex.c uses EDEADLK in some
-.\"       iplaces, and EDEADLOCK in others. On almost all architectures
+.\"       places, and EDEADLOCK in others. On almost all architectures
 .\"       these constants are synonymous. Is there a reason that both
 .\"       names are used?
+.\" FIXME I reworded tglx's text somewhat; is the following okay?
 .RB ( FUTEX_CMP_REQUEUE_PI )
 While requeueing a waiter to the PI futex for the futex word at
 .IR uaddr2 ,
@@ -1354,8 +1365,10 @@ The kernel detected an inconsistency between the user-space state at
 .I uaddr
 and the kernel state.
 This indicates either state corruption
-.\" FIXME tglx did not mention the "state corruption" for FUTEX_UNLOCK_PI.
-.\"       Does that case also apply for FUTEX_UNLOCK_PI?
+.\" FIXME tglx did not mention the "state corruption" case for
+.\"       FUTEX_UNLOCK_PI, but I have added it, since I'm estimating
+.\"       that it also applied for FUTEX_UNLOCK_PI.
+.\"       So, does that case also apply for FUTEX_UNLOCK_PI?
 or that the kernel found a waiter on
 .I uaddr
 which is waiting via

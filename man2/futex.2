@@ -249,15 +249,18 @@ futex word pointed to by the address
 .I uaddr
 still contains the expected value
 .IR val ,
-and if so, then sleeps awaiting
+and if so, then sleeps waiting for a
 .B FUTEX_WAKE
-on the futex word.
+operation on the futex word.
 The load of the value of the futex word is an atomic memory
 access (i.e., using atomic machine instructions of the respective
 architecture).
 This load, the comparison with the expected value, and
-starting to sleep are performed atomically and totally ordered with respect
-to other futex operations on the same futex word.
+starting to sleep are performed atomically
+.\" FIXME: Torvald, what do you mean by "totally odered" here?
+.\"        (Also used at various other points in the page.)
+and totally ordered
+with respect to other futex operations on the same futex word.
 If the thread starts to sleep,
 it is considered a waiter on this futex word.
 If the futex value does not match
@@ -266,7 +269,8 @@ then the call fails immediately with the error
 .BR EAGAIN .
 
 The purpose of the comparison with the expected value is to prevent lost
-wake-ups: If another thread changed the value of the futex word after the
+wake-ups.
+If another thread changed the value of the futex word after the
 calling thread decided to block based on the prior value,
 and if the other thread executed a
 .BR FUTEX_WAKE
@@ -809,10 +813,10 @@ Note that a PI futex word never just has the value
 which is a permissible state for non-PI futexes.
 
 With this policy in place,
-a user-space application can acquire a not-acquired
+a user-space application can acquire an unacquired
 lock or release a lock that no other threads try to acquire using atomic
-instructions executed in user space (e.g., a compare-and-swap operation
-such as
+instructions executed in user mode
+(e.g., a compare-and-swap operation such as
 .I cmpxchg
 on the x86 architecture).
 Acquiring a lock simply consists of using compare-and-swap to atomically
@@ -845,8 +849,8 @@ before the calling thread returns to user space.
 It is important to note
 .\" FIXME We need some explanation in the following paragraph of *why*
 .\"       it is important to note that "the kernel will update the
-.\"       futex word's value prior
-to returning to user space" . Can someone explain?
+.\"       futex word's value prior to returning to user space".
+.\"       Can someone explain?
 that the kernel will update the futex word's value prior
 to returning to user space.
 Unlike the other futex operations described above,
@@ -879,7 +883,7 @@ PI futexes are operated on by specifying one of the following values in
 .\"       errors.
 .\"
 This operation is used after after an attempt to acquire
-the lock via an atomic user-space instruction failed
+the lock via an atomic user-mode instruction failed
 because the futex word has a nonzero value\(emspecifically,
 because it contained the namespace-specific TID of the lock owner.
 .\" FIXME In the preceding line, what does "namespace-specific" mean?
@@ -1179,7 +1183,7 @@ requeued to the futex for the futex word at
 .IR uaddr2 .
 If this value is greater than
 .IR val ,
-then difference is the number of waiters requeued to the futex for the
+then the difference is the number of waiters requeued to the futex for the
 futex word at
 .IR uaddr2 .
 .TP

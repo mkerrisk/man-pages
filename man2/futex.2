@@ -432,25 +432,6 @@ This load, the comparison with
 and the requeueing of any waiters are performed atomically and totally
 ordered with respect to other operations on the same futex word.
 
-This operation was added as a replacement for the earlier
-.BR FUTEX_REQUEUE .
-The difference is that the check of the value at
-.I uaddr
-can be used to ensure that requeueing happens only under certain
-conditions, which allows race conditions to be avoided in certain use cases.
-.\" But, as Rich Flker points out, there remain valid use cases for
-.\" FUTEX_REQUEUE, for example, when the calling thread is requeuing
-.\" the target(s) to a lock that the calling thread owns
-.\"     From: Rich Felker <dalias@libc.org>
-.\"     Date: Wed, 29 Oct 2014 22:43:17 -0400
-.\"     To: Darren Hart <dvhart@infradead.org>
-.\"     CC: libc-alpha@sourceware.org, ...
-.\"     Subject: Re: Add futex wrapper to glibc?
-Both operations can be used to avoid a "thundering herd" effect when
-.B FUTEX_WAKE
-is used and all of the waiters that are woken need to acquire
-another futex.
-
 Typical values to specify for
 .I val
 are 0 or or 1.
@@ -468,10 +449,57 @@ is typically either 1 or
 .BR FUTEX_CMP_REQUEUE
 operation equivalent to
 .BR FUTEX_WAIT .)
-.\"
-.\" FIXME Here, it would be helpful to have an example of how
-.\"       FUTEX_CMP_REQUEUE might be used, at the same time illustrating
-.\"       why FUTEX_WAKE is unsuitable for the same use case.
+
+The
+.B FUTEX_CMP_REQUEUE
+operation was added as a replacement for the earlier
+.BR FUTEX_REQUEUE .
+The difference is that the check of the value at
+.I uaddr
+can be used to ensure that requeueing happens only under certain
+conditions, which allows race conditions to be avoided in certain use cases.
+.\" But, as Rich Flker points out, there remain valid use cases for
+.\" FUTEX_REQUEUE, for example, when the calling thread is requeuing
+.\" the target(s) to a lock that the calling thread owns
+.\"     From: Rich Felker <dalias@libc.org>
+.\"     Date: Wed, 29 Oct 2014 22:43:17 -0400
+.\"     To: Darren Hart <dvhart@infradead.org>
+.\"     CC: libc-alpha@sourceware.org, ...
+.\"     Subject: Re: Add futex wrapper to glibc?
+
+Both
+.BR FUTEX_REQUEUE
+and
+.BR FUTEX_CMP_REQUEUE
+can be used to avoid "thundering herd" wake-ups that could occur when using
+.B FUTEX_WAKE
+in cases where all of the waiters that are woken need to acquire
+another futex.
+Consider the following scenario,
+where multiple waiter threads are waiting on B,
+a wait queue implemented using a futex:
+
+.in +4n
+.nf
+lock(A)
+while (!check_value(V)) {
+    unlock(A);
+    block_on(B);
+    lock(A);
+};
+unlock(A);
+.fi
+.in
+
+If a waker thread used
+.BR FUTEX_WAKE ,
+then all waiters waiting on B would be woken up,
+and they would would all try to acquire lock A.
+However, waking all of the threads in this manner would be pointless because
+all except one of the threads would immediately block on lock A again.
+By contrast, a requeue operation wakes just one waiter and moves
+the other waiters to lock A,
+and when the woken waiter unlocks A then the next waiter can proceed.
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"

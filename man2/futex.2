@@ -230,7 +230,6 @@ as an absolute time based on
 If this option is not set, the kernel treats
 .I timeout
 as relative time,
-.\" FIXME XXX I added CLOCK_MONOTONIC below. Okay?
 measured against the
 .BR CLOCK_MONOTONIC
 clock.
@@ -282,13 +281,11 @@ to sleep.
 If the
 .I timeout
 argument is non-NULL, its contents specify a relative timeout for the wait,
-.\" FIXME XXX I added CLOCK_MONOTONIC below. Okay?
 measured according to the
 .BR CLOCK_MONOTONIC
 clock.
 (This interval will be rounded up to the system clock granularity,
-and kernel scheduling delays mean that the
-blocking interval may overrun by a small amount.)
+and is guaranteed not to expire early.)
 If
 .I timeout
 is NULL, the call blocks indefinitely.
@@ -379,13 +376,6 @@ and
 .I val3
 are ignored.
 
-.\" FIXME(Torvald) We never define "upped".  Maybe just remove the
-.\"      following sentence?
-To prevent race conditions, the caller should test if the futex has
-been upped after
-.B FUTEX_FD
-returns.
-
 Because it was inherently racy,
 .B FUTEX_FD
 has been removed
@@ -461,8 +451,6 @@ Both operations can be used to avoid a "thundering herd" effect when
 is used and all of the waiters that are woken need to acquire
 another futex.
 
-.\" FIXME Please review the following new paragraph to see if it is
-.\"       accurate.
 Typical values to specify for
 .I val
 are 0 or or 1.
@@ -880,12 +868,7 @@ PI futexes are operated on by specifying one of the following values in
 This operation is used after after an attempt to acquire
 the lock via an atomic user-mode instruction failed
 because the futex word has a nonzero value\(emspecifically,
-because it contained the namespace-specific TID of the lock owner.
-.\" FIXME In the preceding line, what does "namespace-specific" mean?
-.\"       (I kept those words from tglx.)
-.\"       That is, what kind of namespace are we talking about?
-.\"       (I suppose we are talking PID namespaces here, but I want to
-.\"       be sure.)
+because it contained the (PID-namespace-specific) TID of the lock owner.
 
 The operation checks the value of the futex word at the address
 .IR uaddr .
@@ -1039,10 +1022,12 @@ and
 arguments serve the same purposes as for
 .BR FUTEX_CMP_REQUEUE .
 .\"
-.\" FIXME The page at http://locklessinc.com/articles/futex_cheat_sheet/
+.\"       The page at http://locklessinc.com/articles/futex_cheat_sheet/
 .\"       notes that "priority-inheritance Futex to priority-inheritance
-.\"       Futex requeues are currently unsupported". Do we need to say
-.\"       something in the man page about that?
+.\"       Futex requeues are currently unsupported". However, probably
+.\"       the page does not need to say nothing about this, since
+.\"       Thomas Gleixner commented (July 2015): "they never will be
+.\"       supported because they make no sense at all"
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
@@ -1076,9 +1061,6 @@ via
 without requeueing on
 .IR uaddr2 .
 
-.\" FIXME Please check the following. tglx said "The timeout argument
-.\"       is handled as described in FUTEX_WAIT.", but the truth is
-.\"       as below, AFAICS
 If
 .I timeout
 is not NULL, it specifies a timeout for the wait operation;
@@ -1092,10 +1074,6 @@ is NULL, the operation can block indefinitely.
 The
 .I val3
 argument is ignored.
-.\" FIXME Re the preceding sentence... Actually 'val3' is internally set to
-.\"       FUTEX_BITSET_MATCH_ANY before calling futex_wait_requeue_pi().
-.\"       I'm not sure we need to say anything about this though.
-.\"       Comments?
 
 The
 .BR FUTEX_WAIT_REQUEUE_PI
@@ -1255,18 +1233,6 @@ The value pointed to by
 .I uaddr
 is not equal to the expected value
 .IR val3 .
-.\" FIXME: Is the following sentence correct?
-.\" [I would prefer to remove this sentence. --triegel@redhat.com]
-(This probably indicates a race;
-use the safe
-.B FUTEX_WAKE
-now.)
-.\" 
-.\" FIXME XXX Should there be an EAGAIN case for FUTEX_TRYLOCK_PI?
-.\"       It seems so, looking at the handling of the rt_mutex_trylock()
-.\"       call in futex_lock_pi()
-.\"       (Davidlohr also thinks so.)
-.\" 
 .TP
 .BR EAGAIN
 .RB ( FUTEX_LOCK_PI ,
@@ -1294,7 +1260,9 @@ is already locked by the caller.
 .\"       places, and EDEADLOCK in others. On almost all architectures
 .\"       these constants are synonymous. Is there a reason that both
 .\"       names are used?
-.\" FIXME I reworded tglx's text somewhat; is the following okay?
+.\"
+.\"       tglx (July 2015): "No. We should probably fix that."
+.\"
 .RB ( FUTEX_CMP_REQUEUE_PI )
 While requeueing a waiter to the PI futex for the futex word at
 .IR uaddr2 ,
@@ -1380,10 +1348,6 @@ The kernel detected an inconsistency between the user-space state at
 .I uaddr
 and the kernel state.
 This indicates either state corruption
-.\" FIXME tglx did not mention the "state corruption" case for
-.\"       FUTEX_UNLOCK_PI, but I have added it, since I'm estimating
-.\"       that it also applied for FUTEX_UNLOCK_PI.
-.\"       So, does that case also apply for FUTEX_UNLOCK_PI?
 or that the kernel found a waiter on
 .I uaddr
 which is waiting via
@@ -1398,8 +1362,8 @@ The kernel detected an inconsistency between the user-space state at
 and the kernel state;
 that is, the kernel detected a waiter which waits via
 .BR FUTEX_WAIT
-.\" FIXME tglx did not mention FUTEX_WAIT_BITSET here,
-.\"       but should that not also be included here?
+or
+.BR FUTEX_WAIT_BITSET
 on
 .IR uaddr2 .
 .TP
@@ -1429,8 +1393,9 @@ via
 .TP
 .B EINVAL
 .RB ( FUTEX_CMP_REQUEUE_PI )
-.\" FIXME XXX The following is a reworded version of Darren Hart's text.
-.\"       Please check that I did not introduce any errors.
+.\" This deals with the case:
+.\"     wait_requeue_pi(A, B);
+.\"     requeue_pi(A, C);
 An attempt was made to requeue a waiter to a futex other than that
 specified by the matching
 .B FUTEX_WAIT_REQUEUE_PI
@@ -1499,16 +1464,12 @@ The caller does not own the lock represented by the futex word.
 .RB ( FUTEX_LOCK_PI ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
-.\" FIXME I reworded the following sentence a bit differently from
-.\"       tglx's formulation. Is it okay?
 The thread ID in the futex word at
 .I uaddr
 does not exist.
 .TP
 .BR ESRCH
 .RB ( FUTEX_CMP_REQUEUE_PI )
-.\" FIXME I reworded the following sentence a bit differently from
-.\"       tglx's formulation. Is it okay?
 The thread ID in the futex word at
 .I uaddr2
 does not exist.

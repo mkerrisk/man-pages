@@ -396,22 +396,9 @@ from Linux 2.6.26 onward.
 .\"
 .TP
 .BR FUTEX_REQUEUE " (since Linux 2.6.0)"
-.\" Strictly speaking: from Linux 2.5.70
-.\" FIXME(Torvald) Is there some indication that FUTEX_REQUEUE is broken
-.\"     in general, or is this comment implicitly speaking about the
-.\"     condvar (?) use case? If the latter we might want to weaken the
-.\"     advice below a little.
-.\" [Anyone else have input on this?]
-.\" 
-.IR "Avoid using this operation" .
-It is broken for its intended purpose.
-Use
-.BR FUTEX_CMP_REQUEUE
-instead.
-
 This operation performs the same task as
-.BR FUTEX_CMP_REQUEUE ,
-except that no check is made using the value in
+.BR FUTEX_CMP_REQUEUE
+(see below), except that no check is made using the value in
 .IR  val3 .
 (The argument
 .I val3
@@ -460,7 +447,15 @@ This operation was added as a replacement for the earlier
 The difference is that the check of the value at
 .I uaddr
 can be used to ensure that requeueing happens only under certain
-conditions.
+conditions, which allows race conditions to be avoided in certain use cases.
+.\" But, as Rich Flker points out, there remain valid use cases for
+.\" FUTEX_REQUEUE, for example, when the calling thread is requeuing
+.\" the target(s) to a lock that the calling thread owns
+.\"     From: Rich Felker <dalias@libc.org>
+.\"     Date: Wed, 29 Oct 2014 22:43:17 -0400
+.\"     To: Darren Hart <dvhart@infradead.org>
+.\"     CC: libc-alpha@sourceware.org, ...
+.\"     Subject: Re: Add futex wrapper to glibc?
 Both operations can be used to avoid a "thundering herd" effect when
 .B FUTEX_WAKE
 is used and all of the waiters that are woken need to acquire

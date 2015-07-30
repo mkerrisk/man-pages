@@ -702,15 +702,15 @@ state of the waiter (the "wait" bitset that is set using
 All of the waiters for which the result of the AND is nonzero are woken up;
 the remaining waiters are left sleeping.
 
-.\" FIXME XXX Is this next paragraph that I added okay?
 The effect of
 .BR FUTEX_WAIT_BITSET
 and
 .BR FUTEX_WAKE_BITSET
 is to allow selective wake-ups among multiple waiters that are blocked
 on the same futex.
-Note, however, that using this bitset multiplexing feature on a
-futex is less efficient than simply using multiple futexes,
+However, note that, depending on the use case,
+employing this bitset multiplexing feature on a
+futex can be less efficient than simply using multiple futexes,
 because employing bitset multiplexing requires the kernel
 to check all waiters on a futex,
 including those that are not interested in being woken up
@@ -774,8 +774,6 @@ then both of those tasks
 (or more generally, all of the tasks in a lock chain)
 have their priorities raised to be the same as the high-priority task.
 
-.\" FIXME XXX The following is my attempt at a definition of PI futexes,
-.\"       based on mail discussions with Darren Hart. Does it seem okay?
 From a user-space perspective,
 what makes a futex PI-aware is a policy agreement between user space
 and the kernel about the value of the futex word (described in a moment),
@@ -793,10 +791,9 @@ and
 .\"     there is a lot of policy and scaffolding that has to be built up
 .\"     around it to use it properly (this is what a PI pthread_mutex is).
 
-.\" FIXME XXX ===== Start of adapted Hart/Guniguntala text =====
-.\"       The following text is drawn from the Hart/Guniguntala paper
+.\"       mtk: The following text is drawn from the Hart/Guniguntala paper
 .\"       (listed in SEE ALSO), but I have reworded some pieces
-.\"       significantly. Please check it.
+.\"       significantly.
 .\"
 The PI futex operations described below differ from the other
 futex operations in that they impose policy on the use of the value of the
@@ -810,7 +807,6 @@ see
 .BR gettid (2))
 of the owning thread.
 .IP *
-.\" FIXME XXX In the following line, I added "the lock is owned and". Okay?
 If the lock is owned and there are threads contending for the lock,
 then the
 .B FUTEX_WAITERS
@@ -855,13 +851,16 @@ a kernel locking mechanism which implements the required
 priority-inheritance semantics.
 After the RT-mutex is acquired, the futex value is updated accordingly,
 before the calling thread returns to user space.
-.\" FIXME ===== End of adapted Hart/Guniguntala text =====
 
 It is important to note
 .\" FIXME We need some explanation in the following paragraph of *why*
 .\"       it is important to note that "the kernel will update the
 .\"       futex word's value prior to returning to user space".
 .\"       Can someone explain?
+.\" tglx (July 2015):
+.\"     Well, that's hard to describe because the kernel only has a limited
+.\"     way of detecting such mismatches. It only can detect it when there are
+.\"     non PI waiters on a futex and a PI function is called or vice versa.
 that the kernel will update the futex word's value prior
 to returning to user space.
 Unlike the other futex operations described above,
@@ -887,12 +886,6 @@ PI futexes are operated on by specifying one of the following values in
 .TP
 .BR FUTEX_LOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
-.\"
-.\" FIXME I did some significant rewording of tglx's text to create
-.\"       the text below.
-.\"       Please check the following paragraph, in case I injected
-.\"       errors.
-.\"
 This operation is used after after an attempt to acquire
 the lock via an atomic user-mode instruction failed
 because the futex word has a nonzero value\(emspecifically,
@@ -917,15 +910,24 @@ associated with the owner TID,
 .\"       (I think this needs to be clearer in the page)
 creates or reuses kernel state on behalf of the owner
 and attaches the waiter to it.
-.\" FIXME In the next line, what type of "priority" are we talking about?
-.\"       Realtime priorities for SCHED_FIFO and SCHED_RR?
-.\"       Or something else?
-The enqueueing of the waiter is in descending priority order if more
-than one waiter exists.
-.\" FIXME What does "bandwidth" refer to in the next line?
-The owner inherits either the priority or the bandwidth of the waiter.
-.\" FIXME In the preceding line, what determines whether the
-.\"       owner inherits the priority versus the bandwidth?
+
+If more than one waiter exists,
+the enqueueing of the waiter is in descending priority order.
+(For information on priority ordering, see the discussion of the
+.BR SCHED_DEADLINE ,
+.BR SCHED_FIFO ,
+and
+.BR SCHED_RR
+scheduling policies in
+.BR sched (7).)
+The owner inherits either the waiter's CPU bandwidth
+(if the waiter is scheduled under the
+.BR SCHED_DEADLINE
+policy) or the waiter's priority (if the waiter is scheduled under the
+.BR SCHED_RR
+or
+.BR SCHED_FIFO
+policy).
 .\"
 .\" FIXME Could I get some help translating the next sentence into
 .\"       something that user-space developers (and I) can understand?
@@ -1723,7 +1725,8 @@ main(int argc, char *argv[])
 .BR get_robust_list (2),
 .BR restart_syscall (2),
 .BR pthread_mutexattr_getprotocol (3),
-.BR futex (7)
+.BR futex (7),
+.BR sched (7)
 .PP
 The following kernel source files:
 .IP * 2

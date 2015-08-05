@@ -53,7 +53,7 @@ and access shared data structures such as eBPF maps.
 .SS Extended BPF Design/Architecture
 eBPF maps are a generic data structure for storage of different data types.
 Data types are generally treated as binary blobs, so a user just specifies
-the size of the key and the size of the value at map creation time.
+the size of the key and the size of the value at map-creation time.
 In other words, a key/value for a given map can have an arbitrary structure.
 
 A user process can create multiple maps (with key/value-pairs being
@@ -62,35 +62,38 @@ Different eBPF programs can access the same maps in parallel.
 It's up to the user process and eBPF program to decide what they store
 inside maps.
 
-There's one special map type which is a program array.
-This map stores file descriptors to other eBPF programs.
-Thus, when a lookup in that map is performed, the program flow is
-redirected in-place to the beginning of the new eBPF program without
-returning back.
+There's one special map type, called a program array.
+This type of map stores file descriptors referring to other eBPF programs.
+When a lookup in the map is performed, the program flow is
+redirected in-place to the beginning of another eBPF program and does not
+return back to the calling program.
 The level of nesting has a fixed limit of 32, so that infinite loops cannot
 be crafted.
-During runtime, the program file descriptors stored in that map can be modified,
+At runtime, the program file descriptors stored in the map can be modified,
 so program functionality can be altered based on specific requirements.
-All programs stored in such a map have been loaded into the kernel via
-.BR bpf ()
-as well.
-In case a lookup has failed, the current program continues its execution.
-See BPF_MAP_TYPE_PROG_ARRAY below for further details.
+All programs referred to in a program-array map must
+have been previously loaded into the kernel via
+.BR bpf ().
+If a map lookup fails, the current program continues its execution.
+See
+.B BPF_MAP_TYPE_PROG_ARRAY
+below for further details.
 .P
 Generally, eBPF programs are loaded by the user process and automatically
-unloaded when the process exits. In some cases, for example,
+unloaded when the process exits.
+In some cases, for example,
 .BR tc-bpf (8),
 the program will continue to stay alive inside the kernel even after the
 the process that loaded the program exits.
-In that case, the tc subsystem holds a reference to the program after the
-file descriptor has been dropped by the user.
+In that case,
+the tc subsystem holds a reference to the eBPF program after the
+file descriptor has been closed by the user-space program.
 Thus, whether a specific program continues to live inside the kernel
 depends on how it is further attached to a given kernel subsystem
 after it was loaded via
-.BR bpf ()
-\.
+.BR bpf ().
 
-Each program is a set of instructions that is safe to run until
+Each eBPF program is a set of instructions that is safe to run until
 its completion.
 An in-kernel verifier statically determines that the eBPF program
 terminates and is safe to execute.
@@ -114,15 +117,15 @@ eBPF programs can access the same map:
 
 .in +4n
 .nf
-tracing     tracing     tracing     packet      packet     packet
-event A     event B     event C     on eth0     on eth1    on eth2
- |             |          |           |           |          ^
- |             |          |           |           v          |
- --> tracing <--      tracing       socket    tc ingress   tc egress
-      prog_1           prog_2       prog_3    classifier    action
-      |  |               |            |         prog_4      prog_5
-   |---  -----|  |-------|           map_3        |           |
- map_1       map_2                                --| map_4 |--
+tracing     tracing    tracing    packet      packet     packet
+event A     event B    event C    on eth0     on eth1    on eth2
+ |             |         |          |           |          ^
+ |             |         |          |           v          |
+ --> tracing <--     tracing      socket    tc ingress   tc egress
+      prog_1          prog_2      prog_3    classifier    action
+      |  |              |           |         prog_4      prog_5
+   |---  -----|  |------|          map_3        |           |
+ map_1       map_2                              --| map_4 |--
 .fi
 .in
 .\"
@@ -616,15 +619,16 @@ since elements cannot be deleted.
 replaces elements in a
 .B nonatomic
 fashion;
-for atomic updates, a hash-table map should be used instead. There is
-however one special case that can also be used with arrays: the atomic
-built-in
+for atomic updates, a hash-table map should be used instead.
+There is however one special case that can also be used with arrays:
+the atomic built-in
 .BR __sync_fetch_and_add()
-can be used on 32 and 64 bit atomic counters. For example, it can be
+can be used on 32 and 64 bit atomic counters.
+For example, it can be
 applied on the whole value itself if it represents a single counter,
 or in case of a structure containing multiple counters, it could be
-used on individual ones. This is quite often useful for aggregation
-and accounting of events.
+used on individual counters.
+This is quite often useful for aggregation and accounting of events.
 .RE
 .IP
 Among the uses for array maps are the following:
@@ -641,11 +645,15 @@ sizes.
 .RE
 .TP
 .BR BPF_MAP_TYPE_PROG_ARRAY " (since Linux 4.2)"
-A program array map is a special kind of array map, whose map values only
-contain valid file descriptors to other eBPF programs. Thus both the
-key_size and value_size must be exactly four bytes.
+A program array map is a special kind of array map whose map values
+contain only file descriptors referring to other eBPF programs.
+Thus, both the
+.I key_size
+and
+.I value_size
+must be exactly four bytes.
 This map is used in conjunction with the
-.BR bpf_tail_call()
+.BR bpf_tail_call ()
 helper.
 
 This means that an eBPF program with a program array map attached to it
@@ -658,23 +666,29 @@ void bpf_tail_call(void *context, void *prog_map, unsigned int index);
 .in
 
 and therefore replace its own program flow with the one from the program
-at the given program array slot if present. This can be regarded as kind
-of a jump table to a different eBPF program. The invoked program will then
-reuse the same stack. When a jump into the new program has been performed,
-it won't return to the old one anymore.
+at the given program array slot, if present.
+This can be regarded as kind of a jump table to a different eBPF program.
+The invoked program will then reuse the same stack.
+When a jump into the new program has been performed,
+it won't return to the old program anymore.
 
 If no eBPF program is found at the given index of the program array,
+.\" FIXME The array does not contain eBPF programs, but rather file
+.\"       descriptors. So, what does "no eBPF program is found" here
+.\"       really mean?
 execution continues with the current eBPF program.
 This can be used as a fall-through for default cases.
 
 A program array map is useful, for example, in tracing or networking, to
-handle individual system calls resp. protocols in its own sub-programs and
-use their identifiers as an individual map index. This approach may result
-in performance benefits, and also makes it possible to overcome the maximum
-instruction limit of a single program.
-In dynamic environments, a user space daemon may atomically replace individual
-sub-programs at run-time with newer versions to alter overall program
-behavior, for instance, when global policies might change.
+handle individual system calls or protocols in their own subprograms and
+use their identifiers as an individual map index.
+This approach may result in performance benefits,
+and also makes it possible to overcome the maximum
+instruction limit of a single eBPF program.
+In dynamic environments,
+a user-space daemon might atomically replace individual subprograms
+at run-time with newer versions to alter overall program behavior,
+for instance, if global policies change.
 .\"
 .SS eBPF programs
 The

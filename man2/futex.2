@@ -854,14 +854,14 @@ After the RT-mutex is acquired, the futex value is updated accordingly,
 before the calling thread returns to user space.
 
 It is important to note
-.\" FIXME We need some explanation in the following paragraph of *why*
-.\"       it is important to note that "the kernel will update the
-.\"       futex word's value prior to returning to user space".
-.\"       Can someone explain?
 .\" tglx (July 2015):
-.\"     Well, that's hard to describe because the kernel only has a limited
-.\"     way of detecting such mismatches. It only can detect it when there are
-.\"     non PI waiters on a futex and a PI function is called or vice versa.
+.\"     If there are multiple waiters on a pi futex then a wake pi operation
+.\"     will wake the first waiter and hand over the lock to this waiter. This
+.\"     includes handing over the rtmutex which represents the futex in the
+.\"     kernel. The strict requirement is that the futex owner and the rtmutex
+.\"     owner must be the same, except for the update period which is
+.\"     serialized by the futex internal locking. That means the kernel must
+.\"     update the user space value prior to returning to user space
 that the kernel will update the futex word's value prior
 to returning to user space.
 Unlike the other futex operations described above,
@@ -874,10 +874,27 @@ for the implementation of very specific IPC mechanisms.
 .\"       Probably there needs to be a general statement about this
 .\"       requirement, probably located at about this point in the page.
 .\"       Darren (or someone else), care to take a shot at this?
-.\"
-.\" FIXME Somewhere on this page (I guess under the discussion of PI
-.\"       futexes) we need a discussion of the FUTEX_OWNER_DIED bit.
-.\"       Can someone propose a text?
+.\" tglx (July 2015):
+.\"     Well, that's hard to describe because the kernel only has a limited
+.\"     way of detecting such mismatches. It only can detect it when there are
+.\"     non PI waiters on a futex and a PI function is called or vice versa.
+
+If a futex has an associated RT-mutex in the kernel
+(i.e., there are blocked waiters)
+and the owner of the futex/RT-mutex dies unexpectedly,
+then the kernel cleans up the RT-mutex and hands it over to the next waiter.
+This in turn requires that the user-space value is updated accordingly.
+To indicate that this is required, the kernel sets the
+.B FUTEX_OWNER_DIED
+bit in the futex word along with the thread ID of the new owner.
+User space is then responsible for cleaning this up
+(though there are cases where the kernel does the cleanup).
+.\" tglx (July 2015):
+.\"     The FUTEX_OWNER_DIED bit can also be set on uncontended futexes, where
+.\"     the kernel has no state associated. This happens via the robust futex
+.\"     mechanism. In that case the futex value will be set to
+.\"     FUTEX_OWNER_DIED. The robust futex mechanism is also available for non
+.\"     PI futexes.
 
 PI futexes are operated on by specifying one of the following values in
 .IR futex_op :

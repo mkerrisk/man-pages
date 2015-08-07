@@ -67,8 +67,9 @@ This type of map stores file descriptors referring to other eBPF programs.
 When a lookup in the map is performed, the program flow is
 redirected in-place to the beginning of another eBPF program and does not
 return back to the calling program.
-The level of nesting has a fixed limit of 32, so that infinite loops cannot
-be crafted.
+The level of nesting has a fixed limit of 32,
+.\" Defined by the kernel constant MAX_TAIL_CALL_CNT in include/linux/bpf.h
+so that infinite loops cannot be crafted.
 At runtime, the program file descriptors stored in the map can be modified,
 so program functionality can be altered based on specific requirements.
 All programs referred to in a program-array map must
@@ -672,10 +673,12 @@ The invoked program will then reuse the same stack.
 When a jump into the new program has been performed,
 it won't return to the old program anymore.
 
-If no eBPF program is found at the given index of the program array,
-.\" FIXME The array does not contain eBPF programs, but rather file
-.\"       descriptors. So, what does "no eBPF program is found" here
-.\"       really mean?
+If no eBPF program is found at the given index of the program array
+(because the map slot doesn't contain a valid program file descriptor,
+the specified lookup index/key is out of bounds,
+or the limit of 32
+.\" MAX_TAIL_CALL_CNT
+nested calls has been exceed),
 execution continues with the current eBPF program.
 This can be used as a fall-through for default cases.
 

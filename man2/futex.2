@@ -913,22 +913,58 @@ The operation checks the value of the futex word at the address
 .IR uaddr .
 If the value is 0, then the kernel tries to atomically set
 the futex value to the caller's TID.
-.\" FIXME What would be the cause(s) of failure referred to
-.\"       in the following sentence?
-If that fails,
-or the futex word's value is nonzero,
+If the futex word's value is nonzero,
 the kernel atomically sets the
 .B FUTEX_WAITERS
 bit, which signals the futex owner that it cannot unlock the futex in
 user space atomically by setting the futex value to 0.
-After that, the kernel tries to find the thread which is
-associated with the owner TID,
-.\" FIXME Could I get a bit more detail on the next two lines?
-.\"       What is "creates or reuses kernel state" about?
-.\"       (I think this needs to be clearer in the page)
-creates or reuses kernel state on behalf of the owner
-and attaches the waiter to it.
-
+.\" tglx (July 2015):
+.\"     The operation here is similar to the FUTEX_WAIT logic. When the user
+.\"     space atomic acquire does not succeed because the futex value was non
+.\"     zero, then the waiter goes into the kernel, takes the kernel internal
+.\"     lock and retries the acquisition under the lock. If the acquisition
+.\"     does not succeed either, then it sets the FUTEX_WAITERS bit, to signal
+.\"     the lock owner that it needs to go into the kernel. Here is the pseudo
+.\"     code:
+.\"
+.\"     	lock(kernel_lock);
+.\"     retry:
+.\"     	
+.\"     	/*
+.\"     	 * Owner might have unlocked in userspace before we
+.\"     	 * were able to set the waiter bit.
+.\"              */
+.\"             if (atomic_acquire(futex) == SUCCESS) {
+.\"     	   unlock(kernel_lock());
+.\"     	   return 0;
+.\"     	}
+.\"
+.\"     	/*
+.\"     	 * Owner might have unlocked after the above atomic_acquire()
+.\"     	 * attempt.
+.\"     	 */
+.\"     	if (atomic_set_waiters_bit(futex) != SUCCESS)
+.\"     	   goto retry;
+.\"
+.\"     	queue_waiter();
+.\"     	unlock(kernel_lock);
+.\"     	block();
+.\"
+After that, the kernel:
+.RS
+.IP 1. 3
+Tries to find the thread which is associated with the owner TID.
+.IP 2.
+Creates or reuses kernel state on behalf of the owner.
+(If this is the first waiter, there is no kernel state for this
+futex, so kernel state is created by locking the RT-mutex
+and the futex owner is made the owner of the RT-mutex.
+If there are existing waiters, then the existing state is reused.)
+.IP 3.
+Attaches the waiter to it
+(i.e., the waiter is enqueued on the RT-mutex waiter list).
+.RE
+.IP
 If more than one waiter exists,
 the enqueueing of the waiter is in descending priority order.
 (For information on priority ordering, see the discussion of the
@@ -946,16 +982,11 @@ policy) or the waiter's priority (if the waiter is scheduled under the
 or
 .BR SCHED_FIFO
 policy).
-.\"
-.\" FIXME Could I get some help translating the next sentence into
-.\"       something that user-space developers (and I) can understand?
-.\"       In particular, what are "nested locks" in this context?
-This inheritance follows the lock chain in the case of
-nested locking and performs deadlock detection.
+This inheritance follows the lock chain in the case of nested locking
+(i.e., task 1 blocks on lock A, held by task 2,
+while task 2 blocks on lock B, held by task 3)
+and performs deadlock detection.
 
-.\" FIXME tglx said "The timeout argument is handled as described in
-.\"       FUTEX_WAIT." However, it appears to me that this is not right.
-.\"       Is the following formulation correct?
 The
 .I timeout
 argument provides a timeout for the lock attempt.
@@ -980,21 +1011,19 @@ arguments are ignored.
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
 This operation tries to acquire the futex at
 .IR uaddr .
+It is invoked when a user-space atomic acquire did not
+succeed because the futex word was not 0.
+
+The trylock in kernel might succeed because the futex word
+contains stale state
+.RB ( FUTEX_WAITERS
+and/or
+.BR FUTEX_OWNER_DIED ).
+This can happen when the owner of the futex died.
 .\" FIXME I think it would be helpful here to say a few more words about
 .\"       the difference(s) between FUTEX_LOCK_PI and FUTEX_TRYLOCK_PI.
 .\"       Can someone propose something?
 .\"
-.\" FIXME(Torvald)  Additionally, we claim above that just FUTEX_WAITERS
-.\"       is never an allowed state.
-It deals with the situation where the TID value at
-.I uaddr
-is 0, but the
-.B FUTEX_WAITERS
-bit is set.
-.\" FIXME How does the situation in the previous sentence come about?
-.\"       Probably it would be helpful to say something about that in
-.\"       the man page.
-.\" FIXME And *how* does FUTEX_TRYLOCK_PI deal with this situation?
 User space cannot handle this condition in a race-free manner
 
 The
@@ -1083,31 +1112,28 @@ arguments serve the same purposes as for
 .BR FUTEX_WAIT_REQUEUE_PI " (since Linux 2.6.31)"
 .\" commit 52400ba946759af28442dee6265c5c0180ac7122
 .\"
-.\" FIXME I find the next sentence (from tglx) pretty hard to grok.
-.\"       Could someone explain it a bit more?
-Wait operation to wait on a non-PI futex at
+Wait on a non-PI futex at
 .I uaddr
-and potentially be requeued onto a PI futex at
+and potentially be requeued (via a
+.BR FUTEX_CMP_REQUEUE_PI
+operation in another task) onto a PI futex at
 .IR uaddr2 .
 The wait operation on
 .I uaddr
-is the same as
+is the same as for
 .BR FUTEX_WAIT .
-.\"
-.\" FIXME I'm not quite clear on the meaning of the following sentence.
-.\"       Is this trying to say that while blocked in a
-.\"       FUTEX_WAIT_REQUEUE_PI, it could happen that another
-.\"       task does a FUTEX_WAKE on uaddr that simply causes
-.\"       a normal wake, with the result that the FUTEX_WAIT_REQUEUE_PI
-.\"       does not complete? What happens then to the FUTEX_WAIT_REQUEUE_PI
-.\"       opertion? Does it remain blocked, or does it unblock
-.\"       In which case, what does user space see?
+
 The waiter can be removed from the wait on
 .I uaddr
-via
-.BR FUTEX_WAKE
 without requeueing on
-.IR uaddr2 .
+.IR uaddr2
+via a
+.BR FUTEX_WAIT
+operation in another task.
+In this case, the
+.BR FUTEX_WAIT_REQUEUE_PI
+operation returns with the error
+.BR EWOULDBLOCK .
 
 If
 .I timeout
@@ -1304,7 +1330,7 @@ The futex word at
 is already locked by the caller.
 .TP
 .BR EDEADLK
-.\" FIXME XXX I see that kernel/locking/rtmutex.c uses EDEADLK in some
+.\" FIXME . I see that kernel/locking/rtmutex.c uses EDEADLK in some
 .\"       places, and EDEADLOCK in others. On almost all architectures
 .\"       these constants are synonymous. Is there a reason that both
 .\"       names are used?

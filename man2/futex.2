@@ -778,12 +778,11 @@ have their priorities raised to be the same as the high-priority task.
 From a user-space perspective,
 what makes a futex PI-aware is a policy agreement (described below)
 between user space and the kernel about the value of the futex word,
-coupled with the use of the PI-futex operations described below
-(in particular,
-.BR FUTEX_LOCK_PI ,
-.BR FUTEX_TRYLOCK_PI ,
-and
-.BR FUTEX_CMP_REQUEUE_PI ).
+coupled with the use of the PI-futex operations described below.
+(Unlike the other futex operations described above,
+the PI-futex operations are designed
+for the implementation of very specific IPC mechanisms.)
+.\"
 .\" Quoting Darren Hart:
 .\"     These opcodes paired with the PI futex value policy (described below)
 .\"     defines a "futex" as PI aware. These were created very specifically
@@ -815,15 +814,14 @@ bit shall be set in the futex word's value; in other words, this value is:
 
     FUTEX_WAITERS | TID
 
+.IP
+(Note that is invalid for a PI futex word to have no owner and
+.BR FUTEX_WAITERS
+set.)
 .PP
-Note that a PI futex word never has just the value
-.BR FUTEX_WAITERS ,
-which is a permissible state for non-PI futexes.
-
 With this policy in place,
 a user-space application can acquire an unacquired
-lock or release a lock that no other threads try to acquire using atomic
-instructions executed in user mode
+lock or release a lock using atomic instructions executed in user mode
 (e.g., a compare-and-swap operation such as
 .I cmpxchg
 on the x86 architecture).
@@ -864,9 +862,11 @@ It is important to note
 .\"     update the user space value prior to returning to user space
 that the kernel will update the futex word's value prior
 to returning to user space.
-Unlike the other futex operations described above,
-the PI-futex operations are designed
-for the implementation of very specific IPC mechanisms.
+(This prevents the possibility of the futex word's value ending
+up in an invalid state, such as having an owner but the value being 0,
+or having waiters but not having the
+.B FUTEX_WAITERS
+bit set.)
 .\"
 .\" FIXME XXX In discussing errors for FUTEX_CMP_REQUEUE_PI, Darren Hart
 .\"       made the observation that "EINVAL is returned if the non-pi 
@@ -896,8 +896,37 @@ User space is then responsible for cleaning this up
 .\"     FUTEX_OWNER_DIED. The robust futex mechanism is also available for non
 .\"     PI futexes.
 
-PI futexes are operated on by specifying one of the following values in
-.IR futex_op :
+PI futexes are operated on by specifying one of the values listed below in
+.IR futex_op .
+Note that the PI futex operations must be used as paired operations
+and are subject to some additional requirements:
+.IP * 3
+.B FUTEX_LOCK_PI
+and
+.B FUTEX_TRYLOCK_PI
+pair with
+.BR FUTEX_UNLOCK_PI.
+.B FUTEX_UNLOCK_PI
+must be called only on a futex owned by the calling thread,
+as defined by the value policy, otherwise the error
+.B EPERM
+results.
+.IP *
+.B FUTEX_WAIT_REQUEUE_PI
+pairs with
+.BR FUTEX_CMP_REQUEUE_PI .
+This must be performed from a non-PI futex to a distinct PI futex
+(or the error
+.B EINVAL
+results).
+Additionally,
+.I val
+(the number of waiters to be woken) must be 1
+(or the error
+.B EINVAL
+results).
+.P
+The PI futex operations are as follows:
 .\"
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"

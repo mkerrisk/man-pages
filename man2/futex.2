@@ -46,9 +46,9 @@ It is typically used as a blocking construct in the context of
 shared-memory synchronization.
 When using futexes, the majority of
 the synchronization operations are performed in user space.
-The user-space program employs
+The user-space program employs the
 .BR futex ()
-operations only when it is likely that the program has to block for
+system call only when it is likely that the program has to block for
 a longer time until the condition becomes true.
 The program uses another
 .BR futex ()
@@ -70,6 +70,8 @@ or
 (Thus the futex word may have different
 virtual addresses in different processes,
 but these addresses all refer to the same location in physical memory.)
+In a multithreaded program, it is sufficient to place the futex word
+in a global variable shared by all threads.
 
 When executing a futex operation that requests to block a thread,
 the kernel will block only if the futex word has the value that the
@@ -92,7 +94,7 @@ blocking via a futex is an atomic compare-and-block operation.
 .\" See NOTES for
 .\" a detailed specification of the synchronization semantics.
 
-One example use of futexes is for implementing locks.
+One use of futexes is for implementing locks.
 The state of the lock (i.e., acquired or not acquired)
 can be represented as an atomically accessed flag in shared memory.
 In the uncontended case,
@@ -120,7 +122,8 @@ for more detail on how to use futexes.
 
 Besides the basic wait and wake-up futex functionality, there are further
 futex operations aimed at supporting more complex use cases.
-Also note that
+
+Note that
 no explicit initialization or destruction are necessary to use futexes;
 the kernel maintains a futex
 (i.e., the kernel-internal implementation artifact)
@@ -364,7 +367,7 @@ and
 
 The file descriptor can be used to obtain asynchronous notifications: if
 .I val
-is nonzero, then when another process or thread executes a
+is nonzero, then, when another process or thread executes a
 .BR FUTEX_WAKE ,
 the caller will receive the signal number that was passed in
 .IR val .
@@ -768,7 +771,7 @@ so that it is not preempted by any intermediate level tasks,
 and can thus make progress toward releasing the lock.
 To be effective, priority inheritance must be transitive,
 meaning that if a high-priority task blocks on a lock
-held by a lower-priority task that is itself blocked by lock
+held by a lower-priority task that is itself blocked by a lock
 held by another intermediate-priority task
 (and so on, for chains of arbitrary length),
 then both of those tasks
@@ -867,17 +870,6 @@ up in an invalid state, such as having an owner but the value being 0,
 or having waiters but not having the
 .B FUTEX_WAITERS
 bit set.)
-.\"
-.\" FIXME XXX In discussing errors for FUTEX_CMP_REQUEUE_PI, Darren Hart
-.\"       made the observation that "EINVAL is returned if the non-pi 
-.\"       to pi or op pairing semantics are violated."
-.\"       Probably there needs to be a general statement about this
-.\"       requirement, probably located at about this point in the page.
-.\"       Darren (or someone else), care to take a shot at this?
-.\" tglx (July 2015):
-.\"     Well, that's hard to describe because the kernel only has a limited
-.\"     way of detecting such mismatches. It only can detect it when there are
-.\"     non PI waiters on a futex and a PI function is called or vice versa.
 
 If a futex has an associated RT-mutex in the kernel
 (i.e., there are blocked waiters)
@@ -990,7 +982,7 @@ futex, so kernel state is created by locking the RT-mutex
 and the futex owner is made the owner of the RT-mutex.
 If there are existing waiters, then the existing state is reused.)
 .IP 3.
-Attaches the waiter to it
+Attaches the waiter to the futex
 (i.e., the waiter is enqueued on the RT-mutex waiter list).
 .RE
 .IP
@@ -1012,8 +1004,8 @@ or
 .BR SCHED_FIFO
 policy).
 This inheritance follows the lock chain in the case of nested locking
-(i.e., task 1 blocks on lock A, held by task 2,
-while task 2 blocks on lock B, held by task 3)
+.\" (i.e., task 1 blocks on lock A, held by task 2,
+.\" while task 2 blocks on lock B, held by task 3)
 and performs deadlock detection.
 
 The

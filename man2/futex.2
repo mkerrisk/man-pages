@@ -862,7 +862,7 @@ It is important to note
 .\"     kernel. The strict requirement is that the futex owner and the rtmutex
 .\"     owner must be the same, except for the update period which is
 .\"     serialized by the futex internal locking. That means the kernel must
-.\"     update the user space value prior to returning to user space
+.\"     update the user-space value prior to returning to user space
 that the kernel will update the futex word's value prior
 to returning to user space.
 (This prevents the possibility of the futex word's value ending
@@ -879,8 +879,8 @@ This in turn requires that the user-space value is updated accordingly.
 To indicate that this is required, the kernel sets the
 .B FUTEX_OWNER_DIED
 bit in the futex word along with the thread ID of the new owner.
-User space is then responsible for cleaning this up
-(though there are cases where the kernel does the cleanup).
+User space is then responsible for cleaning up the stale state left over by
+the dead owner.
 .\" tglx (July 2015):
 .\"     The FUTEX_OWNER_DIED bit can also be set on uncontended futexes, where
 .\"     the kernel has no state associated. This happens via the robust futex
@@ -1003,6 +1003,11 @@ policy) or the waiter's priority (if the waiter is scheduled under the
 or
 .BR SCHED_FIFO
 policy).
+.\" August 2015:
+.\"     mtk: If the realm is restricted purely to SCHED_OTHER (SCHED_NORMAL)
+.\"          processes, does the nice value come into play also?
+.\"
+.\"     tglx: No. SCHED_OTHER/NORMAL tasks are handled in FIFO order
 This inheritance follows the lock chain in the case of nested locking
 .\" (i.e., task 1 blocks on lock A, held by task 2,
 .\" while task 2 blocks on lock B, held by task 3)
@@ -1048,7 +1053,8 @@ This can happen when the owner of the futex died.
 .\"       the difference(s) between FUTEX_LOCK_PI and FUTEX_TRYLOCK_PI.
 .\"       Can someone propose something?
 .\"
-User space cannot handle this condition in a race-free manner
+User space cannot handle this condition in a race-free manner,
+but the kernel can fix this up and acquire the futex.
 
 The
 .IR uaddr2 ,
@@ -1069,7 +1075,7 @@ on the futex address provided by the
 .I uaddr
 argument.
 
-This is called when the user space value at
+This is called when the user-space value at
 .I uaddr
 cannot be changed atomically from a TID (of the owner) to 0.
 
@@ -1152,7 +1158,7 @@ The waiter can be removed from the wait on
 without requeueing on
 .IR uaddr2
 via a
-.BR FUTEX_WAIT
+.BR FUTEX_WAKE
 operation in another task.
 In this case, the
 .BR FUTEX_WAIT_REQUEUE_PI

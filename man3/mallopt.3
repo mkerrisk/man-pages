@@ -45,6 +45,36 @@ specifies the new value for that parameter.
 The following values can be specified for
 .IR param :
 .TP
+.BR M_ARENA_MAX
+is the maximum number of arenas that can be created. The value of
+M_ARENA_TEST is not used when M_ARENA_MAX is defined.
+An arena represents a pool of memory that can be used by malloc
+calls to service allocation requests. Arenas are thread safe and
+therefore may have multiple concurrent memory requests. The
+trade-off is between number of threads and number of arenas.
+The more arenas you have the lower the per-thread contention,
+but the higher the memory usage.
+This parameter has been available since glibc 2.10 via
+--enable-experimental-malloc, or glibc 2.15 by default.
+In some versions of the allocator there was no limit on the number
+of created arenas e.g. CentOS 5, RHEL 5. When running programs on
+newer glibc these applications may exhibit high contention when
+accessing arenas. In these cases it may be beneficial to increase
+M_ARENA_MAX to match the number of threads. This is similar in behaviour
+to strategies taken by tcmalloc and jemalloc e.g. per-thread allocation
+pools.
+.TP
+.BR M_ARENA_TEST
+is the limit, in number of arenas created, at which the system
+configuration will be examined to evaluate a hard limit on the
+number of created arenas. The computed limit is implementation
+defined and usually a multiple of the number of available cores.
+Once the limit is computed the result is final and constrains
+the total number of arenas.
+See M_ARENA_MAX for the definition of an arena.
+This parameter has been available since glibc 2.10 via
+--enable-experimental-malloc, or glibc 2.15 by default.
+.TP
 .BR M_CHECK_ACTION
 Setting this parameter controls how glibc responds when various kinds
 of programming errors are detected (e.g., freeing the same pointer twice).
@@ -286,22 +316,7 @@ is a trade-off between increasing the number of system calls
 (when the parameter is set low)
 and wasting unused memory at the top of the heap
 (when the parameter is set high).
-.\" FIXME Do the arena parameters need to be documented?
-.\" .TP
-.\" .BR M_ARENA_TEST " (since glibc 2.10)"
-.\" .TP
-.\" .BR M_ARENA_MAX " (since glibc 2.10)"
-.\"
-.\" Environment variables
-.\"     MALLOC_ARENA_MAX_
-.\"     MALLOC_ARENA_TEST_
-.\"
-.\" http://udrepper.livejournal.com/20948.html describes some details
-.\"	of the MALLOC_ARENA_* environment variables.
-.\"
-.\" These macros aren't enabled in production releases until 2.15?
-.\" (see glibc malloc/Makefile)
-.\"
+
 .SS Environment variables
 A number of environment variables can be defined
 to modify some of the same parameters as are controlled by
@@ -319,7 +334,17 @@ For security reasons,
 these variables are ignored in set-user-ID and set-group-ID programs.
 
 The environment variables are as follows
-(note the trailing underscore at the end of the name of each variable):
+(note the trailing underscore at the end of the name of some variables):
+.TP
+.BR MALLOC_ARENA_MAX
+Controls the same parameter as
+.BR mallopt ()
+.BR M_ARENA_MAX .
+.TP
+.BR MALLOC_ARENA_TEST
+Controls the same parameter as
+.BR mallopt ()
+.BR M_ARENA_TEST .
 .TP
 .BR MALLOC_CHECK_
 This environment variable controls the same parameter as

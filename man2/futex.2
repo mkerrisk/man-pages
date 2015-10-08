@@ -434,6 +434,11 @@ This load, the comparison with
 .IR val3 ,
 and the requeueing of any waiters are performed atomically and totally
 ordered with respect to other operations on the same futex word.
+.\" Notes from a f2f conversation with Thomas Gleixner (Aug 2015): ###
+.\"	The operation is serialized with respect to operations on both
+.\"	source and target futex. No other waiter can enqueue itself
+.\"	for waiting and no other waiter can dequeue itself because of
+.\"	a timeout or signal.
 
 Typical values to specify for
 .I val
@@ -1055,6 +1060,16 @@ This can happen when the owner of the futex died.
 .\"
 User space cannot handle this condition in a race-free manner,
 but the kernel can fix this up and acquire the futex.
+.\" Paraphrasing a f2f conversation with Thomas Gleixner about the
+.\" above point (Aug 2015): ###
+.\"	There is a rare possibility of a race condition involving an
+.\"	uncontended futex with no owner, but with waiters.  The
+.\"	kernel-user-space contract is that if a futex is nonzero, you must
+.\"	go into kernel.  The futex was owned by a task, and that task dies
+.\"	but there are no waiters, so the futex value is non zero.
+.\"	Therefore, the next locker has to go into the kernel,
+.\"	so that the kernel has a chance to clean up. (CMXCH on zero
+.\"	in user space would fail, so kernel has to clean up.)
 
 The
 .IR uaddr2 ,
@@ -1465,6 +1480,9 @@ or
 The kernel detected an inconsistency between the user-space state at
 .I uaddr2
 and the kernel state;
+.\" From a conversation with Thomas Gleixner (Aug 2015): ###
+.\"	The kernel sees: I have non PI state for a futex you tried to
+.\"     tell me was PI
 that is, the kernel detected a waiter which waits via
 .BR FUTEX_WAIT
 or

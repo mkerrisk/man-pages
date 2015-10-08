@@ -2044,6 +2044,79 @@ Its behavior differs significantly on other flavors of UNIX.
 In any case, use of
 .BR ptrace ()
 is highly specific to the operating system and architecture.
+.\"
+.SS /proc/sys/kernel/yama/ptrace_scope
+On systems with the Yama Linux Security Module installed, the
+.I /proc/sys/kernel/yama/ptrace_scope
+(available since Linux 3.4)
+.\" commit 2d514487faf188938a4ee4fb3464eeecfbdcf8eb
+can be used to restrict the ability to trace a process with
+.BR ptrace (2)
+(and thus also the ability to use tools such as
+.BR strace (1)
+and
+.BR gdb (1)).
+The goal of such restrictions is to prevent attack escalation whereby
+a compromised process can ptrace-attach to other sensitive processes
+(e.g., a GPG agent or an SSH session) owned by the user in order
+to gain additional credentials and thus expand the scope of the attack.
+
+A process with the
+.B CAP_SYS_PTRACE
+capability can update this file with one of the following values:
+.TP
+0 ("classic ptrace permissions")
+A process can
+.B PTRACE_ATTACH
+to any other process running under the same UID,
+as long as the tracee is dumpable (i.e., it did
+did not transition UIDs or start start privileged, and it has not employed
+the
+.BR prctl (2)
+.B PR_SET_DUMPABLE
+operation to make itself nondumpable).
+
+The use of
+.BR PTRACE_TRACEME
+is unchanged.
+.TP
+1 ("restricted ptrace")
+A process must have a predefined relationship
+with the tracee to which it wants to
+.BR PTRACE_ATTACH .
+By default,
+the predefined relationship is that the tracee is a child of the
+caller and the aforementioned classic criteria are also met.
+To specify a different process that may trace it, a tracee can employ the
+.BR prctl (2)
+.B PR_SET_PTRACER
+operation to declare a different PID that is allowed to
+.BR PTRACE_ATTACH
+to the tracee.
+(See the kernel source file
+.IR Documentation/security/Yama.txt
+for further details.)
+
+The use of
+.BR PTRACE_TRACEME
+is unchanged.
+.TP
+2 ("admin-only attach")
+Only processes with the
+.B CAP_SYS_PTRACE
+capability may use
+.BR PTRACE_ATTACH
+or trace children that employ
+.BR PTRACE_TRACEME .
+.TP
+3 ("no attach")
+No process may use
+.BR PTRACE_ATTACH
+or trace children that employ
+.BR PTRACE_TRACEME .
+
+Once this value has been written to the file, it cannot be changed.
+.\"
 .SS C library/kernel differences
 At the system call level, the
 .BR PTRACE_PEEKTEXT ,

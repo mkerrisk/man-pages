@@ -94,7 +94,10 @@ error is returned.
 If the resolution of the symlink is successful and returns a directory,
 we set the current lookup directory to that directory, and go to
 the next component.
-Note that the resolution process here involves recursion.
+Note that the resolution process here can involve recursion if the
+prefix ('dirname') component of a pathname contains a filename
+that is a symbolic link that resolves to a directory (where the
+prefix component of that directory may contain a symbolic link, and so on).
 In order to protect the kernel against stack overflow, and also
 to protect against denial of service, there are limits on the
 maximum recursion depth, and on the maximum number of symbolic links
@@ -103,10 +106,25 @@ An
 .B ELOOP
 error is returned when the maximum is
 exceeded ("Too many levels of symbolic links").
+
 .\"
 .\" presently: max recursion depth during symlink resolution: 5
 .\" max total number of symbolic links followed: 40
 .\" _POSIX_SYMLOOP_MAX is 8
+As currently implemented on Linux, the maximum number
+.\" MAXSYMLINKS is 40
+of symbolic links that will be followed while resolving a pathname is 40.
+In kernels before 2.6.18, the limit on the recursion depth was 5.
+Starting with Linux 2.6.18, this limit
+.\" MAX_NESTED_LINKS
+was raised to 8.
+In Linux 4.2,
+.\" commit 894bc8c4662ba9daceafe943a5ba0dd407da5cd3
+the kernel's pathname-resolution code
+was reworked to eliminate the use of recursion,
+so that the only limit that remains is the maximum of 40
+resolutions for the entire pathname.
+
 .SS Step 3: find the final entry
 The lookup of the final component of the pathname goes just like
 that of all other components, as described in the previous step,

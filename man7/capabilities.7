@@ -718,18 +718,22 @@ perform permission checks for the thread.
 .\" commit 58319057b7847667f0c9585b9de0e8932b0fdb08
 This is a set of capabilities that are preserved across an
 .BR execve (2)
-of a program that does not have file capabilities.
+of a program that is not privileged.
 The ambient capability set obeys the invariant that no capability
 can ever be ambient if it is not both permitted and inheritable.
-Ambient capabilities are preserved in the permitted set and
-added to the effective set when
+
+The ambient capability set can be directly modified using
+.BR prctl (2).
+Ambient capabilities are automatically lowered if either of
+the corresponding permitted or inheritable capabilities is lowered.
+
+Executing a program that changes UID or GID due to the
+set-user-ID or set-group-ID bits or executing a program that has
+any file capabilities set will clear the ambient set.
+Ambient capabilities are added to the permitted set and
+assigned to the effective set when
 .BR execve (2)
 is called.
-The ambient capability set is modified using
-.BR prctl (2).
-Executing a program that changes uid or gid due to the setuid or setgid
-bits or executing a program that has any file capabilities set will clear
-the ambient set.
 .PP
 A child created via
 .BR fork (2)
@@ -811,7 +815,7 @@ the process using the following algorithm:
 .in +4n
 .nf
 
-P'(ambient) = (file has capabilities or is setuid or setgid) ? 0 : P(ambient)
+P'(ambient) = (file is privileged) ? 0 : P(ambient)
 
 P'(permitted) = (P(inheritable) & F(inheritable)) |
                 (F(permitted) & cap_bset) | P'(ambient)
@@ -835,6 +839,9 @@ denotes a file capability set
 .IP cap_bset
 is the value of the capability bounding set (described below).
 .RE
+.PP
+A privileged file is one that has capabilities or
+has the set-user-ID or set-group-ID bit set.
 .\"
 .SS Capabilities and execution of programs by root
 In order to provide an all-powerful
@@ -1101,8 +1108,10 @@ an effective or real UID of 0 calls
 .IR "Capabilities and execution of programs by root" .)
 .TP
 .B SECBIT_NO_CAP_AMBIENT_RAISE
-Setting this flag disallows
-.BR PR_CAP_AMBIENT_RAISE .
+Setting this flag disallows raising ambient capabilities via the
+.BR prctl (2)
+.BR PR_CAP_AMBIENT_RAISE
+operation.
 .PP
 Each of the above "base" flags has a companion "locked" flag.
 Setting any of the "locked" flags is irreversible,

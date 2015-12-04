@@ -700,13 +700,34 @@ a program whose associated file capabilities grant that capability).
 .IR Inheritable :
 This is a set of capabilities preserved across an
 .BR execve (2).
-It provides a mechanism for a process to assign capabilities
-to the permitted set of the new program during an
-.BR execve (2).
+Inheritable capabilities remain inheritable when executing any program,
+and inheritable capabilities are added to the permitted set when executing
+a program that has the corresponding bits set in the file inheritable set.
+.IP
+Because inheritable capabilities are not generally preserved across
+.BR execve (2)
+when running as a non-root user, applications that wish to run helper
+programs with elevated capabilities should consider using ambient capabilities,
+described below.
 .TP
 .IR Effective :
 This is the set of capabilities used by the kernel to
 perform permission checks for the thread.
+.TP
+.IR Ambient " (since Linux 4.3):"
+This is a set of capabilities that are preserved across an
+.BR execve (2)
+of a program that does not have file capabilities.  The ambient capability
+set obeys the invariant that no capability can ever be ambient if it is
+not both permitted and inheritable.  Ambient capabilities are
+preserved in the permitted set and added to the effective
+set when
+.BR execve (2)
+is called.  The ambient capability set is modified using
+.BR prctl (2).
+Executing a program that changes uid or gid due to the setuid or setgid
+bits or executing a program that has any file capabilities set will clear
+the ambient set.
 .PP
 A child created via
 .BR fork (2)
@@ -788,10 +809,12 @@ the process using the following algorithm:
 .in +4n
 .nf
 
-P'(permitted) = (P(inheritable) & F(inheritable)) |
-                (F(permitted) & cap_bset)
+P'(ambient) = (file has capabilities or is setuid or setgid) ? 0 : P(ambient)
 
-P'(effective) = F(effective) ? P'(permitted) : 0
+P'(permitted) = (P(inheritable) & F(inheritable)) |
+                (F(permitted) & cap_bset) | P'(ambient)
+
+P'(effective) = F(effective) ? P'(permitted) : P'(ambient)
 
 P'(inheritable) = P(inheritable)    [i.e., unchanged]
 
@@ -1074,6 +1097,10 @@ an effective or real UID of 0 calls
 .BR execve (2).
 (See the subsection
 .IR "Capabilities and execution of programs by root" .)
+.TP
+.B SECBIT_NO_CAP_AMBIENT_RAISE
+Setting this flag disallows
+.BR PR_CAP_AMBIENT_RAISE .
 .PP
 Each of the above "base" flags has a companion "locked" flag.
 Setting any of the "locked" flags is irreversible,
@@ -1082,8 +1109,9 @@ corresponding "base" flag.
 The locked flags are:
 .BR SECBIT_KEEP_CAPS_LOCKED ,
 .BR SECBIT_NO_SETUID_FIXUP_LOCKED ,
+.BR SECBIT_NOROOT_LOCKED ,
 and
-.BR SECBIT_NOROOT_LOCKED .
+.BR SECBIT_NO_CAP_AMBIENT_RAISE .
 .PP
 The
 .I securebits

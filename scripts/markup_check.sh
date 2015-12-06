@@ -26,7 +26,7 @@ pagename_pattern='[a-z_A-Z][^ ]*'
     grep "$pattern" $file_list | sed 's/^/        /' | tee -a $LOG
 
     echo ""
-    echo "Checking for misformmatted punctuation in .BR xrefs"
+    echo "Checking for misformatted punctuation in .BR xrefs"
     pattern='^\.BR  *'"$pagename_pattern"'  *([1-8a-zA-Z]*) [^ ]'
     echo "    Pattern: '$pattern'"
     grep "$pattern" $file_list | sed 's/^/        /' | tee -a $LOG

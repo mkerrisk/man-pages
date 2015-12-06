@@ -61,7 +61,7 @@ install:
 		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 	done; \
 
-# Check if groff reports warnings (may be words of sentances not displayed)
+# Check if groff reports warnings (may be words of sentences not displayed)
 # from http://lintian.debian.org/tags/manpage-has-errors-from-man.html 
 GROFF_LOG := $(shell mktemp /tmp/manpages-checksXXXX)
 check-groff-warnings:

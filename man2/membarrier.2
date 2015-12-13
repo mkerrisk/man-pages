@@ -1,0 +1,269 @@
+.\" Copyright 2015 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH MEMBARRIER 2 2015-04-15 "Linux" "Linux Programmer's Manual"
+.SH NAME
+membarrier \- issue memory barriers on a set of threads
+.SH SYNOPSIS
+.B #include <linux/membarrier.h>
+.sp
+.BI "int membarrier(int " cmd ", int " flags ");
+.sp
+.SH DESCRIPTION
+The membarrier system call helps reducing overhead of memory barrier
+instructions required to order memory accesses on multi-core systems.
+However, this system call is heavier than a memory barrier, so using it
+effectively is
+.B not
+as simple as replacing memory barriers with this
+system call, but requires understanding the following:
+
+Use of memory barriers needs to be done taking into account that a
+memory barrier always needs to be either matched with its memory barrier
+counterparts, or that the architecture's memory model don't require the
+matching barriers.
+
+There are cases where one side of the matching barriers (which we will
+refer to as "fast side") is executed much more often than the other
+(which we will refer to as "slow side"). This is a prime target for the
+membarrier system call. The key idea is to replace, for these matching
+barriers, the fast side memory barriers by simple compiler barriers,
+e.g.:
+
+  asm volatile ("" : : : "memory")
+
+and replace the slow side memory barriers by the membarrier system call.
+
+This will add overhead to the slow side, and remove overhead from the
+fast side, thus resulting in an overall performance increase as long as
+the slow side is infrequent enough that the membarrier system call
+overhead does not counterweight the performance gain on the fast side.
+
+Examples where this system call can be useful includes implementations
+of Ready-Copy Update librarires, and garbage collectors.
+
+The
+.I cmd
+argument is one of the following:
+
+.TP
+.B MEMBARRIER_CMD_QUERY
+Query the set of supported commands. It returns a bitmask of supported
+commands.
+.TP
+.B MEMBARRIER_CMD_SHARED
+Ensure that all threads from all processes on the system pass through a
+state where all memory accesses to user-space addresses match program
+order between entry to and return from the membarrier system call.
+All threads on the system are targeted by this command. This command
+returns 0.
+
+.PP
+The
+.I cmd
+argument expects a one-hot bit of a bitmask, except for the
+.B MEMBARRIER_CMD_QUERY
+command which has the value 0. This query command is always supported,
+even though it is not part of the bitmask.
+
+.PP
+The
+.I flags
+argument is currently unused.
+
+.PP
+All memory accesses performed in program order from each targeted thread
+is guaranteed to be ordered with respect to sys_membarrier(). If we use
+the semantic "barrier()" to represent a compiler barrier forcing memory
+accesses to be performed in program order across the barrier, and
+smp_mb() to represent explicit memory barriers forcing full memory
+ordering across the barrier, we have the following ordering table for
+each pair of barrier(), sys_membarrier() and smp_mb():
+
+The pair ordering is detailed as (O: ordered, X: not ordered):
+
+                       barrier()   smp_mb() sys_membarrier()
+       barrier()          X           X            O
+       smp_mb()           X           O            O
+       sys_membarrier()   O           O            O
+
+.SH RETURN VALUE
+On success, this system call returns zero.  On error, \-1 is returned,
+and
+.I errno
+is set appropriately.
+For a given command, with flags argument set to 0, this system call is
+guaranteed to always return the same value until reboot. Therefore, it
+is sufficient to handle errors in a program or library initialization
+function. Further calls with the same parameters will lead to the same
+result. Therefore, for flag argument set to 0, error handling is only
+required for the first calls to the
+.BR membarrier ()
+system call in an application.
+
+.SH ERRORS
+.TP
+.B ENOSYS
+System call is not implemented.
+.TP
+.B EINVAL
+.I cmd
+is invalid or
+.I flags
+is non-zero.
+
+.SH VERSIONS
+The membarrier system call was added in Linux 4.3.
+
+.SH CONFORMING TO
+.BR membarrier ()
+is Linux-specific.
+
+.SH NOTES
+
+A memory barrier instruction is part of the instruction set of
+architectures with weakly-ordered memory models. It orders memory
+accesses prior to the barrier and after the barrier with respect to
+matching barriers on other cores. For instance, a load fence can order
+loads prior to and following that fence with respect to stores ordered
+by store fences.
+
+Program order is the order in which instructions are ordered in the
+program assembly code.
+
+.SH EXAMPLE
+
+Assuming a multithreaded application where "fast_path()" is executed
+very frequently, and where "slow_path()" is executed infrequently, the
+following code (x86) can be transformed using
+.BR membarrier()
+:
+
+.nf
+#include <stdlib.h>
+
+static volatile int a, b;
+
+static void fast_path(void)
+{
+	int read_a, read_b;
+
+	read_b = b;
+	asm volatile ("mfence" : : : "memory");
+	read_a = a;
+	/* read_b == 1 implies read_a == 1. */
+	if (read_b == 1 && read_a == 0)
+		abort();
+}
+
+static void slow_path(void)
+{
+	a = 1;
+	asm volatile ("mfence" : : : "memory");
+	b = 1;
+}
+
+int main(int argc, char **argv)
+{
+	/*
+	 * Real applications would call fast_path() and slow_path() from
+	 * different threads. Call those from main() to keep this
+	 * example short.
+	 */
+	slow_path();
+	fast_path();
+	exit(EXIT_SUCCESS);
+}
+.fi
+
+The code above transformed to use the
+.BR membarrier()
+system call becomes:
+
+.nf
+#define _GNU_SOURCE
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <linux/membarrier.h>
+
+static volatile int a, b;
+
+static int membarrier(int cmd, int flags)
+{
+	return syscall(__NR_membarrier, cmd, flags);
+}
+
+static int init_membarrier(void)
+{
+	int ret;
+
+	/* Ensure that membarrier is supported. */
+	ret = membarrier(MEMBARRIER_CMD_QUERY, 0);
+	if (ret < 0) {
+		perror("membarrier");
+		return -1;
+	}
+	if (!(ret & MEMBARRIER_CMD_SHARED)) {
+		fprintf(stderr,
+			"membarrier does not support MEMBARRIER_CMD_SHARED.\\n");
+		return -1;
+	}
+	return 0;
+}
+
+static void fast_path(void)
+{
+	int read_a, read_b;
+
+	read_b = b;
+	asm volatile ("" : : : "memory");
+	read_a = a;
+	/* read_b == 1 implies read_a == 1. */
+	if (read_b == 1 && read_a == 0)
+		abort();
+}
+
+static void slow_path(void)
+{
+	a = 1;
+	membarrier(MEMBARRIER_CMD_SHARED, 0);
+	b = 1;
+}
+
+int main(int argc, char **argv)
+{
+	if (init_membarrier())
+		exit(EXIT_FAILURE);
+	/*
+	 * Real applications would call fast_path() and slow_path() from
+	 * different threads. Call those from main() to keep this
+	 * example short.
+	 */
+	slow_path();
+	fast_path();
+	exit(EXIT_SUCCESS);
+}
+.fi

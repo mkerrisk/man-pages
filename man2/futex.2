@@ -83,6 +83,8 @@ the comparison of that value with the expected value,
 and the actual blocking will happen atomically and totally
 ordered with respect to concurrently executing futex
 operations on the same futex word.
+(Here, "totally ordered" refers to the mathematical notion of
+a strict total order.)
 Thus, the futex word is used to connect the synchronization in user space
 with the implementation of blocking by the kernel.
 Analogously to an atomic
@@ -1040,16 +1042,13 @@ arguments are ignored.
 .TP
 .BR FUTEX_TRYLOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
-This operation tries to acquire the futex at
+This operation tries to acquire the lock at
 .IR uaddr .
 It is invoked when a user-space atomic acquire did not
 succeed because the futex word was not 0.
 
-.\" FIXME The wording "The trylock in kernel" below needs clarification.
-.\"       Suggestions?
-.\"
-The trylock in kernel might succeed because the futex word
-contains stale state
+The acquisition of the lock might succeed if performed by the
+kernel in cases where the futex word contains stale state
 .RB ( FUTEX_WAITERS
 and/or
 .BR FUTEX_OWNER_DIED ).
@@ -1177,8 +1176,8 @@ via a
 operation in another task.
 In this case, the
 .BR FUTEX_WAIT_REQUEUE_PI
-operation returns with the error
-.BR EWOULDBLOCK .
+operation fails with the error
+.BR EAGAIN .
 
 If
 .I timeout

@@ -27,7 +27,9 @@
 lirc \- lirc devices
 .SH DESCRIPTION
 .P
-\fB/dev/lirc*\fR are character devices providing a low-level
+The
+.B /dev/lirc*
+character devices provide a low-level
 bi-directional interface to infra-red (IR) remotes.
 When receiving data, the driver works in two different modes depending
 on the underlying hardware.
@@ -35,14 +37,16 @@ on the underlying hardware.
 Some hardware (typically TV-cards) decodes the IR signal internally
 and just provides decoded button presses as integer values.
 Drivers for this kind of hardware work in
-.BR LIRC_MODE_LIRCCODE .
+.BR LIRC_MODE_LIRCCODE
+mode.
 Such hardware usually does not support sending IR signals.
 Furthermore, it usually only works with a specific remote which is
 bundled with, for example, a TV-card.
 .P
 Other hardware provides a stream of pulse/space durations.
 Such drivers work in
-.BR LIRC_MODE_MODE2 .
+.BR LIRC_MODE_MODE2
+mode.
 Sometimes, this kind of hardware also supports
 sending IR data.
 Such hardware can be used with (almost) any kind of remote.
@@ -57,7 +61,7 @@ In the \fBLIRC_MODE_MODE2 mode\fR, the data returned by
 provides 32-bit values representing a space or a pulse duration, by
 convention typed as
 .IR lirc_t .
-The time of the duration (microseonds) is encoded in the lower 24 bits.
+The time of the duration (microseconds) is encoded in the lower 24 bits.
 The upper 8 bit reflects the type of package:
 .TP 4
 .BR LIRC_MODE2_SPACE .
@@ -67,12 +71,12 @@ Value reflects a space duration (microseconds).
 Value reflects a pulse duration (microseconds).
 .TP 4
 .BR LIRC_MODE2_FREQUENCY .
-Value reflects a frequency (hz), see the
+Value reflects a frequency (Hz); see the
 .B LIRC_SET_MEASURE_CARRIER
 ioctl.
 .TP 4
 .BR LIRC_MODE2_TIMEOUT .
-The package reflects a timeout, see the
+The package reflects a timeout; see the
 .B LIRC_SET_REC_TIMEOUT_REPORTS
 ioctl.
 
@@ -82,7 +86,7 @@ drivers
 .P
 In the \fBLIRC_MODE_LIRCCODE\fR
 mode, the data returned by
-.BR read2()
+.BR read (2)
 reflects decoded button presses.
 The length of each packet can be retrieved using
 the \fBLIRC_GET_LENGTH\fR ioctl.
@@ -95,24 +99,24 @@ up so it matches full bytes.
 When sending data, only the \fBLIRC_MODE_PULSE\fR
 mode is supported.
 The data written to the character device using
-.BR write(2)
+.BR write (2)
 is a pulse/space sequence of integer values.
 Pulses and spaces are only marked implicitly by their position.
 The data must start and end with a pulse, thus it must always include
 an odd number of samples.
 The
-.BR write(2)
+.BR write (2)
 function blocks until the data has been transmitted by the
 hardware.
 If more data is provided than the hardware can send, the
-.BR write(2)
+.BR write (2)
 call fails with the error
 .BR EINVAL
 
 .SH SUPPORTED IOCTL COMMANDS
 .P
 .nf
-#include " (\fIlirc/include/media/lirc.h\fP) " /* But see BUGS */
+#include <lirc/include/media/lirc.h>    /* But see BUGS */
 int ioctl(int fd, int cmd, ...);
 .fi
 .P
@@ -121,7 +125,7 @@ hardware settings.
 Many require a third argument, usually an
 .IR int .
 referred to below as
-.I val .
+.IR val .
 .P
 In general, each driver should have a default set of settings.
 The driver implementation is expected to re-apply the default settings
@@ -135,9 +139,10 @@ initially.
 \fI/dev/lirc*\fR devices always support the following commands:
 .TP 4
 .BR LIRC_GET_FEATURES " (\fIvoid\fP)"
-Returns a bitmask of combined features bits, see FEATURES.
-Some drivers have dynamic features which are not updated until after
-an init() command.
+Returns a bit mask of combined features bits; see FEATURES.
+Some drivers have dynamic features which are not updated until after an
+.I init()
+command.
 .TP
 .BR LIRC_GET_REC_MODE ,
 Returns the receive mode, which will be one of:
@@ -152,7 +157,7 @@ button press.
 .RE
 .P
 If a device returns an error code for
-.BR LIRC_GET_REC_MODE
+.BR LIRC_GET_REC_MODE ,
 it is safe to assume it is not a lirc device.
 
 .SS Optional Commands
@@ -174,13 +179,13 @@ or
 .TP
 .BR LIRC_GET_LENGTH " (\fIvoid\fP)"
 Return the length of the returned codes for
-.BR LIRC_LIRCCODE
-type
+.BR LIRC_LIRCCODE -type
 drivers, otherwise fail with the error
 .BR ENOIOCTLCMD .
 .TP
 .BR LIRC_GET_SEND_MODE " (\fIvoid\fP)"
-Returns the send mode; currently only
+Return the send mode.
+Currently only
 .BR LIRC_MODE_PULSE
 is supported.
 .TP
@@ -191,12 +196,14 @@ Currently serves no purpose since only
 is supported.
 .TP
 .BR LIRC_SET_SEND_CARRIER " (\fIint\fP)"
-Set the modulation frequency. The argument is the frequency (Hz).
+Set the modulation frequency.
+The argument is the frequency (Hz).
 .TP
 .BR SET_SEND_DUTY_CYCLE " (\fIint\fP)"
 Set the carrier duty cycle.
-The argument is an int (0 < value < 100) which
-describes the pulse width in percent of the total cycle.
+.I val
+is a number in the range [0,100] which
+describes the pulse width as a percentage of the total cycle.
 Currently, no special meaning is defined for 0 or 100, but the values
 are reserved for future use.
 .TP
@@ -205,12 +212,14 @@ LIRC_GET_MAX_TIMEOUT " (\fIvoid\fP)"
 Some devices have internal timers that can be used to detect when
 there's no IR activity for a long time.
 This can help
-.BR lircd(8)
+.BR lircd (8)
 in detecting that an IR signal is finished and can speed up the
 decoding process.
-Returns an integer value with the minimum/maximum timeout that can be
+These operations
+return integer values with the minimum/maximum timeout that can be
 set (microseconds).
-Some devices have a fixed timeout. For such drivers,
+Some devices have a fixed timeout.
+For such drivers,
 .BR LIRC_GET_MIN_TIMEOUT
 and
 .BR LIRC_GET_MAX_TIMEOUT
@@ -232,7 +241,7 @@ than the given value should be set.
 Enables
 .RI ( val
 is 1) or disables
-.RI (val
+.RI ( val
 is 0) timeout packages in
 .BR LIRC_MODE_MODE2 .
 By default, timeout reports should be turned off.
@@ -240,20 +249,21 @@ By default, timeout reports should be turned off.
 .BR LIRC_SET_REC_CARRIER " (\fIint\fP)"
 Set the receive carrier frequency (Hz).
 .TP
-After opening device, the first use of
 .BR LIRC_SET_REC_CARRIER_RANGE " (\fIint\fP)"
-sets the lower bound of the carrier range, second time the upper
-bound (Hz).
+After opening device, the first use of this operation
+sets the lower bound of the carrier range,
+and the second use sets the upper bound (Hz).
 .TP
 .BR LIRC_SET_MEASURE_CARRIER " (\fIint\fP)"
 Enables
 .RI ( val
 is 1) or disables
-.RI (val
-is 0) the measure mode
+.RI ( val
+is 0) the measure mode.
 If enabled, from the next key press on, the driver will send
 .BR LIRC_MODE2_FREQUENCY
-packets. By default this should be turned off.
+packets.
+By default this should be turned off.
 .TP
 .BR LIRC_GET_REC_RESOLUTION " (\fIvoid\fP)"
 Returns the driver resolution (microseconds).
@@ -265,7 +275,8 @@ using given filter rules.
 These ioctls return the hardware capabilities that describe the bounds
 of the possible filters.
 Filter settings depend on the IR protocols that are expected.
-lircd derives the settings from all protocols definitions found in its
+.BR lircd (8)
+derives the settings from all protocols definitions found in its
 .BR lircd.conf (5)
 config file.
 .TP
@@ -289,15 +300,16 @@ should be used instead.
 .TP
 .BR LIRC_SET_TRANSMITTER_MASK
 Enables the given set of transmitters.
-.RI val
-contains a bitmask where each enabled transmitter is a 1.
-The first transmitter is encoded by the least significant bit, etc.
+.I val
+contains a bit mask where each enabled transmitter is a 1.
+The first transmitter is encoded by the least significant bit, and so on.
 When an invalid bit mask is given, for example a bit is set even
-though the device does not have so many transmitters, returns the
+though the device does not have so many transmitters,
+this operation returns the
 number of available transmitters and does nothing otherwise.
 .TP
 .BR LIRC_SET_WIDEBAND_RECEIVER " (\fIint\fP)"
-Some devices are equipped with a special wide band receiver which are
+Some devices are equipped with a special wide band receiver which is
 intended to be used to learn the output of an existing remote.
 This ioctl can be used to enable
 .RI ( val
@@ -312,18 +324,19 @@ reception.
 .IP
 Note: wide band receiver may be implicitly enabled if you enable
 carrier reports.
-In that case it will be disabled as soon as you disable carrier reports.
+In that case, it will be disabled as soon as you disable carrier reports.
 Trying to disable a wide band receiver while carrier reports are active
 will do nothing.
-
 .TP
-.BR LIRC_SETUP_START " (\fIvoid\fP)", " "LIRC_SETUP_END " (\fIvoid\fP)"
-Setting of several driver parameters can be optimized by encapsulating
-the actual ioctl calls with
-.BR LIRC_SETUP_START/LIRC_SETUP_END .
+.BR LIRC_SETUP_START " (\fIvoid\fP), " LIRC_SETUP_END " (\fIvoid\fP)"
+Setting of several driver parameters can be optimized by bracketing
+the actual ioctl calls
+.BR LIRC_SETUP_START
+and
+.BR LIRC_SETUP_END .
 When a driver receives a
 .BR LIRC_SETUP_START
-ioctl it can choose to not commit further setting changes to the
+ioctl, it can choose to not commit further setting changes to the
 hardware until a
 .BR LIRC_SETUP_END
 is received.
@@ -333,11 +346,10 @@ must also handle parameter changes which are not encapsulated by
 and
 .BR LIRC_SETUP_END .
 Drivers can also choose to ignore these ioctls.
-
 .TP
 .BR LIRC_NOTIFY_DECODE " (\fIvoid\fP)"
 This ioctl is called by
-.BR lircd(8)
+.BR lircd (8)
 whenever a successful decoding of an incoming IR signal is possible.
 This can be used by supporting hardware to give visual user
 feedback, for example by flashing an LED.
@@ -345,101 +357,102 @@ feedback, for example by flashing an LED.
 .SH FEATURES
 .P
 The features returned by
+The
 .BR LIRC_GET_FEATURES
-is a bitmask combining the following bits:
-.TP 8
+ioctl returns a bit mask describing features of the driver.
+The following bits may be returned in the mask:
+.TP
 .BR LIRC_CAN_REC_RAW
 The driver is capable of receiving using
 .BR LIRC_MODE_RAW .
-.TP 8
+.TP
 .BR LIRC_CAN_REC_PULSE
 The driver is capable of receiving using
 .BR LIRC_MODE_PULSE .
-.TP 8
+.TP
 .BR LIRC_CAN_REC_MODE2
 The driver is capable of receiving using
 .BR LIRC_MODE_MODE2 .
-.TP 8
+.TP
 .BR LIRC_CAN_REC_LIRCCODE
 The driver is capable of receiving using
 .BR LIRC_MODE_LIRCCODE .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_SEND_CARRIER
-Driver supports changing the modulation frequency using
+The driver supports changing the modulation frequency using
 .BR LIRC_SET_SEND_CARRIER .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_SEND_DUTY_CYCLE
-Driver supports changing the duty cycle using
+The driver supports changing the duty cycle using
 .BR LIRC_SET_SEND_DUTY_CYCLE .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_TRANSMITTER_MASK
-Driver supports changing the active transmitter(s) using
+The driver supports changing the active transmitter(s) using
 .BR LIRC_SET_TRANSMITTER_MASK .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_REC_CARRIER
-Driver supports setting the receive carrier frequency using
+The driver supports setting the receive carrier frequency using
 .BR LIRC_SET_REC_CARRIER .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_REC_DUTY_CYCLE_RANGE
-Driver supports
+The driver supports
 .BR LIRC_SET_REC_DUTY_CYCLE_RANGE .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_REC_CARRIER_RANGE
-Driver supports
+The driver supports
 .BR LIRC_SET_REC_CARRIER_RANGE .
-.TP 8
+.TP
 .BR LIRC_CAN_GET_REC_RESOLUTION
-Driver supports
+The driver supports
 .BR LIRC_GET_REC_RESOLUTION .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_REC_TIMEOUT
-Driver supports
+The driver supports
 .BR LIRC_SET_REC_TIMEOUT .
-.TP 8
+.TP
 .BR LIRC_CAN_SET_REC_FILTER
-Driver supports
+The driver supports
 .BR LIRC_SET_REC_FILTER .
-.TP 8
+.TP
 .BR LIRC_CAN_MEASURE_CARRIER
-Driver supports measuring of the modulation frequency using
+The driver supports measuring of the modulation frequency using
 .BR LIRC_MEASURE_CARRIER .
-.TP 8
+.TP
 .BR LIRC_CAN_USE_WIDEBAND_RECEIVER
-Driver supports learning mode using
+The driver supports learning mode using
 .BR LIRC_SET_WIDEBAND_RECEIVER .
-.TP 8
+.TP
 .BR LIRC_CAN_NOTIFY_DECODE
-Driver supports
+The driver supports
 .BR LIRC_NOTIFY_DECODE .
-.TP 8
+.TP
 .BR LIRC_CAN_SEND_RAW
-Driver supports sending using
+The driver supports sending using
 .BR LIRC_SEND_RAW .
-.TP 8
+.TP
 .BR LIRC_CAN_SEND_PULSE
-Driver supports sending using
+The driver supports sending using
 .BR LIRC_MODE_PULSE .
-.TP 8
+.TP
 .BR LIRC_CAN_SEND_MODE2
-Driver supports sending using
+The driver supports sending using
 .BR LIRC_SEND_MODE2 .
-.TP 8
+.TP
 .BR LIRC_CAN_SEND_LIRCCODE
-Driver supports sending.
-.BR LIRC_SEND_LIRCCODE
-(this is uncommon, since
+The driver supports sending.
+(This is uncommon, since
 .BR LIRCCODE
 drivers reflect hardware like TV-cards which usually does not support
 sending.)
 
 .SH BUGS
-.P
-Using these devices requires the kernel source header file lirc.h.
-This file not being public is a bug, see
-https://bugzilla.kernel.org/show_bug.cgi?id=3D75751.
-For the time being the file is bundled in the lirc package,
-see http://www.lirc.org.
-
+Using these devices requires the kernel source header file
+.IR lirc.h .
+This file is not (yet) publicly exported by kernel headers.
+.\" FIXME . https://bugzilla.kernel.org/show_bug.cgi?id=3D75751.
+For the time being, the file is bundled in the lirc package; see
+.UR http://www.lirc.org
+.UE .
 
 .SH SEE ALSO
 .P

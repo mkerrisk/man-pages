@@ -80,11 +80,21 @@ calling thread supplied (as one of the arguments of the
 call) as the expected value of the futex word.
 The loading of the futex word's value,
 the comparison of that value with the expected value,
-and the actual blocking will happen atomically and will be totally
-ordered with respect to concurrent operations performed by other threads
+and the actual blocking will happen atomically and will be serialized
+with respect to concurrent operations performed by other threads
 on the same futex word.
-.\" (Here, "totally ordered" refers to the mathematical notion of
-.\" a strict total order.)
+.\" Notes from Darren Hart (Dec 2015):
+.\"     Totally ordered with respect futex operations refers to semantics
+.\"     of the ACQUIRE/RELEASE operations and how they impact ordering of
+.\"     memory reads and writes. The kernel futex operations are protected
+.\"     by spinlocks, which ensure that that all operations are serialized
+.\"     with respect to one another.
+.\"
+.\"     This is a lot to attempt to define in this document. Perhaps a
+.\"     reference to linux/Documentation/memory-barriers.txt as a footnote
+.\"     would be sufficient? Or perhaps for this manual, "serialized" would
+.\"     be sufficient, with a footnote regarding "totally ordered" and a
+.\"     pointer to the memory-barrier documentation?
 Thus, the futex word is used to connect the synchronization in user space
 with the implementation of blocking by the kernel.
 Analogously to an atomic
@@ -1053,10 +1063,6 @@ kernel in cases where the futex word contains stale state
 and/or
 .BR FUTEX_OWNER_DIED ).
 This can happen when the owner of the futex died.
-.\" FIXME I think it would be helpful here to say a few more words about
-.\"       the difference(s) between FUTEX_LOCK_PI and FUTEX_TRYLOCK_PI.
-.\"       Can someone propose something?
-.\"
 User space cannot handle this condition in a race-free manner,
 but the kernel can fix this up and acquire the futex.
 .\" Paraphrasing a f2f conversation with Thomas Gleixner about the

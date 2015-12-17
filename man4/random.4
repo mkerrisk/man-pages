@@ -171,7 +171,7 @@ This reduces the actual amount of noise in the entropy pool
 below the estimate.
 In order to counteract this effect, it helps to carry
 entropy pool information across shut-downs and start-ups.
-To do this, add the following lines to an appropriate script
+To do this, add the lines to an appropriate script
 which is run during the Linux system start-up sequence:
 
 .nf
@@ -186,7 +186,8 @@ which is run during the Linux system start-up sequence:
     fi
     chmod 600 $random_seed
     poolfile=/proc/sys/kernel/random/poolsize
-    [ \-r $poolfile ] && bytes=\`cat $poolfile\` || bytes=512
+    [ \-r $poolfile ] && bits=\`cat $poolfile\` || bits=4096
+    bytes=$(expr $bits / 8)
     dd if=/dev/urandom of=$random_seed count=1 bs=$bytes
 .fi
 
@@ -201,9 +202,14 @@ run during the Linux system shutdown:
     touch $random_seed
     chmod 600 $random_seed
     poolfile=/proc/sys/kernel/random/poolsize
-    [ \-r $poolfile ] && bytes=\`cat $poolfile\` || bytes=512
+    [ \-r $poolfile ] && bits=\`cat $poolfile\` || bits=4096
+    bytes=$(expr $bits / 8)
     dd if=/dev/urandom of=$random_seed count=1 bs=$bytes
 .fi
+
+In the above examples, we assume Linux 2.6.0 or later, where
+.IR /proc/sys/kernel/random/poolsize
+returns the size of the entropy pool in bits (see below).
 .SS /proc Interface
 The files in the directory
 .I /proc/sys/kernel/random

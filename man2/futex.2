@@ -46,13 +46,14 @@ It is typically used as a blocking construct in the context of
 shared-memory synchronization.
 When using futexes, the majority of
 the synchronization operations are performed in user space.
-The user-space program employs the
+A user-space program employs the
 .BR futex ()
 system call only when it is likely that the program has to block for
 a longer time until the condition becomes true.
-The program uses another
+Other
 .BR futex ()
-operation to wake anyone waiting for a particular condition.
+operations can be used to wake any processes or threads waiting
+for a particular condition.
 
 A futex is a 32-bit value\(emreferred to below as a
 .IR "futex word" \(emwhose
@@ -80,7 +81,7 @@ calling thread supplied (as one of the arguments of the
 call) as the expected value of the futex word.
 The loading of the futex word's value,
 the comparison of that value with the expected value,
-and the actual blocking will happen atomically and will be serialized
+and the actual blocking will happen atomically and will be totally ordered
 with respect to concurrent operations performed by other threads
 on the same futex word.
 .\" Notes from Darren Hart (Dec 2015):
@@ -123,7 +124,8 @@ representing the acquired state as the expected value to a
 wait operation.
 This
 .BR futex ()
-call will block if and only if the lock is still acquired.
+operation will block if and only if the lock is still acquired
+(i.e., the value in the futex word still matches the "acquiired state").
 When releasing the lock, a thread has to first reset the
 lock state to not acquired and then execute a futex
 operation that wakes threads blocked on the lock flag used as a futex word
@@ -244,7 +246,7 @@ as an absolute time based on
 
 If this option is not set, the kernel treats
 .I timeout
-as relative time,
+as a relative time,
 measured against the
 .BR CLOCK_MONOTONIC
 clock.
@@ -290,8 +292,8 @@ and if the other thread executed a
 .BR FUTEX_WAKE
 operation (or similar wake-up) after the value change and before this
 .BR FUTEX_WAIT
-operation, then the latter will observe the value change and will not start
-to sleep.
+operation, then the calling thread will observe the
+value change and will not start to sleep.
 
 If the
 .I timeout
@@ -942,7 +944,7 @@ The PI futex operations are as follows:
 .TP
 .BR FUTEX_LOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
-This operation is used after after an attempt to acquire
+This operation is used after an attempt to acquire
 the lock via an atomic user-mode instruction failed
 because the futex word has a nonzero value\(emspecifically,
 because it contained the (PID-namespace-specific) TID of the lock owner.
@@ -1263,8 +1265,8 @@ memory location (e.g., typical futex-based implementations of
 Pthreads mutexes can cause this under some conditions).
 Therefore, callers should always conservatively assume that a return
 value of 0 can mean a spurious wake-up, and use the futex word's value
-(i.e., the user space synchronization scheme)
-    to decide whether to continue to block or not.
+(i.e., the user-space synchronization scheme)
+to decide whether to continue to block or not.
 .TP
 .B FUTEX_WAKE
 Returns the number of waiters that were woken up.
@@ -1642,8 +1644,8 @@ various POSIX threads synchronization mechanisms
 .\" FIXME Is it worth having an example program?
 .\" FIXME Anything obviously broken in the example program?
 .\"
-The program below demonstrates use of futexes in a program
-where parent and child use a pair of futexes located inside a
+The program below demonstrates use of futexes in a program where a parent
+process and a child process use a pair of futexes located inside a
 shared anonymous mapping to synchronize access to a shared resource:
 the terminal.
 The two processes each write

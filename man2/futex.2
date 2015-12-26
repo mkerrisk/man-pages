@@ -898,7 +898,9 @@ This in turn requires that the user-space value is updated accordingly.
 To indicate that this is required, the kernel sets the
 .B FUTEX_OWNER_DIED
 bit in the futex word along with the thread ID of the new owner.
-User space is then responsible for cleaning up the stale state left over by
+User space can detect this situation via the presence of the
+.B FUTEX_OWNER_DIED
+bit and is then responsible for cleaning up the stale state left over by
 the dead owner.
 .\" tglx (July 2015):
 .\"     The FUTEX_OWNER_DIED bit can also be set on uncontended futexes, where
@@ -1059,8 +1061,10 @@ This operation tries to acquire the lock at
 It is invoked when a user-space atomic acquire did not
 succeed because the futex word was not 0.
 
-The acquisition of the lock might succeed if performed by the
-kernel in cases where the futex word contains stale state
+Because the kernel has access to more state information than user space,
+acquisition of the lock might succeed if performed by the
+kernel in cases where the futex word
+(i.e., the state information accessible to use-space) contains stale state
 .RB ( FUTEX_WAITERS
 and/or
 .BR FUTEX_OWNER_DIED ).
@@ -1077,6 +1081,9 @@ but the kernel can fix this up and acquire the futex.
 .\"	Therefore, the next locker has to go into the kernel,
 .\"	so that the kernel has a chance to clean up. (CMXCH on zero
 .\"	in user space would fail, so kernel has to clean up.)
+.\" Darren Hart (Oct 2015):
+.\"     The trylock in the kernel has more state, so it can independently
+.\"     verify the  flags that userspace must trust implicitly.
 
 The
 .IR uaddr2 ,

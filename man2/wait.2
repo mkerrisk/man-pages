@@ -54,9 +54,9 @@ wait, waitpid, waitid \- wait for process to change state
 .br
 .B #include <sys/wait.h>
 .sp
-.BI "pid_t wait(int *" "status" );
+.BI "pid_t wait(int *" "wstatus" );
 
-.BI "pid_t waitpid(pid_t " pid ", int *" status ", int " options );
+.BI "pid_t waitpid(pid_t " pid ", int *" wstatus ", int " options );
 
 .BI "int waitid(idtype_t " idtype ", id_t " id \
 ", siginfo_t *" infop ", int " options );
@@ -108,11 +108,11 @@ The
 system call suspends execution of the calling process until one of its
 children terminates.
 The call
-.I wait(&status)
+.I wait(&wstatus)
 is equivalent to:
 .nf
 
-    waitpid(\-1, &status, 0);
+    waitpid(\-1, &wstatus, 0);
 .fi
 
 The
@@ -168,7 +168,7 @@ also return if a stopped child has been resumed by delivery of
 (For Linux-only options, see below.)
 .PP
 If
-.I status
+.I wstatus
 is not NULL,
 .BR wait ()
 and
@@ -181,7 +181,7 @@ as is done in
 and
 .BR waitpid ()!):
 .TP
-.BI WIFEXITED( status )
+.BI WIFEXITED( wstatus )
 returns true if the child terminated normally, that is,
 by calling
 .BR exit (3)
@@ -189,10 +189,10 @@ or
 .BR _exit (2),
 or by returning from main().
 .TP
-.BI WEXITSTATUS( status )
+.BI WEXITSTATUS( wstatus )
 returns the exit status of the child.
 This consists of the least significant 8 bits of the
-.I status
+.I wstatus
 argument that the child specified in a call to
 .BR exit (3)
 or
@@ -202,17 +202,17 @@ This macro should be employed only if
 .B WIFEXITED
 returned true.
 .TP
-.BI WIFSIGNALED( status )
+.BI WIFSIGNALED( wstatus )
 returns true if the child process was terminated by a signal.
 .TP
-.BI WTERMSIG( status )
+.BI WTERMSIG( wstatus )
 returns the number of the signal that caused the child process to
 terminate.
 This macro should be employed only if
 .B WIFSIGNALED
 returned true.
 .TP
-.BI WCOREDUMP( status )
+.BI WCOREDUMP( wstatus )
 returns true if the child produced a core dump.
 This macro should be employed only if
 .B WIFSIGNALED
@@ -221,20 +221,20 @@ This macro is not specified in POSIX.1-2001 and is not available on
 some UNIX implementations (e.g., AIX, SunOS).
 Only use this enclosed in #ifdef WCOREDUMP ... #endif.
 .TP
-.BI WIFSTOPPED( status )
+.BI WIFSTOPPED( wstatus )
 returns true if the child process was stopped by delivery of a signal;
 this is possible only if the call was done using
 .B WUNTRACED
 or when the child is being traced (see
 .BR ptrace (2)).
 .TP
-.BI WSTOPSIG( status )
+.BI WSTOPSIG( wstatus )
 returns the number of the signal which caused the child to stop.
 This macro should be employed only if
 .B WIFSTOPPED
 returned true.
 .TP
-.BI WIFCONTINUED( status )
+.BI WIFCONTINUED( wstatus )
 (since Linux 2.6.10)
 returns true if the child process was resumed by delivery of
 .BR SIGCONT .
@@ -607,7 +607,7 @@ int
 main(int argc, char *argv[])
 {
     pid_t cpid, w;
-    int status;
+    int wstatus;
 
     cpid = fork();
     if (cpid == \-1) {
@@ -623,22 +623,22 @@ main(int argc, char *argv[])
 
     } else {                    /* Code executed by parent */
         do {
-            w = waitpid(cpid, &status, WUNTRACED | WCONTINUED);
+            w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
             if (w == \-1) {
                 perror("waitpid");
                 exit(EXIT_FAILURE);
             }
 
-            if (WIFEXITED(status)) {
-                printf("exited, status=%d\\n", WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-                printf("killed by signal %d\\n", WTERMSIG(status));
-            } else if (WIFSTOPPED(status)) {
-                printf("stopped by signal %d\\n", WSTOPSIG(status));
-            } else if (WIFCONTINUED(status)) {
+            if (WIFEXITED(wstatus)) {
+                printf("exited, status=%d\\n", WEXITSTATUS(wstatus));
+            } else if (WIFSIGNALED(wstatus)) {
+                printf("killed by signal %d\\n", WTERMSIG(wstatus));
+            } else if (WIFSTOPPED(wstatus)) {
+                printf("stopped by signal %d\\n", WSTOPSIG(wstatus));
+            } else if (WIFCONTINUED(wstatus)) {
                 printf("continued\\n");
             }
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
         exit(EXIT_SUCCESS);
     }
 }

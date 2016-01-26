@@ -30,15 +30,15 @@ copy_file_range \- Copy a range of data from one file to another
 .B #include <sys/syscall.h>
 .B #include <unistd.h>
 
-.BI "ssize_t copy_file_range(int " fd_in ", loff_t *" off_in ", int " fd_out ",
-.BI "                        loff_t *" off_out ", size_t " len \
-", unsigned int " flags );
+.BI "ssize_t copy_file_range(int " fd_in ", loff_t *" off_in ,
+.BI "                        int " fd_out ", loff_t *" off_out ,
+.BI "                        size_t " len ", unsigned int " flags );
 .fi
 .SH DESCRIPTION
 The
 .BR copy_file_range ()
 system call performs an in-kernel copy between two file descriptors
-without the additional cost of transferring data from the kernel to userspace
+without the additional cost of transferring data from the kernel to user space
 and then back into the kernel.
 It copies up to
 .I len
@@ -57,7 +57,7 @@ If
 .I off_in
 is NULL, then bytes are read from
 .I fd_in
-starting from the current file offset, and the offset is
+starting from the file offset, and the file offset is
 adjusted by the number of bytes copied.
 .IP *
 If
@@ -67,7 +67,8 @@ is not NULL, then
 must point to a buffer that specifies the starting
 offset where bytes from
 .I fd_in
-will be read.  The current file offset of
+will be read.
+The file offset of
 .I fd_in
 is not changed, but
 .I off_in
@@ -76,7 +77,8 @@ is adjusted appropriately.
 
 The
 .I flags
-argument must be set to 0.
+argument is provided to allow for future extensions
+and currently must be to 0.
 .SH RETURN VALUE
 Upon successful completion,
 .BR copy_file_range ()
@@ -105,7 +107,7 @@ Requested range extends beyond the end of the source file; or the
 argument is not 0.
 .TP
 .B EIO
-A low level I/O error occurred while copying.
+A low-level I/O error occurred while copying.
 .TP
 .B ENOMEM
 Out of memory.
@@ -119,7 +121,7 @@ are not on the same mounted filesystem.
 .SH VERSIONS
 The
 .BR copy_file_range ()
-system call first appeared in Linux 4.4.
+system call first appeared in Linux 4.5.
 .SH CONFORMING TO
 The
 .BR copy_file_range ()
@@ -145,14 +147,16 @@ to find the locations of data segments.
 #include <sys/syscall.h>
 #include <unistd.h>
 
-loff_t copy_file_range(int fd_in, loff_t *off_in, int fd_out,
-                       loff_t *off_out, size_t len, unsigned int flags)
+static loff_t
+copy_file_range(int fd_in, loff_t *off_in, int fd_out,
+                loff_t *off_out, size_t len, unsigned int flags)
 {
     return syscall(__NR_copy_file_range, fd_in, off_in, fd_out,
                    off_out, len, flags);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     int fd_in, fd_out;
     struct stat stat;
@@ -174,9 +178,10 @@ int main(int argc, char **argv)
         perror("fstat");
         exit(EXIT_FAILURE);
     }
+
     len = stat.st_size;
 
-    fd_out = open(argv[2], O_CREAT|O_WRONLY|O_TRUNC, 0644);
+    fd_out = open(argv[2], O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd_out == \-1) {
         perror("open (argv[2])");
         exit(EXIT_FAILURE);
@@ -198,4 +203,6 @@ int main(int argc, char **argv)
 }
 .fi
 .SH SEE ALSO
+.BR lseek (2),
+.BR sendfile (2),
 .BR splice (2)

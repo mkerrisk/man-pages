@@ -91,12 +91,12 @@ perform a corresponding I/O operation (e.g.,
 without blocking, or a sufficiently small
 .BR write (2)).
 .PP
-The file descriptors
 .BR select ()
-can monitor cannot be larger than
-.B FD_SETSIZE.
-.BR poll (2),
+can monitor only file descriptors numbers that are less than
+.BR FD_SETSIZE ;
+.BR poll (2)
 does not have this limitation.
+See BUGS.
 .PP
 The operation of
 .BR select ()
@@ -453,6 +453,14 @@ In summary, any application that relies on a particular behavior
 in this scenario must be considered buggy.
 .\"
 .SS C library/kernel differences
+The Linux kernel allows file descriptor sets of arbitrary size,
+determining the length of the sets to be checked from the value of
+.IR nfds .
+However, in the glibc implementation, the
+.IR fd_set
+type is fixed in size.
+See also BUGS.
+
 The
 .BR pselect ()
 interface described in this page is implemented by glibc.
@@ -497,6 +505,22 @@ a pointer to the signal set and its size,
 while allowing for the fact that most architectures
 support a maximum of 6 arguments to a system call.
 .SH BUGS
+POSIX allows an implementation to define an upper limit,
+advertised via the constant
+.BR FD_SETSIZE ,
+on the range of file descriptors that can be specified
+in a file descriptor set.
+The Linux kernel imposes no fixed limit, but the glibc implementation makes
+.IR fd_set
+a fixed-size type, with
+.BR FD_SETSIZE
+defined as 1024, and the
+.BR FD_* ()
+macros operating according to that limit.
+To monitor file descriptors greater than 1023, use
+.BR poll (2)
+instead.
+
 Glibc 2.0 provided a version of
 .BR pselect ()
 that did not take a

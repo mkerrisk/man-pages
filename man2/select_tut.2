@@ -554,47 +554,47 @@ static int
 listen_socket(int listen_port)
 {
     struct sockaddr_in addr;
-    int s;
+    int lfd;
     int yes;
 
-    s = socket(AF_INET, SOCK_STREAM, 0);
-    if (s == \-1) {
+    lfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (lfd == \-1) {
         perror("socket");
         return \-1;
     }
 
     yes = 1;
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+    if (setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR,
             &yes, sizeof(yes)) == \-1) {
         perror("setsockopt");
-        close(s);
+        close(lfd);
         return \-1;
     }
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_port = htons(listen_port);
     addr.sin_family = AF_INET;
-    if (bind(s, (struct sockaddr *) &addr, sizeof(addr)) == \-1) {
+    if (bind(lfd, (struct sockaddr *) &addr, sizeof(addr)) == \-1) {
         perror("bind");
-        close(s);
+        close(lfd);
         return \-1;
     }
 
     printf("accepting connections on port %d\\n", listen_port);
-    listen(s, 10);
-    return s;
+    listen(lfd, 10);
+    return lfd;
 }
 
 static int
 connect_socket(int connect_port, char *address)
 {
     struct sockaddr_in addr;
-    int s;
+    int cfd;
 
-    s = socket(AF_INET, SOCK_STREAM, 0);
-    if (s == \-1) {
+    cfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (cfd == \-1) {
         perror("socket");
-        close(s);
+        close(cfd);
         return \-1;
     }
 
@@ -604,17 +604,17 @@ connect_socket(int connect_port, char *address)
 
     if (!inet_aton(address, (struct in_addr *) &addr.sin_addr.s_addr)) {
         perror("bad IP address format");
-        close(s);
+        close(cfd);
         return \-1;
     }
 
-    if (connect(s, (struct sockaddr *) &addr, sizeof(addr)) == \-1) {
+    if (connect(cfd, (struct sockaddr *) &addr, sizeof(addr)) == \-1) {
         perror("connect()");
-        shutdown(s, SHUT_RDWR);
-        close(s);
+        shutdown(cfd, SHUT_RDWR);
+        close(cfd);
         return \-1;
     }
-    return s;
+    return cfd;
 }
 
 #define SHUT_FD1 do {                                \\
@@ -659,64 +659,66 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
 
     for (;;) {
-        int r, nfds = 0;
-        fd_set rd, wr, er;
+        int ready, nfds = 0;
+	ssize_t nbytes;
+        fd_set readfds, writefds, exceptfds;
 
-        FD_ZERO(&rd);
-        FD_ZERO(&wr);
-        FD_ZERO(&er);
-        FD_SET(h, &rd);
+        FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
+        FD_ZERO(&exceptfds);
+        FD_SET(h, &readfds);
         nfds = max(nfds, h);
         if (fd1 > 0 && buf1_avail < BUF_SIZE) {
-            FD_SET(fd1, &rd);
+            FD_SET(fd1, &readfds);
             nfds = max(nfds, fd1);
         }
         if (fd2 > 0 && buf2_avail < BUF_SIZE) {
-            FD_SET(fd2, &rd);
+            FD_SET(fd2, &readfds);
             nfds = max(nfds, fd2);
         }
         if (fd1 > 0 && buf2_avail \- buf2_written > 0) {
-            FD_SET(fd1, &wr);
+            FD_SET(fd1, &writefds);
             nfds = max(nfds, fd1);
         }
         if (fd2 > 0 && buf1_avail \- buf1_written > 0) {
-            FD_SET(fd2, &wr);
+            FD_SET(fd2, &writefds);
             nfds = max(nfds, fd2);
         }
         if (fd1 > 0) {
-            FD_SET(fd1, &er);
+            FD_SET(fd1, &exceptfds);
             nfds = max(nfds, fd1);
         }
         if (fd2 > 0) {
-            FD_SET(fd2, &er);
+            FD_SET(fd2, &exceptfds);
             nfds = max(nfds, fd2);
         }
 
-        r = select(nfds + 1, &rd, &wr, &er, NULL);
+        ready = select(nfds + 1, &readfds, &writefds, &exceptfds, NULL);
 
-        if (r == \-1 && errno == EINTR)
+        if (ready == \-1 && errno == EINTR)
             continue;
 
-        if (r == \-1) {
+        if (ready == \-1) {
             perror("select()");
             exit(EXIT_FAILURE);
         }
 
-        if (FD_ISSET(h, &rd)) {
+        if (FD_ISSET(h, &readfds)) {
             unsigned int addrlen;
             struct sockaddr_in client_addr;
+	    int fd;
 
 	    addrelen = sizeof(client_addr);
             memset(&client_addr, 0, addrlen);
-            r = accept(h, (struct sockaddr *) &client_addr, &addrlen);
-            if (r == \-1) {
+            fd = accept(h, (struct sockaddr *) &client_addr, &addrlen);
+            if (fd == \-1) {
                 perror("accept()");
             } else {
                 SHUT_FD1;
                 SHUT_FD2;
                 buf1_avail = buf1_written = 0;
                 buf2_avail = buf2_written = 0;
-                fd1 = r;
+                fd1 = fd;
                 fd2 = connect_socket(forward_port, argv[3]);
                 if (fd2 == \-1)
                     SHUT_FD1;
@@ -729,60 +731,60 @@ main(int argc, char *argv[])
         /* NB: read OOB data before normal reads */
 
         if (fd1 > 0)
-            if (FD_ISSET(fd1, &er)) {
+            if (FD_ISSET(fd1, &exceptfds)) {
                 char c;
 
-                r = recv(fd1, &c, 1, MSG_OOB);
-                if (r < 1)
+                nbytes = recv(fd1, &c, 1, MSG_OOB);
+                if (nbytes < 1)
                     SHUT_FD1;
                 else
                     send(fd2, &c, 1, MSG_OOB);
             }
         if (fd2 > 0)
-            if (FD_ISSET(fd2, &er)) {
+            if (FD_ISSET(fd2, &exceptfds)) {
                 char c;
 
-                r = recv(fd2, &c, 1, MSG_OOB);
-                if (r < 1)
+                nbytes = recv(fd2, &c, 1, MSG_OOB);
+                if (nbytes < 1)
                     SHUT_FD2;
                 else
                     send(fd1, &c, 1, MSG_OOB);
             }
         if (fd1 > 0)
-            if (FD_ISSET(fd1, &rd)) {
-                r = read(fd1, buf1 + buf1_avail,
+            if (FD_ISSET(fd1, &readfds)) {
+                nbytes = read(fd1, buf1 + buf1_avail,
                           BUF_SIZE \- buf1_avail);
-                if (r < 1)
+                if (nbytes < 1)
                     SHUT_FD1;
                 else
-                    buf1_avail += r;
+                    buf1_avail += nbytes;
             }
         if (fd2 > 0)
-            if (FD_ISSET(fd2, &rd)) {
-                r = read(fd2, buf2 + buf2_avail,
+            if (FD_ISSET(fd2, &readfds)) {
+                nbytes = read(fd2, buf2 + buf2_avail,
                           BUF_SIZE \- buf2_avail);
-                if (r < 1)
+                if (nbytes < 1)
                     SHUT_FD2;
                 else
-                    buf2_avail += r;
+                    buf2_avail += nbytes;
             }
         if (fd1 > 0)
-            if (FD_ISSET(fd1, &wr)) {
-                r = write(fd1, buf2 + buf2_written,
+            if (FD_ISSET(fd1, &writefds)) {
+                nbytes = write(fd1, buf2 + buf2_written,
                            buf2_avail \- buf2_written);
-                if (r < 1)
+                if (nbytes < 1)
                     SHUT_FD1;
                 else
-                    buf2_written += r;
+                    buf2_written += nbytes;
             }
         if (fd2 > 0)
-            if (FD_ISSET(fd2, &wr)) {
-                r = write(fd2, buf1 + buf1_written,
+            if (FD_ISSET(fd2, &writefds)) {
+                nbytes = write(fd2, buf1 + buf1_written,
                            buf1_avail \- buf1_written);
-                if (r < 1)
+                if (nbytes < 1)
                     SHUT_FD2;
                 else
-                    buf1_written += r;
+                    buf1_written += nbytes;
             }
 
         /* Check if write data has caught read data */

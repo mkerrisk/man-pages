@@ -362,21 +362,34 @@ file (see
 Undo the effect of an earlier
 .BR MADV_DONTDUMP .
 .TP
-.B MADV_FREE " (since Linux 4.5)"
-Application is finished with the given range, so kernel can free
-resources associated with it but the freeing could be delayed until
-memory pressure happens or canceld by write operation by user.
+.BR MADV_FREE " (since Linux 4.5)"
+The application no longer requires the pages in the range specified by
+.IR addr
+and
+.IR len .
+The kernel can thus free these pages,
+but the freeing could be delayed until memory pressure occurs.
+For each of the pages that has been marked to be freed
+but has not yet been freed,
+the free operation will be canceled if the caller writes into the page.
+After a successful
+.B MADV_FREE
+operation, any stale data (i.e., dirty, unwritten pages) will be lost
+when the kernel frees the pages.
+However, subsequent writes to pages in the range will succeed
+and then kernel cannot free those dirtied pages,
+so that the caller can always see just written data.
+If there is no subsequent write,
+the kernel can free the pages at any time.
+Once pages in the range have been freed, the caller will
+see zero-fill-on-demand pages upon subsequent page references.
 
-After a successful MADV_FREE operation, user shouldn't expect kernel
-keeps stale data on the page. However, subsequent write of pages
-in the range will succeed and then kernel cannot free those dirtied pages
-so user can always see just written data. If there was no subsequent
-write, kernel can free those clean pages any time. In such case,
-user can see zero-fill-on-demand pages.
-
-Note that, it works only with private anonymous pages (see
+The
+.B MADV_FREE
+operation
+can be applied only to private anonymous pages (see
 .BR mmap (2)).
-On swapless system, freeing pages in given range happens instantly
+On a swapless system, freeing pages in a given range happens instantly,
 regardless of memory pressure.
 .SH RETURN VALUE
 On success,

@@ -269,12 +269,9 @@ Return the value of
 .B sempid
 for the
 .IR semnum \-th
-semaphore of the set
-(i.e., the PID of the process that executed the last
-.BR semop (2)
-call for the
-.IR semnum \-th
-semaphore of the set).
+semaphore of the set.
+This is the PID of the process that last performed an operation on
+that semaphore (but see NOTES).
 The calling process must have read permission on the semaphore set.
 .TP
 .B GETVAL
@@ -535,6 +532,49 @@ implementation dependent (32767).
 For greater portability, it is best to always call
 .BR semctl ()
 with four arguments.
+.\"
+.SS The sempid value
+POSIX.1 defines
+.I sempid
+as the "process ID of [the] last operation" on a semaphore,
+and explicitly notes that this value is set by a successful
+.BR semop (2)
+call, with the implication that no other interface affects the
+.I sempid
+value.
+
+While some implementations conform to the behavior specified in POSIX.1,
+others do not.
+(The fault here probably lies with POSIX.1 inasmuch as it likely failed
+to capture the full range of existing implementation behaviors.)
+Various other implementations
+.\" At least OpenSolaris (and, one supposes, older Solaris) and Darwin
+also update
+.I sempid
+for the other operations that update the value of a semaphore: the
+.B SETVAL
+and
+.B SETALL
+operations, as well as the semaphore adjustments performed
+on process termination as a consequence of the use of the
+.B SEM_UNDO
+flag (see
+.BR semop (2)).
+
+Linux also updates
+.I sempid
+for
+.BR SETVAL
+operations and semaphore adjustments.
+However, somewhat inconsistently, it does not update
+.I sempid
+for
+.BR SETALL
+operations.
+While the
+.B SETALL
+behavior might be viewed as a bug, the behavior is longstanding,
+and is probably unlikely to change.
 .SH SEE ALSO
 .BR ipc (2),
 .BR semget (2),

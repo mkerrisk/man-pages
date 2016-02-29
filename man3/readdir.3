@@ -102,7 +102,8 @@ The data returned by
 may be overwritten by subsequent calls to
 .BR readdir ()
 for the same directory stream.
-
+.\"
+.SS readdir_r()
 The
 .BR readdir_r ()
 function is a reentrant version of
@@ -111,12 +112,36 @@ It reads the next directory entry from the directory stream
 .IR dirp ,
 and returns it in the caller-allocated buffer pointed to by
 .IR entry .
-(See NOTES for information on allocating this buffer.)
 A pointer to the returned item is placed in
 .IR *result ;
 if the end of the directory stream was encountered,
 then NULL is instead returned in
 .IR *result .
+
+Since POSIX.1 does not specify the size of the
+.I d_name
+field, and other nonstandard fields may precede that field within the
+.I dirent
+structure, portable applications that use
+.BR readdir_r ()
+should allocate the buffer whose address is passed in
+.IR entry
+as follows:
+.in +4n
+.nf
+
+name_max = pathconf(dirpath, _PC_NAME_MAX);
+if (name_max == \-1)         /* Limit not defined, or error */
+    name_max = 255;         /* Take a guess */
+len = offsetof(struct dirent, d_name) + name_max + 1;
+entryp = malloc(len);
+
+.fi
+.in
+(POSIX.1 requires that
+.I d_name
+is the last field in a
+.IR "struct dirent" .)
 .SH RETURN VALUE
 On success,
 .BR readdir ()
@@ -245,31 +270,6 @@ have full support for returning the file type in
 .IR d_type .
 All applications must properly handle a return of
 .BR DT_UNKNOWN .
-
-Since POSIX.1 does not specify the size of the
-.I d_name
-field, and other nonstandard fields may precede that field within the
-.I dirent
-structure, portable applications that use
-.BR readdir_r ()
-should allocate the buffer whose address is passed in
-.IR entry
-as follows:
-.in +4n
-.nf
-
-name_max = pathconf(dirpath, _PC_NAME_MAX);
-if (name_max == \-1)         /* Limit not defined, or error */
-    name_max = 255;         /* Take a guess */
-len = offsetof(struct dirent, d_name) + name_max + 1;
-entryp = malloc(len);
-
-.fi
-.in
-(POSIX.1 requires that
-.I d_name
-is the last field in a
-.IR "struct dirent" .)
 .SH SEE ALSO
 .BR getdents (2),
 .BR read (2),

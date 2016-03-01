@@ -1,1 +1,158 @@
-.so man3/readdir.3
+.\" Copyright (C) 2008, 2016 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2016 Florian Weimer <fweimer@redhat.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH READDIR_R 3  2016-03-01 "" "Linux Programmer's Manual"
+.SH NAME
+readdir_r \- read a directory
+.SH SYNOPSIS
+.nf
+.B #include <dirent.h>
+.sp
+.BI "int readdir_r(DIR *" dirp ", struct dirent *" entry \
+", struct dirent **" result );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.ad l
+.in
+.sp
+.BR readdir_r ():
+.RS 4
+_POSIX_C_SOURCE
+    || /* Glibc versions <= 2.19: */ _BSD_SOURCE || _SVID_SOURCE
+.RE
+.ad b
+.SH DESCRIPTION
+This function is deprecated; use
+.BR readdir (3)
+instead.
+
+The
+.BR readdir_r ()
+function was invented as a reentrant version of
+.BR readdir (3).
+It reads the next directory entry from the directory stream
+.IR dirp ,
+and returns it in the caller-allocated buffer pointed to by
+.IR entry .
+For details of the
+.IR dirent
+structure, see
+.BR readir (3).
+
+A pointer to the returned buffer is placed in
+.IR *result ;
+if the end of the directory stream was encountered,
+then NULL is instead returned in
+.IR *result .
+
+It is recommended that applications use
+.BR readdir ()
+instead of
+.BR readdir_r ().
+Furthermore, since version 2.24, glibc deprecates
+.BR readdir_r ().
+The reasons are as follows:
+.IP * 3
+On systems where
+.BR NAME_MAX
+is undefined, calling
+.BR readdir_r ()
+may be unsafe because the interface does not allow the caller to specify
+the length of the buffer used for the returned directory entry.
+.IP *
+On some systems,
+.BR readdir_r ()
+can't read directory entries with very long names.
+When the glibc implementation encounters such a name,
+.BR readdir_r ()
+fails with the error
+.B ENAMETOOLONG
+.IR "after the final directory entry has been read" .
+On some other systems,
+.BR readdir_r ()
+may return a success status, but the returned
+.IR d_name
+field may not be null terminated or may be truncated.
+.IP *
+In the current POSIX.1 specification (POSIX.1-2008),
+.BR readdir (3)
+is not required to be thread-safe.
+However, in modern implementations (including the glibc implementation),
+concurrent calls to
+.BR readdir (3)
+that specify different directory streams are thread-safe.
+Therefore, the use of
+.BR readdir_r ()
+is generally unnecessary in multithreaded programs.
+In cases where multiple threads must read from the same directory stream,
+using
+.BR readdir (3)
+with external synchronization is still preferable to the use of
+.BR readdir_r (),
+for the reasons given in the points above.
+.IP *
+It is expected that a future version of POSIX.1
+.\" FIXME .
+.\" http://www.austingroupbugs.net/view.php?id=696
+will make
+.BR readdir_r ()
+obsolete, and require that
+.BR readdir ()
+be thread-safe when concurrently employed on different directory streams.
+.SH RETURN VALUE
+The
+.BR readdir_r ()
+function returns 0 on success.
+On error, it returns a positive error number (listed under ERRORS).
+If the end of the directory stream is reached,
+.BR readdir_r ()
+returns 0, and returns NULL in
+.IR *result .
+.SH ERRORS
+.TP
+.B EBADF
+Invalid directory stream descriptor \fIdirp\fP.
+.TP
+.B ENAMETOOLOMG
+A directory entry whose name was too long to be read was encountered.
+.SH ATTRIBUTES
+For an explanation of the terms used in this section, see
+.BR attributes (7).
+.TS
+allbox;
+lb lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.BR readdir_r ()
+T}	Thread safety	MT-Safe
+.TE
+.SH CONFORMING TO
+POSIX.1-2001, POSIX.1-2008.
+.SH SEE ALSO
+.BR readdir (3)

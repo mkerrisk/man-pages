@@ -1,6 +1,5 @@
 .\" Copyright (C) 1993 David Metcalfe (david@prism.demon.co.uk)
 .\" and Copyright (C) 2008, 2016 Michael Kerrisk <mtk.manpages@gmail.com>
-.\" and Copyright (C) 2016 Florian Weimer <fweimer@redhat.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -33,33 +32,16 @@
 .\" Modified 22 July 1996 by Andries Brouwer (aeb@cwi.nl)
 .\" 2007-07-30 Ulrich Drepper <drepper@redhat.com>, mtk:
 .\"     Rework discussion of nonstandard structure fields.
-.\" 2008-09-11, mtk, Document readdir_r().
 .\"
 .TH READDIR 3  2015-08-08 "" "Linux Programmer's Manual"
 .SH NAME
-readdir, readdir_r \- read a directory
+readdir \- read a directory
 .SH SYNOPSIS
 .nf
 .B #include <dirent.h>
 .sp
 .BI "struct dirent *readdir(DIR *" dirp );
-.sp
-.BI "int readdir_r(DIR *" dirp ", struct dirent *" entry \
-", struct dirent **" result );
 .fi
-.sp
-.in -4n
-Feature Test Macro Requirements for glibc (see
-.BR feature_test_macros (7)):
-.ad l
-.in
-.sp
-.BR readdir_r ():
-.RS 4
-_POSIX_C_SOURCE
-    || /* Glibc versions <= 2.19: */ _BSD_SOURCE || _SVID_SOURCE
-.RE
-.ad b
 .SH DESCRIPTION
 The
 .BR readdir ()
@@ -103,75 +85,6 @@ The data returned by
 may be overwritten by subsequent calls to
 .BR readdir ()
 for the same directory stream.
-.\"
-.SS readdir_r()
-The
-.BR readdir_r ()
-function is a reentrant version of
-.BR readdir ().
-It reads the next directory entry from the directory stream
-.IR dirp ,
-and returns it in the caller-allocated buffer pointed to by
-.IR entry .
-A pointer to the returned item is placed in
-.IR *result ;
-if the end of the directory stream was encountered,
-then NULL is instead returned in
-.IR *result .
-
-It is recommended that applications use
-.BR readdir ()
-instead of
-.BR readdir_r ().
-Furthermore, since version 2.24, glibc deprecates
-.BR readdir_r ().
-The reasons are as follows:
-.IP * 3
-On systems where
-.BR NAME_MAX
-is undefined, calling
-.BR readdir_r ()
-may be unsafe because the interface does not allow the caller to specify
-the length of the buffer used for the returned directory entry.
-.IP *
-On some systems,
-.BR readdir_r ()
-can't read directory entries with very long names.
-When the glibc implementation encounters such a name,
-.BR readdir_r ()
-fails with the error
-.B ENAMETOOLONG
-.IR "after the final directory entry has been read" .
-On some other systems,
-.BR readdir_r ()
-may return a success status, but the returned
-.IR d_name
-field may not be null terminated or may be truncated.
-.IP *
-In the current POSIX.1 specification (POSIX.1-2008),
-.BR readdir ()
-is not required to be thread-safe.
-However, in modern implementations (including the glibc implementation),
-concurrent calls to
-.BR readdir ()
-that specify different directory streams are thread-safe.
-Therefore, the use of
-.BR readdir_r ()
-is generally unnecessary in multithreaded programs.
-In cases where multiple threads must read from the same directory stream,
-using
-.BR readdir ()
-with external synchronization is still preferable to the use of
-.BR readdir_r (),
-for the reasons given in the points above.
-.IP *
-It is expected that a future version of POSIX.1
-.\" http://www.austingroupbugs.net/view.php?id=696
-will make
-.BR readdir_r ()
-obsolete, and require that
-.BR readdir ()
-be thread-safe when concurrently employed on different directory streams.
 .SH RETURN VALUE
 On success,
 .BR readdir ()
@@ -187,22 +100,10 @@ is not changed.
 If an error occurs, NULL is returned and
 .I errno
 is set appropriately.
-
-The
-.BR readdir_r ()
-function returns 0 on success.
-On error, it returns a positive error number (listed under ERRORS).
-If the end of the directory stream is reached,
-.BR readdir_r ()
-returns 0, and returns NULL in
-.IR *result .
 .SH ERRORS
 .TP
 .B EBADF
 Invalid directory stream descriptor \fIdirp\fP.
-.TP
-.B ENAMETOOLOMG
-A directory entry whose name was too long to be read was encountered.
 .SH ATTRIBUTES
 For an explanation of the terms used in this section, see
 .BR attributes (7).
@@ -214,10 +115,28 @@ Interface	Attribute	Value
 T{
 .BR readdir ()
 T}	Thread safety	MT-Unsafe race:dirstream
-T{
-.BR readdir_r ()
-T}	Thread safety	MT-Safe
 .TE
+
+.PP
+In the current POSIX.1 specification (POSIX.1-2008),
+.BR readdir ()
+is not required to be thread-safe.
+However, in modern implementations (including the glibc implementation),
+concurrent calls to
+.BR readdir ()
+that specify different directory streams are thread-safe.
+In cases where multiple threads must read from the same directory stream,
+using
+.BR readdir ()
+with external synchronization is still preferable to the use of the deprecated
+.BR readdir_r (3)
+function.
+It is expected that a future version of POSIX.1
+.\" FIXME .
+.\" http://www.austingroupbugs.net/view.php?id=696
+will require that
+.BR readdir ()
+be thread-safe when concurrently employed on different directory streams.
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2008, SVr4, 4.3BSD.
 .SH NOTES
@@ -311,6 +230,7 @@ All applications must properly handle a return of
 .BR ftw (3),
 .BR offsetof (3),
 .BR opendir (3),
+.BR readdir_r (3),
 .BR rewinddir (3),
 .BR scandir (3),
 .BR seekdir (3),

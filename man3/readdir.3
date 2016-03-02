@@ -51,34 +51,107 @@ to by \fIdirp\fP.
 It returns NULL on reaching the end of the directory stream or if
 an error occurred.
 .PP
-On Linux, the
+In the glibc implementation, the
 .I dirent
 structure is defined as follows:
 .PP
 .in +4n
 .nf
 struct dirent {
-    ino_t          d_ino;       /* inode number */
-    off_t          d_off;       /* not an offset; see NOTES */
-    unsigned short d_reclen;    /* length of this record */
-    unsigned char  d_type;      /* type of file; not supported
+    ino_t          d_ino;       /* Inode number */
+    off_t          d_off;       /* Not an offset; see below */
+    unsigned short d_reclen;    /* Length of this record */
+    unsigned char  d_type;      /* Type of file; not supported
                                    by all filesystem types */
-    char           d_name[256]; /* filename */
+    char           d_name[256]; /* Null-terminated filename */
 };
 .fi
 .in
 .PP
 The only fields in the
 .I dirent
-structure that are mandated by POSIX.1 are:
-.IR d_name [],
-of unspecified size, with at most
-.B NAME_MAX
-characters preceding the terminating null byte (\(aq\\0\(aq);
-and (as an XSI extension)
+structure that are mandated by POSIX.1 are
+.IR d_name
+and
 .IR d_ino .
 The other fields are unstandardized, and not present on all systems;
 see NOTES below for some further details.
+
+The fields of the
+.I dirent
+structure are as follows:
+.TP
+.I d_ino
+This is the inode number of the file.
+.TP
+.I d_off
+The value returned in
+.I d_off
+is the same as would be returned by calling
+.BR telldir (3)
+at the current position in the directory stream.
+Be aware that despite its type and name, the
+.I d_off
+field is seldom any kind of directory offset on modern filesystems.
+.\" https://lwn.net/Articles/544298/
+Applications should treat this field as an opaque value,
+making no assumptions about its contents; see also
+.BR telldir (3).
+.TP
+.I d_reclen
+This is the size (in bytes) of the returned record.
+.TP
+.I d_type
+This field contains a value indicating the file type,
+making it possible to avoid the expense of calling
+.BR lstat (2)
+if further actions depend on the type of the file.
+.IP
+When a suitable feature test macro is defined
+.RB ( _DEFAULT_SOURCE
+on glibc versions since 2.19, or
+.BR _BSD_SOURCE
+on glibc versions 2.19 and earlier),
+glibc defines the following macro constants for the value returned in
+.IR d_type :
+.RS
+.TP 12
+.B DT_BLK
+This is a block device.
+.TP
+.B DT_CHR
+This is a character device.
+.TP
+.B DT_DIR
+This is a directory.
+.TP
+.B DT_FIFO
+This is a named pipe (FIFO).
+.TP
+.B DT_LNK
+This is a symbolic link.
+.TP
+.B DT_REG
+This is a regular file.
+.TP
+.B DT_SOCK
+This is a UNIX domain socket.
+.TP
+.B DT_UNKNOWN
+The file type could not be determined.
+.RE
+.IP
+Currently,
+.\" kernel 2.6.27
+.\" The same sentence is in getdents.2
+only some filesystems (among them: Btrfs, ext2, ext3, and ext4)
+have full support for returning the file type in
+.IR d_type .
+All applications must properly handle a return of
+.BR DT_UNKNOWN .
+.TP
+.I d_name
+This field contains the null terminated filename.
 .PP
 The data returned by
 .BR readdir ()
@@ -148,12 +221,23 @@ be thread-safe when concurrently employed on different directory streams.
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2008, SVr4, 4.3BSD.
 .SH NOTES
+A directory stream is opened using
+.BR opendir (3).
+
+The order in which filenames are read by successive calls to
+.BR readdir ()
+depends on the filesystem implementation;
+it us unlikely that the names will be sorted in any fashion.
+
 Only the fields
 .I d_name
-and
+and (as an XSI extension)
 .I d_ino
 are specified in POSIX.1.
 .\" POSIX.1-2001, POSIX.1-2008
+Other than Linux, the
+.I d_type
+field is available mainly only on BSD systems.
 The remaining fields are available on many, but not all systems.
 Under glibc,
 programs can check for the availability of the fields not defined
@@ -164,72 +248,6 @@ in POSIX.1 by testing whether the macros
 or
 .B _DIRENT_HAVE_D_TYPE
 are defined.
-
-The value returned in
-.I d_off
-is the same as would be returned by calling
-.BR telldir (3)
-at the current position in the directory stream.
-Be aware that despite its type and name, the
-.I d_off
-field is seldom any kind of directory offset on modern filesystems.
-.\" https://lwn.net/Articles/544298/
-Applications should treat this field as an opaque value,
-making no assumptions about its contents; see also
-.BR telldir (3).
-
-Other than Linux, the
-.I d_type
-field is available mainly only on BSD systems.
-This field makes it possible to avoid the expense of calling
-.BR lstat (2)
-if further actions depend on the type of the file.
-If the
-.B _BSD_SOURCE
-feature test macro is defined,
-then glibc defines the following macro constants
-for the value returned in
-.IR d_type :
-.TP 12
-.B DT_BLK
-This is a block device.
-.TP
-.B DT_CHR
-This is a character device.
-.TP
-.B DT_DIR
-This is a directory.
-.TP
-.B DT_FIFO
-This is a named pipe (FIFO).
-.TP
-.B DT_LNK
-This is a symbolic link.
-.TP
-.B DT_REG
-This is a regular file.
-.TP
-.B DT_SOCK
-This is a UNIX domain socket.
-.TP
-.B DT_UNKNOWN
-The file type is unknown.
-.\" The glibc manual says that on some systems this is the only
-.\" value returned
-.PP
-If the file type could not be determined, the value
-.B DT_UNKNOWN
-is returned in
-.IR d_type .
-
-Currently,
-.\" kernel 2.6.27
-.\" The same sentence is in getdents.2
-only some filesystems (among them: Btrfs, ext2, ext3, and ext4)
-have full support for returning the file type in
-.IR d_type .
-All applications must properly handle a return of
-.BR DT_UNKNOWN .
 .SH SEE ALSO
 .BR getdents (2),
 .BR read (2),

@@ -165,13 +165,13 @@ should be specified.
 .BR ADJ_TAI " (since Linux 2.6.26)"
 .\" commit 153b5d054ac2d98ea0d86504884326b6777f683d
 Set TAI (Atomic International Time) offset from
-.IR buf->constant .
+.IR buf.constant .
 
 .BR ADJ_TAI
 should not be used in conjunction with
 .BR ADJ_TIMECONST ,
 since the latter mode also employs the
-.IR buf->constant
+.IR buf.constant
 field.
 
 For a complete explanation of TAI
@@ -229,93 +229,88 @@ bits associated with the NTP implementation.
 Some bits in the mask are both readable and settable,
 while others are read-only.
 .TP
-.BR STA_PLL
-Enable phase-locked loop (PLL) updates (read-write) via
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PLL " (read-write)"
+Enable phase-locked loop (PLL) updates via
 .BR ADJ_OFFSET .
 .TP
-.BR STA_PPSFREQ
-Enable PPS freq discipline (read-write).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSFREQ " (read-write)"
+Enable PPS (pulse-per-second) frequency discipline.
 .TP
-.BR STA_PPSTIME
-Enable PPS time discipline (read-write).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSTIME " (read-write)"
+Enable PPS time discipline.
 .TP
-.BR STA_FLL
-Select frequency-locked loop (FLL) mode (read-write).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_FLL " (read-write)"
+Select frequency-locked loop (FLL) mode.
 .TP
-.BR STA_INS
-Insert leap second (read-write).
-.\" FIXME Is the following correct?
-.\"     Insert a leap second after the last second of the day.
-.\"     That is, at 24:00:00, set the clock 1 second back, thus extending
-.\"     the last  minute of the day by one second.
-.\"     Leap second insertion will occur each day, so long as this flag
-.\"     remains set.
+.BR STA_INS " (read-write)"
+Insert a leap second after the last second of the UTC day,
+thus extending the last minute of the day by one second.
+Leap-second insertion will occur each day, so long as this flag remains set.
+.\" John Stultz;
+.\"     Usually this is written as extending the day by one second,
+.\"     which is represented as:
+.\"        23:59:59
+.\"        23:59:60
+.\"        00:00:00
+.\"     
+.\"     But since posix cannot represent 23:59:60, we repeat the last second:
+.\"        23:59:59 + TIME_INS
+.\"        23:59:59 + TIME_OOP
+.\"        00:00:00 + TIME_WAIT
+.\"
 .TP
-.BR STA_DEL
-Delete leap second (read-write).
-.\" FIXME Is the following correct?
-.\"     Delete a leap second at the last second of the leap day.
-.\"     That is, at 23:5:59, add one extra second to the clock.
-.\"     Leap second deletion will occur each day, so long as this flag
-.\"     remains set.
+.BR STA_DEL " (read-write)"
+Delete a leap second at the last second of the day.
+.\" John Stultz:
+.\"     Similarly the progression here is:
+.\"        23:59:57 + TIME_DEL
+.\"        23:59:58 + TIME_DEL
+.\"        00:00:00 + TIME_WAIT
+Leap second deletion will occur each day, so long as this flag
+remains set.
 .\" FIXME Does there need to be a statement that it is nonsensical to set
 .\"     to set both STA_INS and STA_DEL?
 .TP
-.BR STA_UNSYNC
-Clock unsynchronized (read-write).
+.BR STA_UNSYNC " (read-write)"
+Clock unsynchronized.
 .TP
-.BR STA_FREQHOLD
-Hold frequency (read-write).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_FREQHOLD " (read-write)"
+Hold frequency.
+.\" Following text from John Stultz:
+Normally adjustments made via
+.B ADJ_OFFSET
+result in dampened frequency adjustments also being made.
+So a single call corrects the current offset,
+but as offsets in the same direction are made repeatedly,
+the small frequency adjustments will accumulate to fix the long-term skew.
+ 
+This flag prevents the small frequency adjustment from being made
+when correcting for an
+.B ADJ_OFFSET
+value.
+.\" According to the Kernel Application Program Interface document,
+.\" STA_FREQHOLD is not used by the NTP version 4 daemon
 .TP
-.BR STA_PPSSIGNAL
-PPS signal present (read-only).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSSIGNAL " (read-only)"
+A valid PPS (pulse-per-second) signal is present.
 .TP
-.BR STA_PPSJITTER
-PPS signal jitter exceeded (read-only).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSJITTER " (read-only)"
+PPS signal jitter exceeded.
 .TP
-.BR STA_PPSWANDER
-PPS signal wander exceeded (read-only).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSWANDER " (read-only)"
+PPS signal wander exceeded.
 .TP
-.BR STA_PPSERROR
-PPS signal calibration error (read-only).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_PPSERROR " (read-only)"
+PPS signal calibration error.
 .TP
-.BR STA_CLOCKERR
-Clock hardware fault (read-only).
-.\" FIXME Any pointer to further information about what this means?
-.\"       (It was not immediately obvious from a scan of the RFC, whether
-.\"       this is described in the RFC.)
+.BR STA_CLOCKERR " (read-only)"
+Clock hardware fault.
+.\" Not set in current kernel (4.5), but checked in a few places
 .TP
-.BR STA_NANO " (since Linux 2.6.26)"
+.BR STA_NANO " (read-only; since Linux 2.6.26)"
 .\" commit eea83d896e318bda54be2d2770d2c5d6668d11db
 .\" Author: Roman Zippel <zippel@linux-m68k.org>
-Resolution (0 = microsecond, 1 = nanoseconds; read-only).
+Resolution (0 = microsecond, 1 = nanoseconds).
 Set via
 .BR ADJ_NANO ,
 cleared via
@@ -324,14 +319,12 @@ cleared via
 .BR STA_MODE " (since Linux 2.6.26)"
 .\" commit eea83d896e318bda54be2d2770d2c5d6668d11db
 .\" Author: Roman Zippel <zippel@linux-m68k.org>
-Mode (0 = Phase Locked Loop, 1 = Frequency Locked Loop; read-only).
+Mode (0 = Phase Locked Loop, 1 = Frequency Locked Loop).
 .TP
-.BR STA_CLK " (since Linux 2.6.26)"
+.BR STA_CLK " (read-only; since Linux 2.6.26)"
 .\" commit eea83d896e318bda54be2d2770d2c5d6668d11db
 .\" Author: Roman Zippel <zippel@linux-m68k.org>
-Clock source (0 = A, 1 = B; read-only).
-.\" FIXME It would be helpful to have some explanation of what
-.\"       "Clock source" is.
+Clock source (0 = A, 1 = B); currently unused.
 .PP
 Attempts to set read-only
 .I status
@@ -345,35 +338,61 @@ returns the clock state; that is, one of the following values:
 Clock synchronized.
 .TP
 .BR TIME_INS
-Insert leap second.
-.\" FIXME Is the following correct:
-.\"       Indicates that a leap second will be added at the end of the day
+Indicates that a leap second will be added at the end of the UTC day.
 .TP
 .BR TIME_DEL
-Delete leap second.
-.\" FIXME Is the following correct:
-.\"       Indicates that a leap second will be deleted at the end of the day
+Indicates that a leap second will be deleted at the end of the day.
 .TP
 .BR TIME_OOP
-Leap second in progress.
-.\" FIXME Is the following correct:
-.\"       Indicates that we are currently in the middle of the leap second
-.\"       that is being added at the end of the day (as a result of STA_INS)
+Insertion of a leap second is in progress.
 .TP
 .BR TIME_WAIT
-Leap second has occurred.
-.\" FIXME Is the following correct:
-.\"       Indicates that a leap second has just been added or deleted
-.\"       during the previous second
+A leap-second insertion or deletion has been completed.
+This value will be returned until the next
+.BR ADJ_STATUS
+operation clears the
+.B STA_INS
+and
+.B STA_DEL
+flags.
 .TP
 .BR TIME_ERROR
-Clock not synchronized.
-.\" FIXME Should more be said about how the TIME_ERROR state can occur?
+The system clock is not synchronized to a reliable server.
+This value is returned when any of the following holds true:
+.RS
+.IP * 3
+Either
+.B STA_UNSYNC
+or
+.B STA_CLOCKERR
+is set.
+.IP *
+.B STA_PPSSIGNAL
+is clear and either
+.B STA_PPSFREQ
+or
+.B STA_PPSTIME
+is set.
+.IP *
+.B STA_PPSTIME
+and
+.B STA_PPSJITTER
+are both set.
+.IP *
+.B STA_PPSFREQ
+is set and either
+.B STA_PPSWANDER
+or
+.B STA_PPSJITTER
+is set.
+.RE
+.IP
 The symbolic name
 .B TIME_BAD
 is a synonym for
 .BR TIME_ERROR ,
 provided for backward compatibility.
+.PP
 Note that starting with Linux 3.4,
 .\" commit 6b43ae8a619d17c4935c3320d2ef9e92bdeed05d changed to asynchronous
 .\"  operation, so we can no longer rely on the return code.
@@ -441,6 +460,14 @@ actually means 2^-16 ppm, and 2^16=65536 is 1 ppm.
 This is the case for both input values (in the case of
 .IR freq )
 and output values.
+
+The leap-second processing triggered vy
+.B STA_INS
+and
+.B STA_DEL
+is done by the kernel in timer context
+Thus, it will take one tick into the second
+for the leap second to be inserted or deleted.
 .SH CONFORMING TO
 .BR adjtimex ()
 is Linux-specific and should not be used in programs
@@ -452,6 +479,13 @@ method of adjusting the system clock.
 .SH SEE ALSO
 .BR settimeofday (2),
 .BR adjtime (3),
+.\" .BR ntp_adjtime (3),
+.\" .BR ntp_gettime (3),
 .BR capabilities (7),
 .BR time (7),
 .BR adjtimex (8)
+
+.ad l
+.UR http://www.slac.stanford.edu/comp/unix/package/rtems/src/ssrlApps/ntpNanoclock/api.htm
+NTP "Kernel Application Program Interface"
+.UE

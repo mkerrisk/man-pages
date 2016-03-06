@@ -1,0 +1,139 @@
+.\" Copyright (c) 2016 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH NTP_GETTIME 3 2016-03-06 "Linux" "Linux Programmer's Manual"
+.SH NAME
+ntp_gettime, ntp_gettimex  \- get time parameters (NTP daemon interface)
+.SH SYNOPSIS
+.nf
+.B #include <sys/timex.h>
+
+.BI "int ntp_gettime(struct ntptimeval *" ntv );
+
+.BI "int ntp_gettimex(struct ntptimeval *" ntv );
+.fi
+.SH DESCRIPTION
+Both of these APIs return information to the caller via the
+.I ntv
+argument, a structure of the following type:
+
+.in +4n
+.nf
+struct ntptimeval {
+    struct timeval time;        /* Current time */
+    long int maxerror;          /* Maximum error */
+    long int esterror;          /* Estimated error */
+    long int tai;               /* TAI offset */
+
+    /* Further padding bytes allowing for future expansion */
+};
+.fi
+.in
+
+The fields of this structure are as follows:
+.TP
+.I time
+The current time, expressed as a
+.I timeval
+structure:
+
+.in +4n
+.nf
+struct timeval {
+    time_t      tv_sec;   /* Seconds since the Epoch */
+    suseconds_t tv_usec;  /* Microseconds */
+};
+
+.fi
+.in
+.TP
+.I maxerror
+Maximum error, in microseconds.
+This value can be initialized by the
+.BR ntp_adjtime (3),
+and is increased periodically (on Linux: each second),
+but is clamped to an upper limit (the kernel constant
+.BR NTP_PHASE_MAX ,
+with a value of 16,000).
+.TP
+.I esterror
+Estimated error, in microseconds.
+This value can be set via
+.BR ntp_adjtime (3)
+to contain an estimate of the difference between the system clock
+and the true time.
+This value is not used inside the kernel.
+.TP
+.I tai
+TAI (Atomic International Time) offset.
+.PP
+.BR ntp_gettime ()
+returns an
+.I ntptimeval
+structure in which the
+.IR time ,
+.IR maxerror ,
+and
+.IR esterror
+fields are filled in.
+.PP
+.BR ntp_gettimex ()
+performs the same task as
+.BR ntp_gettime (),
+but also returns information in the
+.I tai
+field.
+.SH RETURN VALUE
+The return values for
+.BR ntp_gettime ()
+and
+.BR ntp_gettimex ()
+are as for
+.BR adjtimex (2).
+.\" FIXME . the info page incorrectly describes the return values.
+.SH ERRORS
+See
+.BR adjtimex (2).
+.\" .SH ATTRIBUTES
+.SH VERSIONS
+The
+.BR ntp_gettime ()
+function is available since glibc 2.1.
+The
+.BR ntp_gettimex ()
+function is available since glibc 2.12.
+.SH CONFORMING TO
+.BR ntp_gettime ()
+is described in the NTP Kernel Application Program Interface.
+.BR ntp_gettimex ()
+is a GNU extension.
+.SH SEE ALSO
+.BR adjtimex (2)
+.BR ntp_adjtime (3),
+.BR time (7)
+
+.ad l
+.UR http://www.slac.stanford.edu/comp/unix/\:package/\:rtems/\:src/\:ssrlApps/\:ntpNanoclock/\:api.htm
+NTP "Kernel Application Program Interface"
+.UE

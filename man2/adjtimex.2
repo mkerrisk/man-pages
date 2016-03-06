@@ -28,12 +28,14 @@
 .\"
 .TH ADJTIMEX 2 2014-12-31 "Linux" "Linux Programmer's Manual"
 .SH NAME
-adjtimex \- tune kernel clock
+adjtimex, ntp_adjtime \- tune kernel clock
 .SH SYNOPSIS
 .nf
 .B #include <sys/timex.h>
 
 .BI "int adjtimex(struct timex *" "buf" );
+
+.BI "int ntp_adjtime(struct timex *" buf );
 .fi
 .SH DESCRIPTION
 Linux uses David L. Mills' clock adjustment algorithm (see RFC\ 5905).
@@ -89,6 +91,10 @@ struct timex {
 The
 .I modes
 field determines which parameters, if any, to set.
+(As described later in this page,
+the constants used for
+.BR ntp_adjtime ()
+are equivalent but differently named.)
 It is a bit mask containing a
 .RI bitwise- or
 combination of zero or more of the following bits:
@@ -330,10 +336,41 @@ Clock source (0 = A, 1 = B); currently unused.
 Attempts to set read-only
 .I status
 bits are silently ignored.
+.\"
+.SS ntp_adjtime ()
+The
+.BR ntp_adjtime ()
+library function
+(described in the NTP "Kernel Application Program API", KAPI)
+is a more portable interface for performing the same task as
+.BR adjtimex ().
+Other than the following points, it is identical to
+.BR adjtime ():
+.IP * 3
+The constants used in
+.I modes
+are prefixed with "MOD_" rather than "ADJ_", and have the same suffixes (thus,
+.BR MOD_OFFSET ,
+.BR MOD_FREQUENCY ,
+and so on), other than the exceptions noted in the following points.
+.IP *
+.BR MOD_CLKA
+is the synonym for
+.BR ADJ_OFFSET_SINGLESHOT .
+.IP *
+.BR MOD_CLKB
+is the synonym for
+.BR ADJ_TICK .
+.IP *
+The is no synonym for
+.BR ADJ_OFFSET_SS_READ ,
+which is not described in the KAPI.
 .SH RETURN VALUE
 On success,
 .BR adjtimex ()
-returns the clock state; that is, one of the following values:
+and
+.BR ntp_adjtime ()
+return the clock state; that is, one of the following values:
 .TP 12
 .BR TIME_OK
 Clock synchronized, no leap second adjustment pending.
@@ -400,9 +437,7 @@ Note that starting with Linux 3.4,
 the call operates asynchronously and the return value usually will
 not reflect a state change caused by the call itself.
 .PP
-On failure,
-.BR adjtimex ()
-returns \-1 and sets
+On failure, these calls return \-1 and set
 .IR errno .
 .SH ERRORS
 .TP
@@ -470,13 +505,18 @@ is done by the kernel in timer context
 Thus, it will take one tick into the second
 for the leap second to be inserted or deleted.
 .SH CONFORMING TO
+Neither of these interfaces is described in POSIX.1
+
 .BR adjtimex ()
 is Linux-specific and should not be used in programs
 intended to be portable.
+
+The preferred API for NTP daemon is
+.BR ntp_adjtime (3),
+which is described in the NTP KAPI documentation.
 .SH SEE ALSO
 .BR settimeofday (2),
 .BR adjtime (3),
-.\" .BR ntp_adjtime (3),
 .\" .BR ntp_gettime (3),
 .BR capabilities (7),
 .BR time (7),

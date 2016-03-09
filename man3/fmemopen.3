@@ -82,17 +82,6 @@ with the file initial position set to the first null byte.
 In all modes other than append,
 the initial position is set to the start of the buffer.
 .PP
-Since glibc 2.9,
-the letter \(aqb\(aq may be specified as the second character in
-.IR mode .
-This provides "binary" mode:
-writes don't implicitly add a terminating null byte, and
-.BR fseek (3)
-.B SEEK_END
-is relative to the end of the buffer (i.e., the value specified by the
-.I size
-argument), rather than the current string length.
-.PP
 If
 .I buf
 is specified as NULL, then
@@ -261,9 +250,40 @@ returned by these functions
 .BR fileno (3)
 will return an error if called on the returned stream).
 
-With version 2.22, many longstanding bugs in the implementation of
+With version 2.22, binary mode (see below) was removed,
+many longstanding bugs in the implementation of
 .BR fmemopen ()
 were fixed, and a new versioned symbol was created for this interface.
+.\"
+.SS Binary mode
+From version 2.9 to 2.21, the glibc implementation of
+.BR fmemopen ()
+supported a "binary" mode,
+enabled by specifying the letter \(aqb\(aq as the second character in
+.IR mode .
+In this mode,
+writes don't implicitly add a terminating null byte, and
+.BR fseek (3)
+.B SEEK_END
+is relative to the end of the buffer (i.e., the value specified by the
+.I size
+argument), rather than the current string length.
+
+An API bug afflicted the implementation of binary mode:
+to specify binary mode, the \(aqb\(aq must be the
+.I second
+character in
+.IR mode .
+Thus, for example, "wb+" has the desired effect, but "w+b" does not.
+This is inconsistent with the treatment of
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=12836
+.IR mode
+by
+.BR fopen (3).
+
+Binary mode was removed in glibc 2.22; a \(aqb\(aq specified in
+.I mode
+has no effect.
 .SH BUGS
 In glibc before version 2.7, seeking past the end of a stream created by
 .BR open_memstream ()
@@ -308,21 +328,6 @@ However, in this case the glibc
 .\" http://sourceware.org/bugzilla/show_bug.cgi?id=13151
 .BR fmemopen ()
 sets the file position to \-1.
-This bug is fixed in glibc 2.22.
-
-In versions of glibc before 2.22,
-to specify binary mode for
-.BR fmemopen ()
-the \(aqb\(aq must be the
-.I second
-character in
-.IR mode .
-Thus, for example, "wb+" has the desired effect, but "w+b" does not.
-This is inconsistent with the treatment of
-.\" http://sourceware.org/bugzilla/show_bug.cgi?id=12836
-.IR mode
-by
-.BR fopen (3).
 This bug is fixed in glibc 2.22.
 
 In versions of glibc before 2.22,

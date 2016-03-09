@@ -1,1 +1,147 @@
-.so man3/fmemopen.3
+.\" Copyright 2005 walter harms (walter.harms@informatik.uni-oldenburg.de),
+.\" and Copyright 2005, 2012, 2016 Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(GPL_NOVERSION_ONELINE)
+.\" Distributed under the GPL.
+.\" %%%LICENSE_END
+.\"
+.\" 2008-12-04, Petr Baudis <pasky@suse.cz>: Document open_wmemstream()
+.\"
+.TH FMEMOPEN 3 2015-03-29 "GNU" "Linux Programmer's Manual"
+.SH NAME
+open_memstream, open_wmemstream \-  open a dynamic memory buffer stream
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+
+.BI "FILE *open_memstream(char **" ptr ", size_t *" sizeloc );
+
+.B #include <wchar.h>
+
+.BI "FILE *open_wmemstream(wchar_t **" ptr ", size_t *" sizeloc );
+.fi
+.sp
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.sp
+.BR open_memstream (),
+.BR open_wmemstream ():
+.PD 0
+.ad l
+.RS 4
+.TP 4
+Since glibc 2.10:
+_POSIX_C_SOURCE\ >=\ 200809L
+.TP
+Before glibc 2.10:
+_GNU_SOURCE
+.RE
+.ad
+.PD
+.SH DESCRIPTION
+The
+.BR open_memstream ()
+function opens a stream for writing to a buffer.
+The function dynamically allocates the buffer (in the manner of
+.BR malloc (3)),
+and the buffer automatically grows as required.
+After closing the stream, the caller should
+.BR free (3)
+this buffer.
+
+The locations pointed to by
+.IR ptr
+and
+.I sizeloc
+are used to report the current location and size of the buffer.
+When the stream is closed
+.RB ( fclose (3))
+or flushed
+.RB ( fflush (3)),
+the locations pointed to by
+.I ptr
+and
+.I sizeloc
+are updated to contain, respectively, a pointer to the buffer and the
+current size of the buffer.
+These values remain valid only as long as the caller
+performs no further output on the stream.
+If further output is performed, then the stream
+must again be flushed before trying to access these variables.
+
+A null byte is maintained at the end of the buffer.
+This byte is
+.I not
+included in the size value stored at
+.IR sizeloc .
+
+The stream's buffer position can be changed with
+.BR fseek (3)
+or
+.BR fseeko (3).
+Moving the buffer position past the end
+of the data already written fills the intervening space with
+zeros.
+
+The
+.BR open_wmemstream ()
+is similar to
+.BR open_memstream (),
+but operates on wide characters instead of bytes.
+.SH RETURN VALUE
+Upon successful completion,
+.BR open_memstream ()
+and
+.BR open_wmemstream ()
+return a
+.I FILE
+pointer.
+Otherwise, NULL is returned and
+.I errno
+is set to indicate the error.
+.SH VERSIONS
+.BR open_memstream ()
+was already available in glibc 1.0.x.
+.BR open_wmemstream ()
+is available since glibc 2.4.
+.SH ATTRIBUTES
+For an explanation of the terms used in this section, see
+.BR attributes (7).
+.TS
+allbox;
+lb lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.BR open_memstream (),
+.br
+.BR open_wmemstream
+T}	Thread safety	MT-Safe
+.TE
+
+.SH CONFORMING TO
+POSIX.1-2008.
+These functions are not specified in POSIX.1-2001,
+and are not widely available on other systems.
+.SH NOTES
+There is no file descriptor associated with the file stream
+returned by these functions
+(i.e.,
+.BR fileno (3)
+will return an error if called on the returned stream).
+.SH BUGS
+In glibc before version 2.7, seeking past the end of a stream created by
+.BR open_memstream ()
+does not enlarge the buffer; instead the
+.BR fseek (3)
+call fails, returning \-1.
+.\" http://sourceware.org/bugzilla/show_bug.cgi?id=1996
+.SH EXAMPLE
+See
+.BR fmemopen (3).
+.SH SEE ALSO
+.BR fmemopen (3),
+.BR fopen (3),
+.BR fopencookie (3)

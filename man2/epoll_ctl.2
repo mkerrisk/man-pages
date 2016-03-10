@@ -186,6 +186,71 @@ or the clearing of
 for the event file descriptor with
 .BR EPOLL_CTL_MOD .
 See also BUGS.
+.TP
+.BR EPOLLEXCLUSIVE " (since Linux 4.5)"
+Sets an exclusive wakeup mode for the epoll file descriptor that is being
+attached to the target file descriptor,
+.IR fd .
+When a wakeup event occurs and multiple epoll file descriptors
+are attached to the same target file using
+.BR EPOLLEXCLUSIVE ,
+one or more of the epoll file descriptors will receive an event with
+.BR epoll_wait (2).
+The default in this scenario (when
+.BR EPOLLEXCLUSIVE
+is not set) is for all epoll file descriptors to receive an event.
+.BR EPOLLEXCLUSIVE
+is thus useful for avoiding thundering herd problems in certain scenarios.
+
+If the same file descriptor is in multiple epoll instances,
+some with the 
+.BR EPOLLEXCLUSIVE
+flag, and others without, then events will provided to all epoll
+instances that did not specify
+.BR EPOLLEXCLUSIVE ,
+and at least one of the epoll instances that did specify
+.BR EPOLLEXCLUSIVE .
+
+The following values may be specified in conjunction with
+.BR EPOLLEXCLUSIVE :
+.BR EPOLLIN ,
+.BR EPOLLOUT ,
+.BR EPOLLWAKEUP,
+and
+.BR EPOLLET .
+.BR EPOLLHUP
+and
+.BR EPOLLERR
+can also be specified, but are ignored (as usual).
+Attempts to specify other values in
+.I events
+yield an error.
+.B EPOLLEXCLUSIVE
+may be used only in an
+.B EPOLL_CTL_ADD
+operation; attempts to employ it with
+.B EPOLL_CTL_MOD
+yield an error.
+If
+.B EPOLLEXCLUSIVE
+has set using
+.BR epoll_ctl (2),
+then a subsequent
+.B EPOLL_CTL_MOD
+on the same
+.IR epfd ",\ " fd
+pair yields an error.
+A call to
+.BR epoll_ctl (2)
+that specifies
+.B EPOLLEXCLUSIVE
+in
+.I events
+and specifies the target file descriptor
+.I fd
+as an epoll instance will likewise fail.
+The error in all of these cases is
+.BR EINVAL .
 .SH RETURN VALUE
 When successful,
 .BR epoll_ctl ()
@@ -230,6 +295,39 @@ refers to an epoll instance and this
 .B EPOLL_CTL_ADD
 operation would result in a circular loop of epoll instances
 monitoring one another.
+.TP
+.B EINVAL
+An invalid event type was specified along with
+.B EPOLLEXCLUSIVE
+in
+.IR events .
+.TP
+.B EINVAL
+.I op
+was
+.B EPOLL_CTL_MOD
+and
+.IR events
+included
+.BR EPOLLEXCLUSIVE .
+.TP
+.B EINVAL
+.I op
+was
+.B EPOLL_CTL_MOD
+and the
+.BR EPOLLEXCLUSIVE
+flag has previously been applied to this
+.IR epfd ",\ " fd
+pair.
+.TP
+.B EINVAL
+.BR EPOLLEXCLUSIVE
+was specified in
+.IR event
+and
+.I fd
+refers to an epoll instance.
 .TP
 .B ENOENT
 .I op

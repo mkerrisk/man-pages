@@ -842,6 +842,42 @@ is the value of the capability bounding set (described below).
 A privileged file is one that has capabilities or
 has the set-user-ID or set-group-ID bit set.
 .\"
+.SS Safety checking for capability-dumb binaries
+A capability-dumb binary is a legacy application that has been
+marked to have file capabilities, but has not been converted to use the
+.BR libcap (3)
+API to manipulate its capabilities.
+(In other words, this is a traditional set-user-ID-root program
+that has been switched to use file capabilities,
+but whose code has not been modified to understand capabilities.)
+For such applications, 
+the effective capability bit is set on the file,
+so that the file permitted capabilities are automatically
+enabled in the process effective set when executing the file.
+The kernel recognizes a file which has the effective capability bit set
+as capability-dumb for the purpose of the check described here.
+
+When executing a capability-dumb binary,
+the kernel checks if the process obtained all permitted capabilities
+that were specified in the file permitted set,
+after the capability transformations described above have been performed.
+(The typical reason why this might
+.I not
+occur is that the capability bounding set masked out some
+of the capabilities in the file permitted set.)
+If the process did not obtain the full set of
+file permitted capabilities, then
+.BR execve (2)
+fails with the error
+.BR EPERM .
+This prevents possible security risks that could arise when
+a capability-dumb application is executed with less privilege that it needs.
+Note that, by definition,
+the application could not itself recognize this problem,
+since it does not employ the
+.BR libcap (3)
+API.
+.\"
 .SS Capabilities and execution of programs by root
 In order to provide an all-powerful
 .I root

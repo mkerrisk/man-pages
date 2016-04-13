@@ -59,7 +59,7 @@ install:
 	for i in man?; do \
 		install -d -m 755 $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
 		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
-	done; \
+	done
 
 # Check if groff reports warnings (may be words of sentences not displayed)
 # from http://lintian.debian.org/tags/manpage-has-errors-from-man.html

@@ -62,7 +62,7 @@ install:
 	done; \
 
 # Check if groff reports warnings (may be words of sentences not displayed)
-# from http://lintian.debian.org/tags/manpage-has-errors-from-man.html 
+# from http://lintian.debian.org/tags/manpage-has-errors-from-man.html
 check-groff-warnings:
 	GROFF_LOG="$$(mktemp --tmpdir manpages-checksXXXX)" || exit $$?; \
 	for i in man?/*.[1-9]; \

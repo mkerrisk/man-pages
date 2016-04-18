@@ -1,46 +1,15 @@
-# Do "make screen" first, if you want to protect already installed,
-# more up-to-date manual pages than the ones included in this package.
 # Do "make install" to copy the pages to their destination.
-# Do "make gz" or "make bz2" first if you use compressed source pages.
 
 DESTDIR=
 prefix?=/usr
 MANDIR=$(prefix)/share/man
 
-GZIP=gzip -9
-BZIP2=bzip2 -9
-LZMA=xz -9
-
-all: screen remove install
-
-allgz: gz all
-
-allbz: bz2 all
-
-allxz: xz all
-
-screen:
-	mkdir -p not_installed
-	for i in man?/*; do \
-		if [ $(MANDIR)/"$$i" -nt "$$i" ]; then \
-			cmp -s $(MANDIR)/"$$i" "$$i" > /dev/null 2>&1; \
-			if [ "$$?" != 0 ]; then mv "$$i" not_installed; fi; \
-		fi; \
-	done
+all: remove install
 
 uninstall remove:
 	for i in man?/*; do \
-		rm -f $(MANDIR)/"$$i" $(MANDIR)/"$$i".gz $(MANDIR)/"$$i".bz2; \
+		rm -f $(MANDIR)/"$$i" $(MANDIR)/"$$i".*; \
 	done
-
-gz:
-	for i in man?; do $(GZIP) "$$i"/*; done
-
-bz2:
-	for i in man?; do $(BZIP2) "$$i"/*; done
-
-xz:
-	for i in man?; do $(LZMA) "$$i"/*; done
 
 # Use with
 #  make HTDIR=/some/dir HTOPTS=whatever html

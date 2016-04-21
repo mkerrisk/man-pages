@@ -230,7 +230,7 @@ Since kernel 2.6.19, Linux supports an alternate syntax for the
 .I /proc/sys/kernel/core_pattern
 file.
 If the first character of this file is a pipe symbol (\fB|\fP),
-then the remainder of the line is interpreted as a program to be
+then the remainder of the line is interpreted as a user-space program to be
 executed.
 Instead of being written to a disk file, the core dump is given as
 standard input to the program.
@@ -252,6 +252,39 @@ the % specifiers listed above.
 For example, to pass the PID of the process that is being dumped, specify
 .I %p
 in an argument.
+.\"
+.SS /proc/sys/kernel/core_pipe_limit
+When collecting core dumps via a pipe to a user-space program,
+it can be useful for the collecting program to gather data about
+the crashing process from that process's
+.IR /proc/PID
+directory.
+In order to do this safely,
+the kernel must wait for the program collecting the core dump to exit,
+so as not to remove the crashing process's
+.IR /proc/PID
+files prematurely.
+This in turn creates the
+possibility that a misbehaving collecting program can block
+the reaping of a crashed process by simply never exiting.
+
+Since Linux 2.6.32,
+.\" commit a293980c2e261bd5b0d2a77340dd04f684caff58
+the
+.I /proc/sys/kernel/core_pipe_limit
+can be used to defend against this possibility.
+The value in this file defines how many concurrent crashing
+processes may be piped to user-space programs in parallel.
+If this value is exceeded, then those crashing processes above this value
+are noted in the kernel log and their core dumps are skipped.
+
+A value of 0 in this file is special.
+It indicates that unlimited processes may be captured in parallel,
+but that no waiting will take place (i.e., the collecting
+program is not guaranteed access to
+.IR /proc/<crashing-PID> ).
+The default value for this file is 0.
+.\"
 .SS Controlling which mappings are written to the core dump
 Since kernel 2.6.23, the Linux-specific
 .IR /proc/PID/coredump_filter

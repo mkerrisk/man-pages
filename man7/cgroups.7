@@ -1,0 +1,228 @@
+Name: cgroups - linux process control groups
+
+Description
+
+Control cgroups, usually referred to as cgroups, are a Linux kernel feature
+which provides for grouping of tasks and resource tracking and limitations for those group.
+While several systems have been introduced to help in configuring and
+managing cgroups, the kernel's cgroup interface is provided through
+a pseudo-filesystem called cgroupfs.  Task grouping is implemented in the
+core cgroup kernel code, while resource tracking and limits are implemented in
+a set of per-resource-type subsystems - memory, cpu, etc - which may be
+enabled as separate hierarchies, or joined into comounted hierarchies.
+Each hierarchy constitutes a separate mount of the cgroupfs filesystem,
+with the subsystems enabled in that hierarchy listed in the mount options.
+For each mounted hierarchy, the directory tree mirrors the control group hierarchy.
+Each control group is represented by a directory, with each of its child
+control cgroups represented as a child directory.
+For instance, /user/joe/1.session represents control group
+1.session, which is a child of cgroup joe, which is a child of /user.
+Under each cgroup directory are a set of files which can be read or
+written to, reflecting resource limits and a few general cgroup
+properties.
+
+In general, cgroup limits are hierarchical, meaning that the limits placed
+on /user/joe cannot be exceeded by /usr/joe/1.session.  There are currently
+exceptions to this, but stricter adherence is a goal as cgroups are being
+largely reworked.
+
+The existing subsystems include
+
+. cpusets
+. blkio
+. cpuacct
+. devices
+. freezer
+. hugetlb
+. memory
+. net_cls
+. net_pri
+. cpu
+. perf_event
+
+In addition, cgroups can be mounted with no bound subsystem, in which case
+they serve only to track processes.  An example of this is the name=systemd
+cgroup which is used by systemd to track services and user sessions.
+
+Mounting
+
+To be available, a given cgroup subsystem must be compiled into the
+kernel.  Since they are exposed through a virtual filesystem, subsystems
+must be mounted before they can be controlled.  The usual place for this
+is under /sys/fs/cgroup.  If all the desired subsystems can be co-mounted,
+then the system may simply
+
+	mount -t cgroup cgroup /sys/fs/cgroup
+
+If multiple, separately mounted subsystems are desired, then this is
+usually done in per-subsystem subdirectories.  This requires first mounting
+a tmpfs under /sys/fs/cgroup so that subdirectories can be created.  For
+instance, to mount cpu, memory and devices cgroups, you could
+
+	mount -t tmpfs -o size=100000,mode=755 cgroups /sys/fs/cgroup
+	for s in cpu memory devices; do
+		mkdir /sys/fs/cgroup/$s
+		mount -t cgroup -o $s $s /sys/fs/cgroup/$s
+	done
+
+Co-mounting subsystems has the effect that a task is in the same cgroup for
+all co-mounted subsystems.  Separately mounting subsystems allows a task to
+be in cgroup /foo1 for one subsystem while being in /foo2/foo3 for another.
+
+Introspection
+
+The list of subsystems compiled into the kernel can be seen in the file
+/proc/cgroups.  The file /proc/pid/cgroup lists the task's current cgroup
+membership for each mounted hierarchy.
+
+Creating cgroups and moving tasks
+
+The system begins with a single root cgroup (per hierarchy), '/', which all tasks belong to.
+A new cgroup is created using mkdir(2):
+
+	mkdir /sys/fs/cgroup/cpu/cg1
+
+This creates a new empty cgroup.  Tasks may be moved to this cgroup by writing
+their pids into the cgroup's "cgroup.procs" (deprecated) "tasks" file:
+
+	echo $$ > /sys/fs/cgroup/cpu/cg1/cgroup.procs
+
+The same file can be read to obtain a list of the processes currently in cg1.
+By using the cgroup.procs file instead of the tasks file, all tasks in the
+threadgroup are moved into the new cgroup at once.
+
+At fork(2), the new child is created as a member of the parent's cgroup, leading
+to implicit grouping of process hierarchies.
+
+Note: in the upcoming unified hierarchy, a new restriction is imposed such
+that tasks may only exist in leaf cgroups.  For instance, if cgroup /cg1/cg2
+exists, then a task may exist in /cg1/cg2, but not in /cg1.  This is to
+avoid the current ambiguity in the delegation of resources between tasks in /cg1
+and its children.  The recommended workaround is to create a subdirectory called
+leaf for any non-leaf cgroup which should contain tasks, and make sure not to
+create child cgroups of it.  In the above example, tasks which previously would
+have gone into /cg1 would now go into /cg1/leaf.  This has the advantage of
+making explicit the relationship between tasks in /cg1/leaf and /cg1's other
+children.
+
+Removing cgroups
+
+To remove a cgroup, it must first have no child cgroups and no tasks.  So long
+as that is the case, the cgroup is removed using rmdir(2).
+
+A special file in each cgroup hierarchy, called 'release_agent', can be used
+to register a program to handle cgroups which become newly empty.  The program
+will be called each time a cgroup marked for autoremove becomes empty and childless.
+The cgroup path will be listed as the first argument.  The cgroup must be marked
+as eligible for autoremove by writing '1' into its notify_on_release file, and
+this value is inherited by newly created child cgroups.
+
+A new feature in 3.15 (?) is the 'cgroup.populated' file.  This reads 0 if
+there are no tasks in the cgroup or its descendants, and 1 otherwise.  It
+can be watched for changes using inotify.  This allows userspace to efficiently
+watch cgroups for autoremove conditions.
+
+Unified Hierarchy
+
+In order to address a number of shortcomings in the original Control Groups
+design, new semantics are being gradually introduced.  In order not to break
+existing applications, the new semantics are hidden behind a mount option
+(subject to change):
+
+   mount -t cgroup -o __DEVEL__sane_behavior cgroup /sys/fs/cgroup
+
+By default all controllers are co-mounted in the unified hierarchy.  While
+controllers may be mounted under the legacy hierarchy, they may not be
+mounted at the same time in legacy and unified hierarchies.
+
+The new behaviors are summarized below:
+
+1 Tasks only in leave nodes
+
+With the exception of the root cgroup, tasks may only belong in leaf nodes.
+This avoids the need to decide how to partition resources between tasks which
+are members of cgroup A and tasks in child cgroups of A.
+
+2. Active cgroups must be specified
+
+The unified hierarchy presents two new files, "cgroup.controllers" and
+"cgroup.subtree_control".  When a cgroup A/b is created, its 'cgroup.controllers"
+file contains the list of controllers which were active in its parent, A.
+This is the list of controllers which are available to this cgroup.  No
+controllers are active until they are enabled through the "cgroup.subtree_control"
+file, by writing the name of the space-separate list of controllers, each preceded
+by '+' (to enable) or '-' (to disable).  If the freezer controller is not
+enabled in /A/B, then it cannot be enabled in /A/B/C.
+
+3. No "tasks" or "cgroup.clone_children" files
+
+4. Empty cgroup notification
+
+A new file "cgroup.populated" under each cgroup contains '0' when the
+cgroup is empty, and 1 when it is populated.  It therefore may be
+watched to detect when a cgroup becomes (non-)empty.  This replaces
+the original notify-on-release mechanism.
+
+For more changes, please see the Documentation/cgroups/unified-hierarchy
+file in the kernel source.
+
+Subsystems  # give details on each subsystem
+
+. cpusets
+
+Cpusets bind the tasks in a cgroup to a specified set of cpus and
+numa nodes.
+
+. blkio
+
+The blkio cgroup controls and limits access to specified block devices by 
+applying IO control in the form of throttling and upper limits against leaf
+nodes and intermediate nodes in the storage hierarchy.
+
+Two policies are available. The first is a proportional weight time based division
+of disk implemented with CFQ.  This is in effect for leaf nodes using CFQ.  The 
+second is a throttling policy which specifies upper IO rate limits on a device.
+
+. cpuacct
+
+This provides accounting for cpu usage by groups of tasks.
+
+. devices
+
+This supports controlling which tasks may create (mknod) devices as
+well as open them for reading or writing.  The policies may be specified
+as whitelists and blacklists.  Hierarchy is enforced, so new rules must not
+violate existing rules for the target or ancestor cgroups.
+
+. freezer
+
+The freezer cgroup can suspend and un-suspend all tasks in a cgroup.
+Freezing a cgroup /A also causes its children, i.e. tasks in /A/B,
+to be frozen.
+
+. hugetlb
+
+This supports limiting the use of huge pages by cgroups.
+
+. memory
+
+The memory controller supports reporting and limiting of process memory, kernel
+memory, and swap used by cgroups.
+
+. net_cls
+
+This places a classid, specified for the cgroup, on network packets
+created by a cgroup.  These classids can then be used in firewall rules,
+as well as used to shape traffic using tc.  This only applies to packets
+leaving the cgroup, not to traffic arriving at the cgroup.
+
+. net_prio
+
+This allows priorities to be specified, per network interfaces, for cgroups.
+
+. cpu
+
+Cgroups can be guaranteed a minimum number of "cpu shares" when a system is
+busy.  This does not limit a cgroup's cpu usage if the cpus are not busy.
+
+. perf_event

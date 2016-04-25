@@ -1,4 +1,5 @@
 .\" Copyright (C) 2015 Serge Hallyn <serge@hallyn.com>
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -69,6 +70,39 @@ An example of this is the
 cgroup which is used by
 .BR systemd (1)
 to track services and user sessions.
+.\"
+.SS Cgroups version 1 and version 2
+The initial release of the cgroups implementation was in Linux 2.6.24.
+Over time, various cgroup subsystems (controllers) have been added
+to allow the management of various types of resources.
+However, the development of these subsystems was largely uncoordinated,
+with the result that many inconsistencies arose between subsystems
+and management of the cgroup hierarchies became rather complex.
+(A longer description of these problems can be found in
+the kernel source file
+.IR Documentation/cgroup-v2.txt .)
+
+Because of the problems with the initial cgroups implementation,
+now known as cgroups version 1,
+starting in Linux 3.10, work began on a new,
+orthogonal implementation to remedy these problems.
+Initially marked experimental, and hidden behind the
+.I "\-o\ __DEVEL__sane_behavior"
+mount option, the new version (cgroups version 2)
+was eventually made official with the release of Linux 4.5.
+Differences between the two versions are described in the text below.
+
+Although cgroups v2 is intended as a replacement for cgroups v1,
+the older system continues to exist
+(and for compatibility reasons is unlikely to be removed).
+Currently, cgroups v2 implements only a subset of the controllers
+available in cgroups v1.
+The two systems are implemented so that both v1 controllers and
+v2 controllers can be mounted on the same system.
+Thus, for example, it is possible to use those controllers
+that are supported under version 2,
+while also using version 1 controllers
+where version 2 does not yet support those controllers.
 .\"
 .SS Mounting
 To be available, a given cgroup subsystem must be compiled into the
@@ -193,7 +227,7 @@ The cgroup must be marked as eligible for autoremove by writing '1' into its
 file;
 this value is inherited by newly created child cgroups.
 
-A new feature in 3.15 (?) is the
+A new feature in cgroups v2 is the
 .I cgroup.populated
 file.
 This reads 0 if there are no tasks in the cgroup or its descendants,
@@ -203,20 +237,15 @@ It can be watched for changes using
 This allows user-space applications to efficiently watch cgroups
 for autoremove conditions.
 .\"
-.SS Unified Hierarchy
-In order to address a number of shortcomings in the original Control Groups
-design, new semantics are being gradually introduced.
-In order not to break existing applications,
-the new semantics are hidden behind a mount option
-(subject to change):
+.SS Cgroups version 2
+In cgroups v2,
+all mounted controllers reside in a single unified hierarchy.
+While (different) controllers may be simultaneously
+mounted under the v1 and v2 hierarchies,
+it is not possible to mount the same controller simultaneously
+under both the v1 and the v2 hierarchies.
 
-    mount -t cgroup -o __DEVEL__sane_behavior cgroup /sys/fs/cgroup
-
-By default, all controllers are comounted in the unified hierarchy.
-While controllers may be mounted under the legacy hierarchy,
-they may not be mounted at the same time in legacy and unified hierarchies.
-
-The new behaviors are summarized below:
+The new behaviors in cgroups v2 are summarized below:
 .TP 3
 1. Tasks only in leaf nodes
 With the exception of the root cgroup, tasks may only reside in leaf nodes.
@@ -259,7 +288,7 @@ For more changes, please see the
 .I Documentation/cgroups/unified-hierarchy
 file in the kernel source.
 .\"
-.SS Subsystems
+.SS Cgroups version 1 subsystems
 .TP
 .I cpu
 Cgroups can be guaranteed a minimum number of "CPU shares"
@@ -318,6 +347,9 @@ The second is a throttling policy which specifies
 upper I/O rate limits on a device.
 .TP
 .I perf_event
+This controller allows
+.I perf
+monitoring of the set of processes grouped in a cgroup.
 .TP
 .I net_prio
 This allows priorities to be specified, per network interface, for cgroups.

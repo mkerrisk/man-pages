@@ -40,6 +40,7 @@ Linux provides the following namespaces:
 lB lB lB
 l lB l.
 Namespace	Constant	Isolates
+Cgroup	CLONE_NEWCGROUP	Cgroup root directory
 IPC	CLONE_NEWIPC	System V IPC, POSIX message queues
 Network	CLONE_NEWNET	Network devices, stacks, ports, etc.
 Mount	CLONE_NEWNS	Mount points
@@ -119,12 +120,13 @@ supports being manipulated by
 .nf
 $ \fBls -l /proc/$$/ns\fP
 total 0
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 ipc -> ipc:[4026531839]
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 mnt -> mnt:[4026531840]
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 net -> net:[4026531956]
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 pid -> pid:[4026531836]
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 user -> user:[4026531837]
-lrwxrwxrwx. 1 mtk mtk 0 Jan 14 01:20 uts -> uts:[4026531838]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 cgroup -> cgroup:[4026531835]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 ipc -> ipc:[4026531839]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 mnt -> mnt:[4026531840]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 net -> net:[4026531969]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 pid -> pid:[4026531836]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 user -> user:[4026531837]
+lrwxrwxrwx. 1 mtk mtk 0 Apr 28 12:46 uts -> uts:[4026531838]
 .fi
 .in
 
@@ -167,6 +169,9 @@ uts:[4026531838]
 
 The files in this subdirectory are as follows:
 .TP
+.IR /proc/[pid]/ns/cgroup " (since Linux 4.6)"
+This file is a handle for the cgroup namespace of the process.
+.TP
 .IR /proc/[pid]/ns/ipc " (since Linux 3.0)"
 This file is a handle for the IPC namespace of the process.
 .TP
@@ -184,6 +189,91 @@ This file is a handle for the user namespace of the process.
 .TP
 .IR /proc/[pid]/ns/uts " (since Linux 3.0)"
 This file is a handle for the UTS namespace of the process.
+.\"
+.\" ==================== Cgroup namespaces ====================
+.\"
+.SS Cgroup namespaces (CLONE_NEWCGROUP)
+Cgroup namespaces virtualize the view of a process's cgroups as seen via
+.IR /proc/[pid]/cgroup
+(see
+.BR cgroups (7)).
+
+Each cgroup namespace has its own set of cgroup root directories,
+which are the base points for the relative locations displayed in
+.IR /proc/[pid]/cgroup .
+When a process creates a new cgroup namespace using
+.BR clone (2)
+or
+.BR unshare (2)
+with the
+.BR CLONE_NEWCGROUP
+flag, then its current cgroups directories become its cgroup root directories.
+(This applies both for the cgroups version 1 hierarchies
+as well as the cgroups version 2 unified hierarchy.)
+
+When viewing
+.IR /proc/[pid]/cgroup ,
+the pathname shown in the third field of each record will be
+relative to the reading process's cgroup root directory.
+If the cgroup directory of the target process lies outside
+the cgroup root directory for this namespace,
+then the pathname will show
+.I /..
+entries for each ancestor level in the cgroup hierarchy.
+
+The following shell session demonstrates the effect of creating
+a new cgroup namespace.
+First, we create child cgroup in the
+.I freezer
+hierarchy, and put the shell into that cgroup:
+
+.nf
+.in +4n
+$ \fBsudo mkdir \-p /sys/fs/cgroup/freezer/sub\fP
+$ \fBecho $$\fP                      # Show PID of this shell
+30655
+$ \fBsudo sh \-c 'echo 30655 > /sys/fs/cgroup/sub'\fP
+$ \fBcat /proc/self/cgroup | grep freezer\fP
+7:freezer:/sub
+.in
+.fi
+
+Next, we use
+.BR unshare (1)
+to create a process running a shell in new user and cgroup namespaces:
+
+.nf
+.in +4n
+$ \fBunshare -U -C bash\fP
+.in
+.fi
+
+We then inspect the
+.IR /proc/[pid]/cgroup
+files of, respectively, the new shell process started by the
+.BR unshare (1)
+command, a process that is in the original cgroup namespace
+.RI ( init ,
+with PID 1), and a process in a sibling cgroup:
+
+.nf
+.in +4n
+$ \fBcat /proc/self/cgroup | grep freezer\fP
+7:freezer:/
+$ \fBcat /proc/1/cgroup | grep freezer\fP
+7:freezer:/..
+$ \fBcat /proc/20124/cgroup | grep freezer\fP
+7:freezer:/../sub2
+.in
+.fi
+
+The virtualization provided by cgroup namespaces can be used to prevent
+information leaks whereby cgroup directory paths outside of
+a container would otherwise be visible to processes in the container.
+
+Use of cgroup namespaces requires a kernel that is configured with the
+.B CONFIG_CGROUPS
+option.
 .\"
 .\" ==================== IPC namespaces ====================
 .\"

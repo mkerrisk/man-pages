@@ -196,7 +196,9 @@ This file is a handle for the UTS namespace of the process.
 Cgroup namespaces virtualize the view of a process's cgroups (see
 .BR cgroups (7))
 as seen via
-.IR /proc/[pid]/cgroup .
+.IR /proc/[pid]/cgroup
+and
+.IR /proc/[pid]/mountinfo .
 
 Each cgroup namespace has its own set of cgroup root directories,
 which are the base points for the relative locations displayed in
@@ -240,11 +242,11 @@ hierarchy, and put the shell into that cgroup:
 
 Next, we use
 .BR unshare (1)
-to create a process running a shell in a new cgroup namespace:
+to create a process running a new shell in new cgroup and mount namespaces:
 
 .nf
 .in +4n
-# \fBunshare \-C bash\fP
+# \fBunshare \-Cm bash\fP
 .in
 .fi
 
@@ -264,6 +266,40 @@ $ \fBcat /proc/1/cgroup | grep freezer\fP
 7:freezer:/..
 $ \fBcat /proc/20124/cgroup | grep freezer\fP
 7:freezer:/../sub2
+.in
+.fi
+
+However, when we look in
+.IR /proc/self/mountinfo
+we see the following anomaly:
+
+.nf
+.in +4n
+# \fBcat /proc/self/mountinfo | grep freezer\fP
+155 145 0:32 /.. /sys/fs/cgroup/freezer ...
+.in
+.fi
+
+The fourth field this file should show the
+directory in the cgroup filesystem which forms the root of this mount.
+Since by the definition of cgroup namespaces, the process's current
+freezer cgroup directory became its root freezer cgroup directory,
+we should see \(aq/\(aq in this field.
+The problem here is that we are seeing a mount entry for the cgroup
+filesystem corresponding to our initial shell process's cgroup namespace
+(whose cgroup filesystem is indeed rooted in the parent directory of
+.IR sub ).
+We need to remount the freezer cgroup filesystem
+inside this cgroup namespace, after which we see the expected results:
+
+.nf
+.in +4n
+# mount \-\-make\-rprivate     # Don't propagate mount events
+                            # to other namespaces
+# umount /sys/fs/cgroup/freezer
+# mount \-t cgroup \-o freezer freezer /sys/fs/cgroup/freezer
+# cat /proc/self/mountinfo | grep freezer
+155 145 0:32 / /sys/fs/cgroup/freezer rw,relatime ...
 .in
 .fi
 

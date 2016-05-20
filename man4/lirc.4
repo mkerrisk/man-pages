@@ -1,4 +1,4 @@
-.\" Copyright (c) 2015, Alec Leamas
+.\" Copyright (c) 2015-2016, Alec Leamas
 .\"
 .\" %%%LICENSE_START(GPLv2+_DOC_FULL)
 .\" This is free documentation; you can redistribute it and/or
@@ -20,7 +20,7 @@
 .\" License along with this manual; if not, see
 .\" <http://www.gnu.org/licenses/>.
 .\" %%%LICENSE_END
-.TH LIRC 4 "2016-03-17" "Linux" "Linux Programmer's Manual"
+.TH LIRC 4 "2016-05-20" "Linux" "Linux Programmer's Manual"
 .SH NAME
 lirc \- lirc devices
 .SH DESCRIPTION
@@ -111,7 +111,18 @@ If more data is provided than the hardware can send, the
 call fails with the error
 .BR EINVAL
 .\"
-.SH SUPPORTED IOCTL COMMANDS
+.SH IOCTL COMMANDS
+.P
+The complete list of ioctl commands is maintained in the kernel
+documentation, see SEE ALSO.
+The ioctl commands presented here is a subset  of the kernel
+docs.
+.P
+The LIRC device's ioctl definition is bound by the ioctl function
+definition of struct file_operations, leaving us with an unsigned
+int for the ioctl command and an unsigned long for the arg.
+For the purposes of ioctl portability across 32-bit and 64-bit,
+these values are capped to their 32-bit sizes.
 .P
 .nf
 #include <lirc/include/media/lirc.h>    /* But see BUGS */
@@ -140,6 +151,8 @@ Returns a bit mask of combined features bits; see FEATURES.
 Some drivers have dynamic features which are not updated until after an
 .I init()
 command.
+If a driver does not announce support of certain features, calling of
+the corresponding ioctls is undefined.
 .TP
 .BR LIRC_GET_REC_MODE
 Return the receive mode, which will be one of:
@@ -191,9 +204,15 @@ Currently serves no purpose since only
 .BR LIRC_MODE_PULSE
 is supported.
 .TP
+.BR LIRC_GET_SEND_CARRIER " (\fIvoid\fP)"
+Get the modulation frequency (Hz).
+.TP
 .BR LIRC_SET_SEND_CARRIER " (\fIint\fP)"
 Set the modulation frequency.
 The argument is the frequency (Hz).
+.TP
+.BR LIRC_GET_SEND_CARRIER " (\fIvoid\fP)"
+Get the modulation frequency used when decoding (Hz).
 .TP
 .BR SET_SEND_DUTY_CYCLE " (\fIint\fP)"
 Set the carrier duty cycle.
@@ -202,6 +221,7 @@ is a number in the range [0,100] which
 describes the pulse width as a percentage of the total cycle.
 Currently, no special meaning is defined for 0 or 100, but the values
 are reserved for future use.
+
 .TP
 .BR LIRC_GET_MIN_TIMEOUT " (\fIvoid\fP)", " "\
 LIRC_GET_MAX_TIMEOUT " (\fIvoid\fP)"
@@ -444,9 +464,8 @@ sending.)
 .SH BUGS
 Using these devices requires the kernel source header file
 .IR lirc.h .
-This file is not (yet) publicly exported by kernel headers.
-.\" FIXME . https://bugzilla.kernel.org/show_bug.cgi?id=3D75751.
-For the time being, the file is bundled in the lirc package; see
+This file is not available before kernel release 4.6. Users of older
+kernels could use the file bundled in
 .UR http://www.lirc.org
 .UE .
 .\"

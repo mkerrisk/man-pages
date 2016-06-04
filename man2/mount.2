@@ -80,67 +80,58 @@ See
 .BR mount (8)
 for details of the options available for each filesystem type.
 
-The following flags may be specified in
-.IR mountflags :
-.\" FIXME 2.6.15 added flags for "shared subtree" functionality:
+A call to
+.BR mount ()
+performs one of a number of general types of operation.
+depending on the bits specified in
+.IR mountflags .
+The choice of operation is determined by testing the bits set in
+.IR mountflags ,
+with the tests being conducted in the order listed here:
+.IP * 3
+Remount an existing mount:
+.IR mountflags
+includes
+.BR MS_REMOUNT .
+.IP *
+Create a bind mount:
+.IR mountflags
+includes
+.BR MS_BIND .
+.IP *
+Change the propagation type of an existing mount:
+.IR mountflags
+includes one of
+.BR MS_SHARED ,
+.BR MS_PRIVATE ,
+.BR MS_SLAVE ,
+or
+.BR MS_UNBINDABLE .
+.IP *
+Move an existing mount to a new location:
+.IR mountflags
+includes
+.BR MS_MOVE .
+.IP *
+Create a new mount:
+.IR mountflags
+includes none of the above flags.
+.PP
+Each of these operations is detailed later in this page.
+Further flags may be specified in
+.IR mountflags
+to modify the behavior of
+.BR mount (),
+as described below.
 .\"
-.\"	MS_PRIVATE
-.\"		All mounts are private by default. Previously shared mounts
-.\"		can be re-marked PRIVATE.
-.\"	MS_SHARED
-.\"		Mount points that are marked SHARED propagate mount events
-.\"		to one another after being cloned.
-.\"			mount --make-rshared ==> MS_SHARED | MS_REC
-.\"	MS_SLAVE
-.\"		A previously shared mount point can be marked SLAVE, meaning
-.\"		it receives propagated events, but does not propagate events.
-.\"	MS_UNBINDABLE
-.\"		mounts cannot be bound into other places, and will not be
-.\"		propagated into new subtrees	
-.\"
-.\" These settings are visible in /proc/$$/mountinfo
-.\"
-.\" These need to be documented on this page.
-.\" See:
-.\"
-.\" * Documentation/filesystems/sharedsubtree.txt
-.\"
-.\" * http://lwn.net/Articles/159077/
-.\"
-.\" * https://www.kernel.org/doc/ols/2006/ols2006v2-pages-209-222.pdf
-.\"       Shared-Subtree Concept, Implementation, and Applications in Linux
-.\"       Al Viro viro@ftp.linux.org.uk
-.\"       Ram Pai linuxram@us.ibm.com
-.\"
-.\" * http://www.ibm.com/developerworks/linux/library/l-mount-namespaces/index.html
-.\"       Applying mount namespaces
-.\"
-.\"       Uncover practical applications for advanced Linux mounts features
-.\"       Serge E. Hallyn (sergeh@us.ibm.com), Software Engineer, IBM
-.\"       Ram Pai (linuxram@us.ibm.com), Software Engineer, IBM
-.\"       Date:  17 Sep 2007
+.SS Additional mount flags
+The list below describes the additional flags that can be specified in
+.IR mountflags .
+Note that some operation types ignore some or all of these flags,
+as described later in this page.
 .\"
 .\" FIXME 2.6.25 Added MS_I_VERSION, which needs to be documented.
 .\"
-.TP
-.BR MS_BIND " (Linux 2.4 onward)"
-.\" since 2.4.0-test9
-Perform a bind mount, making a file or a directory subtree visible at
-another point within a filesystem.
-Bind mounts may cross filesystem boundaries and span
-.BR chroot (2)
-jails.
-The
-.IR filesystemtype
-and
-.IR data
-arguments are ignored.
-The remaining bits in the
-.I mountflags
-argument are also ignored, with the exception of
-.B MS_REC
-(the bind mount has the same mount options as
-the underlying mount point).
 .TP
 .BR MS_DIRSYNC " (since Linux 2.5.19)"
 Make directory changes on this filesystem synchronous.
@@ -201,21 +192,6 @@ this mount option requires the
 capability.
 .\" FIXME Describe the MS_MOVE flag in more detail
 .TP
-.B MS_MOVE
-Move a subtree.
-.I source
-specifies an existing mount point and
-.I target
-specifies the new location.
-The move is atomic: at no point is the subtree unmounted.
-The remaining bits in the
-.IR mountflags
-argument are ignored, as are the
-.IR filesystemtype
-and
-.IR data
-arguments.
-.TP
 .B MS_NOATIME
 Do not update access times for (all types of) files on this filesystem.
 .TP
@@ -271,8 +247,49 @@ is more than 1 day old.
 .\" that this lets utilities such as tmpreaper (which deletes
 .\" files based on last access time) work correctly.
 .TP
+.BR MS_SILENT " (since Linux 2.6.17)"
+Suppress the display of certain
+.RI ( printk ())
+warning messages in the kernel log.
+This flag supersedes the misnamed and obsolete
+.BR MS_VERBOSE
+flag (available since Linux 2.4.12), which has the same meaning.
+.TP
+.BR MS_STRICTATIME " (since Linux 2.6.30)"
+Always update the last access time (atime) when files on this
+filesystem are accessed.
+(This was the default behavior before Linux 2.6.30.)
+Specifying this flag overrides the effect of setting the
+.BR MS_NOATIME
+and
+.BR MS_RELATIME
+flags.
+.TP
+.B MS_SYNCHRONOUS
+Make writes on this filesystem synchronous (as though
+the
+.B O_SYNC
+flag to
+.BR open (2)
+was specified for all file opens to this filesystem).
+.PP
+From Linux 2.4 onward, the
+.BR MS_NODEV ", " MS_NOEXEC ", and " MS_NOSUID
+flags are settable on a per-mount-point basis.
+From kernel 2.6.16 onward,
+.B MS_NOATIME
+and
+.B MS_NODIRATIME
+are also settable on a per-mount-point basis.
+The
+.B MS_RELATIME
+flag is also settable on a per-mount-point basis.
+.\"
+.SS Remounting an existing mount
+An existing mount may be remounted by specifying
 .B MS_REMOUNT
-Remount an existing mount.
+in
+.IR mountflags .
 This allows you to change the
 .I mountflags
 and
@@ -286,6 +303,7 @@ call;
 and
 .I filesystemtype
 are ignored.
+
 The
 .I mountflags
 and
@@ -336,44 +354,124 @@ as:
 Note that only the
 .BR MS_RDONLY
 setting of the bind mount can be changed in this manner.
-.TP
-.BR MS_SILENT " (since Linux 2.6.17)"
-Suppress the display of certain
-.RI ( printk ())
-warning messages in the kernel log.
-This flag supersedes the misnamed and obsolete
-.BR MS_VERBOSE
-flag (available since Linux 2.4.12), which has the same meaning.
-.TP
-.BR MS_STRICTATIME " (since Linux 2.6.30)"
-Always update the last access time (atime) when files on this
-filesystem are accessed.
-(This was the default behavior before Linux 2.6.30.)
-Specifying this flag overrides the effect of setting the
-.BR MS_NOATIME
-and
-.BR MS_RELATIME
-flags.
-.TP
-.B MS_SYNCHRONOUS
-Make writes on this filesystem synchronous (as though
-the
-.B O_SYNC
-flag to
-.BR open (2)
-was specified for all file opens to this filesystem).
-.PP
-From Linux 2.4 onward, the
-.BR MS_NODEV ", " MS_NOEXEC ", and " MS_NOSUID
-flags are settable on a per-mount-point basis.
-From kernel 2.6.16 onward,
-.B MS_NOATIME
-and
-.B MS_NODIRATIME
-are also settable on a per-mount-point basis.
+.\"
+.SS Creating a bind mount
+If
+.I mountflags
+includes
+.BR MS_BIND
+(available since Linux 2.4),
+.\" since 2.4.0-test9
+then perform a bind mount.
+A bind mount makes a file or a directory subtree visible at
+another point within the single directory hierarchy.
+Bind mounts may cross filesystem boundaries and span
+.BR chroot (2)
+jails.
+
 The
-.B MS_RELATIME
-flag is also settable on a per-mount-point basis.
+.IR filesystemtype
+and
+.IR data
+arguments are ignored.
+
+The remaining bits in the
+.I mountflags
+argument are also ignored, with the exception of
+.BR MS_REC .
+(The bind mount has the same mount options as
+the underlying mount point.)
+However, see the discussion of remounting above,
+for a method of making an existing bind mount read-only.
+.\"
+.SS Changing the propagation type of an existing mount
+[TBC]
+.\"
+.\" FIXME 2.6.15 added flags for "shared subtree" functionality:
+.\"
+.\"	MS_PRIVATE
+.\"		All mounts are private by default. Previously shared mounts
+.\"		can be re-marked PRIVATE.
+.\"	MS_SHARED
+.\"		Mount points that are marked SHARED propagate mount events
+.\"		to one another after being cloned.
+.\"			mount --make-rshared ==> MS_SHARED | MS_REC
+.\"	MS_SLAVE
+.\"		A previously shared mount point can be marked SLAVE, meaning
+.\"		it receives propagated events, but does not propagate events.
+.\"	MS_UNBINDABLE
+.\"		mounts cannot be bound into other places, and will not be
+.\"		propagated into new subtrees	
+.\"
+.\" These settings are visible in /proc/$$/mountinfo
+.\"
+.\" These need to be documented on this page.
+.\" See:
+.\"
+.\" * Documentation/filesystems/sharedsubtree.txt
+.\"
+.\" * http://lwn.net/Articles/159077/
+.\"
+.\" * https://www.kernel.org/doc/ols/2006/ols2006v2-pages-209-222.pdf
+.\"       Shared-Subtree Concept, Implementation, and Applications in Linux
+.\"       Al Viro viro@ftp.linux.org.uk
+.\"       Ram Pai linuxram@us.ibm.com
+.\"
+.\" * http://www.ibm.com/developerworks/linux/library/l-mount-namespaces/index.html
+.\"       Applying mount namespaces
+.\"
+.\"       Uncover practical applications for advanced Linux mounts features
+.\"       Serge E. Hallyn (sergeh@us.ibm.com), Software Engineer, IBM
+.\"       Ram Pai (linuxram@us.ibm.com), Software Engineer, IBM
+.\"       Date:  17 Sep 2007
+.\"
+.SS Moving a mount
+If
+.I mountflags
+contains the flag
+.BR MS_MOVE ,
+then move a subtree:
+.I source
+specifies an existing mount point and
+.I target
+specifies the new location to which that mount point is to be relocated.
+The move is atomic: at no point is the subtree unmounted.
+The remaining bits in the
+.IR mountflags
+argument are ignored, as are the
+.IR filesystemtype
+and
+.IR data
+arguments.
+.\"
+.SS Creating a new mount point
+If none of
+.BR MS_REMOUNT ,
+.BR MS_BIND ,
+.BR MS_MOVE ,
+.BR MS_SHARED ,
+.BR MS_PRIVATE ,
+.BR MS_SLAVE ,
+or
+.BR MS_UNBINDABLE
+is specified in
+.IR mountflags ,
+then
+.BR mount ()
+performs its default action: creating a new mount point.
+.IR source
+specifies the source for the new mount point, and
+.IR target
+specifies the directory at which to create the mount point.
+
+The
+.I filesystemtype
+and
+.I data
+arguments are employed, and further bits may be specified in
+.IR mountflags
+to modify the behavior of the call.
+.\"
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -477,13 +575,16 @@ The caller does not have the required privileges.
 The definitions of
 .BR MS_DIRSYNC ,
 .BR MS_MOVE ,
+.BR MS_PRIVATE ,
 .BR MS_REC ,
 .BR MS_RELATIME ,
-and
+.BR MS_SHARED ,
+.BR MS_SLAVED ,
 .BR MS_STRICTATIME
+and
+.BR MS_UNBINDABLE
 were added to glibc headers in version 2.12.
-.\" FIXME . Definitions of the so-far-undocumented MS_UNBINDABLE, MS_PRIVATE,
-.\" MS_SHARED, and MS_SLAVE were (also) only added to glibc headers in 2.12.
+.\"
 .SH CONFORMING TO
 This function is Linux-specific and should not be used in
 programs intended to be portable.

@@ -387,45 +387,76 @@ However, see the discussion of remounting above,
 for a method of making an existing bind mount read-only.
 .\"
 .SS Changing the propagation type of an existing mount
-[TBC]
-.\"
-.\" FIXME 2.6.15 added flags for "shared subtree" functionality:
-.\"
-.\"	MS_PRIVATE
-.\"		All mounts are private by default. Previously shared mounts
-.\"		can be re-marked PRIVATE.
-.\"	MS_SHARED
-.\"		Mount points that are marked SHARED propagate mount events
-.\"		to one another after being cloned.
-.\"			mount --make-rshared ==> MS_SHARED | MS_REC
-.\"	MS_SLAVE
-.\"		A previously shared mount point can be marked SLAVE, meaning
-.\"		it receives propagated events, but does not propagate events.
-.\"	MS_UNBINDABLE
-.\"		mounts cannot be bound into other places, and will not be
-.\"		propagated into new subtrees	
-.\"
-.\" These settings are visible in /proc/$$/mountinfo
-.\"
-.\" These need to be documented on this page.
-.\" See:
-.\"
-.\" * Documentation/filesystems/sharedsubtree.txt
-.\"
-.\" * http://lwn.net/Articles/159077/
-.\"
-.\" * https://www.kernel.org/doc/ols/2006/ols2006v2-pages-209-222.pdf
-.\"       Shared-Subtree Concept, Implementation, and Applications in Linux
-.\"       Al Viro viro@ftp.linux.org.uk
-.\"       Ram Pai linuxram@us.ibm.com
-.\"
-.\" * http://www.ibm.com/developerworks/linux/library/l-mount-namespaces/index.html
-.\"       Applying mount namespaces
-.\"
-.\"       Uncover practical applications for advanced Linux mounts features
-.\"       Serge E. Hallyn (sergeh@us.ibm.com), Software Engineer, IBM
-.\"       Ram Pai (linuxram@us.ibm.com), Software Engineer, IBM
-.\"       Date:  17 Sep 2007
+If
+.IR mountflags
+includes one of
+.BR MS_SHARED ,
+.BR MS_PRIVATE ,
+.BR MS_SLAVE ,
+or
+.BR MS_UNBINDABLE
+(all available since Linux 2.6.15),
+then the propagation type of an existing mount is changed.
+If more than one of these flags is specified, an error results.
+
+The only flags that can be used with changing the propagation type are
+.BR MS_REC
+and
+.BR MS_SILENT .
+
+The
+.IR source ,
+.IR filesystemtype ,
+and
+.IR data
+arguments are ignored.
+
+The meanings of the propagation type flags are as follows:
+.TP
+.BR MS_SHARED
+Make this mount point shared.
+Mount and unmount events immediately under this mount point will propagate
+to the other mount points that are members of this mount's peer group.
+Propagation here means that the same mount or unmount will automatically
+occur under all of the other mount points in the peer group.
+Conversely, mount and unmount events that take place under
+peer mount points will propagate to this mount point.
+.TP
+.BR MS_PRIVATE
+Make this mount point private.
+Mount and unmount events do not propagate into or out of this mount point.
+This is the default propagation type for newly created mount points.
+.TP
+.BR MS_SLAVE
+If this is a shared mount point that is a member of a peer group
+that contains other members, convert it to a slave mount.
+If this is a shared mount point that is a member of a peer group
+that contains no other members, convert it to a private mount.
+Otherwise, the propagation type of the mount point is left unchanged.
+
+When a mount point is a slave,
+mount and unmount events propagate into this mount point from
+the (master) shared peer group of which it was formerly a member.
+Mount and unmount events under this mount point do not propagate to any peer.
+
+A mount point can be the slave of another peer group
+while at the same time sharing mount and unmount events
+with a peer group of which it is a member.
+.TP
+.BR MS_UNBINDABLE
+Make this mount unbindable.
+This is like a private mount,
+and in addition this mount can't be bind mounted.
+When a recursive bind mount
+.RB ( mount (2)
+with the
+.BR MS_BIND
+and
+.BR MS_REC
+flags) is performed on a directory subtree,
+any bind mounts within the subtree are automatically pruned
+(i.e., not replicated)
+when replicating that subtree to produce the target subtree.
 .\"
 .SS Moving a mount
 If
@@ -532,6 +563,31 @@ Or, a move
 was attempted, but
 .I source
 was not a mount point, or was \(aq/\(aq.
+.TP
+.B EINVAL
+.I mountflags
+includes more than one of
+.BR MS_SHARED ,
+.BR MS_PRIVATE ,
+.BR MS_SLAVE ,
+or
+.BR MS_UNBINDABLE .
+.TP
+.B EINVAL
+.I mountflags
+includes
+.BR MS_SHARED ,
+.BR MS_PRIVATE ,
+.BR MS_SLAVE ,
+or
+.BR MS_UNBINDABLE
+and also includes a flag other than
+.BR MS_REC
+or
+.BR MS_SILENT .
+.TP
+.BR EINVAL
+An attempt was made to bind mount an unbindable mount.
 .TP
 .B ELOOP
 Too many links encountered during pathname resolution.

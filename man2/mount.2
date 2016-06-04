@@ -1,6 +1,6 @@
 .\" Copyright (C) 1993 Rickard E. Faith <faith@cs.unc.edu>
 .\" and Copyright (C) 1994 Andries E. Brouwer <aeb@cwi.nl>
-.\" and Copyright (C) 2002, 2005 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2002, 2005, 2016 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -221,10 +221,14 @@ when executing programs from this filesystem.
 .TP
 .B MS_RDONLY
 Mount filesystem read-only.
-.\"
-.\" FIXME Document MS_REC, available since 2.4.11.
-.\" This flag has meaning in conjunction with MS_BIND and
-.\" also with the shared subtree flags.
+.TP
+.BR MS_REC " (since Linux 2.4.11)"
+Used in conjunction with
+.BR MS_BIND
+to create a recursive bind mount,
+and in conjunction with the propagation type flags to recursively change
+the propagation type of all of the mounts in a subtree.
+See below for further details.
 .TP
 .BR MS_RELATIME " (since Linux 2.6.20)"
 When a file on this filesystem is accessed,
@@ -385,6 +389,20 @@ argument are also ignored, with the exception of
 the underlying mount point.)
 However, see the discussion of remounting above,
 for a method of making an existing bind mount read-only.
+
+By default, when a directory is bind mounted,
+only that directory is mounted;
+if there are any submounts under the directory tree,
+they are not bind mounted.
+If the
+.BR MS_REC
+flag is also specified, then a recursive bind mount operation is performed:
+all submounts under the
+.I source
+subtree (other than unbindable mounts)
+are also bind mounted at the corresponding location in the
+.I target
+subtree.
 .\"
 .SS Changing the propagation type of an existing mount
 If
@@ -457,6 +475,17 @@ flags) is performed on a directory subtree,
 any bind mounts within the subtree are automatically pruned
 (i.e., not replicated)
 when replicating that subtree to produce the target subtree.
+.PP
+By default, changing the propagation type affects only the
+.I target
+mount point.
+If the
+.B MS_REC
+flag is also specified in
+.IR mountflags ,
+then the propagation type of all mount points under
+.IR target
+is also changed.
 .\"
 .SS Moving a mount
 If

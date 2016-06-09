@@ -884,16 +884,21 @@ option enabled.
 .BR PR_SET_TIMERSLACK " (since Linux 2.6.28)"
 .\" See https://lwn.net/Articles/369549/
 .\" commit 6976675d94042fbd446231d1bd8b7de71a980ada
-Set the current timer slack for the calling thread to the nanosecond value
-supplied in
-.IR arg2 .
+Each thread has two associated timer slack values:
+a "default" value, and a "current" value.
+This operation sets the "current" timer slack value for the calling thread.
+If the nanosecond value supplied in
+.IR arg2
+is greater than zero, then the "current" value is set to this value.
 If
 .I arg2
 is less than or equal to zero,
 .\" It seems that it's not possible to set the timer slack to zero;
 .\" The minimum value is 1? Seems a little strange.
-reset the current timer slack to the thread's default timer slack value.
-The timer slack is used by the kernel to group timer expirations
+the "current" timer slack is reset to the
+thread's "default" timer slack value.
+
+The "current" timer slack is used by the kernel to group timer expirations
 for the calling thread that are close to one another;
 as a consequence, timer expirations for the thread may be
 up to the specified number of nanoseconds late (but will never expire early).
@@ -924,16 +929,12 @@ Timer slack is not applied to threads that are scheduled under
 a real-time scheduling policy (see
 .BR sched_setscheduler (2)).
 
-Each thread has two associated timer slack values:
-a "default" value, and a "current" value.
-The current value is the one that governs grouping
-of timer expirations.
 When a new thread is created,
-the two timer slack values are made the same as the current value
+the two timer slack values are made the same as the "current" value
 of the creating thread.
-Thereafter, a thread can adjust its current timer slack value via
-.BR PR_SET_TIMERSLACK
-(the default value can't be changed).
+Thereafter, a thread can adjust its "current" timer slack value via
+.BR PR_SET_TIMERSLACK .
+The "default" value can't be changed.
 The timer slack values of
 .IR init
 (PID 1), the ancestor of all processes,
@@ -943,7 +944,7 @@ The timer slack values are preserved across
 .TP
 .BR PR_GET_TIMERSLACK " (since Linux 2.6.28)"
 Return (as the function result)
-the current timer slack value of the calling thread.
+the "current" timer slack value of the calling thread.
 .TP
 .BR PR_SET_TIMING " (since Linux 2.6.0-test4)"
 Set whether to use (normal, traditional) statistical process timing or

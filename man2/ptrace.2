@@ -7,6 +7,7 @@
 .\" Sun Nov  7 03:18:35 CST 1999
 .\"
 .\" and Copyright (c) 2011, Denys Vlasenko <vda.linux@googlemail.com>
+.\" and Copyright (c) 2016, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_DOC_FULL)
 .\" This is free documentation; you can redistribute it and/or
@@ -2070,6 +2071,175 @@ Its behavior differs significantly on other flavors of UNIX.
 In any case, use of
 .BR ptrace ()
 is highly specific to the operating system and architecture.
+.\"
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.\"
+.SS Ptrace access mode checking
+Various parts of the kernel-user-space API (not just
+.BR ptrace (2)
+operations), require so-called "ptrace access mode permissions" which
+are gated by Linux Security Modules (LSMs) such as
+SELinux, Yama, Smack, or the default LSM.
+Prior to Linux 2.6.27, all such checks were of a single type.
+Since Linux 2.6.27,
+.\" commit 006ebb40d3d65338bd74abb03b945f8d60e362bd
+two access mode levels are distinguished:
+.TP
+.BR PTRACE_MODE_READ
+For "read" operations or other operations that are less dangerous,
+such as:
+.BR get_robust_list (2);
+.BR kcmp (2);
+reading
+.IR /proc/[pid]/auxv ,
+.IR /proc/[pid]/environ ,
+or
+.IR /proc/[pid]/stat ;
+or
+.BR readlink (2)
+of a
+.IR /proc/[pid]/ns/*
+file.
+.TP
+.BR PTRACE_MODE_ATTACH
+For "write" operations, or other operations that are more dangerous,
+such as: ptrace attaching
+.RB ( PTRACE_ATTACH )
+to another process
+or calling
+.BR process_vm_writev (2).
+.RB ( PTRACE_MODE_ATTACH
+was effectively the default before Linux 2.6.27.)
+.PP
+Since Linux 4.5,
+.\" commit caaee6234d05a58c5b4d05e7bf766131b810a657
+the above access mode checks may be combined (ORed) with
+one of the following modifiers:
+.TP
+.B PTRACE_MODE_FSCREDS
+Use the caller's filesystem UID and GID (see
+.BR credentials (7))
+or effective capabilities for LSM checks.
+.TP
+.B PTRACE_MODE_REALCREDS
+Use the caller's real UID and GID or permitted capabilities for LSM checks.
+This was effectively the default before Linux 4.5.
+.PP
+Because combining one of the credential modifiers with one of
+the aforementioned access modes is typical,
+some macros are defined in the kernel sources for the combinations:
+.TP
+.B PTRACE_MODE_READ_FSCREDS
+Defined as
+.BR "PTRACE_MODE_READ | PTRACE_MODE_FSCREDS" .
+.TP
+.B PTRACE_MODE_READ_REALCREDS
+Defined as
+.BR "PTRACE_MODE_READ | PTRACE_MODE_REALCREDS" .
+.TP
+.B PTRACE_MODE_ATTACH_FSCREDS
+Defined as
+.BR "PTRACE_MODE_ATTACH | PTRACE_MODE_FSCREDS" .
+.TP
+.B PTRACE_MODE_ATTACH_REALCREDS
+Defined as
+.BR "PTRACE_MODE_ATTACH | PTRACE_MODE_REALCREDS" .
+.fi
+.PP
+One further modifier can be ORed with the access mode:
+.TP
+.BR PTRACE_MODE_NOAUDIT " (since Linux 3.3)"
+.\" commit 69f594a38967f4540ce7a29b3fd214e68a8330bd
+.\" Just for /proc/pid/stat
+Don't audit this access mode check.
+.PP
+The algorithm employed for ptrace access mode checking determines whether
+the calling process is allowed to perform the corresponding action
+on the target process, as follows:
+.IP 1. 4
+If the calling thread and the target thread are in the same
+thread group, access is always allowed.
+.IP 2.
+If the access mode specifies
+.BR PTRACE_MODE_FSCREDS ,
+then for the check in the next step,
+employ the caller's filesystem user ID and group ID (see
+.BR credentials (7));
+otherwise (the access mode specifies
+.BR PTRACE_MODE_REALCREDS ,
+so) use the caller's real user ID and group ID.
+.IP 3.
+Deny access if
+.I neither
+of the following is true:
+.RS
+.IP \(bu 2
+The real, effective, and saved-set user IDs of the target
+match the caller's user ID,
+.IR and
+the real, effective, and saved-set group IDs of the target
+match the caller's group ID.
+.IP \(bu
+The caller has the
+.B CAP_SYS_PTRACE
+capability.
+.RE
+.IP 4.
+Deny access if the target process "dumpable" attribute has a value other than 1
+.RB ( SUID_DUMP_USER ;
+see the discussion of
+.BR PR_SET_DUMPABLE
+in
+.BR prctl (2)),
+and the caller does not have the
+.BR CAP_SYS_PTRACE
+capability in the user namespace of the target process.
+.IP 5.
+The kernel LSM
+.IR security_ptrace_access_check ()
+interface is invoked to see if ptrace access is permitted.
+The results depend on the LSM.
+The implementation of this interface in the default LSM performs
+the following steps:
+.\" (in cap_ptrace_access_check()):
+.RS
+.IP a) 3
+If the access mode includes
+.BR PTRACE_MODE_FSCREDS ,
+then use the caller's
+.I effective
+capability set
+in the following check;
+otherwise (the access mode specifies
+.BR PTRACE_MODE_REALCREDS ,
+so) use the caller's
+.I permitted
+capability set.
+.IP b)
+Deny access if
+.I neither
+of the following is true:
+.RS
+.IP \(bu 2
+The caller's capabilities are a proper superset of the target process's
+.I permitted
+capabilities.
+.IP \(bu
+The caller has the
+.B CAP_SYS_PTRACE
+capability in the target process's user namespace.
+.RE
+.IP
+Note that the default LSM does not distinguish between
+.B PTRACE_MODE_READ
+and
+.BR PTRACE_MODE_ATTACH .
+.RE
+.IP 6.
+If access has not been denied by any of the preceding steps,
+then access is allowed.
+.\"
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
 .SS /proc/sys/kernel/yama/ptrace_scope
 On systems with the Yama Linux Security Module installed, the

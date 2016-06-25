@@ -205,6 +205,7 @@ then only the
 field is present and not the
 .IR propagate_from:X
 field.
+For further details, see below.
 .TP
 .IR unbindable
 This is an unbindable mount.
@@ -756,6 +757,171 @@ is shared, then all most-recently-mounted mounts at
 on mounts that receive propagation from mount
 .I B
 and do not have submounts under them are unmounted.
+.\"
+.SS The /proc/[pid]/mountinfo "propagate_from" tag
+The
+.I propagate_from:X
+tag is shown in the optional fields of a
+.IR /proc/[pid]/mountinfo
+record in cases where a process can't see a slave's immediate master
+(i.e., the pathname of the master is not reachable from
+the filesystem root directory)
+and so cannot determine the
+chain of propagation between the mounts it can see.
+
+In the following example, we first create a two-link master-slave chain
+between the mounts
+.IR /mnt ,
+.IR /tmp/etc ,
+and
+.IR /mnt/tmp/etc .
+Then the
+.BR chroot (1)
+command is used to make the
+.IR /tmp/etc
+mount point unreachable from the root directory,
+creating a situation where the master of
+.IR /mnt/tmp/etc
+is not reachable from the (new) root directory of the process.
+
+First, we bind mount the root directory onto
+.IR /mnt
+and then bind mount
+.IR /proc
+at
+.IR /mnt/proc
+so that after the later
+.BR chroot (1)
+the
+.BR proc (5)
+filesystem remains visible at the correct location
+in the chroot-ed environment.
+
+.nf
+.in +4n
+# \fBmkdir \-p /mnt/proc\fP
+# \fBmount \-\-bind / /mnt\fP
+# \fBmount \-\-bind /proc /mnt/proc\fP
+.in
+.fi
+
+Next, we ensure that the
+.IR /mnt
+mount is a shared mount in a new peer group (with no peers):
+
+.nf
+.in +4n
+# \fBmount \-\-make\-private /mnt\fP  # Isolate from any previous peer group
+# \fBmount \-\-make\-shared /mnt\fP
+# \fBcat /proc/self/mountinfo | grep \(aq/mnt\(aq | sed \(aqs/ \- .*//\(aq\fP
+239 61 8:2 / /mnt ... shared:102
+248 239 0:4 / /mnt/proc ... shared:5
+.in
+.fi
+
+Next, we bind mount
+.IR /mnt/etc
+onto
+.IR /tmp/etc :
+
+.nf
+.in +4n
+# \fBmkdir \-p /tmp/etc\fP
+# \fBmount \-\-bind /mnt/etc /tmp/etc\fP
+# \fBcat /proc/self/mountinfo | egrep \(aq/mnt|/tmp/\(aq | sed \(aqs/ \- .*//\(aq\fP
+239 61 8:2 / /mnt ... shared:102
+248 239 0:4 / /mnt/proc ... shared:5
+267 40 8:2 /etc /tmp/etc ... shared:102
+.in
+.fi
+
+Initially, these two mount points are in the same peer group,
+but we then make the
+.IR /tmp/etc
+a slave of
+.IR /mnt/etc ,
+and then make
+.IR /tmp/etc
+shared as well,
+so that it can propagate events to the next slave in the chain:
+
+.nf
+.in +4n
+# \fBmount \-\-make\-slave /tmp/etc\fP
+# \fBmount \-\-make\-shared /tmp/etc\fP
+# \fBcat /proc/self/mountinfo | egrep \(aq/mnt|/tmp/\(aq | sed \(aqs/ \- .*//\(aq\fP
+239 61 8:2 / /mnt ... shared:102
+248 239 0:4 / /mnt/proc ... shared:5
+267 40 8:2 /etc /tmp/etc ... shared:105 master:102
+.in
+.fi
+
+Then we bind mount
+.IR /tmp/etc
+onto
+.IR /mnt/tmp/etc .
+Again, the two mount points are initially in the same peer group,
+but we then make
+.IR /mnt/tmp/etc
+a slave of
+.IR /tmp/etc :
+
+.nf
+.in +4n
+# \fBmkdir \-p /mnt/tmp/etc\fP
+# \fBmount \-\-bind /tmp/etc /mnt/tmp/etc\fP
+# \fBmount \-\-make\-slave /mnt/tmp/etc\fP
+# \fBcat /proc/self/mountinfo | egrep \(aq/mnt|/tmp/\(aq | sed \(aqs/ \- .*//\(aq\fP
+239 61 8:2 / /mnt ... shared:102
+248 239 0:4 / /mnt/proc ... shared:5
+267 40 8:2 /etc /tmp/etc ... shared:105 master:102
+273 239 8:2 /etc /mnt/tmp/etc ... master:105
+
+.in
+.fi
+From the above, we see that
+.IR /mnt
+is the master of the slave
+.IR /tmp/etc ,
+which in turn is the master of the slave
+.IR /mnt/tmp/etc .
+
+We then
+.BR chroot (1)
+to the
+.IR /mnt
+directory, which renders the mount with ID 267 unreachable
+from the (new) root directory:
+
+.nf
+.in +4n
+# \fBchroot /mnt\fP
+.in
+.fi
+
+When we examine the state of the mounts inside the chroot-ed environment,
+we see the following:
+
+.nf
+.in +4n
+# \fBcat /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
+239 61 8:2 / / ... shared:102
+248 239 0:4 / /proc ... shared:5
+273 239 8:2 /etc /tmp/etc ... master:105 propagate_from:102
+.in
+.fi
+
+Above, we see that the mount with ID 273
+is a slave whose master is the peer group 105.
+The mount point for that master is unreachable, and so a
+.IR propagate_from
+tag is displayed, indicating that the closest dominant peer group
+(i.e., the nearest reachable mount in the slave chain)
+is the peer group with the ID 102 (corresponding to the
+.IR /mnt
+mount point before the
+.BR chroot (1)
+was performed.
 .\"
 .SH NOTES
 The kernel default propagation type for mount points is

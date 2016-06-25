@@ -2303,7 +2303,10 @@ then access is allowed.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
 .SS /proc/sys/kernel/yama/ptrace_scope
-On systems with the Yama Linux Security Module installed, the
+On systems with the Yama Linux Security Module (LSM) installed
+(i.e., the kernel was configured with
+.BR CONFIG_SECURITY_YAMA ),
+the
 .I /proc/sys/kernel/yama/ptrace_scope
 file (available since Linux 3.4)
 .\" commit 2d514487faf188938a4ee4fb3464eeecfbdcf8eb
@@ -2318,41 +2321,52 @@ a compromised process can ptrace-attach to other sensitive processes
 (e.g., a GPG agent or an SSH session) owned by the user in order
 to gain additional credentials and thus expand the scope of the attack.
 
-A process with the
+More precisely, the Yama LSM limits two types of operations:
+.IP * 3
+Any operation that performs a ptrace access mode
+.BR PTRACE_MODE_ATTACH
+check\(emfor example,
+.BR ptrace ()
+.BR PTRACE_ATTACH .
+(See the "Ptrace access mode checking" discussion above.)
+
+.IP *
+.BR ptrace ()
+.BR PTRACE_TRACEME .
+.PP
+A process that has the
 .B CAP_SYS_PTRACE
-capability can update this file with one of the following values:
+capability can update the
+.IR /proc/sys/kernel/yama/ptrace_scope
+file with one of the following values:
 .TP
 0 ("classic ptrace permissions")
-A process can
-.B PTRACE_ATTACH
-to any other process running under the same UID,
-as long as the tracee is dumpable (i.e., it did
-not transition UIDs or start privileged, and it has not employed
-the
-.BR prctl (2)
-.B PR_SET_DUMPABLE
-operation to make itself nondumpable).
+No additional restrictions on operations that perform
+.BR PTRACE_MODE_ATTACH
+checks (beyond those imposed by the commoncap and other LSMs).
 
 The use of
 .BR PTRACE_TRACEME
 is unchanged.
 .TP
-1 ("restricted ptrace")
-A process must have a predefined relationship
-with the tracee to which it wants to
-.BR PTRACE_ATTACH .
+1 ("restricted ptrace") [default value]
+When performing an operation that requires a
+.BR PTRACE_MODE_ATTACH
+check, the calling process must have a predefined relationship
+with the target process.
 By default,
-the predefined relationship is that the tracee is a child of the
-caller and the aforementioned classic criteria are also met.
-To specify a different process that may trace it, a tracee can employ the
+the predefined relationship is that the target process
+must be a child of the caller.
+
+A target process can employ the
 .BR prctl (2)
 .B PR_SET_PTRACER
-operation to declare a different PID that is allowed to
-.BR PTRACE_ATTACH
-to the tracee.
-(See the kernel source file
+operation to declare a different PID that is allowed to perform
+.BR PTRACE_MODE_ATTACH
+operations on the target.
+See the kernel source file
 .IR Documentation/security/Yama.txt
-for further details.)
+for further details.
 
 The use of
 .BR PTRACE_TRACEME
@@ -2361,18 +2375,20 @@ is unchanged.
 2 ("admin-only attach")
 Only processes with the
 .B CAP_SYS_PTRACE
-capability may use
-.BR PTRACE_ATTACH
-or trace children that employ
+capability may perform
+.BR PTRACE_MODE_ATTACH
+operations or trace children that employ
 .BR PTRACE_TRACEME .
 .TP
 3 ("no attach")
-No process may use
-.BR PTRACE_ATTACH
-or trace children that employ
+No process may perform
+.BR PTRACE_MODE_ATTACH
+operations or trace children that employ
 .BR PTRACE_TRACEME .
 
 Once this value has been written to the file, it cannot be changed.
+.\"
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
 .SS C library/kernel differences
 At the system call level, the

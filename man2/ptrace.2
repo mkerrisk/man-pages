@@ -2319,7 +2319,8 @@ and
 The goal of such restrictions is to prevent attack escalation whereby
 a compromised process can ptrace-attach to other sensitive processes
 (e.g., a GPG agent or an SSH session) owned by the user in order
-to gain additional credentials and thus expand the scope of the attack.
+to gain additional credentials that may exist in memory
+and thus expand the scope of the attack.
 
 More precisely, the Yama LSM limits two types of operations:
 .IP * 3
@@ -2358,12 +2359,12 @@ capability in the user namespace of the target process or
 it must have a predefined relationship with the target process.
 By default,
 the predefined relationship is that the target process
-must be a child of the caller.
+must be a descendant of the caller.
 
 A target process can employ the
 .BR prctl (2)
 .B PR_SET_PTRACER
-operation to declare a different PID that is allowed to perform
+operation to declare an additional PID that is allowed to perform
 .BR PTRACE_MODE_ATTACH
 operations on the target.
 See the kernel source file
@@ -2391,12 +2392,16 @@ operations or trace children that employ
 Once this value has been written to the file, it cannot be changed.
 .PP
 With respect to values 1 and 2,
-note that creating a user namespace effectively removes the Yama protection,
-because the owner of a namespace, when accessing its members from outside, has
-.BR CAP_SYS_PTRACE
-within the namespace.
-This means that when a process tries to use namespaces to sandbox
-itself, it inadvertently weakens the protections offered by the Yama LSM.
+note that creating a new user namespace effectively removes the
+protection offered by Yama.
+This is because a process in the parent user namespace whose effective
+UID matches the UID of the creator of a child namespace
+has all capabilities (including
+.BR CAP_SYS_PTRACE )
+when performing operations within the child user namespace
+(and further-removed descendants of that namespace).
+Consequently, when a process tries to use user namespaces to sandbox itself,
+it inadvertently weakens the protections offered by the Yama LSM.
 .\"
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"

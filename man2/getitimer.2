@@ -1,4 +1,5 @@
 .\" Copyright 7/93 by Darren Senn <sinster@scintilla.santa-clara.ca.us>
+.\" and Copyright (C) 2016, Michael Kerrisk <mtk.manpages@gmail.com>
 .\" Based on a similar page Copyright 1992 by Rick Faith
 .\"
 .\" %%%LICENSE_START(FREELY_REDISTRIBUTABLE)
@@ -22,31 +23,47 @@ getitimer, setitimer \- get or set value of an interval timer
 .BI "              struct itimerval *" old_value );
 .fi
 .SH DESCRIPTION
-The system provides each process with three interval timers,
-each decrementing in a distinct time domain.
-When a timer expires, a signal is sent to the
-process, and the timer is reset to the specified interval (if nonzero).
+These system calls provide access to interval timers, that is,
+timers that initially expire at some point in the future,
+and (optionally) at regular intervals after that.
+When a timer expires, a signal is generated for the calling process,
+and the timer is reset to the specified interval
+(if the interval is nonzero).
+
+Three types of timers\(emspecified via the
+.IR which
+argument\(emare provided,
+each of which counts against a different clock and
+generates a different signal on timer expiration:
 .TP 1.5i
 .B ITIMER_REAL
-decrements in real time, and delivers
+This timer counts down in real (i.e., wall clock) time.
+At each expiration, a
 .B SIGALRM
-upon expiration.
+signal is generated.
 .TP
 .B ITIMER_VIRTUAL
-decrements only when the process is executing, and delivers
+This timer counts down against the user-mode CPU time consumed by the process.
+(The measurement includes CPU time consumed by all threads in the process.)
+At each expiration, a
 .B SIGVTALRM
-upon expiration.
+signal is generated.
 .TP
 .B ITIMER_PROF
-decrements both when the process executes and when the system is executing
-on behalf of the process.
-Coupled with
-.BR ITIMER_VIRTUAL ,
-this timer is usually used to profile the time spent by the
-application in user and kernel space.
+This timer counts down against the total (i.e., both user and system)
+CPU time consumed by the process.
+(The measurement includes CPU time consumed by all threads in the process.)
+At each expiration, a
 .B SIGPROF
-is delivered upon expiration.
+signal is generated.
+
+In conjunction with
+.BR ITIMER_VIRTUAL ,
+this timer can be used to profile user and system CPU time
+consumed by the process.
 .LP
+A process has only one of each of the three types of timers.
+
 Timer values are defined by the following structures:
 .PD 0
 .in +4n
@@ -64,68 +81,57 @@ struct timeval {
 .fi
 .in
 .PD
-.LP
+.SS getitimer()
 The function
 .BR getitimer ()
-fills the structure pointed to by
-.I curr_value
-with the current value
-(i.e., the amount of time remaining until the next expiration)
-of the timer specified by
-.I which
-(one of
-.BR ITIMER_REAL ,
-.BR ITIMER_VIRTUAL ,
-or
-.BR ITIMER_PROF ).
-The subfields of the field
-.I it_value
-are set to the amount of time remaining on the timer, or zero if the timer
-is disabled.
-The
-.I it_interval
-field is set to the timer interval (period);
-a value of zero returned in (both subfields of) this field indicates
-that this is a single-shot timer.
+places the curent value of the timer specified by
+.IR which
+in the buffer pointed to by
+.IR curr_value .
 
+The
+.IR it_value
+substructure is populated with the amount of time remaining until
+the next expiration of the specified timer.
+This value changes as the timer counts down, and will be reset to
+.IR it_interval
+when the timer expires.
+If both fields of
+.IR it_value
+are zero, then this timer is currently disarmed (inactive).
+
+The
+.IR it_interval
+substructure is populated with the timer interval.
+If both fields of
+.IR it_interval
+are zero, then this is a single-shot timer (i.e., it expires just once).
+.SS getitimer()
 The function
 .BR setitimer ()
-sets the specified timer to the value in
+arms or disarms the timer specified by
+.IR which ,
+by setting the timer to the value specified by
 .IR new_value .
 If
 .I old_value
-is non-NULL, the old value of the timer
-(i.e., the same information as returned by
-.BR getitimer ())
-is stored there.
-.LP
-Timers decrement from
-.I it_value
-to zero, generate a signal, and reset to
-.IR it_interval .
-A timer which is set to zero
-.RI ( it_value
-is zero or the timer expires and
-.I it_interval
-is zero) stops.
-.LP
-Both
-.I tv_sec
-and
-.I tv_usec
-are significant in determining the duration of a timer.
-.LP
-Timers will never expire before the requested time,
-but may expire some (short) time afterward, which depends
-on the system timer resolution and on the system load; see
-.BR time (7).
-(But see BUGS below.)
-Upon expiration, a signal will be generated and the timer reset.
-If the timer expires while the process is active (always true for
-.BR ITIMER_VIRTUAL ),
-the signal will be delivered immediately when generated.
-Otherwise, the
-delivery will be offset by a small time dependent on the system loading.
+is non-NULL,
+the buffer it points to is used to return the previous value of the timer
+(i.e., the same information that is returned by
+.BR getitimer ()).
+
+If either field in
+.IR new_value.it_value
+is nonzero,
+then the timer is armed to initially expire at the specified time.
+If both fields in
+.IR new_value.it_value
+are zero, then the timer is disarmed.
+
+The
+.IR new_value.it_interval
+field specifies the new interval for the timer;
+if both of its subfields are zero, the timer is single-shot.
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and
@@ -163,6 +169,15 @@ obsolete, recommending the use of the POSIX timers API
 .BR timer_settime (2),
 etc.) instead.
 .SH NOTES
+Timers will never expire before the requested time,
+but may expire some (short) time afterward, which depends
+on the system timer resolution and on the system load; see
+.BR time (7).
+(But see BUGS below.)
+If the timer expires while the process is active (always true for
+.BR ITIMER_VIRTUAL ),
+the signal will be delivered immediately when generated.
+
 A child created via
 .BR fork (2)
 does not inherit its parent's interval timers.

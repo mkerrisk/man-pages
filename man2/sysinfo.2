@@ -1,4 +1,9 @@
-.\" Copyright (C) 1993 by Dan Miner (dminer@nyx.cs.du.edu)
+.\" Copyright (C) 2016, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Based on an earlier version of the page where a few pieces were
+.\" copyright (C) 1993 by Dan Miner (dminer@nyx.cs.du.edu) and subsequently
+.\" others (see old changelog below).
+.\" The structure definitions are taken more or less straight from the kernel
+.\" source files.
 .\"
 .\" %%%LICENSE_START(FREELY_REDISTRIBUTABLE)
 .\"  Permission is granted to freely distribute or modify this file
@@ -11,15 +16,19 @@
 .\"
 .TH SYSINFO 2 2014-08-19 "Linux" "Linux Programmer's Manual"
 .SH NAME
-sysinfo \- returns information on overall system statistics
+sysinfo \- return system information
 .SH SYNOPSIS
 .B #include <sys/sysinfo.h>
 .sp
 .BI "int sysinfo(struct sysinfo *" info );
 .SH DESCRIPTION
+.BR sysinfo ()
+returns certain statistics on memory and swap usage,
+as well as the load average.
+
 Until Linux 2.3.16,
 .BR sysinfo ()
-used to return information in the following structure:
+returned information in the following structure:
 
 .nf
 .in +4n
@@ -31,16 +40,17 @@ struct sysinfo {
     unsigned long sharedram; /* Amount of shared memory */
     unsigned long bufferram; /* Memory used by buffers */
     unsigned long totalswap; /* Total swap space size */
-    unsigned long freeswap;  /* swap space still available */
+    unsigned long freeswap;  /* Swap space still available */
     unsigned short procs;    /* Number of current processes */
     char _f[22];             /* Pads structure to 64 bytes */
 };
 .in
 .fi
 .PP
-and the sizes were given in bytes.
+In the above structure, the sizes of the memory and swap fields
+are given in bytes.
 
-Since Linux 2.3.23 (i386), 2.3.48
+Since Linux 2.3.23 (i386) and Linux 2.3.48
 (all architectures) the structure is:
 
 .nf
@@ -53,37 +63,43 @@ struct sysinfo {
     unsigned long sharedram; /* Amount of shared memory */
     unsigned long bufferram; /* Memory used by buffers */
     unsigned long totalswap; /* Total swap space size */
-    unsigned long freeswap;  /* swap space still available */
+    unsigned long freeswap;  /* Swap space still available */
     unsigned short procs;    /* Number of current processes */
     unsigned long totalhigh; /* Total high memory size */
     unsigned long freehigh;  /* Available high memory size */
     unsigned int mem_unit;   /* Memory unit size in bytes */
-    char _f[20\-2*sizeof(long)\-sizeof(int)]; /* Padding to 64 bytes */
+    char _f[20\-2*sizeof(long)\-sizeof(int)];
+                             /* Padding to 64 bytes */
 };
 .in
 .fi
 .PP
-and the sizes are given as multiples of \fImem_unit\fP bytes.
-
-.BR sysinfo ()
-provides a simple way of getting overall system statistics.
-This is more
-portable than reading \fI/dev/kmem\fP.
+In the above structure,
+sizes of the memory and swap fields are given as multiples of
+.I mem_unit
+bytes.
 .SH RETURN VALUE
-On success, zero is returned.
+On success,
+.BR sysinfo ()
+returns zero.
 On error, \-1 is returned, and
 .I errno
-is set appropriately.
+is set to indicate the cause of the error.
 .SH ERRORS
 .TP
 .B EFAULT
-pointer to \fIstruct\ sysinfo\fP is invalid
+.IR info
+is not a valid address.
 .SH VERSIONS
-The Linux kernel has a
 .BR sysinfo ()
-system call since 0.98.pl6.
+first appeared in Linux 0.98.pl6.
 .SH CONFORMING TO
 This function is Linux-specific, and should not be used in programs
 intended to be portable.
+.SH NOTES
+All of the information provided by this system call is also available via
+.IR /proc/meminfo
+and
+.IR /proc/loadavg .
 .SH SEE ALSO
 .BR proc (5)

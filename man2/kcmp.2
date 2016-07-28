@@ -1,5 +1,5 @@
 .\" Copyright (C) 2012, Cyrill Gorcunov <gorcunov@openvz.org>
-.\" and Copyright (C) 2012, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2012, 2016, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -239,6 +239,112 @@ See
 .BR clone (2)
 for some background information on the shared resources
 referred to on this page.
+.SH EXAMPLE
+The program below uses
+.BR kcmp ()
+to test whether pairs of file descriptors refer to
+the same open file description.
+The program tests different cases for the file descriptor pairs,
+as described in the program output.
+An example run of the program is as follows:
+
+.nf
+.in +4n
+$ \fB./a.out\fP
+Parent PID is 1144
+Parent opened file on FD 3
+
+PID of child of fork() is 1145
+	Compare duplicate FDs from different processes:
+		kcmp(1145, 1144, KCMP_FILE, 3, 3) ==> same
+Child opened file on FD 4
+	Compare FDs from distinct open()s in same process:
+		kcmp(1145, 1145, KCMP_FILE, 3, 4) ==> different
+Child duplicated FD 3 to create FD 5
+	Compare duplicated FDs in same process:
+		kcmp(1145, 1145, KCMP_FILE, 3, 5) ==> same
+.in
+.fi
+.SS Program source
+\&
+.nf
+#define _GNU_SOURCE
+#include <sys/syscall.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <linux/kcmp.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+static int
+kcmp(pid_t pid1, pid_t pid2, int type,
+     unsigned long idx1, unsigned long idx2)
+{
+    return syscall(SYS_kcmp, pid1, pid2, type, idx1, idx2);
+}
+
+static void
+test_kcmp(char *msg, id_t pid1, pid_t pid2, int fd_a, int fd_b)
+{
+    printf("\\t%s\\n", msg);
+    printf("\\t\\tkcmp(%ld, %ld, KCMP_FILE, %d, %d) ==> %s\\n",
+            (long) pid1, (long) pid2, fd_a, fd_b,
+            (kcmp(pid1, pid2, KCMP_FILE, fd_a, fd_b) == 0) ? 
+                        "same" : "different");
+}
+
+int
+main(int argc, char *argv[])
+{
+    int fd1, fd2, fd3;
+    char pathname[] = "/tmp/kcmp.test";
+
+    fd1 = open(pathname, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd1 == \-1)
+        errExit("open");
+
+    printf("Parent PID is %ld\\n", (long) getpid());
+    printf("Parent opened file on FD %d\\n\\n", fd1);
+
+    switch (fork()) {
+    case \-1:
+        errExit("fork");
+
+    case 0:
+        printf("PID of child of fork() is %ld\\n", (long) getpid());
+
+        test_kcmp("Compare duplicate FDs from different processes:",
+                getpid(), getppid(), fd1, fd1);
+
+        fd2 = open(pathname, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        if (fd2 == \-1)
+            errExit("open");
+        printf("Child opened file on FD %d\\n", fd2);
+
+        test_kcmp("Compare FDs from distinct open()s in same process:",
+                getpid(), getpid(), fd1, fd2);
+
+        fd3 = dup(fd1);
+        if (fd3 == \-1)
+            errExit("dup");
+        printf("Child duplicated FD %d to create FD %d\\n", fd1, fd3);
+
+        test_kcmp("Compare duplicated FDs in same process:",
+                getpid(), getpid(), fd1, fd3);
+        break;
+
+    default:
+        wait(NULL);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR clone (2),
 .BR unshare (2)

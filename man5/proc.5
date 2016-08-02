@@ -2325,14 +2325,33 @@ the corresponding files under
 .I task/[tid]
 may have different values (e.g., various fields in each of the
 .I task/[tid]/status
-files may be different for each thread).
-
+files may be different for each thread),
+.\" in particular: "children" :/
+or they might not exist in
+.I /proc/[pid]
+at all.
 .\" The following was still true as at kernel 2.6.13
 In a multithreaded process, the contents of the
 .I /proc/[pid]/task
 directory are not available if the main thread has already terminated
 (typically by calling
 .BR pthread_exit (3)).
+
+.TP
+.IR /proc/[pid]/task/[tid]/children " (since Linux 3.5)"
+.\" commit 818411616baf46ceba0cff6f05af3a9b294734f7
+A space-separated list of child tasks of this task.
+Each child task is represented by its TID.
+
+.\" see comments in get_children_pid() in fs/proc/array.c
+This does not work properly if children of the target task exit while
+the file is being read!
+Exiting children may cause non-exiting children to be omitted from
+the list.
+This makes this interface even more unreliable than classic PID-based
+approaches if the inspected task and its children aren't frozen, and
+most code should probably not use this interface.
+
 .TP
 .IR /proc/[pid]/timers " (since Linux 3.10)"
 .\" commit 5ed67f05f66c41e39880a6d61358438a25f9fee5

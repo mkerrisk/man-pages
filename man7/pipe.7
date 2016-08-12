@@ -162,9 +162,19 @@ but is provided on many implementations.
 .SS /proc files
 On Linux, the following files control how much memory can be used for pipes:
 .TP
-.IR /proc/sys/fs/pipe-max-pages " (since Linux 2.6.34)"
+.IR /proc/sys/fs/pipe-max-pages " (only in Linux 2.6.34)"
 .\" commit b492e95be0ae672922f4734acf3f5d35c30be948
-Deprecated since Linux 2.6.35.
+An upper limit, in pages, on the capacity that an unprivileged user 
+(one without the
+.BR CAP_SYS_RESOURCE
+capability)
+can set for a pipe.
+
+The default value for this limit is 16 times the default pipe capacity
+(see above); the lower limit is two pages.
+
+This interface was removed in Linux 2.6.35, in favor of
+.IR /proc/sys/fs/pipe-max-size .
 .TP
 .IR /proc/sys/fs/pipe-max-size " (since Linux 2.6.35)"
 .\" commit ff9da691c0498ff81fdd014e7a0731dab2337dac
@@ -172,24 +182,46 @@ The maximum size (in bytes) of individual pipes created or set by users
 without the
 .B CAP_SYS_RESOURCE
 capability.
+The default value for this file is 1048576.
+Attempts to set a limit less than the page size cause
+.BR write (2)
+to fail with the error
+.BR EINVAL .
 .TP
-.IR /proc/sys/fs/pipe-user-pages-hard " (since Linux 4.4)"
+.IR /proc/sys/fs/pipe-user-pages-hard " (since Linux 4.5)"
 .\" commit 759c01142a5d0f364a462346168a56de28a80f52
-The combined maximum size (in pages) of all pipes created or set by a
-single user without both the
+The hard limit on the total size (in pages) of all pipes created or set by
+a single unprivileged user (i.e., one with neither the
 .B CAP_SYS_RESOURCE
-and
+nor the
 .B CAP_SYS_ADMIN
-capabilities.
+capability).
+So long as the total number of pages allocated to pipe buffers
+for this user is at this limit,
+attempts to create new pipes will be denied,
+and attempts to increase a pipe's capacity will be denied.
+
+When the value of this limit is zero (which is the default),
+no hard limit is applied.
+.\" The default was chosen to avoid breaking existing applications that
+.\" make intensive use of pipes (e.g., for splicing).
 .TP
-.IR /proc/sys/fs/pipe-user-pages-soft " (since Linux 4.4)"
+.IR /proc/sys/fs/pipe-user-pages-soft " (since Linux 4.5)"
 .\" commit 759c01142a5d0f364a462346168a56de28a80f52
-The combined size (in pages) of all pipes created or set by a single
-user (without both the
+The soft limit on the total size (in pages) of all pipes created or set by
+a single unprivileged user (i.e., one with neither the
 .B CAP_SYS_RESOURCE
-and
+nor the
 .B CAP_SYS_ADMIN
-capabilities) after which individual pipes will be limited to 1 page.
+capability).
+So long as the total number of pages allocated to pipe buffers
+for this user is at this limit,
+individual pipes created by a user will be limited to one page,
+and attempts to increase a pipe's capacity will be denied.
+
+When the value of this limit is zero, no soft limit is applied.
+The default value for this file is 16384,
+which permits creating up to 1024 pipes with the default capacity.
 .\"
 .SS PIPE_BUF
 POSIX.1 says that

@@ -277,11 +277,16 @@ The following program allocates the buffer needed by
 .BR readlink ()
 dynamically from the information provided by
 .BR lstat (2),
-making sure there's no race condition between the calls.
+falling back to a buffer of size
+.BR PATH_MAX
+in cases where
+.BR lstat (2)
+reports a size of zero.
 .nf
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -291,7 +296,7 @@ main(int argc, char *argv[])
 {
     struct stat sb;
     char *linkname;
-    ssize_t r;
+    ssize_t r, bufsiz;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <pathname>\\n", argv[0]);
@@ -303,22 +308,26 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    linkname = malloc(sb.st_size + 1);
+    bufsiz = sb.st_size + 1;
+
+    /* Some magic symlinks under (for example) /proc and /sys
+       report \(aqst_size\(aq as zero. In that case, take PATH_MAX as
+       a "good enough" estimate */
+
+    if (sb.st_size == 0)
+        bufsiz = PATH_MAX;
+
+    printf("%zd\\n", bufsiz);
+
+    linkname = malloc(bufsiz);
     if (linkname == NULL) {
-        fprintf(stderr, "insufficient memory\\n");
+        perror("malloc");
         exit(EXIT_FAILURE);
     }
 
-    r = readlink(argv[1], linkname, sb.st_size + 1);
-
+    r = readlink(argv[1], linkname, bufsiz);
     if (r == \-1) {
         perror("readlink");
-        exit(EXIT_FAILURE);
-    }
-
-    if (r > sb.st_size) {
-        fprintf(stderr, "symlink increased in size "
-                        "between lstat() and readlink()\\n");
         exit(EXIT_FAILURE);
     }
 
@@ -326,8 +335,10 @@ main(int argc, char *argv[])
 
     printf("\(aq%s\(aq points to \(aq%s\(aq\\n", argv[1], linkname);
 
-    free(linkname);
+    if (r == bufsiz)
+        printf("(Returned buffer may have been truncated)\\n");
 
+    free(linkname);
     exit(EXIT_SUCCESS);
 }
 .fi

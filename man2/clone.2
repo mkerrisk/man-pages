@@ -51,14 +51,14 @@ clone, __clone2 \- create a child process
 
 .BI "int clone(int (*" "fn" ")(void *), void *" child_stack ,
 .BI "          int " flags ", void *" "arg" ", ... "
-.BI "          /* pid_t *" ptid ", struct user_desc *" tls \
+.BI "          /* pid_t *" ptid ", void *" newtls \
 ", pid_t *" ctid " */ );"
 
 /* Prototype for the raw system call */
 
 .BI "long clone(unsigned long " flags ", void *" child_stack ,
 .BI "          void *" ptid ", void *" ctid ,
-.BI "          struct pt_regs *" regs );
+.BI "          unsigned long " newtls );
 .fi
 .SH DESCRIPTION
 .BR clone ()
@@ -544,11 +544,25 @@ then trace the child also (see
 .BR ptrace (2)).
 .TP
 .BR CLONE_SETTLS " (since Linux 2.5.32)"
-The
+The TLS (Thread Local Storage) descriptor is set to
+.I newtls.
+
+The interpretation of
 .I newtls
-argument is the new TLS (Thread Local Storage) descriptor.
+and the resulting effect is architecture dependent.
+On x86,
+.I newtls
+is interpreted as a
+.IR "struct user_desc *"
 (See
-.BR set_thread_area (2).)
+.BR set_thread_area (2)).
+On x86_64 it is the new value to be set for the %fs base register
+(See the
+.I ARCH_SET_FS
+argument to
+.BR arch_prctl (2)).
+On architectures with a dedicated TLS register, it is the new value
+of that register.
 .TP
 .BR CLONE_SIGHAND " (since Linux 2.0)"
 If
@@ -813,7 +827,7 @@ The raw system call interface on x86 and many other architectures is roughly:
 
 .BI "long clone(unsigned long " flags ", void *" child_stack ,
 .BI "           void *" ptid ", void *" ctid ,
-.BI "           struct pt_regs *" regs );
+.BI "           unsigned long " newtls );
 
 .fi
 .in

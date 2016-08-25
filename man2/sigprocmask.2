@@ -32,8 +32,19 @@ sigprocmask, rt_sigprocmask \- examine and change blocked signals
 .SH SYNOPSIS
 .B #include <signal.h>
 .sp
-.BI "int sigprocmask(int " how ", const sigset_t *" set ,
-.BI "sigset_t *" oldset );
+.nf
+/* Prototype for the glibc wrapper function */
+.BI "int sigprocmask(int " how ", const sigset_t *" set ", sigset_t *" oldset );
+
+/* Prototype for the underlying system call */
+.BI "int rt_sigprocmask(int " how ", const kernel_sigset_t *" set ,
+.BI "                   kernel_sigset_t *" oldset, " size_t " sigsetsize );
+
+/* Prototype for the legacy system call (deprecated) */
+.BI "int sigprocmask(int " how ", const old_kernel_sigset_t *" set ,
+.BI "                old_kernel_sigset_t *" oldset ); "
+.fi
+
 .sp
 .in -4n
 Feature Test Macro Requirements for glibc (see
@@ -111,9 +122,10 @@ or
 argument points outside the process's allocated address space.
 .TP
 .B EINVAL
-The value specified in
+Either the value specified in
 .I how
-was invalid.
+was invalid or the kernel does not support the size passed in
+.I sigsetsize.
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2008.
 .SH NOTES
@@ -148,6 +160,16 @@ See
 for details on manipulating signal sets.
 .\"
 .SS C library/kernel differences
+
+The kernel's definition of
+.IR sigset_t
+differs in size from that used
+by the C library. In this man page the former is referred to as
+.I kernel_sigset_t
+(it is still named
+.I sigset_t
+in the kernel sources).
+
 The glibc wrapper function for
 .BR sigprocmask ()
 silently ignores attempts to block the two real-time signals that
@@ -161,23 +183,30 @@ The original Linux system call was named
 However, with the addition of real-time signals in Linux 2.2,
 the fixed-size, 32-bit
 .IR sigset_t
+(referred to as
+.IR old_kernel_sigset_t
+in this man page)
 type supported by that system call was no longer fit for purpose.
 Consequently, a new system call,
 .BR rt_sigprocmask (),
 was added to support an enlarged
 .IR sigset_t
-type.
+type
+(referred to as
+.IR kernel_sigset_t
+in this man page
+).
 The new system call takes a fourth argument,
 .IR "size_t sigsetsize" ,
 which specifies the size in bytes of the signal sets in
 .IR set
 and
 .IR oldset .
-This argument is currently required to have the value
-.IR sizeof(sigset_t)
-(or the error
-.B EINVAL
-results).
+This argument is currently required to have the value 8
+(
+.IR sizeof(kernel_sigset_t)
+).
+
 The glibc
 .BR sigprocmask ()
 wrapper function hides these details from us, transparently calling

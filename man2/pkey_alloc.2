@@ -1,0 +1,124 @@
+.\" Copyright (C) 2016 Intel Corporation
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and author of this work.
+.\" %%%LICENSE_END
+.\"
+.TH PKEY_ALLOC 2 2016-03-03 "Linux" "Linux Programmer's Manual"
+.SH NAME
+pkey_alloc, pkey_free \- allocate or free a protection key
+.SH SYNOPSIS
+.nf
+.B #include <sys/mman.h>
+.sp
+.BI "int pkey_alloc(unsigned long " flags ", unsigned long " access_rights ");"
+.BI "int pkey_free(int " pkey ");"
+.fi
+.SH DESCRIPTION
+.BR pkey_alloc ()
+allocates a protection key and allows it to be passed to
+.BR pkey_mprotect (2) .
+.BR pkey_alloc ()
+is always safe to call whether or not the operating system
+supports protection keys.
+It can be used in lieu of any other enumeration of the feature
+and will simply return ENOSPC in the case that the operating
+system has no protection keys support.
+The kernel guarantees that the contents of the hardware rights
+register (PKRU) will be preserved only for allocated protection
+keys.
+Any time a key is unallocated (either before the first call
+returning that key from
+.BR pkey_alloc ()
+or after it is freed via
+.BR pkey_free ()
+), the kernel may make arbitrary changes to the parts of the
+rights register affecting access to that key.
+.PP
+.BR pkey_free ()
+frees a protection key and makes it available for later
+allocations.
+After a protection key has been freed, it may no longer be used
+in any protection-key-related operations.
+An application should not call
+.BR pkey_free ()
+on any protection key which has been assigned to an address
+range by
+.BR pkey_mprotect (2)
+and which is still in use.  The behavior in this case is
+undefined and may result in an error.
+.PP
+.RB ( pkey_alloc ())
+.I flags
+may contain zero or more disable operations:
+.TP
+.B PKEY_DISABLE_ACCESS
+Disable all data access to memory covered by the returned protection key.
+.TP
+.B PKEY_DISABLE_WRITE
+Disable write access to memory covered by the returned protection key.
+.SH RETURN VALUE
+On success,
+.BR pkey_alloc ()
+returns a positive protection key value.
+.BR pkey_free ()
+returns zero.
+On error, \-1 is returned, and
+.I errno
+is set appropriately.
+.SH ERRORS
+.TP
+.B EINVAL
+.IR pkey ,
+.IR flags ,
+or
+.I access_rights
+is invalid.
+.TP
+.B ENOSPC
+.(RB pkey_alloc ())
+All protection keys available for the current process have
+been allocated.
+The number of keys available is architecture-specific and
+implementation-specfic and may be reduced by kernel-internal use
+of certain keys.
+There are currently 15 keys available to user programs on x86.
+This will also be returned if the processor or operating system
+does not support protection keys.
+Applications should always be prepared to handle this error since
+factors outside of the application's control can reduce the number
+of available pkeys.
+.SH VERSIONS
+.BR pkey_alloc ()
+and
+.BR pkey_free ()
+were added to Linux in kernel <FIXME>;
+library support was added to glibc in version <FIXME>.
+.SH CONFORMING TO
+The
+.BR pkey_alloc ()
+and
+.BR pkey_free ()
+system calls are Linux-specific.
+.SH
+.SH SEE ALSO
+.BR pkey_mprotect (2),
+.BR pkey (7)

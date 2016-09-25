@@ -54,11 +54,7 @@ clone, __clone2 \- create a child process
 .BI "          /* pid_t *" ptid ", void *" newtls \
 ", pid_t *" ctid " */ );"
 
-/* Prototype for the raw system call */
-
-.BI "long clone(unsigned long " flags ", void *" child_stack ,
-.BI "          int *" ptid ", int *" ctid ,
-.BI "          unsigned long " newtls );
+/* For the prototype of the raw system call, see NOTES */
 .fi
 .SH DESCRIPTION
 .BR clone ()
@@ -821,16 +817,58 @@ arguments of the
 .BR clone ()
 wrapper function are omitted.
 Furthermore, the argument order changes.
-The raw system call interface on x86 and many other architectures is roughly:
+In addition, there are variations across architectures.
+
+The raw system call interface on x86-64 and some other architectures
+(including sh, tile, and alpha) is roughly:
+
 .in +4
 .nf
-
 .BI "long clone(unsigned long " flags ", void *" child_stack ,
 .BI "           int *" ptid ", int *" ctid ,
 .BI "           unsigned long " newtls );
-
 .fi
 .in
+
+On x86-32, and several other common architectures
+(including score, ARM, ARM 64, PA-RISC, arc, Power PC, xtensa,
+and MIPS),
+.\" CONFIG_CLONE_BACKWARDS
+the order of the last two arguments is reversed:
+
+.in +4
+.nf
+.BI "long clone(unsigned long " flags ", void *" child_stack ,
+.BI "          int *" ptid ", unsigned long " newtls ,
+.BI "          int *" ctid );
+.fi
+.in
+
+On the cris and s390 architectures,
+.\" CONFIG_CLONE_BACKWARDS2
+the order of the first two arguments is reversed:
+
+.in +4
+.nf
+.BI "long clone(void *" child_stack ", unsigned long " flags ,
+.BI "           int *" ptid ", int *" ctid ,
+.BI "           unsigned long " newtls );
+.fi
+.in
+
+On the microblaze architecture,
+.\" CONFIG_CLONE_BACKWARDS3
+an additional argument is supplied:
+
+.in +4
+.nf
+.BI "long clone(unsigned long " flags ", void *" child_stack ,
+.BI "           int " stack_size , "\fR         /* Size of stack */"
+.BI "           int *" ptid ", int *" ctid ,
+.BI "           unsigned long " newtls );
+.fi
+.in
+
 Another difference for the raw system call is that the
 .I child_stack
 argument may be zero, in which case copy-on-write semantics ensure that the
@@ -839,15 +877,11 @@ the stack.
 In this case, for correct operation, the
 .B CLONE_VM
 option should not be specified.
-
-For some architectures, the order of the arguments for the system call
-differs from that shown above.
-On the score, microblaze, ARM, ARM 64, PA-RISC, arc, Power PC, xtensa,
-and MIPS architectures,
-the order of the fourth and fifth arguments is reversed.
-On the cris and s390 architectures,
-the order of the first and second arguments is reversed.
+.\"
 .SS blackfin, m68k, and sparc
+.\" Mike Frysinger noted in a 2013 mail:
+.\"     these arches don't define __ARCH_WANT_SYS_CLONE:
+.\"     blackfin ia64 m68k sparc
 The argument-passing conventions on
 blackfin, m68k, and sparc are different from the descriptions above.
 For details, see the kernel (and glibc) source.

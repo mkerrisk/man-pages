@@ -28,12 +28,12 @@
 cgroups \- Linux control groups
 .SH DESCRIPTION
 Control cgroups, usually referred to as cgroups,
-are a Linux kernel feature which provides for grouping of tasks and
+are a Linux kernel feature which provides for grouping of processes and
 resource tracking and limitations for those groups.
 While several systems have been introduced to help in configuring and
 managing cgroups, the kernel's cgroup interface is provided through
 a pseudo-filesystem called cgroupfs.
-Task grouping is implemented in the core cgroup kernel code,
+Grouping is implemented in the core cgroup kernel code,
 while resource tracking and limits are implemented in
 a set of per-resource-type subsystems (memory, CPU, and so on) which may be
 enabled as separate hierarchies, or joined into comounted hierarchies.
@@ -130,22 +130,23 @@ that are supported under version 2,
 while also using version 1 controllers
 where version 2 does not yet support those controllers.
 .\"
-.SS Tasks versus processes
+.SS Tasks (threads) versus processes
 In cgroups v1, a distinction is drawn between
 .I processes
 and
 .IR tasks .
 In this view, a process can consist of multiple tasks
-(more commonly called threads, from a user-space perspective).
+(more commonly called threads, from a user-space perspective,
+and called such in the remainder of this man page).
 In cgroups v1, it is possible to independently manipulate
-the cgroup memberships of the tasks in a process.
+the cgroup memberships of the threads in a process.
 Because this ability caused certain problems,
 .\" FIXME Add some text describing why this was a problem.
 the ability to independently manipulate the cgroup memberships
-of the tasks in a process has been removed in cgroups v2.
+of the threads in a process has been removed in cgroups v2.
 Cgroups v2 allows manipulation of cgroup membership only for processes
 (which has the effect of changing the cgroup membership of
-all tasks in the process).
+all threads in the process).
 .\"
 .SS Mounting
 To be available, a given cgroup subsystem must be compiled into the
@@ -185,40 +186,37 @@ done
 .in
 .fi
 
-Comounting subsystems has the effect that a task is in the same cgroup for
+Comounting subsystems has the effect that a process is in the same cgroup for
 all comounted subsystems.
-Separately mounting subsystems allows a task to
+Separately mounting subsystems allows a process to
 be in cgroup
 .I /foo1
 for one subsystem while being in
 .I /foo2/foo3
 for another.
 .\"
-.SS Creating cgroups and moving tasks
-The system begins with a single root cgroup (per hierarchy), '/', which all tasks belong to.
+.SS Creating cgroups and moving processes
+The system begins with a single root cgroup (per hierarchy), '/',
+which all processes belong to.
 A new cgroup is created by creating a directory in the cgroup filesystem:
 
     mkdir /sys/fs/cgroup/cpu/cg1
 
 This creates a new empty cgroup.
-Tasks may be moved to this cgroup by writing
-their PIDs into the cgroup's
+Processes (threads) may be moved to this cgroup by writing
+their PIDs (TIDs) into the cgroup's
 .I cgroup.procs
-or
-.I tasks
-(deprecated)
+.RI ( tasks )
 file:
 
     echo $$ > /sys/fs/cgroup/cpu/cg1/cgroup.procs
 
-The same file can be read to obtain a list of the processes currently in
+The same files can be read to obtain a list of the processes (threads)
+that  are currently in
 .IR cg1 .
-By using the
-.I cgroup.procs
-file instead of the
-.I tasks
-file, all tasks in the
-thread group are moved into the new cgroup at once.
+When writing a PID into the
+.IR cgroup.procs ,
+all tasks in the process are moved into the new cgroup at once.
 
 On
 .BR fork (2),
@@ -226,33 +224,34 @@ the new child is created as a member of the parent's cgroup,
 leading to implicit grouping of process hierarchies.
 
 Note: in the upcoming unified hierarchy, a new restriction is imposed such
-that tasks may exist only in leaf cgroups.
+that processes may reside only in leaf cgroups.
 For instance, if cgroup
 .I /cg1/cg2
-exists, then a task may exist in
+exists, then a process may reside in
 .IR /cg1/cg2 ,
 but not in
 .IR /cg1 .
 This is to avoid the current ambiguity in the delegation of resources
-between tasks in
+between processes in
 .I /cg1
 and its child cgroups.
 The recommended workaround is to create a subdirectory called
 .I leaf
-for any non-leaf cgroup which should contain tasks, and make sure not to
+for any non-leaf cgroup which should contain processes, and make sure not to
 create child cgroups of it.
-In the above example, tasks which previously would have gone into
+In the above example, processes which previously would have gone into
 .I /cg1
 would now go into
 .IR /cg1/leaf .
-This has the advantage of making explicit the relationship between tasks in
+This has the advantage of making explicit the relationship between processes in
 .I /cg1/leaf
 and
 .IR /cg1 's
 other children.
 .\"
 .SS Removing cgroups
-To remove a cgroup, it must first have no child cgroups and contain no tasks.
+To remove a cgroup,
+it must first have no child cgroups and contain no (nonzombie) processes.
 So long as that is the case, one can simply
 remove the corresponding directory pathname.
 Note that files in a cgroup directory cannot and need not be
@@ -272,7 +271,7 @@ this value is inherited by newly created child cgroups.
 A new feature in cgroups v2 is the
 .I cgroup.populated
 file.
-This reads 0 if there are no tasks in the cgroup or its descendants,
+This reads 0 if there are no processes in the cgroup or its descendants,
 and 1 otherwise.
 It can be watched for changes using
 .BR inotify (7).
@@ -289,10 +288,10 @@ under both the v1 and the v2 hierarchies.
 
 The new behaviors in cgroups v2 are summarized below:
 .TP 3
-1. Tasks only in leaf nodes
-With the exception of the root cgroup, tasks may reside only in leaf nodes.
-This avoids the need to decide how to partition resources between tasks which
-are members of cgroup A and tasks in child cgroups of A.
+1. Processes only in leaf nodes
+With the exception of the root cgroup, processes may reside only in leaf nodes.
+This avoids the need to decide how to partition resources between
+processes which are members of cgroup A and processes in child cgroups of A.
 .TP
 2. Active cgroups must be specified
 The unified hierarchy presents two new files,
@@ -346,13 +345,13 @@ Further information can be found in the kernel source file
 .IR Documentation/scheduler/sched\-bwc.txt .
 .TP
 .IR cpuacct " (since Linux 2.6.24; " \fBCONFIG_CGROUP_CPUACCT\fP )
-This provides accounting for CPU usage by groups of tasks.
+This provides accounting for CPU usage by groups of processes.
 
 Further information can be found in the kernel source file
 .IR Documentation/cgroup\-v1/cpuacct.txt .
 .TP
 .IR cpuset " (since Linux 2.6.24; " \fBCONFIG_CPUSETS\fP )
-This cgroup can be used to bind the tasks in a cgroup to
+This cgroup can be used to bind the processes in a cgroup to
 a specified set of CPUs and NUMA nodes.
 
 Further information can be found in the kernel source file
@@ -366,7 +365,7 @@ Further information can be found in the kernel source file
 .IR Documentation/cgroup\-v1/memory.txt .
 .TP
 .IR devices " (since Linux 2.6.26; " \fBCONFIG_CGROUP_DEVICE\fP )
-This supports controlling which tasks may create (mknod) devices as
+This supports controlling which processes may create (mknod) devices as
 well as open them for reading or writing.
 The policies may be specified as whitelists and blacklists.
 Hierarchy is enforced, so new rules must not
@@ -378,10 +377,10 @@ Further information can be found in the kernel source file
 .IR freezer " (since Linux 2.6.28; " \fBCONFIG_CGROUP_FREEZER\fP )
 The
 .IR freezer
-cgroup can suspend and restore (resume) all tasks in a cgroup.
+cgroup can suspend and restore (resume) all processes in a cgroup.
 Freezing a cgroup
 .I /A
-also causes its children, for example, tasks in
+also causes its children, for example, processes in
 .IR /A/B ,
 to be frozen.
 

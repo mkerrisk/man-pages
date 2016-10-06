@@ -208,6 +208,16 @@ and
 (see below)
 is nonzero, then .PID will be appended to the core filename.
 
+Paths are interpreted according to the settings that are active for the
+crashing process.
+That means the current
+.BR mount_namespaces (7),
+the current working directory (found via
+.BR getcwd (2)),
+and the current
+.BR chroot (2)
+path.
+
 Since version 2.4, Linux has also provided
 a more primitive method of controlling
 the name of the core dump file.
@@ -240,8 +250,32 @@ The program must be specified using an absolute pathname (or a
 pathname relative to the root directory, \fI/\fP),
 and must immediately follow the '|' character.
 .IP *
+The program pathname is interpreted with respect to the initial mount namespace
+as it is always executed there.
+It is not affected by the settings of the crashing process
+(e.g. the process using
+.BR chroot (2)
+or
+.BR mount_namespaces (7)
+or similar modifications).
+.IP *
 The process created to run the program runs as user and group
 .IR root .
+.IP *
+Running as
+.I root
+does not confer any exceptional security bypasses.
+Namely, LSMs (e.g. SELinux) are still active and may prevent the handler
+from accessing details about the crashed process via
+.I /proc/PID
+.IP *
+The process created runs in the initial namespaces (pid, mount, user, etc...)
+and not in the namespaces of the crashing process.
+You can utilize specifiers like
+.I %P
+to find the right
+.I /proc/PID
+directory and probe/enter the crashing process's namespaces if needed.
 .IP *
 Command-line arguments can be supplied to the
 program (since Linux 2.6.24),

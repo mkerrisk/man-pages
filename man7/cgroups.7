@@ -549,17 +549,52 @@ controller is not enabled in
 then it cannot be enabled in
 .IR /A/B/C .
 .\"
-.SS Cgroups v2 events file
-.\" FIXME The following text is wrong
-A new feature in cgroups v2 is the
-.I cgroup.populated
-file.
-This reads 0 if there are no processes in the cgroup or its descendants,
-and 1 otherwise.
-It can be watched for changes using
-.BR inotify (7).
-This allows user-space applications to efficiently watch cgroups
-for autoremove conditions.
+.SS Cgroups v2 cgroup.events file
+With cgroups v2, a new mechanism is provided to obtain notification
+about when a cgroup becomes empty.
+The cgroups v1
+.IR release_agent
+and
+.IR notify_on_release
+files are removed, and replaced by a new, more general-purpose file,
+.IR cgroup.events .
+This file contains key-value pairs
+(delimited by newline characters, with the key and value separated by spaces)
+that identify events or state for a cgroup.
+Currently, only one key appears in this file,
+.IR populated ,
+which has either the value 0,
+meaning that the cgroup (and its descendants)
+contain no (nonzombie) processes,
+or 1, meaning that the cgroup contains member processes.
+
+The
+.IR cgroup.events
+file can be monitored, in order to receive notification when a cgroup
+transitions between the populated and unpopulated states (or vice versa).
+When monitoring this file using
+.BR inotify (7),
+transitions generate
+.BR IN_MODIFY
+events, and when monitoring the file using
+.BR poll (2),
+transitions generate
+.B POLLPRI
+events.
+
+The cgroups v2
+.IR notify_on_release
+mechanism offers at least two advantages over the cgroups v1
+.IR release_agent
+mechanism.
+First, it allows for cheaper notification,
+since a single process can monitor multiple
+.IR cgroup.events
+files.
+By contrast, the cgroups v1 mechanism requires the creation
+of a process for each notification.
+Second, notfication can be delegated to a process that lives inside
+a container associated with the newly empty cgroup.
 .\"
 .SS /proc files
 .TP

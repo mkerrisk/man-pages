@@ -1516,6 +1516,40 @@ and
 Note however that this file is not merely a symbolic link.
 It provides the same view of the filesystem (including namespaces and the
 set of per-process mounts) as the process itself.
+An example illustrates this point.
+In one terminal, we start a shell in new user and mount namespaces,
+and in that shell we create some new mount points:
+
+.nf
+.in +4n
+$ \fBPS1='sh1# ' unshare \-Urnm\fP
+sh1# \fBmount \-t tmpfs tmpfs /etc\fP  # Mount empty tmpfs at /etc
+sh1# \fBmount \-\-bind /usr /dev\fP     # Mount /usr at /dev
+sh1# \fBecho $$
+27123
+.in
+.fi
+
+In a second terminal window, in the initial mount namespace,
+we look at the contents of the corresponding mounts in
+the initial and new namespaces:
+    
+.nf
+.in +4n
+$ \fBPS1='sh2# ' sudo sh
+sh2# \fBls /etc | wc \-l\fP                  # In initial NS
+309
+sh2# \fBls /proc/27123/root/etc | wc \-l\fP  # /etc in other NS
+0                                     # The empty tmpfs dir
+sh2# \fBls /dev | wc \-l\fP                  # In initial NS
+205
+sh2# \fBls /proc/27123/root/dev | wc \-l\fP  # /dev in other NS
+11                                    # Actually bind
+                                      # mounted to /usr
+sh2# \fBls /usr | wc \-l\fP                  # /usr in initial NS
+11
+.in
+.fi
 
 .\" The following was still true as at kernel 2.6.13
 In a multithreaded process, the contents of this symbolic link

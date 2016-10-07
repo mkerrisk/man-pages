@@ -153,52 +153,65 @@ Cgroups v2 allows manipulation of cgroup membership only for processes
 (which has the effect of changing the cgroup membership of
 all threads in the process).
 .\"
-.SS Mounting
-To be available, a given cgroup controller must be compiled into the
-kernel.
-Since they are exposed through a virtual filesystem, controllers
-must be mounted before they can be controlled.
-The usual place for this is under
+.SS Mounting v1 controllers
+The use of cgroups requires a kernel built with the
+.BR CONFIG_CGROUP\option.
+In addition, each of the v1 controllers has an associated
+configuration option that must be set in order to employ that controller.
+
+In order to use a v1 controller,
+it must be mounted against a cgroup filesystem.
+The usual place for such mounts is under a tmpfs filesystem mounted at
 .IR /sys/fs/cgroup .
-If all the desired controllers can be comounted,
-then one can do so with the following command:
-
-    mount \-t cgroup \-o all cgroup /sys/fs/cgroup
-
-(One can achieve the same result by omitting
-.IR "\-o all" ,
-since it is the default if no controllers are explicitly specified.)
-
-If multiple, separately mounted controllers are desired, then this is
-usually done in per-controller subdirectories.
-This requires first mounting a tmpfs under
-.I /sys/fs/cgroup
-so that subdirectories can be created.
-For instance, one could mount
-.IR cpu ,
-.IR memory ,
-and
-.I devices
-cgroups as follows:
+Thus, one might mount the
+.I cpu
+controller as follows:
 
 .nf
 .in +4n
-mount \-t tmpfs \-o size=100000,mode=755 cgroups /sys/fs/cgroup
-for s in cpu memory devices; do
-    mkdir /sys/fs/cgroup/$s
-    mount \-t cgroup \-o $s $s /sys/fs/cgroup/$s
-done
+mount \-t cgroup \-o cpu none /sys/fs/cgroup/cpu
+.in
+.fi
+
+It is possible to comount multiple controllers against the same hierarchy.
+For example, here the
+.IR cpu
+and
+.IR cpuacct
+controllers are comounted against a single hierarchy:
+
+.nf
+.in +4n
+mount \-t cgroup \-o cpu,cpuacct none /sys/fs/cgroup/cpu,cpuacct
 .in
 .fi
 
 Comounting controllers has the effect that a process is in the same cgroup for
-all comounted controllers.
+all of the comounted controllers.
 Separately mounting controllers allows a process to
 be in cgroup
 .I /foo1
 for one controller while being in
 .I /foo2/foo3
 for another.
+
+It is possible to comount all v1 controllers against the same hierarchy:
+
+.nf
+.in +4n
+mount \-t cgroup \-o all cgroup /sys/fs/cgroup
+.in
+.fi
+
+(One can achieve the same result by omitting
+.IR "\-o all" ,
+since it is the default if no controllers are explicitly specified.)
+
+Note that on many systems, the v1 controllers are automatically mounted under
+.IR /sys/fs/cgroup ;
+in particular,
+.BR systemd (1)
+automatically creates such mount points.
 .\"
 .SS Creating cgroups and moving processes
 The system begins with a single root cgroup (per hierarchy), '/',

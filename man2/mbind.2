@@ -130,8 +130,9 @@ argument must specify one of
 .BR MPOL_DEFAULT ,
 .BR MPOL_BIND ,
 .BR MPOL_INTERLEAVE ,
+.BR MPOL_PREFERRED ,
 or
-.BR MPOL_PREFERRED .
+.BR MPOL_LOCAL .
 All policy modes except
 .B MPOL_DEFAULT
 require the caller to specify via the
@@ -258,9 +259,26 @@ and
 .I maxnode
 arguments specify the empty set, then the memory is allocated on
 the node of the CPU that triggered the allocation.
-This is the only way to specify "local allocation" for a
-range of memory via
-.BR mbind ().
+
+.B MPOL_LOCAL
+specifies the "local allocation", the memory is allocated on
+the node of the CPU that triggered the allocation, "local node".
+The
+.I nodemask
+and
+.I maxnode
+arguments must specify the empty set. If the "local node" is low
+on free memory the kernel will try to allocate memory from other
+nodes. The kernel will allocate memory from the "local node"
+whenever memory for this node is available. If the "local node"
+is not allowed by the process's current cpuset context the kernel
+will try to allocate memory from other nodes. The kernel will
+allocate memory from the "local node" whenever it becomes allowed
+by the process's current cpuset context. In contrast
+.B MPOL_DEFAULT
+reverts to the policy of the process which may have been set with
+.BR set_mempolicy (2).
+It may not be the "local allocation".
 
 If
 .B MPOL_MF_STRICT
@@ -440,6 +458,8 @@ To select explicit "local allocation" for a memory range,
 specify a
 .I mode
 of
+.B MPOL_LOCAL
+or
 .B MPOL_PREFERRED
 with an empty set of nodes.
 This method will work for

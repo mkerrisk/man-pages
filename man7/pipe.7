@@ -230,6 +230,12 @@ and attempts to increase a pipe's capacity will be denied.
 When the value of this limit is zero, no soft limit is applied.
 The default value for this file is 16384,
 which permits creating up to 1024 pipes with the default capacity.
+.PP
+Before Linux 4.9, some bugs affected the handling of the
+.IR pipe-user-pages-soft
+and
+.IR pipe-user-pages-hard
+limits; see BUGS.
 .\"
 .SS PIPE_BUF
 POSIX.1 says that
@@ -328,6 +334,67 @@ data can be transmitted in both directions between the pipe ends.
 POSIX.1 requires only unidirectional pipes.
 Portable applications should avoid reliance on
 bidirectional pipe semantics.
+.SS BUGS
+Before Linux 4.9, some bugs affected the handling of the
+.IR pipe-user-pages-soft
+and
+.IR pipe-user-pages-hard
+limits when using the
+.BR fcntl (2)
+.BR F_SETPIPE_SZ
+operation to change a pipe's capacity:
+.\" These bugs where remedied by a series of patches, in particular,
+.\" commit b0b91d18e2e97b741b294af9333824ecc3fadfd8 and
+.\" commit a005ca0e6813e1d796a7422a7e31d8b8d6555df1
+.IP (1) 5
+When increasing the pipe capacity, the checks against the soft and 
+hard limits were made against existing consumption,
+and excluded the memory required for the increased pipe capacity.
+The new increase in pipe capacity could then push the total
+memory used by the user for pipes (possibly far) over a limit.
+(This could also trigger the problem described next.)
+
+Starting with Linux 4.9,
+the limit checking includes the memory required for the new pipe capacity.
+.IP (2)
+The limit checks were performed even when the new pipe capacity was
+less than the existing pipe capacity.
+This could lead to problems if a user set a large pipe capacity,
+and then the limits were lowered, with the result that the user could
+no longer decrease the pipe capacity.
+
+Starting with Linux 4.9, checks against the limits
+are performed only when increasing a pipe's capacity;
+an unprivileged user can always decrease a pipe's capacity.
+.IP (3)
+The accounting and checking against the limits were done as follows:
+
+.RS
+.PD 0
+.IP (a) 4
+Test whether the user has exceeded the limit.
+.IP (b)
+Make the new pipe buffer allocation.
+.IP (c)
+Account new allocation against the limits.
+.PD
+.RE
+.IP
+This was racey.
+Multiple processes could pass point (a) simultaneously,
+and then allocate pipe buffers that were accounted for only in step (c),
+with the result that the user's pipe buffer
+allocation could be pushed over the limit.
+
+Starting with Linux 4.9,
+the accounting step is performed before doing the allocation,
+and the operation fails if the limit would be exceeded.
+.PP
+Before Linux 4.9, bugs similar to points (1) and (3) could also occur
+when the kernel allocated memory for a new pipe buffer;
+that is, when calling
+.BR pipe (2)
+and when opening a previously unopened FIFO.
 .SH SEE ALSO
 .BR mkfifo (1),
 .BR dup (2),

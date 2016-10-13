@@ -35,21 +35,24 @@ Memory Protection Keys provide a mechanism for changing
 protections without requiring modification of the page tables on
 every permission change.
 
-To use pkeys, software must first "tag" a page in the pagetables
+To use pkeys, software must first "tag" a page in the page tables
 with a pkey.
 After this tag is in place, an application only has
 to change the contents of a register in order to remove write
 access, or all access to a tagged page.
 
-pkeys work in conjunction with the existing PROT_READ / PROT_WRITE /
-PROT_EXEC permissions passed to system calls like
+Protection keys work in conjunction with the existing
+.BR PROT_READ / 
+.BR PROT_WRITE /
+.BR PROT_EXEC
+permissions passed to system calls such as
 .BR mprotect (2)
 and
 .BR mmap (2),
 but always act to further restrict these traditional permission
 mechanisms.
 
-To use this feature, the processor must support it, and Linux
+To use the pkeys feature, the processor must support it, and the kernel
 must contain support for the feature on a given processor.
 As of early 2016 only future Intel x86 processors are supported,
 and this hardware supports 16 protection keys in each process.
@@ -57,12 +60,11 @@ However, pkey 0 is used as the default key, so a maximum of 15
 are available for actual application use.
 The default key is assigned to any memory region for which a
 pkey has not been explicitly assigned via
-.BR pkey_mprotect(2).
+.BR pkey_mprotect (2).
 
-
-Protection keys has the potential to add a layer of security and
+Protection keys have the potential to add a layer of security and
 reliability to applications.
-But, it has not been primarily designed as
+But they have not been primarily designed as
 a security feature.
 For instance, WRPKRU is a completely unprivileged
 instruction, so pkeys are useless in any case that an attacker controls
@@ -70,21 +72,22 @@ the PKRU register or can execute arbitrary instructions.
 
 Applications should be very careful to ensure that they do not "leak"
 protection keys.
-For instance, before an application calls
-.BR pkey_free(2)
+For instance, before calling
+.BR pkey_free (2),
 the application should be sure that no memory has that pkey assigned.
 If the application left the freed pkey assigned, a future user of
 that pkey might inadvertently change the permissions of an unrelated
-data structure which could impact security or stability.
+data structure, which could impact security or stability.
 The kernel currently allows in-use pkeys to have
-.BR pkey_free(2)
+.BR pkey_free (2)
 called on them because it would have processor or memory performance
 implications to perform the additional checks needed to disallow it.
-Implementation of these checks is left up to applications.
-Applications may implement these checks by searching the /proc
-filesystem smaps file for memory regions with the pkey assigned.
-More details can be found in
-.BR proc(5)
+Implementation of the necessary checks is left up to applications.
+Applications may implement these checks by searching the
+.IR /proc/[pid]/smaps
+file for memory regions with the pkey assigned.
+Further details can be found in
+.BR proc (5).
 
 Any application wanting to use protection keys needs to be able
 to function without them.
@@ -95,18 +98,22 @@ because the keys have all been allocated, perhaps by a library
 the application is using.
 It is recommended that applications wanting to use protection
 keys should simply call
-.BR pkey_alloc(2)
+.BR pkey_alloc (2)
+and test whether the call succeeds,
 instead of attempting to detect support for the
-feature in any othee way.
+feature in any other way.
 
 Although unnecessary, hardware support for protection keys may be
-enumerated with the cpuid instruction.
-Details on how to do this can be found in the Intel Software
+enumerated with the
+.I cpuid
+instruction.
+Details of how to do this can be found in the Intel Software
 Developers Manual.
-The kernel performs this enumeration and exposes the information
-in /proc/cpuinfo under the "flags" field.
-"pku" in this field indicates hardware support for protection
-keys and "ospke" indicates that the kernel contains and has
+The kernel performs this enumeration and exposes the information in
+.IR /proc/cpuinfo
+under the "flags" field.
+The string "pku" in this field indicates hardware support for protection
+keys and the string "ospke" indicates that the kernel contains and has
 enabled protection keys support.
 
 Applications using threads and protection keys should be especially
@@ -116,32 +123,31 @@ of the
 .BR clone (2),
 system call.
 Applications should either ensure that their own permissions are
-appropriate for child threads at the time of
+appropriate for child threads at the time when
 .BR clone (2)
-being called, or ensure that each child thread can perform its
+is called, or ensure that each child thread can perform its
 own initialization of protection key rights.
 .SS Protection Keys system calls
 The Linux kernel implements the following pkey-related system calls:
 .BR pkey_mprotect (2),
 .BR pkey_alloc (2),
 and
-.BR pkey_free (2) .
-.SH NOTES
+.BR pkey_free (2).
+
 The Linux pkey system calls are available only if the kernel was
-fonfigured and built with the
+configured and built with the
 .BR CONFIG_X86_INTEL_MEMORY_PROTECTION_KEYS
 option.
 .SH EXAMPLE
 .PP
-The program below allocates a page of memory with read/write
-permissions via PROT_READ|PROT_WRITE.
+The program below allocates a page of memory with read and write permissions.
 It then writes some data to the memory and successfully reads it
 back.
 After that, it attempts to allocate a protection key and
-disallows access by using the WRPKRU instruction.
-It then tried to access
-.BR buffer
+disallows access to the page by using the WRPKRU instruction.
+It then tries to access the page,
 which we now expect to cause a fatal signal to the application.
+
 .in +4n
 .nf
 .RB "$" " ./a.out"
@@ -239,3 +245,4 @@ int main(void)
 .BR pkey_alloc (2),
 .BR pkey_free (2),
 .BR pkey_mprotect (2),
+.BR sigaction (2)

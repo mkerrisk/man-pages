@@ -268,7 +268,8 @@ struct perf_event_attr {
     __s32 clockid;              /* clock to use for time fields */
     __u64 sample_regs_intr;     /* regs to dump on samples */
     __u32 aux_watermark;        /* aux bytes before wakeup */
-    __u32 __reserved_2;         /* align to u64 */
+    __u16 sample_max_stack;     /* max frames in callchain */
+    __u16 __reserved_2;         /* align to u64 */
 
 };
 .fi
@@ -1307,6 +1308,15 @@ currently supported.
 This specifies how much data is required to trigger a
 .B PERF_RECORD_AUX
 sample.
+.TP
+.IR "sample_max_stack" " (since Linux 4.8)"
+.\" commit 97c79a38cd454602645f0470ffb444b3b75ce574
+When
+.I sample_type
+includes
+.B PERF_SAMPLE_CALLCHAIN
+this specifies how many stack frames to report when
+generating the callchain.
 .SS Reading results
 Once a
 .BR perf_event_open ()
@@ -2780,6 +2790,14 @@ users to sample at a rate that impacts overall machine performance
 and potentially lock up the machine.
 The default value is
 100000 (samples per second).
+
+.TP
+.I /proc/sys/kernel/perf_event_max_stack
+.\" Introduced in c5dfd78eb79851e278b7973031b9ca363da87a7e
+
+This sets the maximum depth of stack frame entries reported
+when generating a call trace.
+
 .TP
 .I /proc/sys/kernel/perf_event_mlock_kb
 
@@ -3000,6 +3018,15 @@ requested but there is no hardware support.
 This includes requesting low-skid events if not supported,
 branch tracing if it is not available, sampling if no PMU
 interrupt is available, and branch stacks for software events.
+.TP
+.BR EOVERFLOW " (since Linux 4.8)"
+.\" 97c79a38cd454602645f0470ffb444b3b75ce574
+Returned if
+.B PERF_SAMPLE_CALLCHAIN
+is requested and
+.I sample_max_stack
+is larger than the maximum specified in
+.IR /proc/sys/kernel/perf_event_max_stack .
 .TP
 .B EPERM
 Returned on many (but not all) architectures when an unsupported

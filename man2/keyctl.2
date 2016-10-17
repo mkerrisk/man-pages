@@ -17,7 +17,7 @@ keyctl \- manipulate the kernel's key management facility
 .sp
 .BI "long keyctl(int " cmd ", ...)"
 .sp
-.IB "/* For direct call via the " syscall "(2): */"
+.B "/* For direct call via syscall(2): */"
 .B #include <asm/unistd.h>
 .B #include <linux/keyctl.h>
 .B #include <unistd.h>
@@ -28,117 +28,143 @@ keyctl \- manipulate the kernel's key management facility
 .fi
 .SH DESCRIPTION
 .BR keyctl ()
-(along with
-.IR add_key (2))
-provides abilities for userspace key manipulation.
-The operation performed by the
+allows user-space programs to perform key manipulation.
+
+The operation performed by
 .BR keyctl ()
-call is determined by the value of the
+is determined by the value of the
 .I option
-argument, which could one of the following:
+argument.
+Each of these operations is wrapped by
+.B libkeyutils
+into individual functions (listed under SEE ALSO)
+to permit the compiler to check types.
+
+The permitted values for
+.I option
+are:
 .TP
 .B KEYCTL_GET_KEYRING_ID
-Ask for a keyring's whose ID provided in
+Ask for a keyring whose ID is provided in
 .I arg2
 (converted to
 .IR key_serial_t ).
 If the
 .I arg3
-argument contains non-zero value, new keyring would be created.
-Caller should have
+argument contains a non-zero value, a new keyring is created.
+
+The caller must have
 .I search
-permission on a keyring for it to be found.
-Arguments
-.IR arg4 and  arg5
+permission on a keyring in order for it to be found.
+
+The arguments
+.IR arg4
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_JOIN_SESSION_KEYRING
-Create new anonymous session keyring (in case
+Create a new anonymous session keyring (in case
 .I arg2
 is
 .BR NULL )
-or join existing named session keyring
+or join an existing named session keyring
 .RI ( arg2
-should be pointer to a string containing session name in this case).
-The caller should have
+should be a pointer to a string containing session name in this case).
+
+The caller must have
 .I search
-permission on the keyring name of which is provided in order
+permission on the keyring name which is provided in order
 to successfully join.
-Arguments
-.IR arg3 ", " arg4 ", " arg5
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_UPDATE
-Update a key's data payload using data provided.
+Update a key's data payload.
 The
 .I arg2
 argument (converted to
 .IR key_serial_t )
-should contain key ID, the
+should contain the key ID.
+The
 .I arg3
 argument is interpreted as a pointer to the new payload and
 .I arg4
 (converted to
 .IR size_t )
-should contain payload size in bytes.
-The caller should has
+should contain the payload size in bytes.
+
+The caller must have
 .I write
-permission on the key specified and key type should support updating.
-Negative key can be positively instantiated with this call.
+permission on the key specified and the key type must support updating.
+A negative key can be positively instantiated with this call.
+
 The
 .I arg5
 argument is ignored.
 .TP
 .B KEYCTL_REVOKE
-Revoke a key with ID provided in
+Revoke the key with the ID provided in
 .I arg2
 (converted to
 .IR key_serial_t ).
-The caller should have
+
+The caller must have
 .IR write " or " setattr
-permissions.
-Arguments
-.IR arg3 ", " arg4 ", " arg5
+permission on they key.
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_CHOWN
-Set ownership of a key.
+Set the ownership of a key.
 The
 .I arg2
 argument (converted to
 .IR key_serial_t )
-contains key ID, the
+contains the key ID.
+The
 .I arg3
 argument (converted to
 .IR uid_t )
-contains new user ID (or -1 in case user ID shouldn't be changed), the
+contains the new user ID (or \-1 in case the user ID shouldn't be changed).
+The
 .I arg4
 argument (converted to
 .IR gid_t )
-contains new group ID (or -1 in case group ID shouldn't be changed).
+contains the new group ID (or \-1 in case the group ID shouldn't be changed).
 The key must grant the caller
 .I setattr
 permission.
 For the UID to be changed, or for the GID to be changed to a group
-the caller is not a member of, the caller must have
-.I CAP_SYS_ADMIN
+the caller is not a member of, the caller must have the
+.B CAP_SYS_ADMIN
 capability (see
-.IR capabilities (7)
-for details).
+.BR capabilities (7)).
 If the UID is to be changed, the new user must have sufficient
 quota to accept the key.
 The quota deduction will be removed from the old user
 to the new user should the attribute be changed.
+
 The
 .I arg5
 argument is ignored.
 .TP
 .B KEYCTL_SETPERM
-Change the permissions of a key with ID provided in the
+Change the permissions of the key with the ID provided in the
 .I arg2
 argument (converted to
 .IR key_serial_t )
-to the ones provided in the
+to the permissions provided in the
 .I arg3
 argument (converted to
 .IR key_perms_t ).
@@ -146,48 +172,60 @@ The key must grant
 .I setattr
 permission to the caller.
 If the caller doesn't have
-.I CAP_SYS_ADMIN
-capability, it can only change permissions of the keys it owns.
-Permissions contains mask of available operations for possessor
+.B CAP_SYS_ADMIN
+capability, it can change permissions only for the keys it owns.
+Permissions contains a mask of available operations for possessor
 (since Linux 2.6.14), user, group, other.
-Each mask is eight bit in size, with only six currently used.
+Each mask is eight bits in size, with only six bits currently used.
 The available permissions are:
 .RS
 .IP \(bu 3
 .BR View .
 Allows reading attributes of a key.
 Needed for
-.IR KEYCTL_DESCRIBE .
+.BR KEYCTL_DESCRIBE .
 .IP \(bu
 .BR Read .
-Allows reading key's payload.
+Allows reading a key's payload.
 Needed for
-.IR KEYCTL_READ .
+.BR KEYCTL_READ .
 .IP \(bu
 .BR Write .
-Allows update or instantiation of key's payload.
-For a keyring, it enables adding and removal of keys to a keyring.
+Allows update or instantiation of a key's payload.
+For a keyring, it enables addition and removal of keys to a keyring.
 Needed for
-.IR KEYCTL_UPDATE ", " KEYCTL_REVOKE ", " KEYCTL_CLEAR ", " KEYCTL_LINK ", "
-.IR KEYCTL_UNLINK .
+.BR KEYCTL_UPDATE ,
+.BR KEYCTL_REVOKE ,
+.BR KEYCTL_CLEAR ,
+.BR KEYCTL_LINK ,
+and
+.BR KEYCTL_UNLINK .
 .IP \(bu
 .BR Search .
 This permits keyrings to be searched and keys to be found.
 Searches can only recurse into nested keyrings
 that have search permission set.
 Needed for
-.IR KEYCTL_GET_KEYRING_ID ", " KEYCTL_JOIN_SESSION_KEYRING ", " KEYCTL_SEARCH
-.IR KEYCTL_INVALIDATE .
+.BR KEYCTL_GET_KEYRING_ID ,
+.BR KEYCTL_JOIN_SESSION_KEYRING ,
+.BR KEYCTL_SEARCH ,
+and
+.BR KEYCTL_INVALIDATE .
 .IP \(bu
 .BR Link .
 This permits a key or keyring to be linked to.
 Needed for
-.IR KEYCTL_LINK ", " KEYCTL_SESSION_TO_PARENT .
+.BR KEYCTL_LINK
+and
+.BR KEYCTL_SESSION_TO_PARENT .
 .IP \(bu
-.BR "Set attribute" " (since Linux. 2.6.15)."
-This permits a key's UID, GID and permissions mask to be changed.
+.BR "Set attribute" " (since Linux 2.6.15)."
+This permits a key's UID, GID, and permissions mask to be changed.
 Needed for
-.IR KEYCTL_REVOKE ", " KEYCTL_CHOWN ", " KEYCTL_SETPERM .
+.BR KEYCTL_REVOKE ,
+.BR KEYCTL_CHOWN ,
+and
+.BR KEYCTL_SETPERM .
 .RE
 .IP
 The
@@ -196,13 +234,13 @@ arguments are ignored.
 .TP
 .B KEYCTL_DESCRIBE
 Describe a key.
-Key ID to be described should be provided in the
+The ID of the key to be described should be provided in the
 .I arg2
 argument (converted to
-.IR key_serial_t ),
-the
+.IR key_serial_t ).
+The
 .I arg3
-argument should point to destination buffer (of type
+argument should point to the destination buffer (of type
 .IR "char *" ),
 and the
 .I arg4
@@ -212,32 +250,36 @@ type).
 The key must grant the caller
 .I view
 permission.
-Writing to buffer is attempted only in case buffer is non-NULL and
+Writing to the buffer is attempted only when the buffer is non-NULL and
 has enough space to accept the description.
 '\" Function commentary says it copies up to buflen bytes, bu see the
 '\" (buffer && buflen >= ret) condition in keyctl_describe_key() in
 '\" security/keyctl.c
-The description itself provided in
+The description itself is provided in the format:
 .RS
 .IP
 .IR type ; uid ; gid ; perm ; description "<NUL>"
 .RE
 .IP
-format.
 The
 .I arg5
 argument is ignored.
 .TP
 .B KEYCTL_CLEAR
-Clear contents of a keyring with ID provided in the
+Clear the contents of the keyring with the ID provided in the
 .I arg2
 argument (converted to
 .IR key_serial_t ).
-Caller should have
+
+The caller must have
 .I write
 permission.
-Arguments
-.IR arg3 ", " arg4 ", " arg5
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_LINK
@@ -251,13 +293,17 @@ argument converted to
 .I key_serial_t
 type) of there is no matching key in the keyring, or replace the link
 to the matching key with a link to the new key.
-The caller should have
+
+The caller must have
 .I link
 permission on the key being added and
 .I write
 permission on the keyring to which key being added to.
-Arguments
-.IR arg4 " and " arg5
+
+The arguments
+.IR arg4
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_UNLINK
@@ -270,17 +316,22 @@ type) from a keyring (provided in the
 argument converted to
 .I key_serial_t
 type).
-The caller should have
+
+The caller must have
 .I write
-permission on the keyring from which key being removed from.
+permission on the keyring from which the key is being removed.
+
 If the last link
-to a key is removed then that key will be scheduled for destruction.
-Arguments
-.IR arg4 " and " arg5
+to a key is removed, then that key will be scheduled for destruction.
+
+The arguments
+.IR arg4
+and
+.IR arg5
 are ignored.
 .TP
 .B KEYCTL_SEARCH
-Search for a key in a keyring with ID provided in the
+Search for a key in a keyring with the ID provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
@@ -289,15 +340,15 @@ The
 .I arg3
 argument should be a
 .I char *
-pointing to the name of the type the key being searched (NUL-terminated
-character string up to 32 bytes in size), and the
+pointing to the name of the type of the key being searched for
+(NUL-terminated character string up to 32 bytes in size), and the
 .I arg4
 argument should be a
 .I char *
-pointing to the NUL-terminated character string (up to 4096 bytes in size) with
-the description of the key being searched.
+pointing to a NUL-terminated character string (up to 4096 bytes in size)
+with the description of the key being searched for.
 The search is performed recursively
-starting from the keyring with ID provided in
+starting from the keyring with the ID provided in
 .IR arg2 .
 Only keyrings that grant the caller
 .I search
@@ -305,23 +356,26 @@ permission will be searched (this includes the starting keyring).
 Only keys with
 .I search
 permission can be found.
+
 If the
 .I arg5
 argument (converted to
 .I key_serial_t
-type) contains non-zero value, it is interpreted as a keyring ID to which
+type) contains a non-zero value, it is interpreted as a keyring ID to which
 the found key should be linked.
 .TP
 .B KEYCTL_READ
-Read a payload of a key ID of which provided in the
+Read the payload of the key whose ID is provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
-type) to a buffer pointed by the
+type).
+The payload is placed in the buffer pointed by the
 .I arg3
 argument (converted to
 .I char *
-type) of size provided in the
+type);
+the size of that buffer must be provided in the
 .I arg4
 argument (converted to kernel's
 .I size_t
@@ -331,12 +385,13 @@ The key must either grant the caller
 permission, or it must grant the caller
 .I search
 permission when searched for from the process keyrings.
+
 The
 .I arg5
 argument is ignored.
 .TP
 .B KEYCTL_INSTANTIATE
-Instantiate a partially constructed key ID of which provided in the
+Instantiate a partially constructed key whose ID is provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
@@ -349,47 +404,52 @@ type) of size provided in the
 argument (converted to kernel's
 .I size_t
 type).
-Instantiated key will be linked to keyring Id of which provided in the
+The instantiated key will be linked to the keyring ID which is provided in the
 .I arg5
 argument (converted to
 .I key_serial_t
 type).
 The caller must have the appropriate instantiation permit set (auth key).
+
 .TP
 .B KEYCTL_NEGATE
-Negatively instantiate a partially constructed key with ID provided in the
+Negatively instantiate a partially constructed key with the ID provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
-type), setting timeout (in seconds) to the value provided in the
+type), setting the timeout (in seconds) to the value provided in the
 .I arg3
 argument (converted to
 .I unsigned int
 type).
-Instantiated key will be linked to keyring Id of which provided in the
+The instantiated key will be linked to the keyring ID which is provided in the
 .I arg4
 argument (converted to
 .I key_serial_t
 type).
+
 The caller must have the appropriate instantiation permit set
-(authorisation key, see
-.I KEYCTL_ASSUME_AUTHORITY
+(authorization key, see
+.B KEYCTL_ASSUME_AUTHORITY
 command).
+
 Negative keys are used to rate limit repeated
-.BR request_key ()
-calls by causing them to return
-.B -ENOKEY
+.BR request_key (2)
+calls by causing them to fail with the error
+.B ENOKEY
 until the negative key expires.
-Equivalent to
-.BI "keyctl(" KEYCTL_REJECT ", " arg2 ", " arg3 ", " ENOKEY ", " arg4 )
-call.
+
+This is equivalent to the call
+
+    keyctl(KEYCTL_REJECT, arg2, arg3, ENOKEY, arg4);
+
 The
 .I arg5
 argument is ignored.
 .TP
 .BR KEYCTL_SET_REQKEY_KEYRING " (since Linux 2.6.13)"
-Read or set default keyring in which
-.BR request_key ()
+Read or set the default keyring in which
+.BR request_key (2)
 will cache keys.
 The
 .I arg2
@@ -425,11 +485,14 @@ Session keyring of UID.
 Requestor keyring.
 .RE
 .IP
-All other values (including still-unsupported
-.BR KEY_REQKEY_DEFL_GROUP_KEYRING )
-are invalid.
-Arguments
-.IR arg3 ", " arg4 " and " arg5
+All other values are invalid (including the as-yet-unsupported
+.BR KEY_REQKEY_DEFL_GROUP_KEYRING ).
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_SET_TIMEOUT " (since Linux 2.6.16)"
@@ -443,42 +506,53 @@ type), timeout value (in seconds from current time) provided in the
 argument (converted to
 .I unsigned int
 type).
-the caller must either have the
+
+The caller must either have the
 .I setattr
-permission or hold an instantiation authorisation token for the key.
-Timeout value of 0 clears the timeout.
+permission or hold an instantiation authorization token for the key.
+
+A timeout value of 0 clears the timeout.
 The key and any links to the key will be
 automatically garbage collected after the timeout expires.
-Arguments
-.IR arg4 " and " arg5
+
+The arguments
+.IR arg4
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_ASSUME_AUTHORITY " (since Linux 2.6.16)"
 Assume (or clear) the authority for the key instantiation.
-The ID of the authorisation key provided in the
+The ID of the authorization key provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
 type).
+
 The caller must have the instantiation key in their process keyrings
 with a
 .I search
 permission grant available to the caller.
+
 If the ID given in the
 .I arg2
 argument is 0, then the setting will be cleared.
-Arguments
-.IR arg3 ", " arg4 " and " arg5
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_GET_SECURITY " (since Linux 2.6.26)"
-Get LSM security label of the specified key.
+Get the LSM security label of the specified key.
 The ID of the key should be provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
 type).
-Buffer where security label should be stored provided in the
+The buffer where the security label should be stored is provided in the
 .I arg3
 argument (converted to
 .I char *
@@ -487,6 +561,7 @@ type) with its size provided in the
 argument (converted to kernel's
 .I size_t
 type).
+
 The
 .I arg5
 argument is ignored.
@@ -498,16 +573,22 @@ Attempt to install the calling process's session keyring
 on the process's parent process.
 The keyring must exist and must grant the caller
 .I link
-permission, and the parent process must be single-threaded and must have
-the same effective ownership as this process and mustn't be SUID/SGID.
+permission, and the parent process must be single-threaded and have
+the same effective ownership as this process
+and must not be be set-user-ID or set-group-ID.
 .IP
 The keyring will be emplaced on the parent when it next resumes userspace.
-Arguments
-.IR arg2 ", " arg3 ", " arg4 " and " arg5
+
+The arguments
+.IR arg2 ,
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_REJECT " (since Linux 2.6.39)"
-Negatively instantiate a partially constructed key with ID provided in the
+Negatively instantiate a partially constructed key with the ID provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
@@ -520,22 +601,23 @@ type) and instantiation error to the value provided in the
 argument (converted to
 .I unsigned int
 type).
-Instantiated key will be linked to keyring Id of which provided in the
+The instantiated key will be linked to the keyring ID which is provided in the
 .I arg5
 argument (converted to
 .I key_serial_t
 type).
+
 The caller must have the appropriate instantiation permit set
-(authorisation key, see
-.I KEYCTL_ASSUME_AUTHORITY
+(authorization key, see
+.B KEYCTL_ASSUME_AUTHORITY
 command).
 Negative keys are used to rate limit repeated
-.BR request_key ()
+.BR request_key (2)
 calls by causing them to return the error specified until the negative key
 expires.
 .TP
 .BR KEYCTL_INSTANTIATE_IOV " (since Linux 2.6.39)"
-Instantiate a key (with ID specified in the
+Instantiate a key (with the ID specified in the
 .I arg2
 argument of type
 .IR key_serial_t )
@@ -544,33 +626,41 @@ with the specified (in the
 argument of type
 .IR "const struct iovec *" )
 multipart payload and link the key into
-the destination keyring (ID of which provided in the
+the destination keyring (whose ID is  provided in the
 .I arg4
 argument of type
 .IR key_serial_t )
 if non-zero one is given.
+
 The caller must have the appropriate instantiation
-permit (authorisation key, see
-.I KEYCTL_ASSUME_AUTHORITY
+permit (authorization key, see
+.B KEYCTL_ASSUME_AUTHORITY
 command) set for this to  work.
 No other permissions are required.
+
 The
 .I arg5
 argument is ignored.
 .TP
 .BR KEYCTL_INVALIDATE " (since Linux 3.5)"
-Invalidate a key with ID provided in the
+Invalidate a key with the ID provided in the
 .I arg2
 argument (converted to
 .I key_serial_t
 type).
+
 The caller must have
 .I search
 permission in order to perform invalidation.
+
 The key and any links to the key
 will be automatically garbage collected immediately.
-Arguments
-.IR arg3 ", " arg4 " and " arg5
+
+The arguments
+.IR arg3 ,
+.IR arg4 ,
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_GET_PERSISTENT " (since Linux 3.13)"
@@ -578,14 +668,17 @@ Get the persistent keyring of the user specified in the
 .I arg2
 (converted to
 .I uid_t
-type) and link it to the keyring with ID provided in the
+type) and link it to the keyring with the ID provided in the
 .I arg3
 argument (converted to
 .I key_serial_t
 type).
-If -1 is provided as UID, current user's ID is used.
-Arguments
-.IR arg4 " and " arg5
+If \-1 is provided as UID, current user's ID is used.
+
+The arguments
+.IR arg4
+and
+.IR arg5
 are ignored.
 .TP
 .BR KEYCTL_DH_COMPUTE " (since Linux 4.7)"
@@ -593,7 +686,7 @@ Compute Diffie-Hellman values.
 The
 .I arg2
 argument is a pointer to
-.B struct kayctl_dh_params
+.I struct keyctl_dh_params
 which is defined in
 .I <linux/keyctl.h>
 as follows:
@@ -608,33 +701,30 @@ struct keyctl_dh_params {
 .in
 .fi
 
-, where
+The
 .IR private ", " prime " and " base
-fields are ID's of the keys, payload of which would be used for DH values
+fields are IDs of the keys, payload of which would be used for DH values
 calculation.
-Result is calculated as
+The result is calculated as
 .IR "base^private mod prime" .
+
 The
 .I arg3
 argument (converted to
 .I char *
-type) should point to output buffer with size passed in the
+type) should point to an output buffer whose size is passed in the
 .I arg4
 argument (converted to kernel's
 .I size_t
 type).
-Buffer should be big enough in order to accommodate output data,
-otherwise error is returned.
-NULL pointer can be provided as buffer in order
-to obtains required buffer size.
+The buffer should be big enough in order to accommodate the output data,
+otherwise an error is returned.
+A NULL pointer can be provided as buffer in order
+to obtain the required buffer size.
+
 The
 .I arg5
-argument is reserved and should be 0.
-.P
-These are wrapped by
-.B libkeyutils
-into individual functions (listed under SEE ALSO)
-to permit the compiler to check types.
+argument is reserved and must be 0.
 .SH RETURN VALUE
 For a successful call, the return value depends on the operation:
 .TP
@@ -645,7 +735,7 @@ The ID of the requested keyring.
 The ID of the joined session keyring.
 .TP
 .B KEYCTL_DESCRIBE
-The size of description (including terminating NUL byte), irrespective
+The size of description (including the terminating null byte), irrespective
 of the provided buffer size.
 .TP
 .B KEYCTL_SEARCH
@@ -657,15 +747,15 @@ buffer size.
 .TP
 .B KEYCTL_SET_REQKEY_KEYRING
 Old setting (one of
-.IR KEY_REQKEY_DEFL_USER_* )
+.BR KEY_REQKEY_DEFL_USER_* )
 .TP
 .B KEYCTL_ASSUME_AUTHORITY
 0, if the ID given is 0.
-ID of the authorisation key matching key with the given
+ID of the authorization key matching key with the given
 ID if non-zero key ID provided.
 .TP
 .B KEYCTL_GET_SECURITY
-The amount of information available (including terminating NUL byte),
+The amount of information available (including the terminating null byte),
 irrespective of the provided buffer size.
 .TP
 .B KEYCTL_GET_PERSISTENT
@@ -683,7 +773,7 @@ is set appropriately to indicate the error.
 .SH ERRORS
 .TP
 .B EACCES
-A key operation wasn't permitted.
+The requested operation wasn't permitted.
 .TP
 .B EDQUOT
 The key quota for the caller's user would be exceeded by creating a key or
@@ -705,7 +795,7 @@ No matching key was found or an invalid key was specified.
 .I option
 is
 .B KEYCTL_UPDATE
-and key type does not support updating.
+and the key type does not support updating.
 .TP
 .B ENOTDIR
 Key of keyring type is expected but ID of a key with a different type provided.
@@ -723,17 +813,16 @@ and the key requested for unlinking isn't linked to the keyring.
 .I option
 is
 .B KEYCTL_DH_COMPUTE
-and buffer size provided is not enough for the result to fit in.
+and the buffer size provided is not enough for the result to fit in.
 Provide 0 as
 a buffer size in order to obtain minimum buffer size first.
-
-.SH LINKING
+.SH NOTES
 Although this is a Linux system call, it is not present in
 .I libc
 but can be found rather in
 .IR libkeyutils .
 When linking,
-.B -lkeyutils
+.B \-lkeyutils
 should be specified to the linker.
 .SH SEE ALSO
 .ad l

@@ -1252,21 +1252,21 @@ via the function
 .BR keyctl_get_persistent (3).
 .TP
 .BR KEYCTL_DH_COMPUTE " (since Linux 4.7)"
-Compute Diffie-Hellman values.
+Compute a Diffie-Hellman shared secret or public key.
+
 The
 .I arg2
-argument is a pointer to
-.I struct keyctl_dh_params
-which is defined in
-.I <linux/keyctl.h>
-as follows:
+argument is a pointer to a set of parameters containing
+serial numbers for three keys used in the Diffie-Hellman calculation,
+packaged in a structure of the following form:
 
 .nf
 .in +4n
 struct keyctl_dh_params {
-    int32_t private;
-    int32_t prime;
-    int32_t base;
+    int32_t private; /* The local private key */
+    int32_t prime; /* The prime, known to both parties */
+    int32_t base;  /* The base integer: either a shared
+                      generator or the remote public key */
 };
 .in
 .fi
@@ -1275,21 +1275,30 @@ The
 .IR private ", " prime " and " base
 fields are IDs of the keys, payload of which would be used for DH values
 calculation.
-The result is calculated as
-.IR "base^private mod prime" .
+The result is calculated as:
+
+    base ^ private mod prime
+
+If the base is the shared generator, the result is the local public key.
+If the base is the remote public key, the result is the shared secret.
 
 The
 .I arg3
 argument (cast to
 .IR "char\ *" )
-should point to an output buffer whose size is passed in the
+points to a buffer where the result of the calculation is placed.
+The size of that buffer is specified in
 .I arg4
-argument (cast to
+(cast to
 .IR size_t ).
-The buffer should be big enough in order to accommodate the output data,
+
+The buffer must be large enough to accommodate the output data,
 otherwise an error is returned.
-A NULL pointer can be provided as buffer in order
-to obtain the required buffer size.
+If
+.I arg4
+is specified zero,
+the operation returns the minimum required buffer size
+(i.e., the length of the prime).
 
 The
 .I arg5
@@ -1334,7 +1343,9 @@ irrespective of the provided buffer size.
 The ID of the persistent keyring.
 .TP
 .B KEYCTL_DH_COMPUTE
-Amount of bytes being copied.
+The number of bytes copied to the buffer, or, if
+.I arg4
+is 0, the required buffer size.
 .TP
 All other commands
 Zero.
@@ -1438,9 +1449,8 @@ or a kernel thread.
 .I option
 is
 .B KEYCTL_DH_COMPUTE
-and the buffer size provided is not enough for the result to fit in.
-Provide 0 as
-a buffer size in order to obtain minimum buffer size first.
+and the buffer size provided is not enough to hold the result.
+Provide 0 as a buffer size in order to obtain the minimum buffer size.
 .SH VERSIONS
 This system call first appeared in Linux 2.6.11.
 .SH CONFORMING TO

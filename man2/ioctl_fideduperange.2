@@ -99,21 +99,39 @@ Each deduplication operation targets
 bytes in file descriptor
 .IR dest_fd
 at offset
-.IR logical_offset ".
+.IR dest_offset ".
 The field
 .IR reserved
 must be zero.
+During the call,
+.IR src_fd
+must be open for reading and
+.IR dest_fd
+must be open for writing.
+For any call to this ioctl, there may not be more than 65,536
+requests attached; each request may not exceed 16MiB.
+By convention, the storage used by
+.IR src_fd
+is mapped into
+.IR dest_fd
+and the previous contents in
+.IR dest_fd
+are freed.
 
 Upon successful completion of this ioctl, the number of bytes successfully
 deduplicated is returned in
 .IR bytes_deduped
 and a status code for the deduplication operation is returned in
 .IR status ".
-
+If even a single byte in the range does not match, the deduplication
+request will be ignored and
+.IR status
+set to
+.BR FILE_DEDUPE_RANGE_DIFFERS .
 The
 .IR status
 code is set to
-.B 0
+.B FILE_DEDUPE_RANGE_SAME
 for success, a negative error code in case of error, or
 .B FILE_DEDUPE_RANGE_DIFFERS
 if the data did not match.
@@ -150,7 +168,7 @@ regions in directories.
 .TP
 .B EOPNOTSUPP
 This can appear if the filesystem does not support deduplicating either file
-descriptor.
+descriptor, or if either file descriptor refers to special inodes.
 .TP
 .B EPERM
 .IR dest_fd

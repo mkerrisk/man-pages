@@ -45,13 +45,22 @@ The permitted values for
 are:
 .TP
 .B KEYCTL_GET_KEYRING_ID
-Ask for a keyring whose ID is provided in
+Map a special key ID to a real key ID for this process.
+
+This operation looks up the special key whose ID is provided in
 .I arg2
-(converted to
-.IR key_serial_t ).
-If the
+(which is cast as
+.IR key_serial_t )
+and (if it is found) the ID of corresponding real key is returned
+
+If the key specified in
+.I arg2
+does not exist, then a new key is created if the
 .I arg3
-argument contains a non-zero value, a new keyring is created.
+argument (cast as an
+.IR int )
+contains a non-zero value; otherwise the operation fails with the error
+.BR ENOKEY .
 
 The caller must have
 .I search
@@ -62,6 +71,11 @@ The arguments
 and
 .IR arg5
 are ignored.
+
+This operation is exposed by
+.I libkeyutils
+via the function
+.BR keyctl_get_keyring_ID (3).
 .TP
 .B KEYCTL_JOIN_SESSION_KEYRING
 Create a new anonymous session keyring (in case
@@ -793,6 +807,17 @@ A revoked key was found or specified.
 .TP
 .B ENOKEY
 No matching key was found or an invalid key was specified.
+.TP
+.B ENOKEY
+The value
+.B KEYCTL_GET_KEYRING_ID
+was specified in
+.IR option ,
+the key specified in
+.I arg2
+did not exist, and
+.I arg3
+was zero (meaning don't create the key if it didn't exist).
 .TP
 .B ENOTSUPP
 .I option

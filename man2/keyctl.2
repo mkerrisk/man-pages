@@ -428,34 +428,69 @@ via the function
 .BR keyctl_setperm (3).
 .TP
 .B KEYCTL_DESCRIBE
-Describe a key.
-The ID of the key to be described should be provided in the
+Obtain a description of a key.
+
+The ID of the key to be described is specified in
 .I arg2
-argument (cast to
+(cast to
 .IR key_serial_t ).
-The
+The description is returned in the buffer pointed to by
 .I arg3
-argument should point to the destination buffer (of type
+(cast to
 .IR "char\ *" ),
-and the
+and
 .I arg4
-argument should contain size of the buffer (of kernel's
-.I size_t
-type).
+(cast to
+.IR size_t )
+specifies the size of that buffer in bytes.
+
 The key must grant the caller
 .I view
 permission.
-Writing to the buffer is attempted only when the buffer is non-NULL and
-has enough space to accept the description.
-'\" Function commentary says it copies up to buflen bytes, bu see the
+
+The returned description contains the following information about the key:
+
+.in +4n
+.IR type ; uid ; gid ; perm ; description "<NUL>"
+.in
+
+In the above,
+.IR type
+and
+.IR description
+are strings,
+.IR uid
+and
+.IR gid
+are decimal strings, and
+.I perm
+is a hexadecimal permissions mask.
+The description is written with the following format string:
+
+    %s;%d;%d;%08x;%s
+
+.BR "Note: the intention is that the key description string should"
+.BR "be extensible in future kernel versions".
+In particular, the
+.IR description
+field will not contain semicolons;
+it should be parsed by working backwards from the end of the string
+to find the last semicolon.
+This allows future semicolon-delimited fields to be inserted
+in the key description in the future.
+
+Writing to the buffer is attempted only when
+.IR arg3
+is non-NULL and the specified buffer size
+is large enough to accept the description
+(including the terminating null byte).
+'\" Function commentary says it copies up to buflen bytes, but see the
 '\" (buffer && buflen >= ret) condition in keyctl_describe_key() in
 '\" security/keyctl.c
-The description itself is provided in the format:
-.RS
-.IP
-.IR type ; uid ; gid ; perm ; description "<NUL>"
-.RE
-.IP
+In order to determine whether the buffer size was too small,
+check to see if the return value of the operation is greater than
+.IR arg4 .
+
 The
 .I arg5
 argument is ignored.
@@ -1002,8 +1037,8 @@ The ID of the requested keyring.
 The ID of the joined session keyring.
 .TP
 .B KEYCTL_DESCRIBE
-The size of description (including the terminating null byte), irrespective
-of the provided buffer size.
+The size of the description (including the terminating null byte),
+irrespective of the provided buffer size.
 .TP
 .B KEYCTL_SEARCH
 The ID of the key that was found.

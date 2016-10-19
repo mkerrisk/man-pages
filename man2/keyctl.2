@@ -235,67 +235,189 @@ argument (cast to
 to the permissions provided in the
 .I arg3
 argument (cast to
-.IR key_perms_t ).
+.IR key_perm_t ).
+
 The key must grant
 .I setattr
 permission to the caller.
-If the caller doesn't have
+
+If the caller doesn't have the
 .B CAP_SYS_ADMIN
 capability, it can change permissions only for the keys it owns.
-Permissions contains a mask of available operations for possessor
-(since Linux 2.6.14), user, group, other.
-Each mask is eight bits in size, with only six bits currently used.
+(More precisely: the caller's filesystem UID must match the UID of the key.)
+
+The permissions in
+.IR arg3
+specify masks of available operations
+for each of the following user categories:
+.RS
+.TP
+.IR possessor " (since Linux 2.6.14)"
+.\" commit 664cceb0093b755739e56572b836a99104ee8a75
+This is the permission granted to a process that possesses the key
+(has it attached searchably to one of the process's keyrings);
+see
+.BR keyrings (7).
+.TP
+.IR user
+This is the permission granted to a process
+whose filesystem UID matches the UID of the key.
+.TP
+.IR group
+This is the permission granted to a process
+whose filesystem GID or any of its supplementary GIDs
+matches the GID of the key.
+.TP
+.IR other
+This is the permission granted to other processes
+that do not match the
+.IR user
+and
+.IR group
+categories.
+.RE
+.IP
+The
+.IR user ,
+.IR group ,
+and
+.IR other
+categories are exclusive: if a process matches the
+.IR user
+category, it will not receive permissions granted in the
+.IR group
+category; if a process matches the
+.I user
+or
+.IR group
+category, then it will not receive permissions granted in the
+.IR other
+category.
+
+The
+.I possessor 
+category grants permissions that are cumulative with the grants from the
+.IR user ,
+.IR group ,
+or
+.IR other
+category.
+
+Each permission mask is eight bits in size,
+with only six bits currently used.
 The available permissions are:
 .RS
-.IP \(bu 3
-.BR View .
-Allows reading attributes of a key.
-Needed for
-.BR KEYCTL_DESCRIBE .
-.IP \(bu
-.BR Read .
-Allows reading a key's payload.
-Needed for
-.BR KEYCTL_READ .
-.IP \(bu
-.BR Write .
-Allows update or instantiation of a key's payload.
-For a keyring, it enables addition and removal of keys to a keyring.
-Needed for
+.TP
+.IR view
+This permission allows reading attributes of a key.
+
+This permission is required for the
+.BR KEYCTL_DESCRIBE
+operation.
+
+The permission bits for each category are
+.BR KEY_POS_VIEW ,
+.BR KEY_USR_VIEW ,
+.BR KEY_GRP_VIEW ,
+and
+.BR KEY_OTH_VIEW .
+.TP
+.IR read
+This permission allows reading a key's payload.
+
+This permission is required for the
+.BR KEYCTL_READ
+operation.
+
+The permission bits for each category are
+.BR KEY_POS_READ ,
+.BR KEY_USR_READ ,
+.BR KEY_GRP_READ ,
+and
+.BR KEY_OTH_READ .
+.TP
+.IR write
+This permission allows update or instantiation of a key's payload.
+For a keyring, it allows keys to be linked and unlinked from the keyring,
+
+This permission is required for the
 .BR KEYCTL_UPDATE ,
 .BR KEYCTL_REVOKE ,
 .BR KEYCTL_CLEAR ,
 .BR KEYCTL_LINK ,
 and
-.BR KEYCTL_UNLINK .
-.IP \(bu
-.BR Search .
-This permits keyrings to be searched and keys to be found.
-Searches can only recurse into nested keyrings
+.BR KEYCTL_UNLINK
+operations.
+
+The permission bits for each category are
+.BR KEY_POS_WRITE ,
+.BR KEY_USR_WRITE ,
+.BR KEY_GRP_WRITE ,
+and
+.BR KEY_OTH_WRITE .
+.TP
+.IR search
+This permission allows keyrings to be searched and keys to be found.
+Searches can recurse only into nested keyrings
 that have search permission set.
-Needed for
+
+This permission is required for the
 .BR KEYCTL_GET_KEYRING_ID ,
 .BR KEYCTL_JOIN_SESSION_KEYRING ,
 .BR KEYCTL_SEARCH ,
 and
-.BR KEYCTL_INVALIDATE .
-.IP \(bu
-.BR Link .
-This permits a key or keyring to be linked to.
-Needed for
+.BR KEYCTL_INVALIDATE
+operations.
+
+The permission bits for each category are
+.BR KEY_POS_SEARCH ,
+.BR KEY_USR_SEARCH ,
+.BR KEY_GRP_SEARCH ,
+and
+.BR KEY_OTH_SEARCH .
+.TP
+.IR link
+This permission allows a key or keyring to be linked to.
+
+This permission is required for the
 .BR KEYCTL_LINK
 and
-.BR KEYCTL_SESSION_TO_PARENT .
-.IP \(bu
-.BR "Set attribute" " (since Linux 2.6.15)."
-This permits a key's UID, GID, and permissions mask to be changed.
-Needed for
+.BR KEYCTL_SESSION_TO_PARENT
+operations.
+
+The permission bits for each category are
+.BR KEY_POS_LINK ,
+.BR KEY_USR_LINK ,
+.BR KEY_GRP_LINK ,
+and
+.BR KEY_OTH_LINK .
+.TP
+.IR setattr " (since Linux 2.6.15)."
+This permission allows a key's UID, GID, and permissions mask to be changed.
+
+This permission is required for the
 .BR KEYCTL_REVOKE ,
 .BR KEYCTL_CHOWN ,
 and
-.BR KEYCTL_SETPERM .
+.BR KEYCTL_SETPERM
+operations.
+
+The permission bits for each category are
+.BR KEY_POS_SETATTR ,
+.BR KEY_USR_SETATTR ,
+.BR KEY_GRP_SETATTR ,
+and
+.BR KEY_OTH_SETATTR .
 .RE
 .IP
+As a convenience, the following macros are defined as masks for
+all of the permission bits in each of the user categories:
+.BR KEY_POS_ALL ,
+.BR KEY_USR_ALL,
+.BR KEY_GRP_ALL ,
+and
+.BR KEY_OTH_ALL .
+
 The
 .IR arg4 " and " arg5
 arguments are ignored.
@@ -923,6 +1045,13 @@ The requested operation wasn't permitted.
 .B EDQUOT
 The key quota for the caller's user would be exceeded by creating a key or
 linking it to the keyring.
+.TP
+.B EINVAL
+.I option
+was
+.B KEYCTL_SETPERM
+and an invalid permission bit was specified in
+.IR arg3 .
 .TP
 .B EKEYEXPIRED
 An expired key was found or specified.

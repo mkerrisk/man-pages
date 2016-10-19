@@ -532,22 +532,31 @@ via the function
 .BR keyctl_clear (3).
 .TP
 .B KEYCTL_LINK
-Link a key (provided in the
-.I arg2
-argument cast to
-.I key_serial_t
-type) to a keyring (provided in the
-.I arg3
-argument cast to
-.I key_serial_t
-type) of there is no matching key in the keyring, or replace the link
-to the matching key with a link to the new key.
+Create a link from a keyring to a key.
+
+The key to be linked is specified in
+.IR arg2
+(cast to
+.IR key_serial_t );
+the keyring is specified in
+.IR arg3
+(cast to
+.IR key_serial_t ).
+
+If a key with the same type and description is already linked in the keyring,
+then that key is displaced from the keyring.
+
+Before creating the link,
+the kernel checks the nesting of the keyrings and returns appropriate errors
+if the nesting is too deep
+.\" KEYRING_SEARCH_MAX_DEPTH 6
+or if the link would produce a cycle.
 
 The caller must have
 .I link
 permission on the key being added and
 .I write
-permission on the keyring to which key being added to.
+permission on the keyring.
 
 The arguments
 .IR arg4
@@ -1086,6 +1095,12 @@ is set appropriately to indicate the error.
 .B EACCES
 The requested operation wasn't permitted.
 .TP
+.B EDEADLK
+.I option
+is
+.BR KEYCTL_LINK
+and the requested link would result in a cycle.
+.TP
 .B EDQUOT
 The key quota for the caller's user would be exceeded by creating a key or
 linking it to the keyring.
@@ -1105,6 +1120,13 @@ A rejected key was found or specified.
 .TP
 .B EKEYREVOKED
 A revoked key was found or specified.
+.TP
+.B ELOOP
+.I option
+is
+.BR KEYCTL_LINK
+and the requested link would cause the maximum nesting depth
+for keyrings to be exceeded.
 .TP
 .B ENOKEY
 No matching key was found or an invalid key was specified.
@@ -1131,7 +1153,13 @@ A key of keyring type was expected but the ID of a key with
 a different type was provided.
 .TP
 .B ENFILE
-Keyring is full.
+.\" FIXME Does this error really occur? I could not find where
+.\"       in the kernel source it is generated, but have not tested
+.\"       this case from a user-space program
+.IR option
+is
+.BR KEYCTL_LINK
+and the keyring is full.
 .TP
 .B ENOENT
 .I option

@@ -602,38 +602,108 @@ via the function
 .BR keyctl_unlink (3).
 .TP
 .BR KEYCTL_SEARCH " (since Linux 2.6.11)"
-Search for a key in a keyring with the ID provided in the
-.I arg2
-argument (cast to
+Search for a key in a keyring tree,
+returning its ID and optionally linking it to a specified keyring.
+
+The tree to be searched is specified by passing
+the ID of the head keyring in
+.IR arg2
+(cast to
 .IR key_serial_t ).
+The search is performed breadth-first and recursively.
+
 The
 .I arg3
-argument should be a
-.IR "char\ *"
-pointing to the name of the type of the key being searched for
-(NUL-terminated character string up to 32 bytes in size), and the
+and
 .I arg4
-argument should be a
-.IR "char\ *"
-pointing to a NUL-terminated character string (up to 4096 bytes in size)
-with the description of the key being searched for.
-The search is performed recursively
-starting from the keyring with the ID provided in
-.IR arg2 .
-Only keyrings that grant the caller
+arguments specify the key to be searched for:
+.I arg3
+(cast as
+.IR "char\ *" )
+contains the key type
+(a null-terminated character string up to 32 bytes in size,
+including the terminating null byte), and
+.I arg4
+(cast as
+.IR "char\ *" )
+contains the description of the key
+(a null-terminated character string up to 4096 bytes in size,
+including the terminating null byte).
+
+The source keyring must grant
 .I search
-permission will be searched (this includes the starting keyring).
-Only keys with
+permission to the caller.
+When performing the recursive search, only keyrings that grant the caller
+.I search
+permission will be searched.
+Only keys with for which the caller has
 .I search
 permission can be found.
 
-If the
-.I arg5
-argument (cast to
-.IR key_serial_t )
-contains a non-zero value, it is interpreted as a keyring ID to which
-the found key should be linked.
+If the key is found, its ID is returned as the function result.
 
+If the key is found and
+.I arg5
+(cast to
+.IR key_serial_t )
+is nonzero, then, subject to the same constraints and rules as
+.BR KEYCTL_LINK ,
+the key is linked into the keyring whose ID is specified in
+.IR arg5 .
+If the destination keyring specified in
+.I arg5
+already contains a link to a key that has the same type and description,
+then that link will be displaced by a link to
+the key found by this operation.
+
+Instead of valid existing keyring IDs, the source
+.RI ( arg2 )
+and destination
+.RI ( arg5 )
+keyrings can be one of the following special keyring IDs:
+.RS
+.TP
+.B KEY_SPEC_THREAD_KEYRING
+This specifies the caller's thread-specific keyring.
+See
+.BR thread_keyring (7).
+.TP
+.B KEY_SPEC_PROCESS_KEYRING
+This specifies the caller's process-specific keyring.
+See
+.BR process_keyring (7).
+.TP
+.B KEY_SPEC_SESSION_KEYRING
+This specifies the caller's session-specific keyring.
+See
+.BR session_keyring (7).
+.TP
+.B KEY_SPEC_USER_KEYRING
+This specifies the caller's UID-specific keyring.
+See
+.BR user_keyring (7).
+.TP
+.B KEY_SPEC_USER_SESSION_KEYRING
+This specifies the caller's UID-session keyring.
+See
+.BR user_session_keyring (7).
+.TP
+.BR KEY_SPEC_REQKEY_AUTH_KEY " (since Linux 2.6.16)"
+.\"            commit b5f545c880a2a47947ba2118b2509644ab7a2969
+This specifies the authorization key created by
+.BR request_key (2)
+and passed to the process it spawns to generate a key.
+.TP
+.BR KEY_SPEC_REQUESTOR_KEYRING " (since Linux 2.6.29)"
+.\"            commit 8bbf4976b59fc9fc2861e79cab7beb3f6d647640
+This specifies the key ID for the
+.BR request_key (2)
+destination keyring.
+.\" FIXME What about:
+.\"    KEY_SPEC_REQKEY_AUTH_KEY (2.6.16)
+.\"    KEY_SPEC_REQUESTOR_KEYRING (2.6.29)
+.RE
+.IP
 This operation is exposed by
 .I libkeyutils
 via the function

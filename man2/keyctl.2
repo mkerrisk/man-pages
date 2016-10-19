@@ -1026,7 +1026,7 @@ via the function
 .BR keyctl_reject (3).
 .TP
 .BR KEYCTL_INSTANTIATE_IOV " (since Linux 2.6.39)"
-.\" commit ee009e4a0d4555ed522a631bae9896399674f064
+.\" commit ee009e4a0d4555ed522a631bae9896399674f063
 Instantiate a partially constructed key with a payload specified
 via a vector of buffers.
 
@@ -1069,17 +1069,33 @@ via the function
 .BR keyctl_instantiate_iov (3).
 .TP
 .BR KEYCTL_INVALIDATE " (since Linux 3.5)"
-Invalidate a key with the ID provided in the
+.\" commit fd75815f727f157a05f4c96b5294a4617c0557da
+Mark a key as invalid.
+
+The ID of the key to be invalidated is specified in
 .I arg2
-argument (cast to
+(cast to
 .IR key_serial_t ).
 
-The caller must have
+To invalidate a key,
+the caller must have
 .I search
-permission in order to perform invalidation.
+permission on the key.
+.\" CAP_SYS_ADMIN is permitted to invalidate certain special keys
 
-The key and any links to the key
-will be automatically garbage collected immediately.
+This operation immediately marks the key as invalid
+and schedules garbage collection.
+The garbage collector removes the invalidated key from all keyrings and
+deletes the key when its reference count reaches zero.
+After this operation,
+the key will be ignored by all searches,
+even if it is not yet deleted.
+
+Keys that are marked invalid become invisible to normal key operations
+immediately, though they are still visible in
+.I /proc/keys
+(marked with an 'i' flag)
+until they are actually removed.
 
 The arguments
 .IR arg3 ,

@@ -798,45 +798,65 @@ via the function
 .BR keyctl_negate (3).
 .TP
 .BR KEYCTL_SET_REQKEY_KEYRING " (since Linux 2.6.13)"
-Read or set the default keyring in which
-.BR request_key (2)
-will cache keys.
+Set the default keyring to which implicitly requested keys
+.\" The implicit requests make use of the kernel-internal request_key()
+.\" function (which is not the same as the request_key(2) system call).
+will be linked for this thread, and return the previous setting.
+Implicit key requests can occur when, for example, opening files
+on an AFS or NFS filesystem.
+
 The
 .I arg2
 argument (cast to
 .IR int )
-should contain one of the following values, defined in
-.IR <linux/keyring.h> :
+should contain one of the following values,
+to specify the new default keyring:
 .RS
-.TP 33
+.TP
 .BR KEY_REQKEY_DEFL_NO_CHANGE
 No change.
 .TP
 .BR KEY_REQKEY_DEFL_DEFAULT
-Default keyring.
+This selects the default behaviour,
+which is to use the thread-specific keyring if there is one,
+otherwise the process-specific keyring if there is one,
+otherwise the session keyring if there is one,
+otherwise the UID-specific session keyring.
 .TP
 .BR KEY_REQKEY_DEFL_THREAD_KEYRING
-Thread-specific keyring.
+Use the thread-specific keyring
+.RB ( thread_keyring (7))
+as the new default keyring.
 .TP
 .BR KEY_REQKEY_DEFL_PROCESS_KEYRING
-Process-specific keyring.
+Use the process-specific keyring
+.RB ( process_keyring (7))
+as the new default keyring.
+.TP
 .TP
 .BR KEY_REQKEY_DEFL_SESSION_KEYRING
-Session-specific keyring.
+Use the session-specific keyring
+.RB ( session_keyring (7))
+as the new default keyring.
 .TP
 .BR KEY_REQKEY_DEFL_USER_KEYRING
-UID-specific keyring.
+Use the UID-specific keyring
+.RB ( user_keyring (7))
+as the new default keyring.
 .TP
-.BR KEY_REQKEY_DEFL_USER_SESSION_KEYRING 5
-Session keyring of UID.
+.BR KEY_REQKEY_DEFL_USER_SESSION_KEYRING
+Use the UID-specific session keyring
+.RB ( user_session_keyring (7))
+as the new default keyring.
 .TP
 .BR KEY_REQKEY_DEFL_REQUESTOR_KEYRING " (since Linux 2.6.29)"
 '\" 8bbf4976b59fc9fc2861e79cab7beb3f6d647640
-Requestor keyring.
+.\" FIXME The following needs to be expanded.
+Use the requestor keyring.
 .RE
 .IP
-All other values are invalid (including the as-yet-unsupported
-.BR KEY_REQKEY_DEFL_GROUP_KEYRING ).
+All other values are invalid.
+.\" (including the still-unsupported KEY_REQKEY_DEFL_GROUP_KEYRING)
 
 The arguments
 .IR arg3 ,
@@ -844,6 +864,11 @@ The arguments
 and
 .IR arg5
 are ignored.
+
+The setting controlled by this operation is inherited by the child of
+.BR fork (2)
+and preserved across
+.BR  execve (2).
 
 This operation is exposed by
 .I libkeyutils
@@ -1195,8 +1220,10 @@ The amount of data that is available in the key,
 irrespective of the provided buffer size.
 .TP
 .B KEYCTL_SET_REQKEY_KEYRING
-Old setting (one of
-.BR KEY_REQKEY_DEFL_USER_* )
+The ID of the previous default keyring
+to which implicitly requested keys were linked
+(one of
+.BR KEY_REQKEY_DEFL_USER_* ).
 .TP
 .B KEYCTL_ASSUME_AUTHORITY
 0, if the ID given is 0.

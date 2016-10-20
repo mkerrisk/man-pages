@@ -916,20 +916,39 @@ via the function
 .BR keyctl_set_timeout (3).
 .TP
 .BR KEYCTL_ASSUME_AUTHORITY " (since Linux 2.6.16)"
-Assume (or clear) the authority for the key instantiation.
-The ID of the authorization key provided in the
+.\" FIXME More needs to be said for KEYCTL_ASSUME_AUTHORITY
+Assume (or divest) the authority for the calling thread
+to instantiate a specified key.
+
+The
 .I arg2
 argument (cast to
-.IR key_serial_t ).
+.IR key_serial_t )
+specifies either a nonzero key ID to assume authority,
+or the value 0 to divest authority.
 
-The caller must have the instantiation key in their process keyrings
-with a
-.I search
-permission grant available to the caller.
-
-If the ID given in the
+If
 .I arg2
-argument is 0, then the setting will be cleared.
+is nonzero, then it specifies the ID of an uninstantiated key for which
+authority is to be assumed.
+
+Authority of a key can be assumed only if the calling thread has present
+in its keyrings the authorization key that is
+associated with the specified key.
+The caller must have
+.I search
+permission on the authorization key.
+
+If the specified key has a matching authorization key,
+then the ID of that key is returned.
+The authorization key can be read to obtain
+the callout information passed to
+.BR request_key (2).
+
+If the ID given in
+.I arg2
+is 0, then the currently assumed authority is cleared (divested),
+and the value 0 is returned.
 
 The arguments
 .IR arg3 ,
@@ -1226,9 +1245,9 @@ to which implicitly requested keys were linked
 .BR KEY_REQKEY_DEFL_USER_* ).
 .TP
 .B KEYCTL_ASSUME_AUTHORITY
-0, if the ID given is 0.
-ID of the authorization key matching key with the given
-ID if non-zero key ID provided.
+Either 0, if the ID given was 0,
+or the ID of the authorization key matching the specified key,
+if a non-zero key ID was provided.
 .TP
 .B KEYCTL_GET_SECURITY
 The amount of information available (including the terminating null byte),

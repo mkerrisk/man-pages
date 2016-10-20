@@ -664,7 +664,7 @@ keyrings can be one of the following special keyring IDs:
 .RS
 .TP
 .B KEY_SPEC_THREAD_KEYRING
-This specifies the caller's thread-specific keyring.
+This specifies the caller thread's thread-specific keyring.
 See
 .BR thread_keyring (7).
 .TP
@@ -1194,15 +1194,51 @@ via the function
 .BR keyctl_invalidate (3).
 .TP
 .BR KEYCTL_GET_PERSISTENT " (since Linux 3.13)"
-Get the persistent keyring of the user specified in the
+.\" commit f36f8c75ae2e7d4da34f4c908cebdb4aa42c977e
+Get the persistent keyring
+.RB ( persistent_keyring (7))
+for a specified user and link it to a specified keyring.
+
+The user ID is specified in
 .I arg2
 (cast to
-.IR uid_t )
-and link it to the keyring with the ID provided in the
+.IR uid_t ).
+If the value \-1 is specified, the caller's real user ID is used.
+The ID of the destination keyring is specified in
 .I arg3
-argument (cast to
+(cast to
 .IR key_serial_t ).
-If \-1 is provided as UID, current user's ID is used.
+
+The caller must have the
+.BR CAP_SETUID
+capability in its user namespace in order to fetch the persistent keyring
+for a user ID that does not match either the real or effective user ID
+of the caller.
+
+If the call is successful,
+a link to the persistent keyring is added to the keyring
+whose ID was specified in
+.IR arg3 .
+
+The caller must have
+.I write
+permission on the keyring.
+
+The persistent keyring will be created by the kernel
+if it does not yet exist.
+
+Each time the
+.B KEYCTL_GET_PERSISTENT
+operation is performed, the persistent keyring will
+have its expiration timeout reset to the value in:
+
+   /proc/sys/kernel/keys/persistent_keyring_expiry
+
+Should the timeout be reached,
+the persistent keyring will be removed and
+everything it pins can then be garbage collected.
+
+Persistent keyrings were added to Linux in kernel version 3.13.
 
 The arguments
 .IR arg4

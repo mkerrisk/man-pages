@@ -963,19 +963,44 @@ via the function
 .BR keyctl_assume_authority (3).
 .TP
 .BR KEYCTL_GET_SECURITY " (since Linux 2.6.26)"
-Get the LSM security label of the specified key.
-The ID of the key should be provided in the
+.\" commit 70a5bb72b55e82fbfbf1e22cae6975fac58a1e2d
+Get the LSM (Linux Security Module) security label of the specified key.
+
+The ID of the key whose security label is to be fetched is specified in
 .I arg2
-argument (cast to
+(cast to
 .IR key_serial_t ).
-The buffer where the security label should be stored is provided in the
+The security label (terminated by a null byte)
+will be placed in the buffer pointed to by
 .I arg3
 argument (cast to
-.IR "char\ *" )
-with its size provided in the
+.IR "char\ *" );
+the size of the buffer must be provided in
 .I arg4
-argument (cast to
+(cast to
 .IR size_t ).
+
+If
+.I arg3
+is specified as NULL or the buffer size specified in
+.IR arg4
+is too small, the full size of the security label string
+(including the terminating null byte)
+is returned as the function result,
+and nothing is copied to the buffer.
+
+The caller must have
+.I view
+permission on the specified key.
+
+The returned security label string will be rendered in a form appropriate
+to the LSM in force.
+For example, with SELinux, it may look like
+
+    unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+
+If no LSM is currently in force,
+then an empty string is placed in the buffer.
 
 The
 .I arg5
@@ -983,7 +1008,7 @@ argument is ignored.
 
 This operation is exposed by
 .I libkeyutils
-via the function
+via the functions
 .BR keyctl_get_security (3)
 and
 .BR keyctl_get_security_alloc (3).
@@ -1250,7 +1275,8 @@ or the ID of the authorization key matching the specified key,
 if a non-zero key ID was provided.
 .TP
 .B KEYCTL_GET_SECURITY
-The amount of information available (including the terminating null byte),
+The size of the LSM security label string
+(including the terminating null byte),
 irrespective of the provided buffer size.
 .TP
 .B KEYCTL_GET_PERSISTENT

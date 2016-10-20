@@ -1014,17 +1014,32 @@ and
 .BR keyctl_get_security_alloc (3).
 .TP
 .BR KEYCTL_SESSION_TO_PARENT " (since Linux 2.6.32)"
-Apply session keyring to parent process.
-.IP
-Attempt to install the calling process's session keyring
-on the process's parent process.
+.\" commit ee18d64c1f632043a02e6f5ba5e045bb26a5465f
+Replace the session keyring to which the
+.I parent
+of the calling process
+subscribes with the session keyring of the calling process.
+
+The keyring will be replaced in the parent process at the point
+where the parent next transitions from kernel space to user space.
+
 The keyring must exist and must grant the caller
 .I link
-permission, and the parent process must be single-threaded and have
+permission.
+The parent process must be single-threaded and have
 the same effective ownership as this process
 and must not be be set-user-ID or set-group-ID.
-.IP
-The keyring will be emplaced on the parent when it next resumes userspace.
+The UID of the parent process's existing session keyring (f it has one),
+as well as the UID of the caller's session keyring
+much match the caller's effective UID.
+
+The fact that it is the parent process that is affected by this operation
+allows a program such as the shell to start a child process that
+uses this operation to change the shell's session keyring.
+(This is what the
+.BR keyctl (1)
+.B new_session
+command does.)
 
 The arguments
 .IR arg2 ,
@@ -1367,6 +1382,21 @@ and the keyring is full.
 is
 .B KEYCTL_UNLINK
 and the key to be unlinked isn't linked to the keyring.
+.TP
+.B EPERM
+.I operation
+was
+.BR KEYCTL_SESSION_TO_PARENT
+and either:
+all of the UIDs (GIDs) of the parent process do not match
+the effective UID (GID) of the calling process;
+the UID of the parent's existing session keyring or
+the UID of the caller's session keyring did not match
+the effective UID of the caller;
+the parent process is not single-thread;
+or the parent process is
+.BR init (1)
+or a kernel thread.
 .TP
 .B EINVAL
 .I option

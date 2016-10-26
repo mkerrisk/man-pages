@@ -60,14 +60,45 @@ permission may be searched.
 If the key is not found, then, if
 .I callout_info
 is not NULL, the kernel will attempt to look further afield.
-In this case, the
-.I callout_info
-is passed to a user-space service such as
+In this case, the following steps are performed:
+.IP 1. 4
+The kernel creates an uninstantiated key, U, with the requested
+.I type
+and
+.IR description .
+.IP 2.
+The kernel creates an authorization key, V, that refers to the key U
+and notes that the caller of
+.BR request_key (2)
+is (1) the context in which the key U should be instantiated and secured,
+and (2) the context from which associated key requests may be satisfied.
+The payload of the authorization key is the data supplied in
+.IR callout_info .
+.IP 3.
+The kernel creates a process that executes a user-space service such as
 .BR request-key (8)
-to generate the key.
+with a new session keyring that contains a link to the authorization key, V.
+.IP 4.
+The program spawned in the previous step:
+.RS
+.IP * 3
+Assumes the authority to instantiate the key U using the
+.BR keyctl (2)
+.BR KEYCTL_ASSUME_AUTHORITY
+operation.
+.IP *
+Obtains the callout data from the authorization key V (using the
+.BR keyctl (2)
+.BR KEYCTL_READ
+operation with a key ID value of
+.BR KEY_SPEC_REQKEY_AUTH_KEY ).
+.IP *
+Instantiates the key
+(or execs another program that performs that task).
+.RE
 .P
-If that is unsuccessful also, then an error will be returned, and a temporary
-negative key will be installed in the nominated
+If these steps are also unsuccessful, then an error will be returned,
+and a temporary negative key will be installed in the nominated
 .IR keyring .
 .\" FIXME Is 'keyring' allowed to be NULL? Reading the source, it appears so,
 .\"       with the result that the key is linked into a default keyring
@@ -75,6 +106,7 @@ negative key will be installed in the nominated
 This will expire after a few seconds, but will cause subsequent
 calls to
 .BR request_key ()
+.\" FIXME Need an explanation here of why this is done.
 to fail until it does.
 .P
 The

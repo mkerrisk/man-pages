@@ -1,5 +1,6 @@
 .\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
-.\" Written by David Howells (dhowells@redhat.com)
+.\"     Written by David Howells (dhowells@redhat.com)
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.man-pages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_ONEPARA)
 .\" This program is free software; you can redistribute it and/or
@@ -178,6 +179,53 @@ A wrapper is provided in the
 package.
 When employing the wrapper in that library, link with
 .IR \-lkeyutils .
+.SH EXAMPLE
+The program below creates a key with the type, description, and payload
+specified in its command-line arguments,
+and links that key into the session keyring.
+The following shell session demonstrates the use of the program:
+
+.in +4n
+.nf
+$ \fB./a.out user mykey "Some payload"\fP
+Key ID is 64a4dca
+$ \fBgrep \(aq64a4dca\(aq /proc/keys\fP
+064a4dca I--Q---    1 perm 3f010000  1000  1000 user    mykey: 12
+.fi
+.in
+.SS Program source
+\&
+.nf
+#include <sys/types.h>
+#include <keyutils.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    key_serial_t key;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s type description payload\\n",
+                argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    key = add_key(argv[1], argv[2], argv[3], strlen(argv[3]),
+                KEY_SPEC_SESSION_KEYRING);
+    if (key == \-1)
+        errExit("add_key");
+
+    printf("Key ID is %lx\\n", (long) key);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR keyctl (1),
 .BR keyctl (2),

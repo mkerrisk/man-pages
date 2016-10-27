@@ -1,5 +1,6 @@
 .\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
-.\" Written by David Howells (dhowells@redhat.com)
+.\"     Written by David Howells (dhowells@redhat.com)
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.man-pages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_ONEPARA)
 .\" This program is free software; you can redistribute it and/or
@@ -184,6 +185,101 @@ A wrapper is provided in the
 package.
 When employing the wrapper in that library, link with
 .IR \-lkeyutils .
+.SH EXAMPLE
+The program below demonstrates the use of
+.BR request_key ().
+The
+.IR type ,
+.IR description ,
+and
+.BR callout_info
+arguments for the system call are taken from the values
+supplied in the command line arguments.
+The call specifies the session keyring as the target keyring.
+
+In order to demonstrate this program,
+we first create a suitable entry in the file
+.IR /etc/request-key.conf .
+
+.in +4n
+.nf
+$ sudo sh
+# \fBecho 'create user mtk:* *   /bin/keyctl instantiate %k %c %S' \\\fP
+          \fB> /etc/request-keys.conf\fP
+# \fBexit\fP
+.fi
+.in
+
+This entry specifies that when a new "user" key with the prefix
+"mtk:" must be instantiated, that task should be performed via the
+.BR keyctl (1)
+command's
+.B instantiate
+operation.
+(The program could 
+The arguments supplied to the
+.B instantiate
+operation are:
+the ID of the uninstantiated key
+.RI ( %k );
+the callout data supplied to the
+.BR request_key ()
+call
+.RI ( %c );
+and the session keyring
+.RI ( %S )
+of the requestor (i.e., the caller of
+.BR request)key ()).
+i(See
+.BR request-key.conf (5)
+for details of these
+.I %
+specifiers.)
+
+Then we run the program and check the contents of
+.IR /proc/keys
+to verify that the requested kay has been instantiated:
+
+.in +4n
+.nf
+$ \fB./a.out user mtk:key1 "Payload data"\fP
+$ \fBgrep \(aq2dddaf50\(aq /proc/keys\fP
+2dddaf50 I--Q---   1 perm 3f010000  1000  1000 user   mtk:key1: 12
+.fi
+.in
+.SS Program source
+\&
+.nf
+#include <sys/types.h>
+#include <keyutils.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \\
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    key_serial_t key;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s type description callout\-data\\n",
+                argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    key = request_key(argv[1], argv[2], argv[3],
+                      KEY_SPEC_SESSION_KEYRING);
+    if (key == \-1)
+        errExit("request_key");
+
+    printf("Key ID is %lx\\n", (long) key);
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR keyctl (1),
 .BR add_key (2),

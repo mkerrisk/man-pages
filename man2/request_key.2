@@ -29,7 +29,8 @@ attempts to find a key of the given
 .I type
 with a description (name) that matches the specified
 .IR description .
-If the key is found,
+If such a key could not be found, then the key is optionally created.
+If the key is found or created,
 .BR request_key ()
 attaches it to the nominated
 .I keyring
@@ -41,7 +42,7 @@ attached to the calling process.
 The keyrings are searched in the order: thread-specific keyring,
 process-specific keyring, and then session keyring.
 .P
-.\" FIXME: The foillowing paragraph could be clearer
+.\" FIXME: The following paragraph could be clearer
 If
 .BR request_key ()
 is called from a program invoked by
@@ -60,61 +61,21 @@ permission be found, and only keyrings for which the caller has
 .I search
 permission may be searched.
 .P
-If the key is not found, then, if
-.I callout_info
-is not NULL, the kernel will attempt to look further afield.
-In this case, the following steps are performed:
-.IP 1. 4
-The kernel creates an uninstantiated key, U, with the requested
-.I type
-and
-.IR description .
-.IP 2.
-The kernel creates an authorization key, V, that refers to the key U
-and notes that the caller of
-.BR request_key (2)
-is (1) the context in which the key U should be instantiated and secured,
-and (2) the context from which associated key requests may be satisfied.
-The payload of the authorization key is the data supplied in
-.IR callout_info .
-.IP 3.
-The kernel creates a process that executes a user-space service such as
-.BR request-key (8)
-with a new session keyring that contains a link to the authorization key, V.
-.IP 4.
-The program spawned in the previous step:
-.RS
-.IP * 3
-Assumes the authority to instantiate the key U using the
-.BR keyctl (2)
-.BR KEYCTL_ASSUME_AUTHORITY
-operation.
-.IP *
-Obtains the callout data from the authorization key V (using the
-.BR keyctl (2)
-.BR KEYCTL_READ
-operation with a key ID value of
-.BR KEY_SPEC_REQKEY_AUTH_KEY ).
-.IP *
-Instantiates the key
-(or execs another program that performs that task).
-.RE
-.P
-If these steps are also unsuccessful, then an error will be returned,
-and a temporary negative key will be installed in the nominated
-.IR keyring .
-.\" FIXME Is 'keyring' allowed to be NULL? Reading the source, it appears so,
-.\"       with the result that the key is linked into a default keyring
-.\"       as specified by KEYCTL_SET_REQKEY_KEYRING.
-This will expire after a few seconds, but will cause subsequent
-calls to
-.BR request_key ()
-.\" FIXME Need an explanation here of why this is done.
-to fail until it does.
-.P
+If the key is not found and
+.I callout
+is NULL, then the call fails with the error
+.BR ENOKEY .
+
+If the key is not found and
+.I callout
+is not NULL, then the kernel attempts to invoke a user-space
+program to instantiate the key.
+The details are given below.
+
 The
 .I keyring
-serial number may be that of a valid keyring to which the caller has write
+serial number may be that of a valid keyring for which the caller has
+.I write
 permission, or it may be one of the following special keyring IDs:
 .TP
 .B KEY_SPEC_THREAD_KEYRING
@@ -136,7 +97,135 @@ This specifies the caller's UID-specific keyring
 .B KEY_SPEC_USER_SESSION_KEYRING
 This specifies the caller's UID-session keyring
 .RB ( user-session-keyring (7)).
+.\"
+.SS Requesting user-space instantiation of a key
+If the kernel cannot find a key matching
+.IR type
+and
+.IR description ,
+and
+.I callout
+is not NULL, then the kernel attempts to invoke a user-space
+program to instantiate a key with the given
+.IR type
+and
+.IR description .
+In this case, the following steps are performed:
+.IP a) 4
+The kernel creates an uninstantiated key, U, with the requested
+.I type
+and
+.IR description .
+.IP b)
+The kernel creates an authorization key, V, that refers to the key U
+and notes that the caller of
+.BR request_key (2)
+is (1) the context in which the key U should be instantiated and secured,
+and (2) the context from which associated key requests may be satisfied.
+
+The authorization key is constructed as follows:
+.RS
+.IP * 3
+The key type is
+.IR """.request_key_auth""" .
+.IP *
+The key's UID and GID are the same as the corresponding filesystem IDs
+of the requesting process.
+.IP *
+The key grants
+.IR view ,
+.IR read ,
+and
+.IR search
+permissions to the key possessor as well as
+.IR view
+permission for the key user.
+.IP *
+The description (name) of the key is the hexadecimal
+string representing the ID of the key that is to be instantiated.
+.IP *
+The payload of the key is taken from the data specified in
+.IR callout_info .
+.RE
+.IP c)
+The kernel creates a process that executes a user-space service such as
+.BR request-key (8)
+with a new session keyring that contains a link to the authorization key, V.
+
+This program is supplied with the following command-line arguments:
+.RS
+.IP [0] 4
+The string
+.IR """/sbin/request-key""" .
+.IP [1]
+The string
+.I """create"""
+(indicating that a key is to be created).
+.IP [2]
+The ID of the key that is to be instantiated.
+.IP [3]
+The filesystem UID of the caller of
+.BR request_key ().
+.IP [4]
+The filesystem GID of the caller of
+.BR request_key ().
+.IP [5]
+The ID of the thread keyring of the caller of
+.BR request_key ().
+This may be zero if that keyring hasn't been created.
+.IP [6]
+The ID of the process keyring of the caller of
+.BR request_key ().
+This may be zero if that keyring hasn't been created.
+.IP [7]
+The ID of the session keyring of the caller of
+.BR request_key ().
+.RE
+.IP
+.IR Note :
+Each of the command-line arguments that is a key ID is encoded in
+.IR decimal
+(unlike the key IDs shown in
+.IR /proc/keys ,
+which are shown as hexadecimal values).
+.IP d)
+The program spawned in the previous step:
+.RS
+.IP * 3
+Assumes the authority to instantiate the key U using the
+.BR keyctl (2)
+.BR KEYCTL_ASSUME_AUTHORITY
+operation.
+.IP *
+Obtains the callout data from the authorization key V (using the
+.BR keyctl (2)
+.BR KEYCTL_READ
+operation with a key ID value of
+.BR KEY_SPEC_REQKEY_AUTH_KEY ).
+.IP *
+Instantiates the key
+(or execs another program that performs that task),
+specifying the payload and destination keyring.
+(The destination keyring that the requestor specified when calling
+.BR request_key ()
+can be accessed using the special key ID
+.BR KEY_SPEC_REQUESTOR_KEYRING .)
+.RE
 .P
+If these steps are unsuccessful, then an
+.BR ENOKEY
+error will be returned to the caller of
+.BR request_key ()
+and a temporary negative key will be installed in the nominated
+.IR keyring .
+.\" FIXME Is 'keyring' allowed to be NULL? Reading the source, it appears so,
+.\"       with the result that the key is linked into a default keyring
+.\"       as specified by KEYCTL_SET_REQKEY_KEYRING.
+This will expire after a few seconds, but will cause subsequent calls to
+.BR request_key ()
+.\" FIXME Need an explanation here of why this is done.
+to fail until it does.
+
 If a key is created, then\(emregardless of whether it is a valid key or
 a negative key\(emit will displace any other key with
 the same type and description from the destination

@@ -91,28 +91,41 @@ See
 This specifies the caller's session-specific keyring.
 See
 .BR session_keyring (7).
+.\" FIXME What is the lifetime of the session keyring?
 .TP
 .B KEY_SPEC_USER_KEYRING
 This specifies the caller's UID-specific keyring.
 See
 .BR user_keyring (7).
+.\" FIXME What is the lifetime of the user keyring?
 .TP
 .B KEY_SPEC_USER_SESSION_KEYRING
 This specifies the caller's UID-session keyring.
+.\" FIXME What is the lifetime of the UID-session keyring?
 See
 .BR user_session_keyring (7).
+.\" FIXME What is the UID-session keyring vis-a-vis the session keyring?
+.\" In other words, why do they both exist?
 .TP
 .BR KEY_SPEC_REQKEY_AUTH_KEY " (since Linux 2.6.16)"
 .\"            commit b5f545c880a2a47947ba2118b2509644ab7a2969
 This specifies the authorization key created by
 .BR request_key (2)
 and passed to the process it spawns to generate a key.
+.\" FIXME
+.\" Presumably, KEY_SPEC_REQKEY_AUTH_KEY can be used only in a
+.\" request-key(8)-style that was kicked off by the kernel in response to
+.\" a request_key(2)? Is that correct?
 .TP
 .BR KEY_SPEC_REQUESTOR_KEYRING " (since Linux 2.6.29)"
 .\"            commit 8bbf4976b59fc9fc2861e79cab7beb3f6d647640
 This specifies the key ID for the
 .BR request_key (2)
 destination keyring.
+.\" FIXME
+.\" Presumably, KEY_SPEC_REQUESTOR_KEYRING can be used only in a
+.\" request-key(8)-style that was kicked off by the kernel in response to
+.\" a request_key(2)? Is that correct?
 .RE
 .IP
 If the key specified in
@@ -123,6 +136,9 @@ argument (cast to
 .IR int )
 contains a non-zero value; otherwise the operation fails with the error
 .BR ENOKEY .
+.\" The keyctl_get_keyring_ID.3 page says that a new key
+.\" "will be created *if it is appropriate to do so**. What is the
+.\" determiner for appropriate?
 
 The caller must have
 .I search
@@ -140,6 +156,7 @@ via the function
 .BR keyctl_get_keyring_ID (3).
 .TP
 .BR KEYCTL_JOIN_SESSION_KEYRING " (since Linux 2.6.11)"
+.\" FIXME What is the use case for joining a new session keyring?
 Replace the session keyring this process subscribes to with
 a new session keyring.
 
@@ -228,6 +245,7 @@ The key will no longer be findable,
 and it will be unavailable for further operations.
 Further attempts to use the key will fail with the error
 .BR EKEYREVOKED .
+.\" FIXME Does a revoked key get garbage collected?
 
 The caller must have
 .IR write
@@ -617,6 +635,8 @@ the kernel checks the nesting of the keyrings and returns appropriate errors
 if the nesting is too deep
 .\" KEYRING_SEARCH_MAX_DEPTH 6
 or if the link would produce a cycle.
+.\" FIXME What is the purpose of limiting the nesting to
+.\" KEYRING_SEARCH_MAX_DEPTH (6)?
 
 The caller must have
 .I link
@@ -723,9 +743,6 @@ then that link will be displaced by a link to
 the key found by this operation.
 
 Instead of valid existing keyring IDs, the source
-.\" FIXME Regarding the next sentence:
-.\" Is it really true that both 'arg2' (keyring to search)
-.\" and 'arg5' (destination keyring) can be special key IDs?
 .RI ( arg2 )
 and destination
 .RI ( arg5 )
@@ -800,6 +817,8 @@ via the function
 .BR KEYCTL_INSTANTIATE " (since Linux 2.6.11)"
 .\" FIXME I added the word "(Positively)" in the next sentence. Okay?
 (Positively) instantiate an uninstantiated key with a specified payload.
+.\" FIXME Is the only use for KEYCTL_INSTANTIATE inside a
+.\" request-keys(8)-style program?
 
 The ID of the key to be instantiated is provided in
 .I arg2
@@ -843,6 +862,8 @@ via the function
 .TP
 .BR KEYCTL_NEGATE " (since Linux 2.6.11)"
 Negatively instantiate an uninstantiated key.
+.\" FIXME Is the only use for KEYCTL_NEGATE inside a
+.\" request-keys(8)-style program?
 
 This operation is equivalent to the call:
 
@@ -859,7 +880,8 @@ via the function
 .TP
 .BR KEYCTL_SET_REQKEY_KEYRING " (since Linux 2.6.13)"
 Set the default keyring to which implicitly requested keys
-.\" FIXME What are implicitly requested keys?
+.\" FIXME What are implicitly requested keys? In what circumstances is
+.\" KEYCTL_SET_REQKEY_KEYRING useful?
 .\"
 .\" Are implicit requests just the ones that use the kernel-internal
 .\" request_key() function (which is not the same as the request_key(2)
@@ -1116,6 +1138,7 @@ Replace the session keyring to which the
 .I parent
 of the calling process
 subscribes with the session keyring of the calling process.
+.\" FIXME What is the use case for KEYCTL_SESSION_TO_PARENT?
 
 The keyring will be replaced in the parent process at the point
 where the parent next transitions from kernel space to user space.
@@ -1153,12 +1176,15 @@ via the function
 .TP
 .BR KEYCTL_REJECT " (since Linux 2.6.39)"
 .\" commit fdd1b94581782a2ddf9124414e5b7a5f48ce2f9c
-.\" We need some text here on why it is useful to negatively instantiate a key
+.\" FIXME We need some text here on why it is useful to negatively
+.\" instantiate a key
 Mark a key as negatively instantiated and set an expiration timer
 on the key.
 This operation provides a superset of the functionality of the earlier
 .BR KEYCTL_NEGATE
 operation.
+.\" FIXME Is the only use for KEYCTL_REJECT inside a
+.\" request-keys(8)-style program?
 
 The ID of the key that is to be negatively instantiated is specified in
 .I arg2
@@ -1252,6 +1278,7 @@ via the function
 .BR KEYCTL_INVALIDATE " (since Linux 3.5)"
 .\" commit fd75815f727f157a05f4c96b5294a4617c0557da
 Mark a key as invalid.
+.\" FIXME What is the difference between revoking a key and invalidating a key?
 
 The ID of the key to be invalidated is specified in
 .I arg2
@@ -1295,6 +1322,20 @@ via the function
 Get the persistent keyring
 .RB ( persistent_keyring (7))
 for a specified user and link it to a specified keyring.
+.\" FIXME What is the difference between the user keyring and
+.\" the persistent keyring?
+.\"
+.\" FIXME What is the lifetime of the persistent keyring?
+.\"
+.\" FIXME The session-keyring(7) page has the following text.
+.\" What are the circumstances that dictate the choice?
+.\"
+.\"     If a process doesn't have a session keyring
+.\"     when it is accessed,  then,  under  certain
+.\"     circumstances,  the  user  session  keyring
+.\"     will be attached as the session keyring and
+.\"     under  others a new session keyring will be
+.\"     created.
 
 The user ID is specified in
 .I arg2
@@ -1349,7 +1390,9 @@ via the function
 .BR keyctl_get_persistent (3).
 .TP
 .BR KEYCTL_DH_COMPUTE " (since Linux 4.7)"
+.\" commit ddbb41148724367394d0880c516bfaeed127b52e
 Compute a Diffie-Hellman shared secret or public key.
+.\" FIXME What is the use case for KEYCTL_DH_COMPUTE?
 
 The
 .I arg2

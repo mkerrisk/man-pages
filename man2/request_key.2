@@ -24,6 +24,8 @@ request_key \- request a key from the kernel's key management facility
 
 No glibc wrapper is provided for this system call; see NOTES.
 .SH DESCRIPTION
+.\" FIXME Is the request-key(8) program invoked in circumstances *other* than
+.\" when triggered by request_key(2)?
 .BR request_key ()
 attempts to find a key of the given
 .I type
@@ -35,7 +37,15 @@ If the key is found or created,
 attaches it to the keyring whose ID is specified in
 .I dest_keyring
 and returns the key's serial number.
-.P
+.\" FIXME Is 'keyring' allowed to be 0? Reading the source, it appears so.
+.\"
+.\" If the keyring specified in KEY_INSTANTIATE is 0, and the
+.\" dest_keyring given to request_key(2) is 0, what is the result?
+.\" Does KEYCTL_SET_REQKEY_KEYRING have any effect in this scenario?
+.\"
+.\" What is the interaction between the keyring specified in KEY_INSTANTIATE
+.\" vs the keyring specified to request_key(2)
+
 .BR request_key ()
 first recursively searches for a matching key in all of the keyrings
 attached to the calling process.
@@ -211,6 +221,8 @@ specifying the payload and destination keyring.
 .BR request_key ()
 can be accessed using the special key ID
 .BR KEY_SPEC_REQUESTOR_KEYRING .)
+.\" FIXME Should an instantiating program be using KEY_SPEC_REQUESTOR_KEYRING?
+.\" I couldn't find a use in the keyutils git repo.
 .RE
 .P
 If these steps are unsuccessful, then an
@@ -219,9 +231,6 @@ error will be returned to the caller of
 .BR request_key ()
 and a temporary negative key will be installed in the keyring specified by
 .IR dest_keyring .
-.\" FIXME Is 'keyring' allowed to be NULL? Reading the source, it appears so,
-.\" with the result that the key is linked into a default keyring
-.\" as specified by KEYCTL_SET_REQKEY_KEYRING.
 This will expire after a few seconds, but will cause subsequent calls to
 .BR request_key ()
 to fail until it does.

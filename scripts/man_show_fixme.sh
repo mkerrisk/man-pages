@@ -7,6 +7,8 @@ for f in $*; do
     cat $f | awk '
         /^\.\\\" *FIXME/ {
             if ($0 ~ /.*FIXME *\..*/) {
+		# FIXMES of the form "FIXME ." are "private" and 
+		# ignored by this script
             } else {
                 sub("FIXME[: ]*", "")
                 print ""
@@ -30,8 +32,8 @@ for f in $*; do
         }
 
         fixme == 1 {
-	        sub("^\\...[ ]", "")
-	        sub("^\\...", "")
+	    sub("^\\...[ ]", "")
+	    sub("^\\...", "")
             if ($0 ~ /^[ 	][ 	]*.*/) {
                 print ".br"
                 sub("^[ 	]*", "    ")
@@ -39,7 +41,7 @@ for f in $*; do
         }
 
         {
-	        print $0
+	    print $0
         }
     ' | tee "/tmp/$(basename $f).src" | man -l /dev/stdin
 done

@@ -11,6 +11,13 @@ for f in $*; do
 		# ignored by this script
             } else {
                 sub("FIXME[: ]*", "")
+		if ($0 ~ /^\.\\\"[ 	]*$/) {
+
+		    # If the FIXME line contains no additional text after
+		    # "FIXME", then discard the blank line
+
+		    getline
+	        }
                 print ""
                 if (fixme == 0) {
                     print ".TS"

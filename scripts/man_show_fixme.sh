@@ -13,7 +13,7 @@ for f in $*; do
                 if (fixme == 0) {
                     print ".TS"
                     print ".allbox;"
-                    print "lbw50"
+                    print "lbw52"
                     print "l."
                     print "FIXME"
                     print "T{"

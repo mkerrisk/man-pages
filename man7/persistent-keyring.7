@@ -1,0 +1,67 @@
+.\"
+.\" Copyright (C) 2014 Red Hat, Inc. All Rights Reserved.
+.\" Written by David Howells (dhowells@redhat.com)
+.\"
+.\" This program is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public Licence
+.\" as published by the Free Software Foundation; either version
+.\" 2 of the Licence, or (at your option) any later version.
+.\"
+.TH "PERSISTENT KEYRING" 7 "20 Feb 2014" Linux "Kernel key management"
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH NAME
+persistent_keyring \- Per-user persistent keyring
+.SH DESCRIPTION
+The
+.B persistent keyring
+is a keyring used to anchor keys on behalf of a user.  Each UID the kernel
+deals with has its own persistent keyring that is shared between all threads
+owned by that UID.
+.P
+The persistent keyring is created on demand when a thread requests it.  The
+keyring's expiration timer is reset every time it is accessed to the value in:
+.IP
+/proc/sys/kernel/keys/persistent_keyring_expiry
+.P
+The persistent keyring is not searched by \fBrequest_key\fP() unless it is
+referred to by a keyring that is.
+.P
+The persistent keyring may not be accessed directly, even by processes with
+the appropriate UID.  Instead it must be linked to one of a process's keyrings
+first before that keyring can access it by virtue of its possessor permits.
+This is done with \fBkeyctl_get_persistent\fP().
+.P
+Persistent keyrings are independent of clone(), fork(), vfork(), execve() and
+exit().  They persist until their expiration timers trigger - at which point
+they are garbage collected.  This allows them to carry keys beyond the life of
+the kernel's record of the corresponding UID (the destruction of which results
+in the destruction of the user and user session keyrings).
+.P
+If a persistent keyring does not exist when it is accessed, it will be
+created.
+.SH SPECIAL OPERATIONS
+The keyutils library provides a special operation for manipulating persistent
+keyrings:
+.IP \fBkeyctl_get_persistent\fP()
+This operation allows the caller to get the persistent keyring corresponding
+to their own UID or, if they have \fBCAP_SETUID\fR, the persistent keyring
+corresponding to some other UID in the same user namespace.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH SEE ALSO
+.BR keyctl (1),
+.br
+.BR keyctl (3),
+.br
+.BR keyctl_get_persistent (3),
+.br
+.BR keyrings (7),
+.br
+.BR process-keyring (7),
+.br
+.BR session-keyring (7),
+.br
+.BR thread-keyring (7),
+.br
+.BR user-keyring (7),
+.br
+.BR user-session-keyring (7)

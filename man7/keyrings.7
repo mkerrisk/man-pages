@@ -27,7 +27,7 @@ A library and some userspace utilities are provided to allow access to the
 facility.
 See
 .BR keyutils (7)
-manual page for more information.
+for more information.
 .P
 This document contains the following sections:
 .P
@@ -94,11 +94,12 @@ memory and the owning user ID specifies whose quota is to be debited.
 Each key can have an expiration time set.
 When that time is reached,
 the key is marked as being expired and accesses to it fail with
-\fIEKEYEXPIRED\fR.
+.BR EKEYEXPIRED .
 If not deleted, updated or replaced, after a set amount of time,
 expired keys are
-automatically removed along with all links to them and \fIENOKEY\fR will be
-reported.
+automatically removed along with all links to them and
+.B ENOKEY
+will be reported.
 .IP "\fBReference count\fR"
 Each key has a reference count.
 Keys are referenced by keyrings, by current active users
@@ -190,17 +191,28 @@ These keyrings are pinned as long as the set of credentials exists - which is
 usually as long as the process does.
 .IP
 There are three keyrings with different inheritance/sharing rules:
-The \fBsession keyring\fR (inherited and shared by all child processes),
-the \fBprocess keyring\fR (shared by all threads in a process) and
-the \fBthread keyring\fR (specific to a particular thread).
+The
+.BR session-keyring (7)
+(inherited and shared by all child processes),
+the
+.BR process-keyring (7)
+(shared by all threads in a process) and
+the
+.BR thread-keyring (7)
+(specific to a particular thread).
 .IP "\fBUser keyrings\fR"
 Each UID known to the kernel has a record that contains two keyrings: The
-\fBuser keyring\fR and the \fBuser session keyring\fR.
+.BR user-keyring (7)
+and the
+.BR user-session-keyring (7).
 These exist for as long as the UID record in the kernel exists.
 A link to the user keyring is placed in a new session keyring by
-\fBpam_keyinit\fR when a new login session is initiated.
+.BR pam_keyinit (8) 
+when a new login session is initiated.
 .IP "\fBPersistent keyrings\fR"
-There is a \fBpersistent keyring\fR available to each UID known to the system.
+There is a
+.BR persistent-keyring (7)
+available to each UID known to the system.
 It may persist beyond the life of the UID record previously mentioned,
 but has an expiration time set such that it is automatically cleaned up
 after a set time.
@@ -256,9 +268,10 @@ to access the user's keys.
 It also allows the prevention of access to keys
 just on the basis of UID and GID matches.
 .P
-When it creates the session keyring, the \fBpam_keyinit\fR module adds a link
-to the user keyring, thus making the user keyring and anything it contains
-possessed by default.
+When it creates the session keyring,
+.BR pam_keyinit (8)
+adds a link to the user keyring,
+thus making the user keyring and anything it contains possessed by default.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SH ACCESS RIGHTS
 .P
@@ -338,7 +351,9 @@ manual pages for more information.
 .P
 One of the key features of this facility is the ability to find a key that it
 is retaining.
-The \fBrequest_key\fR() system call is the primary point of
+The
+.BR request_key (2)
+system call is the primary point of
 access for userspace to find a key to use
 (the kernel has something similar available).
 .P
@@ -346,7 +361,10 @@ The search algorithm works as follows:
 .IP (1)
 The three process keyrings are searched in the following order: the thread
 keyring if it exists, the process keyring if it exists and then either the
-session keyring if it exists or the user session keyring if that exists.
+.BR session-keyring (7)
+if it exists or the
+.BR user-session-keyring (7)
+if that exists.
 .IP (2)
 If the caller was a process that was invoked by the \fBrequest_key\fR() upcall
 mechanism then the keyrings of the original caller of that \fBrequest_key\fR()
@@ -367,20 +385,24 @@ then the first noted error state is returned or else \fBENOKEY\fR is returned.
 It is also possible to search a specific keyring, in which case only steps (3)
 to (6) apply.
 .P
-See the
+See
 .BR request_key (2)
 and
 .BR keyctl_search (3)
-manual pages for more information.
+for more information.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SH ON-DEMAND KEY CREATION
 .P
-If a key cannot be found, the \fBrequest_key\fR() system call will, if given a
-\fIcallout_info\fR argument, create a new key and then upcall to userspace to
+If a key cannot be found,
+.BR request_key (2)
+will, if given a
+.I callout_info
+argument, create a new key and then upcall to userspace to
 instantiate the key.
 This allows keys to be created on an as-needed basis.
 .P
-Typically, this will involve the kernel forking and exec'ing \fBrequest-key\fR
+Typically, this will involve the kernel forking and exec'ing
+.BR request-key (8)
 program, which will then execute the appopriate handler based on its
 configuration.
 .P

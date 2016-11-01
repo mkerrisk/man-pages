@@ -1,0 +1,416 @@
+.\"
+.\" Copyright (C) 2014 Red Hat, Inc. All Rights Reserved.
+.\" Written by David Howells (dhowells@redhat.com)
+.\"
+.\" This program is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public Licence
+.\" as published by the Free Software Foundation; either version
+.\" 2 of the Licence, or (at your option) any later version.
+.\"
+.TH KEYRINGS 7 "21 Feb 2014" Linux "Kernel key management"
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH NAME
+keyrings \- In-kernel key management and retention facility
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH OVERVIEW
+The
+.B keyrings
+facility is primarily a way for drivers to retain or cache security data,
+authentication keys, encryption keys and other data in the kernel.
+.P
+System call interfaces are provided so that userspace programs can manage those
+objects and also use the facility for their own purposes.
+.P
+A library and some userspace utilities are provided to allow access to the
+facility.  See
+.BR keyutils (7)
+manual page for more information.
+.P
+This document contains the following sections:
+.P
+.RS
+- Keys.
+.br
+- Key types.
+.br
+- Keyrings.
+.br
+- Anchoring keys.
+.br
+- Possession.
+.br
+- Access rights.
+.br
+- Searching for keys.
+.br
+- On-demand key creation.
+.br
+- Users.
+.br
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.P
+.SH KEYS
+The facility provides the concept of a '\fBkey\fR', where all of the above
+examples are encapsulated within objects of this type.
+.P
+A 'key' contains the following elements:
+.IP "\fBSerial number\fR"
+This is a unique integer handle by which a key is referred to in system call
+arguments.
+.IP "\fBType\fR"
+This defines what sort of data can be held in the key, how the proposed content
+of the key will be parsed and how the payload will be used.
+.IP
+There are a number of general purpose types available, plus some specialist
+types defined by specific drivers.
+.IP "\fBDescription\fR"
+This is a printable string that is used as the search term for the key (in
+conjunction with the type) as well as a display name.  The description may be
+partially matched or exactly matched.
+.IP "\fBPayload\fR"
+This is the actual content of a key.  This is usually set when a key is
+created, but it is possible for the kernel to upcall to userspace to finish the
+instantiation of a key if that key wasn't already known to the kernel when it
+was requested.
+.IP
+A key's payload can be read and updated if the key type supports it and if
+suitable permission is granted to the caller.
+.IP "\fBAccess rights\fR"
+Each key has an owning user ID, an owning group and a security label - much as
+files do.  They also have a set of permissions, though there are more than for
+a normal UNIX file, and there is an additional category beyond the usual user,
+group and other (see below).
+.IP
+Note that keys are quota controlled since they represent unswappable kernel
+memory and the owning user ID specifies whose quota is to be debited.
+.IP "\fBExpiration time\fR"
+Each key can have an expiration time set.  When that time is reached, the key
+is marked as being expired and accesses to it fail with \fIEKEYEXPIRED\fR.  If
+not deleted, updated or replaced, after a set amount of time, expired keys are
+automatically removed along with all links to them and \fIENOKEY\fR will be
+reported.
+.IP "\fBReference count\fR"
+Each key has a reference count.  Keys are referenced by keyrings, by current
+active users and by a process's credentials.  When the reference count reaches
+zero, the key is scheduled for garbage collection.
+.P
+See the
+.BR keyctl_describe (3)
+manual page for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH KEY TYPES
+.P
+The facility provides several basic types of key:
+.IP "\fBkeyring\fR"
+Keys of this type are special.  The payload consists of a set of links to other
+keys, analogous to a directory holding links to files.  The main purpose of a
+keyring is to prevent other keys from being garbage collected because nothing
+refers to them.
+.IP "\fBuser\fR"
+This is a general purpose key type.  It may be instantiated with an arbitrary
+blob of data of up to about 32KB.  It is kept entirely within kernel memory.
+It may be read and updated by userspace.
+.IP "\fBbig_key\fR"
+This is similar to \fBuser\fR but it may hold data up to 1MB in size.  The data
+may be stored in the swap space rather than in kernel memory if the size
+exceeds the overhead of doing so (a tmpfs file is used - which requires
+filesystem structures to be allocated in the kernel).
+.IP "\fBlogon\fR"
+This is similar to \fBuser\fR but the contents may not be read by userspace.
+.P
+There are more specialised key types available also, but they're not discussed
+here as they're not intended for normal userspace use.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.P
+.SH KEYRINGS
+As previously mentioned, keyrings are a special type of key that contain links
+to other keys (which may include other keyrings).  Keys may be linked to by
+multiple keyrings.  Keyrings may be considered as analogous to UNIX directories
+where each directory contains a set of hard links to files.
+.P
+Several of the syscall functions available may only be applied to keyrings:
+.IP "\fBAdding\fR"
+A key may be added to a keyring by system calls that create keys.  This
+prevents the new key from being immediately deleted when the system call driver
+releases its last reference to the key.
+.IP "\fBLinking\fR"
+A link may be added to a keyring pointing to a key that is already known,
+provided this does not create a self-referential cycle.
+.IP "\fBUnlinking\fR"
+A link may be removed from a keyring.  When the last link to a key is removed,
+that key will be scheduled for deletion by the garbage collector.
+.IP "\fBClearing\fR"
+All the links may be removed from a keyring.
+.IP "\fBSearching\fR"
+A keyring may be considered the root of a tree or subtree in which keyrings
+form the branches and non-keyrings the leaves.  This tree may be searched for a
+leaf matching a particular type and description.
+.P
+See the
+.BR keyctl_clear (3),
+.BR keyctl_link (3),
+.BR keyctl_search (3)
+and
+.BR keyctl_unlink (3)
+manual pages for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH ANCHORING KEYS
+.P
+To prevent a key from being prematurely garbage collected, it must anchored to
+keep its reference count elevated when it is not in active use by the kernel.
+.P
+\fBKeyrings\fR are used to anchor other keys - each link is a reference on a
+key - but whilst keyrings are available to link to keys, keyrings themselves
+are just keys and are also subject to the same anchoring necessity.
+.P
+The kernel makes available a number of anchor keyrings.  Note that some of
+these keyrings will only be created when first accessed.
+.IP "\fBProcess keyrings\fR"
+Process credentials themselves reference keyrings with specific semantics.
+These keyrings are pinned as long as the set of credentials exists - which is
+usually as long as the process does.
+.IP
+There are three keyrings with different inheritance/sharing rules:  The \fBsession
+keyring\fR (inherited and shared by all child processes), the \fBprocess keyring\fR
+(shared by all threads in a process) and the \fBthread keyring\fR (specific to
+a particular thread).
+.IP "\fBUser keyrings\fR"
+Each UID known to the kernel has a record that contains two keyrings: The
+\fBuser keyring\fR and the \fBuser session keyring\fR.  These exist for as long
+as the UID record in the kernel exists.  A link to the user keyring is placed
+in a new session keyring by \fBpam_keyinit\fR when a new login session is
+initiated.
+.IP "\fBPersistent keyrings\fR"
+There is a \fBpersistent keyring\fR available to each UID known to the system.
+It may persist beyond the life of the UID record previously mentioned, but has
+an expiration time set such that it is automatically cleaned up after a set
+time.  This, for example, permits cron scripts to use credentials left when the
+user logs out.
+.IP
+Note that the expiration time is reset every time the persistent key is
+requested.
+.IP "\fBSpecial keyrings\fR"
+There are special keyrings owned by the kernel that can anchor keys for special
+purposes.  An example of this is the \fBsystem keyring\fR used for holding
+encryption keys for module signature verification.
+.IP
+These are usually closed to direct alteration by userspace.
+.P
+See the
+.BR thread-keyring (7),
+.BR process-keyring (7),
+.BR session-keyring (7),
+.BR user-keyring (7),
+.BR user-session-keyring (7),
+and
+.BR persistent-keyring (7)
+manual pages for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH POSSESSION
+.P
+The concept of '\fBpossession\fR' is important to understanding the keyrings
+security model.  Whether a thread possesses a key is determined by the
+following rules:
+.IP (1)
+Any key or keyring that does not grant \fBSearch\fP permission to the caller is
+\fIignored\fP in all the following rules.
+.IP (2)
+A thread \fIpossesses\fR its \fBsession\fR, \fBprocess\fR and \fBthread\fR
+keyrings directly because those are pointed to by its credentials.
+.IP (3)
+If a keyring is possessed, then any key it links to is \fIalso\fR possessed.
+.IP (4)
+If any key a keyring links to is itself a keyring, then rule (3) applies
+\fIrecursively\fP.
+.IP (5)
+If a process is upcalled from the kernel to instantiate a key, then it also
+possess's the \fIrequester's\fP keyrings as in rule (1) as if it were the
+requester.
+.P
+Note that possession is not a fundamental property of a key, but must rather be
+calculated each time it is needed.
+.P
+Possession is designed to allow setuid programs run from, say, a user's shell
+to access the user's keys.  It also allows the prevention of access to keys
+just on the basis of UID and GID matches.
+.P
+When it creates the session keyring, the \fBpam_keyinit\fR module adds a link
+to the user keyring, thus making the user keyring and anything it contains
+possessed by default.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH ACCESS RIGHTS
+.P
+Each key has the following security-related attributes:
+.P
+.RS
+- The owning user ID
+.br
+- The ID of a group that is permitted to access the key
+.br
+- A security label
+.br
+- A permissions mask
+.RE
+.P
+The permissions mask is used to govern the following rights:
+.IP \fBView\fR
+If set, the attributes of a key may be read.  This includes the type,
+description and access rights (excluding the security label).
+.IP \fBRead\fR
+If set, the payload of a key may be read and a list of the serial numbers to
+which a keyring has links may be read.
+.IP \fBWrite\fR
+If set, the payload of a key may be updated, links may be added to or removed
+from a keyring, a keyring may be cleared completely and a key may be revoked.
+.IP \fBSearch\fR
+If set, keyrings and subkeyrings may be searched and keys and keyrings may be
+found by that search.
+.IP \fBLink\fR
+If set, an additional link may be made to a key from a keyring.  The initial
+link to a key when it is created doesn't require this permit.
+.IP \fBSetattr\fR
+If set, the ownership details on a key and its security label may be changed,
+its expiration time may be set and it may be revoked.
+.P
+The permissions mask contains four sets of rights.  The first three sets are
+mutually exclusive.  One and only one will be in force at any one time.  In
+order of descending priority:
+.IP \fBUser\fR
+Used if the key's user ID matches the caller's \fBfsuid\fR.
+.IP \fBGroup\fR
+Used if the user ID didn't match and the key's group ID matches the caller's
+\fBfsgid\fR or one of the caller's supplementary group list.
+.IP \fBOther\fR
+Used if neither the key's user ID nor group ID matched.
+.P
+The fourth set of rights is:
+.IP \fBPossessor\fR
+Used if a key is determined to be \fBpossessed\fR by the caller.
+.P
+The complete set of rights for a key is the set union of whichever of the first
+three sets is selected plus the fourth if the key is possessed.
+.P
+If any right is granted to a thread for a key, then that thread will see the
+key listed in /proc/keys.  If no rights at all are granted, then that thread
+can't even tell that the key exists.
+.P
+In addition to access rights, any active \fBLinux Security Module\fP may
+prevent access to a key if its policy so dictates.  A key may be given a
+security label or other attribute by the LSM which can be retrieved.
+.P
+See the
+.BR keyctl_chown (3),
+.BR keyctl_describe (3),
+.BR keyctl_get_security (3),
+.BR keyctl_setperm (3)
+and
+.BR selinux (8)
+manual pages for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH SEARCHING FOR KEYS
+.P
+One of the key features of this facility is the ability to find a key that it
+is retaining.  The \fBrequest_key\fR() system call is the primary point of
+access for userspace to find a key to use (the kernel has something similar
+available).
+.P
+The search algorithm works as follows:
+.IP (1)
+The three process keyrings are searched in the following order: the thread
+keyring if it exists, the process keyring if it exists and then either the
+session keyring if it exists or the user session keyring if that exists.
+.IP (2)
+If the caller was a process that was invoked by the \fBrequest_key\fR() upcall
+mechanism then the keyrings of the original caller of that \fBrequest_key\fR()
+will be searched as well.
+.IP (3)
+Each keyring is searched first for a match, then the keyrings referred to by
+that keyring are searched.
+.IP (4)
+If a matching key is found that is valid, then the search terminates and that
+key is returned.
+.IP (5)
+If a matching key is found that has an error state attached, that error state
+is noted and the search continues.
+.IP (6)
+If valid matching key is found, then the first noted error state is returned or
+else \fBENOKEY\fR is returned.
+.P
+It is also possible to search a specific keyring, in which case only steps (3)
+to (6) apply.
+.P
+See the
+.BR request_key (2)
+and
+.BR keyctl_search (3)
+manual pages for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH ON-DEMAND KEY CREATION
+.P
+If a key cannot be found, the \fBrequest_key\fR() system call will, if given a
+\fIcallout_info\fR argument, create a new key and then upcall to userspace to
+instantiate the key.  This allows keys to be created on an as-needed basis.
+.P
+Typically, this will involve the kernel forking and exec'ing \fBrequest-key\fR
+program, which will then execute the appopriate handler based on its
+configuration.
+.P
+The handler is passed a special authorisation key that allows it and only it to
+instantiate the new key.  This is also used to permit searches performed by the
+handler program to also search the requester's keyrings.
+.P
+See the
+.BR keyctl_assume_authority (3),
+.BR keyctl_instantiate (3),
+.BR keyctl_negate (3),
+.BR keyctl_reject (3),
+.BR request_key (2),
+.BR request-key (8)
+and
+.BR request-key.conf (5)
+manual pages for more information.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH USERS
+.P
+The facility has a number of users and usages, but is not limited to those
+that already exist.
+.P
+In-kernel users of this facility include:
+.IP "\fBNetwork filesystems - DNS\fR"
+The kernel uses the upcall mechanism provided by the keys to upcall to
+userspace to do DNS lookups and then to cache the results.
+.IP "\fBAF_RXRPC and kAFS - Authentication\fR"
+The AF_RXRPC network protocol and the in-kernel AFS filesystem store the ticket
+needed to do secured or encrypted traffic in keys.  These are then looked up by
+network operations on AF_RXRPC and filesystem operations on kAFS.
+.IP "\fBNFS - User ID mapping\fR"
+The NFS filesystem uses keys to store foreign user ID to local user ID mapping.
+.IP "\fBCIFS - Password\fR"
+The CIFS filesystem uses keys to store passwords for accessing remote shares.
+.IP "\fBModule verification\fR"
+The kernel build process can be made to cryptographically sign modules.  That
+signature is then checked when a module is loaded.
+.P
+Userspace users of this facility include:
+.IP "\fBKerberos key storage\fR"
+The MIT Kerberos 5 facility (libkrb5) can use keys to store authentication
+tokens which can be made to be automatically cleaned up a set time after the
+user last uses them, but until then permits them to hang around after the user
+has logged out so that cron scripts can use them.
+.\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.SH SEE ALSO
+.BR keyutils (7),
+.br
+.BR pam_keyinit (8),
+.br
+.BR thread-keyring (7),
+.br
+.BR process-keyring (7),
+.br
+.BR session-keyring (7),
+.br
+.BR user-keyring (7),
+.br
+.BR user-session-keyring (7),
+.br
+.BR persistent-keyring (7)

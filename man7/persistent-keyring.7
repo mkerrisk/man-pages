@@ -16,49 +16,97 @@ persistent-keyring \- per-user persistent keyring
 The persistent keyring is a keyring used to anchor keys on behalf of a user.
 Each UID the kernel deals with has its own persistent keyring that
 is shared between all threads owned by that UID.
-.P
-The persistent keyring is created on demand when a thread requests it.
-The keyring's expiration timer is reset every time it is accessed
-to the value in:
-.IP
-/proc/sys/kernel/keys/persistent_keyring_expiry
-.P
-The persistent keyring is not searched by
-.BR request_key (2)
-unless it is
-referred to by a keyring that is.
-.P
-The persistent keyring may not be accessed directly, even by processes with
-the appropriate UID.
-Instead it must be linked to one of a process's keyrings
-first before that keyring can access it by virtue of its possessor permits.
-This is done with
+
+The persistent keyring may not be accessed directly,
+even by processes with the appropriate UID.
+.\" FIXME The meaning of the preceding sentence isn't clear. What is meant?
+Instead, it must first be linked to one of a process's keyrings,
+before that keyring can access the persistent keyring
+by virtue of its possessor permits.
+This linking is done with the
+.BR keyctl_get_persistent (3)
+function.
+
+If a persistent keyring does not exist when it is accessed by the
+.BR keyctl_get_persistent (3)
+operation, it will be automatically created.
+
+Each time the
+.BR keyctl_get_persistent (3)
+operation is performed,
+the persistent key's expiration timer is reset to the value in:
+
+    /proc/sys/kernel/keys/persistent_keyring_expiry
+
+Should the timeout be reached,
+the persistent keyring will be removed and
+everything it pins can then be garbage collected.
+The key will then be re-created on a subsequent call to
 .BR keyctl_get_persistent (3).
-.P
-Persistent keyrings are independent of
+
+The persistent keyring is not directly searched by
+.BR request_key (2);
+it is searched only if it is linked into one of the keyrings
+that is searched by
+.BR request_key (2).
+
+The persistent keyring is independent of
 .BR clone (2),
 .BR fork (2),
 .BR vfork (2),
 .BR execve (2),
 and
 .BR _exit (2).
-They persist until their expiration timers trigger - at which point
-they are garbage collected.
-This allows them to carry keys beyond the life of
-the kernel's record of the corresponding UID (the destruction of which results
-in the destruction of the user and user session keyrings).
-.P
-If a persistent keyring does not exist when it is accessed, it will be
-created.
+It persists until its expiration timer triggers,
+at which point it is garbage collected.
+This allows the persistent keyring to carry keys beyond the life of
+the kernel's record of the corresponding UID
+(the destruction of which results in the destruction of the
+.BR user-keyring (7)
+and the
+.BR user-session-keyring (7)).
+The persistent keyring can thus be used to
+hold authentication tokens for processes that run without user interaction,
+such as programs started by
+.BR cron (8).
+
+The persistent keyring is used to store UID-specific objects that
+themselves have limited lifetimes (e.g., kerberos tokens).
+If those tokens cease to be used
+(i.e., the persistent keyring is not accessed),
+then the timeout of the persistent keyring ensures that
+the corresponding objects are automatically discarded.
+.\"
 .SS Special operations
-The keyutils library provides a special operation for manipulating persistent
-keyrings:
+The
+.I keyutils
+library provides the
 .BR keyctl_get_persistent (3)
-This operation allows the caller to get the persistent keyring corresponding
-to their own UID or, if they have
-.BR CAP_SETUID ,
-the persistent keyring
-corresponding to some other UID in the same user namespace.
+function for manipulating persistent keyrings.
+(This function is an interface to the
+.BR keyctl (2)
+.B KEYCTL_GET_PERSISTENT
+operation.)
+This operation allows the calling thread to get the persistent keyring
+corresponding to its own UID or, if the thread has the
+.BR CAP_SETUID
+capability, the persistent keyring corresponding to some other UID
+in the same user namespace.
+.SH NOTES
+Each user namespace owns a keyring called
+.IR .persistent_register
+that contains links to all of the persistent keys in that namespace.
+(The
+.IR .persistent_register
+keyring can be seen when reading the contents of the
+.IR /proc/keys
+file for the UID 0 in the namespace.)
+The
+.BR keyctl_get_persistent (3)
+operation looks for a key with a name of the form
+.IR _persistent.<UID>
+in that keyring,
+creates the key if it does not exist, and links it into the keyring.
 .SH SEE ALSO
 .ad l
 .nh

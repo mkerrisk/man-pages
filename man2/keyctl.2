@@ -91,41 +91,38 @@ See
 This specifies the caller's session-specific keyring.
 See
 .BR session-keyring (7).
-.\" FIXME What is the lifetime of the session keyring?
 .TP
 .B KEY_SPEC_USER_KEYRING
 This specifies the caller's UID-specific keyring.
 See
 .BR user-keyring (7).
-.\" FIXME What is the lifetime of the user keyring?
 .TP
 .B KEY_SPEC_USER_SESSION_KEYRING
 This specifies the caller's UID-session keyring.
-.\" FIXME What is the lifetime of the UID-session keyring?
 See
 .BR user-session-keyring (7).
-.\" FIXME What is the UID-session keyring vis-a-vis the session keyring?
-.\" In other words, why do they both exist?
 .TP
 .BR KEY_SPEC_REQKEY_AUTH_KEY " (since Linux 2.6.16)"
 .\"            commit b5f545c880a2a47947ba2118b2509644ab7a2969
 This specifies the authorization key created by
 .BR request_key (2)
 and passed to the process it spawns to generate a key.
-.\" FIXME
-.\" Presumably, KEY_SPEC_REQKEY_AUTH_KEY can be used only in a
-.\" request-key(8)-style that was kicked off by the kernel in response to
-.\" a request_key(2)? Is that correct?
+This key is available only in a
+.BR request-key (8)-style
+program that was passed an authorization key by the kernel and
+ceases to be available once the requested key has been instantiated; see
+.BR request_key (2).
 .TP
 .BR KEY_SPEC_REQUESTOR_KEYRING " (since Linux 2.6.29)"
 .\"            commit 8bbf4976b59fc9fc2861e79cab7beb3f6d647640
 This specifies the key ID for the
 .BR request_key (2)
 destination keyring.
-.\" FIXME
-.\" Presumably, KEY_SPEC_REQUESTOR_KEYRING can be used only in a
-.\" request-key(8)-style that was kicked off by the kernel in response to
-.\" a request_key(2)? Is that correct?
+This keyring is available only in a
+.BR request-key (8)-style
+program that was passed an authorization key by the kernel and
+ceases to be available once the requested key has been instantiated; see
+.BR request_key (2).
 .RE
 .IP
 If the key specified in
@@ -815,7 +812,6 @@ via the function
 .BR keyctl_read (3).
 .TP
 .BR KEYCTL_INSTANTIATE " (since Linux 2.6.11)"
-.\" FIXME I added the word "(Positively)" in the next sentence. Okay?
 (Positively) instantiate an uninstantiated key with a specified payload.
 .\" FIXME Is the only use for KEYCTL_INSTANTIATE inside a
 .\" request-keys(8)-style program?
@@ -835,9 +831,7 @@ the size of that buffer is specified in
 .IR size_t ).
 
 The payload may be a NULL pointer and the buffer size may be 0
-if this is supported by the key type.
-.\" FIXME Above, what is an example of a key type that supports a
-.\" a NULL payload plus buffer size of zero? Keyrings?
+if this is supported by the key type (e.g., it is a keyring).
 
 The operation may be fail if the payload data is in the wrong format
 or is otherwise invalid.
@@ -901,8 +895,9 @@ to specify the new default keyring:
 .RS
 .TP
 .BR KEY_REQKEY_DEFL_NO_CHANGE
-No change.
-.\" FIXME: What is the purpose of KEY_REQKEY_DEFL_NO_CHANGE?
+Don't change the default keyring.
+This option is useful, since the call returns the current default keyring
+(without changing it).
 .TP
 .BR KEY_REQKEY_DEFL_DEFAULT
 This selects the default behaviour,
@@ -968,9 +963,6 @@ via the function
 .BR keyctl_set_reqkey_keyring (3).
 .TP
 .BR KEYCTL_SET_TIMEOUT " (since Linux 2.6.16)"
-.\" FIXME Against which clock is the timeout measured?
-.\" (It looks to be the REALTIME clock; was there a particular reason to
-.\" choose the REALTIME clock over the MONOTONIC clock?)
 Set a timeout on a key.
 .\" FIXME Other than looking in /proc/keys, is there any way of
 .\" discovering the timeout on a key?
@@ -984,8 +976,14 @@ is specified in
 .I arg3
 (cast to
 .IR "unsigned int" ).
+The timeout is measured against the realtime clock.
 
 Specifying the timeout value as 0 clears any existing timeout on the key.
+
+The
+.I /proc/keys
+file displays the remaining time until each key will expire.
+(This is the only method of discovering the timeout on a key.)
 
 The caller must either have the
 .I setattr
@@ -1138,7 +1136,9 @@ Replace the session keyring to which the
 .I parent
 of the calling process
 subscribes with the session keyring of the calling process.
-.\" FIXME What is the use case for KEYCTL_SESSION_TO_PARENT?
+.\" What is the use case for KEYCTL_SESSION_TO_PARENT?
+.\" David Howells: the Process Authentication Groups people requested this,
+.\" but then didn't use it; maybe there are no users.
 
 The keyring will be replaced in the parent process at the point
 where the parent next transitions from kernel space to user space.
@@ -1555,7 +1555,7 @@ is
 and the requested link would cause the maximum nesting depth
 for keyrings to be exceeded.
 .TP
-.B ENFILE
+.BR ENFILE " (Linux kernels before 3.13)"
 .\" FIXME Does this error really occur? I could not find where
 .\" in the kernel source it is generated, but have not tested
 .\" this case from a user-space program
@@ -1563,6 +1563,10 @@ for keyrings to be exceeded.
 is
 .BR KEYCTL_LINK
 and the keyring is full.
+(Before Linux 3.13,
+.\" commit b2a4df200d570b2c33a57e1ebfa5896e4bc81b69
+the available space for storing keyring links was limited to
+a single page of memory; since Linux 3.13, there is no fixed limit.)
 .TP
 .B ENOENT
 .I operation

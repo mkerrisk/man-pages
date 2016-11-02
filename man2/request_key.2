@@ -24,8 +24,6 @@ request_key \- request a key from the kernel's key management facility
 
 No glibc wrapper is provided for this system call; see NOTES.
 .SH DESCRIPTION
-.\" FIXME Is the request-key(8) program invoked in circumstances *other* than
-.\" when triggered by request_key(2)?
 .BR request_key ()
 attempts to find a key of the given
 .I type
@@ -38,13 +36,10 @@ attaches it to the keyring whose ID is specified in
 .I dest_keyring
 and returns the key's serial number.
 .\" FIXME Is 'keyring' allowed to be 0? Reading the source, it appears so.
+.\" In this case, by default, the key is assigned to the session keyring.
+.\" But, the KEYCTL_SET_REQKEY_KEYRING also seems to have an influence here.
+.\" What are the details here?
 .\"
-.\" If the keyring specified in KEY_INSTANTIATE is 0, and the
-.\" dest_keyring given to request_key(2) is 0, what is the result?
-.\" Does KEYCTL_SET_REQKEY_KEYRING have any effect in this scenario?
-.\"
-.\" What is the interaction between the keyring specified in KEY_INSTANTIATE
-.\" vs the keyring specified to request_key(2)
 
 .BR request_key ()
 first recursively searches for a matching key in all of the keyrings
@@ -52,8 +47,6 @@ attached to the calling process.
 The keyrings are searched in the order: thread-specific keyring,
 process-specific keyring, and then session keyring.
 .P
-.\" FIXME: The following paragraph could be clearer. What precisely is
-.\" the scenario here?
 If
 .BR request_key ()
 is called from a program invoked by
@@ -61,7 +54,9 @@ is called from a program invoked by
 on behalf of some other process to generate a key, then the keyrings of that
 other process will be searched next,
 using that other process's user ID, group ID,
-supplementary group IDs, and security context to control access.
+supplementary group IDs, and security context to determine access.
+.\" FIXME Above, can we then have an arbitrarily long sequence
+.\" of "recursive" request-key upcalls?
 .P
 The search of the keyring tree is breadth-first:
 the keys in each keyring searched are checked for a match before any child
@@ -129,11 +124,16 @@ and
 .IR description .
 .IP b)
 The kernel creates an authorization key, V, that refers to the key U
-and notes that the caller of
+and records the facts that the caller of
 .BR request_key (2)
-is (1) the context in which the key U should be instantiated and secured,
-and (2) the context from which associated key requests may be satisfied.
-
+is:
+.RS
+.IP (1) 4
+the context in which the key U should be instantiated and secured, and
+.IP (2) 
+the context from which associated key requests may be satisfied.
+.RE
+.IP
 The authorization key is constructed as follows:
 .RS
 .IP * 3
@@ -162,6 +162,9 @@ The payload of the key is taken from the data specified in
 The kernel creates a process that executes a user-space service such as
 .BR request-key (8)
 with a new session keyring that contains a link to the authorization key, V.
+.\" The request-key(8) program can be invoked in circumstances *other* than
+.\" when triggered by request_key(2). For example, upcalls from places such
+.\" as the DNS resolver.
 
 This program is supplied with the following command-line arguments:
 .RS
@@ -194,7 +197,7 @@ The ID of the session keyring of the caller of
 .RE
 .IP
 .IR Note :
-Each of the command-line arguments that is a key ID is encoded in
+each of the command-line arguments that is a key ID is encoded in
 .IR decimal
 (unlike the key IDs shown in
 .IR /proc/keys ,
@@ -206,12 +209,17 @@ The program spawned in the previous step:
 Assumes the authority to instantiate the key U using the
 .BR keyctl (2)
 .BR KEYCTL_ASSUME_AUTHORITY
-operation.
+operation (typically via the
+.BR keyctl_assume_authority (3)
+function).
 .IP *
-Obtains the callout data from the authorization key V (using the
+Obtains the callout data from the payload of the authorization key V
+(using the
 .BR keyctl (2)
 .BR KEYCTL_READ
-operation with a key ID value of
+operation (or, more commonly, the
+.BR keyctl_read (3)
+function) with a key ID value of
 .BR KEY_SPEC_REQKEY_AUTH_KEY ).
 .IP *
 Instantiates the key
@@ -221,8 +229,20 @@ specifying the payload and destination keyring.
 .BR request_key ()
 can be accessed using the special key ID
 .BR KEY_SPEC_REQUESTOR_KEYRING .)
-.\" FIXME Should an instantiating program be using KEY_SPEC_REQUESTOR_KEYRING?
+.\" Should an instantiating program be using KEY_SPEC_REQUESTOR_KEYRING?
 .\" I couldn't find a use in the keyutils git repo.
+.\" According to David Howells:
+.\" * This feature is provided, but not used at the moment.
+.\" * A key added to that ring is then owned by the requester
+Instantiation is performed using the
+.BR keyctl (2)
+.BR KEYCTL_INSTANTIATE
+operation (or, more commonly, the
+.BR keyctl_instantiate (3)
+function).
+At this point, the
+.BR request_key (2)
+call completes, and the requesting program can continue execution.
 .RE
 .P
 If these steps are unsuccessful, then an
@@ -234,8 +254,19 @@ and a temporary negative key will be installed in the keyring specified by
 This will expire after a few seconds, but will cause subsequent calls to
 .BR request_key ()
 to fail until it does.
-.\" FIXME Need an explanation above of why we want to use a temporary
-.\" negative key to cause subsequent calls to request_key() to fail.
+The purpose of this negatively instantiated key is to prevent
+(possibly different) processes making repeated requests
+(that require expensive
+.BR request-key (8)
+upcalls) for a key that can't (at the moment) be positively instantiated.
+
+Once the key has been instantiated, the authorization key
+.RB ( KEY_SPEC_REQKEY_AUTH_KEY )
+is revoked, and the destination keyring
+.RB ( KEY_SPEC_REQUESTOR_KEYRING )
+is no longer accessible from the
+.BR request-key (8)
+program.
 
 If a key is created, then\(emregardless of whether it is a valid key or
 a negative key\(emit will displace any other key with

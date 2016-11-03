@@ -1,6 +1,7 @@
 .\"
 .\" Copyright (C) 2014 Red Hat, Inc. All Rights Reserved.
 .\" Written by David Howells (dhowells@redhat.com)
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_ONEPARA)
 .\" This program is free software; you can redistribute it and/or
@@ -431,11 +432,111 @@ See
 and
 .BR request-key.conf (5)
 for more information.
-.SS /proc files
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-.\" FIXME document /proc files
+.SS /proc files
 .TP
 .IR /proc/keys " (since Linux 2.6.10)"
+This file exposes a list of the keys that
+are viewable by the reading process,
+providing various information about each key.
+
+The only keys included in the list are those that grant
+.I view
+permission to the reading process,
+regardless of whether or not it possesses them.
+LSM security checks are still performed,
+and may filter out further keys that the process is not authorised to view.
+
+An example of the data that one might see in this file is the following:
+
+.nf
+.in 0n
+$ cat /proc/keys
+009a2028 I--Q---   1 perm 3f010000  1000  1000 user     krb_ccache:primary: 12
+1806c4ba I--Q---   1 perm 3f010000  1000  1000 keyring  _pid: 2
+1c5b113d I--Q---   1 perm 3f010000  1000  1000 user     mtk:uusu: 5
+246cf9c2 I--Q---   1 perm 3f010000  1000  1000 user     mtk:uuu: 5
+25d3a08f I--Q---   1 perm 1f3f0000  1000 65534 keyring  _uid_ses.1000: 1
+28576bd8 I--Q---   3 perm 3f010000  1000  1000 keyring  _krb: 1
+2c546d21 I--Q--- 190 perm 3f030000  1000  1000 keyring  _ses: 2
+30a4e0be I------   4   2d 1f030000  1000 65534 keyring  _persistent.1000: 1
+32100fab I--Q---   4 perm 1f3f0000  1000 65534 keyring  _uid.1000: 2
+32a387ea I--Q---   1 perm 3f010000  1000  1000 keyring  _pid: 2
+3ce56aea I--Q---   5 perm 3f030000  1000  1000 keyring  _ses: 1
+.in
+.fi
+
+The fields shown in each line of this file are as follows:
+.RS
+.TP
+ID
+The ID (serial number) of the key, expressed in hexadecimal.
+.TP
+Flags
+A set of flags describing the state of the key:
+.RS
+.IP I 4
+The key has been instantiated.
+.IP R
+The key has been revoked.
+.IP D
+The key is dead (i.e., has been deleted).
+(A key may be briefly in this state during garbage collection.)
+.IP Q
+The key contributes to the user's quota.
+.IP U
+The key is under construction via a callback to user space;
+see
+.BR request-key (2).
+.IP N
+The key is negatively instantiated.
+.IP i
+The key has been invalidated.
+.RE
+.TP
+Usage
+[To be documented]
+.\" FIXME What is "Usage"?
+.TP
+Timeout
+The amount of time until the key will expire,
+expressed in human-readable form (weeks, days, hours, minutes, and seconds).
+The string
+.I perm
+here means that the key is permanent (no timeout).
+The string
+.I expd
+means that the key has already expired,
+but has not yet been garbage collected.
+.TP
+Permissions
+The ker permissions, expressed as four hexadecimal bytes corresponing to
+.TP
+UID
+The user ID of the key owner.
+.TP
+GID
+The group ID of the key.
+.TP
+Type
+The key type (user, keyring, etc.)
+.TP
+Description
+The key description (name).
+The description may optionally be followed by a colon (:)
+and some further key-type-specific information about the key.
+For example,
+.IR """user"""
+keys show the size in bytes of the key payload (expressed in decimal),
+while keyrings show the number of keys linked to the keyring,
+or the string
+.IR empty
+if there are no keys linked to the keyring.
+.TP
+???
+[To be documented]
+.\" FIXME What is the last piece after the colon?
+.RE
 .TP
 .IR /proc/key-users " (since Linux 2.6.10)"
 This file lists various information for each user ID that

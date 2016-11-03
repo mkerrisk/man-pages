@@ -96,32 +96,49 @@ the key is scheduled for garbage collection.
 .SS Key types
 The facility provides several basic types of key:
 .TP
+.I """user"""
+This is a general purpose key type.
+The key is kept entirely within kernel memory.
+The payload may be read and updated by user-space applications.
+
+The payload for keys of this type is a blob of arbitrary data
+of up to 32,767 bytes.
+
+The description may be any valid string, though it is preferred that it
+start with a colon-delimited prefix representing the service
+to which the key is of interest
+(for instance
+.IR """afs:mykey""" ).
+.TP
 .I """keyring"""
-Keys of this type are special.
-The payload consists of a set of links to other
-keys, analogous to a directory holding links to files.
+Keyrings are special keys whose payload consists of a set of links
+to other keys (including other keyrings),
+analogous to a directory holding links to files.
 The main purpose of a keyring is to prevent other keys from
 being garbage collected because nothing refers to them.
 .TP
-.I """user"""
-This is a general purpose key type.
-It may be instantiated with an arbitrary blob of data of up to about 32KB.
-It is kept entirely within kernel memory.
-It may be read and updated by user-space applications
+.IR """logon""" " (since Linux 3.3)"
+.\" commit 9f6ed2ca257fa8650b876377833e6f14e272848b
+This key type is essentially the same as
+.IR """user""" ,
+but it does not provide reading (i.e., the
+.BR keyctl (2)
+.BR KEYCTL_READ
+operation),
+meaning that the key payload is never visible from user space.
+This is suitable for storing username-password pairs
+that you do not want to be readable from user space.
 .TP
-.I """big_key"""
-This is similar to the
+.IR """big_key""" " (since Linux 3.13)"
+.\" commit ab3c3587f8cda9083209a61dbe3a4407d3cada10
+This key type is similar to the
 .I """user"""
 key type, but it may hold a payload of up to 1MiB in size.
 The data may be stored in the swap space rather than in kernel memory
-if the size exceeds the overhead of doing so
+if the data size exceeds the overhead of storing the data in swap space
 (a tmpfs file is used, which requires filesystem structures
 to be allocated in the kernel).
-.TP
-.I """logon"""
-This is similar to the
-.I """user"""
-key type, but the contents may not be read by user-space applications.
+This key type is useful for tasks such as holding Kerberos ticket caches.
 .PP
 There are more specialized key types available also, but they're not discussed
 here as they're not intended for normal user-space use.

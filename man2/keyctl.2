@@ -136,6 +136,9 @@ contains a non-zero value; otherwise the operation fails with the error
 .\" The keyctl_get_keyring_ID.3 page says that a new key
 .\" "will be created *if it is appropriate to do so**. What is the
 .\" determiner for appropriate?
+.\" David Howells: Some special keys such as KEY_SPEC_REQKEY_AUTH_KEY
+.\" wouldn't get created but user/user-session/session keyring would
+.\" be created.
 
 The caller must have
 .I search
@@ -153,9 +156,10 @@ via the function
 .BR keyctl_get_keyring_ID (3).
 .TP
 .BR KEYCTL_JOIN_SESSION_KEYRING " (since Linux 2.6.11)"
-.\" FIXME What is the use case for joining a new session keyring?
 Replace the session keyring this process subscribes to with
 a new session keyring.
+.\" This may be useful in conjunction with some sort of
+.\" session management framework that is employed by the application.
 
 If
 .I arg2
@@ -175,7 +179,6 @@ and the behavior is as follows:
 If a keyring with a matching description exists,
 the process will attempt to subscribe to that keyring if possible;
 if that is not possible, an error is returned.
-.\" FIXME What error is returned in the above case?
 In order to subscribe to the keyring,
 the caller must have
 .I search
@@ -249,9 +252,9 @@ The caller must have
 or
 .IR setattr
 permission on the key.
-.\" FIXME Keys with the KEY_FLAG_KEEP bit set cause an EPERM
+.\" Keys with the KEY_FLAG_KEEP bit set cause an EPERM
 .\" error for KEYCTL_REVOKE. Does this need to be documented?
-.\" (It's not clear how KEY_FLAG_KEEP gets set.)
+.\" David Howells: No significance for user space.
 
 The arguments
 .IR arg3 ,
@@ -629,11 +632,12 @@ then that key is displaced from the keyring.
 
 Before creating the link,
 the kernel checks the nesting of the keyrings and returns appropriate errors
-if the nesting is too deep
-.\" KEYRING_SEARCH_MAX_DEPTH 6
-or if the link would produce a cycle.
-.\" FIXME What is the purpose of limiting the nesting to
-.\" KEYRING_SEARCH_MAX_DEPTH (6)?
+if the link would produce a cycle
+or if the nesting of keyrings would be too too deep.
+(The limit on the nesting of keyrings is determined by the kernel constant
+.BR KEYRING_SEARCH_MAX_DEPTH ,
+defined with the value 6, and is necessary to prevent overflows
+on the kernel stack when recursively searching keyrings).
 
 The caller must have
 .I link
@@ -799,8 +803,8 @@ The key must either grant the caller
 .I read
 permission, or grant the caller
 .I search
-permission when searched for from the process keyrings.
-.\" FIXME Above, what does "searched for from the process keyrings" mean?
+permission when searched for from the process keyrings
+(i.e, the key is possessed).
 
 The
 .I arg5
@@ -813,8 +817,6 @@ via the function
 .TP
 .BR KEYCTL_INSTANTIATE " (since Linux 2.6.11)"
 (Positively) instantiate an uninstantiated key with a specified payload.
-.\" FIXME Is the only use for KEYCTL_INSTANTIATE inside a
-.\" request-keys(8)-style program?
 
 The ID of the key to be instantiated is provided in
 .I arg2
@@ -845,8 +847,11 @@ is nonzero, then, subject to the same constraints and rules as
 the instantiated key is linked into the keyring whose ID specified in
 .IR arg5 .
 
-The caller must have the appropriate authorization key;
-see
+The caller must have the appropriate authorization key.
+In other words, this operation is available only from a
+.BR request-key (8)-style
+program.
+See
 .BR request_key (2).
 
 This operation is exposed by
@@ -856,8 +861,6 @@ via the function
 .TP
 .BR KEYCTL_NEGATE " (since Linux 2.6.11)"
 Negatively instantiate an uninstantiated key.
-.\" FIXME Is the only use for KEYCTL_NEGATE inside a
-.\" request-keys(8)-style program?
 
 This operation is equivalent to the call:
 
@@ -874,16 +877,16 @@ via the function
 .TP
 .BR KEYCTL_SET_REQKEY_KEYRING " (since Linux 2.6.13)"
 Set the default keyring to which implicitly requested keys
-.\" FIXME What are implicitly requested keys? In what circumstances is
-.\" KEYCTL_SET_REQKEY_KEYRING useful?
-.\"
-.\" Are implicit requests just the ones that use the kernel-internal
-.\" request_key() function (which is not the same as the request_key(2)
-.\" system call)?
-.\"
+.\" FIXME
 .\" Does this operation have any effect for the request_key(2) system call?
+.\"
+.\"	David Howells: to be checked
 will be linked for this thread, and return the previous setting.
-Implicit key requests can occur when, for example, opening files
+Implicit key requests are those made by internal kernel components,
+.\" I.e., calls to the kernel's internal request_key() interface,
+.\" which is distinct from the request_key(2) system call (which
+.\" ultimately employs the kernel-internal interface).
+such as can occur when, for example, opening files
 on an AFS or NFS filesystem.
 
 The
@@ -938,8 +941,10 @@ Use the requestor keyring.
 .\" FIXME The preceding explanation needs to be expanded.
 .\" Is the following correct:
 .\"
-.\" The requestor keyring is the dest_keyring that was supplied
-.\" to a call to request_key(2)?
+.\"	The requestor keyring is the dest_keyring that
+.\"	was supplied to a call to request_key(2)?
+.\"
+.\" David Howells: to be checked
 .RE
 .IP
 All other values are invalid.
@@ -964,8 +969,6 @@ via the function
 .TP
 .BR KEYCTL_SET_TIMEOUT " (since Linux 2.6.16)"
 Set a timeout on a key.
-.\" FIXME Other than looking in /proc/keys, is there any way of
-.\" discovering the timeout on a key?
 
 The ID of the key is specified in
 .I arg2
@@ -1013,8 +1016,6 @@ via the function
 .BR KEYCTL_ASSUME_AUTHORITY " (since Linux 2.6.16)"
 Assume (or divest) the authority for the calling thread
 to instantiate a key.
-.\" FIXME Is the only use for KEYCTL_ASSUME_AUTHORITY inside a
-.\" request-keys(8)-style program?
 
 The
 .I arg2
@@ -1039,9 +1040,14 @@ the thread is automatically divested of authority to instantiate the key.
 Authority over a key can be assumed only if the calling thread has present
 in its keyrings the authorization key that is
 associated with the specified key.
+(In other words, this operation is available only from a
+.BR request-key (8)-style
+program; see
+.BR request_key (2).)
 The caller must have
 .I search
 permission on the authorization key.
+
 
 If the specified key has a matching authorization key,
 then the ID of that key is returned.
@@ -1176,15 +1182,11 @@ via the function
 .TP
 .BR KEYCTL_REJECT " (since Linux 2.6.39)"
 .\" commit fdd1b94581782a2ddf9124414e5b7a5f48ce2f9c
-.\" FIXME We need some text here on why it is useful to negatively
-.\" instantiate a key
 Mark a key as negatively instantiated and set an expiration timer
 on the key.
 This operation provides a superset of the functionality of the earlier
 .BR KEYCTL_NEGATE
 operation.
-.\" FIXME Is the only use for KEYCTL_REJECT inside a
-.\" request-keys(8)-style program?
 
 The ID of the key that is to be negatively instantiated is specified in
 .I arg2
@@ -1216,11 +1218,13 @@ the negatively instantiated key is linked into the keyring
 whose ID specified in
 .IR arg5 .
 
-The caller must have the appropriate instantiation permit set
-(authorization key, see
-.B KEYCTL_ASSUME_AUTHORITY
-command and
-.BR request_key (2)).
+The caller must have the appropriate authorization key.
+In other words, this operation is available only from a
+.BR request-key (8)-style
+program.
+See
+.BR request_key (2).
+
 
 Negative keys are used to rate limit repeated
 .BR request_key (2)
@@ -1322,20 +1326,6 @@ via the function
 Get the persistent keyring
 .RB ( persistent-keyring (7))
 for a specified user and link it to a specified keyring.
-.\" FIXME What is the difference between the user keyring and
-.\" the persistent keyring?
-.\"
-.\" FIXME What is the lifetime of the persistent keyring?
-.\"
-.\" FIXME The session-keyring(7) page has the following text.
-.\" What are the circumstances that dictate the choice?
-.\"
-.\"     If a process doesn't have a session keyring
-.\"     when it is accessed,  then,  under  certain
-.\"     circumstances,  the  user  session  keyring
-.\"     will be attached as the session keyring and
-.\"     under  others a new session keyring will be
-.\"     created.
 
 The user ID is specified in
 .I arg2
@@ -1556,9 +1546,6 @@ and the requested link would cause the maximum nesting depth
 for keyrings to be exceeded.
 .TP
 .BR ENFILE " (Linux kernels before 3.13)"
-.\" FIXME Does this error really occur? I could not find where
-.\" in the kernel source it is generated, but have not tested
-.\" this case from a user-space program
 .IR operation
 is
 .BR KEYCTL_LINK

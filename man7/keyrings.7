@@ -434,6 +434,9 @@ and
 for more information.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SS /proc files
+The kernel provides various
+.I /proc
+files that expose information about keys or define limits on key usage.
 .TP
 .IR /proc/keys " (since Linux 2.6.10)"
 This file exposes a list of the keys that
@@ -495,8 +498,10 @@ The key has been invalidated.
 .RE
 .TP
 Usage
-[To be documented]
-.\" FIXME What is "Usage"?
+This is a count of the number of kernel credential
+structures that are pinning the key
+(aproximately: the number of threads and open file references
+that refer to this key).
 .TP
 Timeout
 The amount of time until the key will expire,
@@ -517,6 +522,8 @@ The user ID of the key owner.
 .TP
 GID
 The group ID of the key.
+The value \-1 here means that the key as no group ID;
+this can occur in certain circumstances for keys created by the kernel.
 .TP
 Type
 The key type (user, keyring, etc.)
@@ -532,10 +539,6 @@ while keyrings show the number of keys linked to the keyring,
 or the string
 .IR empty
 if there are no keys linked to the keyring.
-.TP
-???
-[To be documented]
-.\" FIXME What is the last piece after the colon?
 .RE
 .TP
 .IR /proc/key-users " (since Linux 2.6.10)"
@@ -558,8 +561,8 @@ The fields shown in each line are as follows:
 The user ID.
 .TP
 .I usage
-[To be documented]
-.\" FIXME What does 'usage' show us?
+This is a kernel-internal usage count for the kernel structure
+used to record key users.
 .TP
 .IR nkeys / nikeys
 The total number of keys owned by the user,
@@ -578,7 +581,12 @@ and the upper limit on the number of bytes in key payloads for that user.
 .\" commit 5d135440faf7db8d566de0c6fab36b16cf9cfc3b
 The value in this file specifies the interval, in seconds,
 after which revoked and expired keys will be garbage collected.
-.\" FIXME What is the purpose of the GC delay?
+The purpose of having such an interval is so that there is a window
+of time where user space can see an error (respectively
+.BR EKEYREVOKED
+and
+.BR EKEYEXPIRED )
+that indicates what happened to the key.
 
 The default value in this file is 300 (i.e., 5 minutes).
 .TP

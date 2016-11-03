@@ -33,10 +33,10 @@ for more information.
 .SS Keys
 A key has the following attributes:
 .TP
-Serial number
+Serial number (ID)
 This is a unique integer handle by which a key is referred to in system call
 arguments.
-The serial number is sometimes synonymously referred the key ID.
+The serial number is sometimes synonymously referred as the key ID.
 Programmatically, key serial numbers are represented using the type
 .IR key_serial_t .
 .TP
@@ -53,7 +53,7 @@ The key description is a printable string that is used as the search term
 for the key (in conjunction with the key type) as well as a display name.
 During searches, the description may be partially matched or exactly matched.
 .TP
-Payload
+Payload (data)
 The payload is the actual content of a key.
 This is usually set when a key is created,
 but it is possible for the kernel to upcall to user space to finish the
@@ -68,7 +68,6 @@ suitable permission is granted to the caller.
 Access rights
 Much as files do,
 each key has an owning user ID, an owning group ID, and a security label.
-files do.
 They also have a set of permissions,
 though there are more than for a normal UNIX file,
 and there is an additional category beyond the usual user,
@@ -135,20 +134,20 @@ Keyrings may be considered as analogous to UNIX directories
 where each directory contains a set of hard links to files.
 .P
 Various operations (system calls) may be applied only to keyrings:
-.IP "\fBAdding\fR"
+.IP Adding
 A key may be added to a keyring by system calls that create keys.
 This prevents the new key from being immediately deleted
 when the system call driver releases its last reference to the key.
-.IP "\fBLinking\fR"
+.IP Linking
 A link may be added to a keyring pointing to a key that is already known,
 provided this does not create a self-referential cycle.
-.IP "\fBUnlinking\fR"
+.IP Unlinking
 A link may be removed from a keyring.
 When the last link to a key is removed,
 that key will be scheduled for deletion by the garbage collector.
-.IP "\fBClearing\fR"
+.IP Clearing
 All the links may be removed from a keyring.
-.IP "\fBSearching\fR"
+.IP Searching
 A keyring may be considered the root of a tree or subtree in which keyrings
 form the branches and non-keyrings the leaves.
 This tree may be searched for a leaf matching
@@ -167,13 +166,14 @@ To prevent a key from being prematurely garbage collected,
 it must anchored to keep its reference count elevated
 when it is not in active use by the kernel.
 .P
-\fBKeyrings\fR are used to anchor other keys - each link is a reference on a
+Keyrings are used to anchor other keys - each link is a reference on a
 key - but whilst keyrings are available to link to keys, keyrings themselves
 are just keys and are also subject to the same anchoring necessity.
 .P
 The kernel makes available a number of anchor keyrings.
 Note that some of these keyrings will be created only when first accessed.
-.IP "\fBProcess keyrings\fR"
+.TP
+Process keyrings
 Process credentials themselves reference keyrings with specific semantics.
 These keyrings are pinned as long as the set of credentials exists,
 which is usually as long as the process exists.
@@ -188,8 +188,9 @@ the
 the
 .BR thread-keyring (7)
 (specific to a particular thread).
-.IP "\fBUser keyrings\fR"
-Each UID known to the kernel has a record that contains two keyrings: The
+.TP
+User keyrings
+Each UID known to the kernel has a record that contains two keyrings: the
 .BR user-keyring (7)
 and the
 .BR user-session-keyring (7).
@@ -197,7 +198,8 @@ These exist for as long as the UID record in the kernel exists.
 A link to the user keyring is placed in a new session keyring by
 .BR pam_keyinit (8) 
 when a new login session is initiated.
-.IP "\fBPersistent keyrings\fR"
+.TP
+Persistent keyrings
 There is a
 .BR persistent-keyring (7)
 available to each UID known to the system.
@@ -209,10 +211,11 @@ user logs out.
 .IP
 Note that the expiration time is reset every time the persistent key is
 requested.
-.IP "\fBSpecial keyrings\fR"
+.TP
+Special keyrings
 There are special keyrings owned by the kernel that can anchor keys
 for special purposes.
-An example of this is the \fBsystem keyring\fR used for holding
+An example of this is the \fIsystem keyring\fR used for holding
 encryption keys for module signature verification.
 .IP
 These special keyrings  are usually closed to direct alteration
@@ -358,7 +361,7 @@ The
 .BR request_key (2)
 system call is the primary point of
 access for user-space applications to find a key.
-(!nternally, the kernel has something similar available
+(internally, the kernel has something similar available
 for use by internal components that make use of keys.)
 .P
 The search algorithm works as follows:
@@ -457,8 +460,6 @@ An example of the data that one might see in this file is the following:
 $ cat /proc/keys
 009a2028 I--Q---   1 perm 3f010000  1000  1000 user     krb_ccache:primary: 12
 1806c4ba I--Q---   1 perm 3f010000  1000  1000 keyring  _pid: 2
-1c5b113d I--Q---   1 perm 3f010000  1000  1000 user     mtk:uusu: 5
-246cf9c2 I--Q---   1 perm 3f010000  1000  1000 user     mtk:uuu: 5
 25d3a08f I--Q---   1 perm 1f3f0000  1000 65534 keyring  _uid_ses.1000: 1
 28576bd8 I--Q---   3 perm 3f010000  1000  1000 keyring  _krb: 1
 2c546d21 I--Q--- 190 perm 3f030000  1000  1000 keyring  _ses: 2
@@ -500,7 +501,7 @@ The key has been invalidated.
 Usage
 This is a count of the number of kernel credential
 structures that are pinning the key
-(aproximately: the number of threads and open file references
+(approximately: the number of threads and open file references
 that refer to this key).
 .TP
 Timeout
@@ -515,7 +516,8 @@ means that the key has already expired,
 but has not yet been garbage collected.
 .TP
 Permissions
-The ker permissions, expressed as four hexadecimal bytes corresponing to
+The key permissions, expressed as four hexadecimal bytes containing,
+from left to right, the possessor, user, group, and other permissions.
 .TP
 UID
 The user ID of the key owner.
@@ -603,7 +605,7 @@ operation.)
 
 The default value in this file is 259200 (i.e., 3 days).
 .PP
-The following files (which are writable by privileged processies)
+The following files (which are writable by privileged processes)
 are used to enforce quotas on the number of keys
 and number of bytes of data that can be stored in key payloads:
 .TP
@@ -646,25 +648,31 @@ The Linux key-management facility has a number of users and usages,
 but is not limited to those that already exist.
 .P
 In-kernel users of this facility include:
-.IP "\fBNetwork filesystems - DNS\fR"
+.TP
+Network filesystems - DNS
 The kernel uses the upcall mechanism provided by the keys to upcall to
 user space to do DNS lookups and then to cache the results.
-.IP "\fBAF_RXRPC and kAFS - Authentication\fR"
+.TP
+AF_RXRPC and kAFS - Authentication
 The AF_RXRPC network protocol and the in-kernel AFS filesystem
 use keys to store the ticket needed to do secured or encrypted traffic.
 These are then looked up by
 network operations on AF_RXRPC and filesystem operations on kAFS.
-.IP "\fBNFS - User ID mapping\fR"
+.TP
+NFS - User ID mapping
 The NFS filesystem uses keys to store mappings of
 foreign user IDs to local user IDs.
-.IP "\fBCIFS - Password\fR"
+.TP
+CIFS - Password
 The CIFS filesystem uses keys to store passwords for accessing remote shares.
-.IP "\fBModule verification\fR"
+.TP
+Module verification
 The kernel build process can be made to cryptographically sign modules.
 That signature is then checked when a module is loaded.
 .P
 User-space users of this facility include:
-.IP "\fBKerberos key storage\fR"
+.TP
+Kerberos key storage
 The MIT Kerberos 5 facility (libkrb5) can use keys to store authentication
 tokens which can be made to be automatically cleaned up a set time after the
 user last uses them,

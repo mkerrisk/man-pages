@@ -453,13 +453,12 @@ The only keys included in the list are those that grant
 permission to the reading process,
 regardless of whether or not it possesses them.
 LSM security checks are still performed,
-and may filter out further keys that the process is not authorised to view.
+and may filter out further keys that the process is not authorized to view.
 
 An example of the data that one might see in this file is the following:
 
 .nf
 .in 0n
-$ cat /proc/keys
 009a2028 I--Q---   1 perm 3f010000  1000  1000 user     krb_ccache:primary: 12
 1806c4ba I--Q---   1 perm 3f010000  1000  1000 keyring  _pid: 2
 25d3a08f I--Q---   1 perm 1f3f0000  1000 65534 keyring  _uid_ses.1000: 1
@@ -534,15 +533,64 @@ The key type (user, keyring, etc.)
 .TP
 Description
 The key description (name).
-The description may optionally be followed by a colon (:)
-and some further key-type-specific information about the key.
-For example,
-.IR """user"""
-keys show the size in bytes of the key payload (expressed in decimal),
-while keyrings show the number of keys linked to the keyring,
+.TP
+Description
+This field contains descriptive information about the key.
+For most key types, it has the form
+
+     desc[: extra\-info]
+
+The
+.I name
+subfield is the the key's description (name).
+The optional
+.I extra\-info
+field provides some further information about the key.
+The information that appears here depends on the key type, as follows:
+.RS
+.TP 4
+.IR """user""" " and " """logon"""
+The size in bytes of the key payload (expressed in decimal).
+.TP
+.IR """keyring"""
+The number of keys linked to the keyring,
 or the string
 .IR empty
 if there are no keys linked to the keyring.
+.TP
+.IR """big_key"""
+The payload size in bytes, followed either by the string
+.IR [file] ,
+if the key payload exceeds the threshold that means that the
+payload is stored in a (swappable) tmpfs filesystem,
+or otherwise the string
+.IR [buff] ,
+indicating that the key is small enough to reside in kernel memory.
+.RE
+.IP
+For the
+.IR """.request_key_auth"""
+key type
+(authorization key; see
+.BR request_key (2)),
+the description field has the form shown in the following example:
+
+    key:c9a9b19 pid:28880 ci:10
+
+The three subfields are as follows:
+.RS
+.TP 5
+.I key
+The hexadecimal ID of the key being instantiated in the requesting program.
+.TP
+.I pid
+The PID of the requesting program.
+.TP
+.I ci
+The length of the callout data with which the requested key should
+be instantiated
+(i.e., the length of the payload associated with the authorization key).
+.RE
 .RE
 .TP
 .IR /proc/key-users " (since Linux 2.6.10)"

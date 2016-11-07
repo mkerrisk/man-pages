@@ -45,7 +45,7 @@ A key's type defines what sort of data can be held in the key,
 how the proposed content of the key will be parsed,
 and how the payload will be used.
 
-There are a number of general purpose types available, plus some specialist
+There are a number of general-purpose types available, plus some specialist
 types defined by specific drivers.
 .TP
 Description (name)
@@ -68,21 +68,23 @@ suitable permission is granted to the caller.
 Access rights
 Much as files do,
 each key has an owning user ID, an owning group ID, and a security label.
-They also have a set of permissions,
+Each key also has a set of permissions,
 though there are more than for a normal UNIX file,
-and there is an additional category beyond the usual user,
+and there is an additional category\(empossessor\(embeyond the usual user,
 group, and other (see below).
 
-Note that keys are quota controlled since they represent unswappable kernel
-memory and the owning user ID specifies whose quota is to be debited.
+Note that keys are quota controlled, since they require unswappable kernel
+memory
+The owning user ID specifies whose quota is to be debited.
 .TP
 Expiration time
 Each key can have an expiration time set.
 When that time is reached,
 the key is marked as being expired and accesses to it fail with
 .BR EKEYEXPIRED .
-If not deleted, updated, or replaced, after a set amount of time,
-expired keys are automatically removed along with all links to them,
+If not deleted, updated, or replaced, then, after a set amount of time,
+an expired key is automatically removed (garbage collected)
+along with all links to it,
 and attempts to access the key will fail with the error
 .BR ENOKEY .
 .TP
@@ -94,10 +96,10 @@ When the reference count reaches zero,
 the key is scheduled for garbage collection.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SS Key types
-The facility provides several basic types of key:
+The kernel provides several basic types of key:
 .TP
 .I """user"""
-This is a general purpose key type.
+This is a general-purpose key type.
 The key is kept entirely within kernel memory.
 The payload may be read and updated by user-space applications.
 
@@ -127,7 +129,7 @@ but it does not provide reading (i.e., the
 operation),
 meaning that the key payload is never visible from user space.
 This is suitable for storing username-password pairs
-that you do not want to be readable from user space.
+that should not be readable from user space.
 .TP
 .IR """big_key""" " (since Linux 3.13)"
 .\" commit ab3c3587f8cda9083209a61dbe3a4407d3cada10
@@ -141,8 +143,8 @@ to be allocated in the kernel).
 This key type is useful for tasks such as holding Kerberos ticket caches.
 .PP
 There are more specialized key types available also,
-but they're not discussed
-here as they're not intended for normal user-space use.
+but they aren't discussed here
+because they aren't intended for normal user-space use.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SS Keyrings
 As previously mentioned, keyrings are a special type of key that contain
@@ -168,7 +170,7 @@ All the links may be removed from a keyring.
 .IP Searching
 A keyring may be considered the root of a tree or subtree in which keyrings
 form the branches and non-keyrings the leaves.
-This tree may be searched for a leaf matching
+This tree may be searched for a key matching
 a particular type and description.
 .P
 See
@@ -183,11 +185,12 @@ for more information.
 To prevent a key from being prematurely garbage collected,
 it must anchored to keep its reference count elevated
 when it is not in active use by the kernel.
-.P
-Keyrings are used to anchor other keys - each link is a reference on a
-key - but whilst keyrings are available to link to keys, keyrings themselves
-are just keys and are also subject to the same anchoring necessity.
-.P
+
+Keyrings are used to anchor other keys:
+each link is a reference on a key.
+Note that keyrings themselves are just keys and
+are also subject to the same anchoring necessity.
+
 The kernel makes available a number of anchor keyrings.
 Note that some of these keyrings will be created only when first accessed.
 .TP
@@ -197,7 +200,7 @@ These keyrings are pinned as long as the set of credentials exists,
 which is usually as long as the process exists.
 .IP
 There are three keyrings with different inheritance/sharing rules:
-The
+the
 .BR session-keyring (7)
 (inherited and shared by all child processes),
 the
@@ -224,11 +227,13 @@ available to each UID known to the system.
 It may persist beyond the life of the UID record previously mentioned,
 but has an expiration time set such that it is automatically cleaned up
 after a set time.
-This, for example, permits cron scripts to use credentials left when the
-user logs out.
+This permits, for example,
+.BR cron (8)
+scripts to use credentials that are left in the persistent keyring after
+the user logs out.
 .IP
-Note that the expiration time is reset every time the persistent key is
-requested.
+Note that the expiration time of the persistent keyring
+is reset every time the persistent key is requested.
 .TP
 Special keyrings
 There are special keyrings owned by the kernel that can anchor keys
@@ -258,25 +263,31 @@ Any key or keyring that does not grant
 .I search
 permission to the caller is ignored in all the following rules.
 .IP (2)
-A thread \fIpossesses\fR its \fBsession\fR, \fBprocess\fR, and \fBthread\fR
-keyrings directly because those are pointed to by its credentials.
+A thread possesses its
+.BR session-keyring (7),
+.BR process-keyring (7),
+and
+.BR thread-keyring (7)
+directly because those keyrings are referred to by its credentials.
 .IP (3)
-If a keyring is possessed, then any key it links to is \fIalso\fR possessed.
+If a keyring is possessed, then any key it links to is also possessed.
 .IP (4)
 If any key a keyring links to is itself a keyring, then rule (3) applies
-\fIrecursively\fP.
+recursively.
 .IP (5)
-If a process is upcalled from the kernel to instantiate a key, then it also
-possesses the \fIrequester's\fP keyrings as in rule (1) as if it were the
-requester.
+If a process is upcalled from the kernel to instantiate a key (see
+.BR request_key (2)),
+then it also possesses the requester's keyrings as in
+rule (1) as if it were the requester.
 .P
 Note that possession is not a fundamental property of a key,
 but must rather be calculated each time the key is needed.
 .P
 Possession is designed to allow set-user-ID programs run from, say
 a user's shell to access the user's keys.
-It also allows the prevention of access to keys
-just on the basis of UID and GID matches.
+Granting permissions to the key possessor while denying them
+to the key owner allows the prevention of access to keys
+on the basis of UID and GID matches.
 .P
 When it creates the session keyring,
 .BR pam_keyinit (8)
@@ -333,10 +344,9 @@ For a keyring: the list of serial numbers (keys) to
 which the keyring has links may be read.
 .TP
 .I write
-The payload of the key may be updated.
+The payload of the key may be updated and the key may be revoked.
 For a keyring, links may be added to or removed from the keyring,
-the keyring may be cleared completely (all links are removed),
-and the key may be revoked.
+and the keyring may be cleared completely (all links are removed),
 .TP
 .I search
 For a key (or a keyring): the key may be found by a search.
@@ -363,7 +373,9 @@ can't even tell that the key exists.
 In addition to access rights, any active Linux Security Module (LSM) may
 prevent access to a key if its policy so dictates.
 A key may be given a
-security label or other attribute by the LSM which can be retrieved.
+security label or other attribute by the LSM;
+this label is retrievable via
+.BR keyctl_get_security (3).
 .P
 See
 .BR keyctl_chown (3),
@@ -381,12 +393,12 @@ The
 .BR request_key (2)
 system call is the primary point of
 access for user-space applications to find a key.
-(internally, the kernel has something similar available
+(Internally, the kernel has something similar available
 for use by internal components that make use of keys.)
 .P
 The search algorithm works as follows:
 .IP (1) 4
-The three process keyrings are searched in the following order: the thread
+The process keyrings are searched in the following order: the thread
 .BR thread-keyring (7)
 if it exists, the
 .BR process-keyring (7)
@@ -398,11 +410,11 @@ if that exists.
 .IP (2)
 If the caller was a process that was invoked by the
 .BR request_key (2)
-upcall mechanism then the keyrings of the original caller of that
+upcall mechanism, then the keyrings of the original caller of
 .BR request_key (2)
 will be searched as well.
 .IP (3)
-The search of the keyring tree is in preorder:
+The search of a keyring tree is in preorder:
 each keyring is searched first for a match,
 then the keyrings referred to by that keyring are searched.
 .IP (4)
@@ -412,6 +424,7 @@ then the search terminates and that key is returned.
 If a matching key is found that has an error state attached,
 that error state is noted and the search continues.
 .IP (6)
+.\" FIXME Is the word "no" missing from the next sentence?
 If valid matching key is found,
 then the first noted error state is returned; otherwise, an 
 .B ENOKEY
@@ -435,7 +448,8 @@ argument, create a new key and then upcall to user space to
 instantiate the key.
 This allows keys to be created on an as-needed basis.
 .P
-Typically, this will involve the kernel forking and exec'ing the
+Typically,
+this will involve the kernel creating a new process that executes the
 .BR request-key (8)
 program, which will then execute the appropriate handler based on its
 configuration.
@@ -543,7 +557,7 @@ The user ID of the key owner.
 .TP
 GID
 The group ID of the key.
-The value \-1 here means that the key as no group ID;
+The value \-1 here means that the key has no group ID;
 this can occur in certain circumstances for keys created by the kernel.
 .TP
 Type
@@ -580,7 +594,9 @@ if there are no keys linked to the keyring.
 The payload size in bytes, followed either by the string
 .IR [file] ,
 if the key payload exceeds the threshold that means that the
-payload is stored in a (swappable) tmpfs filesystem,
+payload is stored in a (swappable)
+.BR tmpfs (5)
+filesystem,
 or otherwise the string
 .IR [buff] ,
 indicating that the key is small enough to reside in kernel memory.
@@ -640,7 +656,7 @@ and the number of those keys that have been instantiated.
 .TP
 .IR qnkeys / maxkeys
 The number of keys owned by the user,
-and the maximum keys that the user may own.
+and the maximum number of keys that the user may own.
 .TP
 .IR qnbytes / maxbytes
 The number of bytes consumed in payloads of the keys owned by this user,
@@ -745,7 +761,9 @@ The MIT Kerberos 5 facility (libkrb5) can use keys to store authentication
 tokens which can be made to be automatically cleaned up a set time after
 the user last uses them,
 but until then permits them to hang around after the user
-has logged out so that cron scripts can use them.
+has logged out so that
+.BR cron (8)
+scripts can use them.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SH SEE ALSO
 .ad l

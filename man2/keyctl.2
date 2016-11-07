@@ -1651,6 +1651,272 @@ When employing the wrapper in that library, link with
 However, rather than using this system call directly,
 you probably want to use the various library functions
 mentioned in the descriptions of individual operations above.
+.SH EXAMPLE
+The program below provide subset of the functionality of the
+.BR request-key (8)
+program provided by the
+.I keyutils
+package.
+For informational purposes,
+the program records various information in a log file.
+
+As described in
+.BR request_key (2),
+the
+.BR request-key (8)
+program is invoked with command-line arguments that
+describe a key that is to be instantiated.
+The example program fetches and logs these arguments.
+The program assumes authority to instantiate the requested key,
+and then instantiates that key.
+
+The following shell session demonstrates the use of this program.
+In the session,
+we compile the program and then use it to temporarily replace the standard
+.BR request-key (8)
+program.
+(Note that temporarily disabling the standard
+.BR request-key (8)
+program may not be safe on some systems.)
+While our example program is installed,
+we use the example program shown in
+.BR request_key (2)
+to request a key.
+
+.nf
+.in +4n
+$ \fBcc \-o key_instantiate key_instantiate.c \-lkeyutils\fP
+$ \fBsudo mv /sbin/request\-key /sbin/request\-key.backup\fP
+$ \fBsudo cp key_instantiate /sbin/request\-key\fP
+$ \fB./t_request_key user mykey somepayloaddata\fP
+Key ID is 20d035bf
+$ \fBsudo mv /sbin/request\-key.backup /sbin/request\-key\fP
+.in
+.fi
+
+Looking at the log file created by this program,
+we can see the command-line arguments supplied to our example program:
+
+.nf
+.in +4n
+$ \fBcat /tmp/key_instantiate.log \fP
+Time: Mon Nov  7 13:06:47 2016
+
+Command line arguments:
+  argv[0]:            /sbin/request-key
+  operation:          create
+  key_to_instantiate: 20d035bf
+  UID:                1000
+  GID:                1000
+  thread_keyring:     0
+  process_keyring:    0
+  session_keyring:    256e6a6
+
+Key description:      user;1000;1000;3f010000;mykey
+Auth key payload:     somepayloaddata
+Destination keyring:  256e6a6
+Auth key description: .request_key_auth;1000;1000;0b010000;20d035bf
+.in
+.fi
+
+The last few lines of the above output show that the example program
+was able to fetch:
+.IP * 3
+the description of the key to be instantiated,
+which included the name of the key
+.RI ( mykey );
+.IP *
+the payload of the authorization key, which consisted of the data
+.RI ( somepayloaddata )
+passed to
+.BR request_key (2);
+.IP *
+the destination keyring that was specified in the call to
+.BR request_key (2);
+and
+.IP *
+the description of the authorization key,
+where we can see that the name of the authorization key matches
+the ID of the key that is to be instantiated
+.RI ( 20d035bf ).
+.PP
+The example program in
+.BR request_key (2)
+specified the destination keyring as
+.BR KEY_SPEC_SESSION_KEYRING .
+By examining the contents of
+.IR /proc/keys ,
+we can see that this was translated to the ID of the destination keyring
+.RI ( 0256e6a6 )
+shown in the log output above;
+we can also see the newly created key with the name
+.IR mykey
+and ID
+.IR 20d035bf .
+
+.nf
+.in +4n
+$ \fBcat /proc/keys | egrep \(aqmykey|256e6a6\(aq\fP
+0256e6a6 I\-\-Q\-\-\-  194 perm 3f030000  1000  1000 keyring  _ses: 3
+20d035bf I\-\-Q\-\-\-    1 perm 3f010000  1000  1000 user     mykey: 16
+.in
+.fi
+.SS Program source
+\&
+.nf
+/* key_instantiate.c */
+
+#include <sys/types.h>
+#include <keyutils.h>
+#include <time.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+
+#ifndef KEY_SPEC_REQUESTOR_KEYRING
+#define KEY_SPEC_REQUESTOR_KEYRING      \-8
+#endif
+
+int
+main(int argc, char *argv[])
+{
+    FILE *fp;
+    time_t t;
+    char *operation;
+    key_serial_t key_to_instantiate, dest_keyring;
+    key_serial_t thread_keyring, process_keyring, session_keyring;
+    uid_t uid;
+    gid_t gid;
+    char dbuf[256];
+    char auth_key_payload[256];
+    int akp_size;       /* Size of auth_key_payload */
+
+    fp = fopen("/tmp/key_instantiate.log", "w");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    setbuf(fp, NULL);
+
+    t = time(NULL);
+    fprintf(fp, "Time: %s\\n", ctime(&t));
+
+    /*
+     * The kernel passes a fixed set of arguments to the program
+     * that it execs; fetch them.
+     */
+    operation = argv[1];
+    key_to_instantiate = atoi(argv[2]);
+    uid = atoi(argv[3]);
+    gid = atoi(argv[4]);
+    thread_keyring = atoi(argv[5]);
+    process_keyring = atoi(argv[6]);
+    session_keyring = atoi(argv[7]);
+
+    fprintf(fp, "Command line arguments:\\n");
+    fprintf(fp, "  argv[0]:            %s\\n", argv[0]);
+    fprintf(fp, "  operation:          %s\\n", operation);
+    fprintf(fp, "  key_to_instantiate: %lx\\n",
+            (long) key_to_instantiate);
+    fprintf(fp, "  UID:                %ld\\n", (long) uid);
+    fprintf(fp, "  GID:                %ld\\n", (long) gid);
+    fprintf(fp, "  thread_keyring:     %lx\\n", (long) thread_keyring);
+    fprintf(fp, "  process_keyring:    %lx\\n", (long) process_keyring);
+    fprintf(fp, "  session_keyring:    %lx\\n", (long) session_keyring);
+    fprintf(fp, "\\n");
+
+    /*
+     * Assume the authority to instantiate the key named in argv[2]
+     */
+    if (keyctl(KEYCTL_ASSUME_AUTHORITY, key_to_instantiate) == \-1) {
+        fprintf(fp, "KEYCTL_ASSUME_AUTHORITY failed: %s\\n",
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Fetch the description of the key that is to be instantiated
+     */
+    if (keyctl(KEYCTL_DESCRIBE, key_to_instantiate,
+                dbuf, sizeof(dbuf)) == \-1) {
+        fprintf(fp, "KEYCTL_DESCRIBE failed: %s\\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fp, "Key description:      %s\\n", dbuf);
+
+    /*
+     * Fetch the payload of the authorization key, which is
+     * actually the callout data given to request_key()
+     */
+    akp_size = keyctl(KEYCTL_READ, KEY_SPEC_REQKEY_AUTH_KEY,
+                      auth_key_payload, sizeof(auth_key_payload));
+    if (akp_size == \-1) {
+        fprintf(fp, "KEYCTL_READ failed: %s\\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    auth_key_payload[akp_size] = \(aq\\0\(aq;
+    fprintf(fp, "Auth key payload:     %s\\n", auth_key_payload);
+
+    /*
+     * For interest, get the ID of the authorization key and
+     * display it.
+     */
+    auth_key = keyctl(KEYCTL_GET_KEYRING_ID,
+            KEY_SPEC_REQKEY_AUTH_KEY);
+    if (auth_key == \-1) {
+        fprintf(fp, "KEYCTL_GET_KEYRING_ID failed: %s\\n",
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fp, "Auth key ID:          %lx\\n", (long) auth_key);
+
+    /*
+     * Fetch key ID for the request_key(2) destination keyring.
+     */
+    dest_keyring = keyctl(KEYCTL_GET_KEYRING_ID,
+                          KEY_SPEC_REQUESTOR_KEYRING);
+    if (dest_keyring == \-1) {
+        fprintf(fp, "KEYCTL_GET_KEYRING_ID failed: %s\\n",
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fp, "Destination keyring:  %lx\\n", (long) dest_keyring);
+
+    /*
+     * Fetch the description of the authorization key. This
+     * allows us to see the key type, UID, GID, permissions,
+     * and description (name) of the key. Among other things,
+     * we will see that the name of the key is a hexadecimal
+     * string representing the ID of the key to be instantiated.
+     */
+    if (keyctl(KEYCTL_DESCRIBE, KEY_SPEC_REQKEY_AUTH_KEY,
+                dbuf, sizeof(dbuf)) == \-1) {
+        fprintf(fp, "KEYCTL_DESCRIBE failed: %s\\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fp, "Auth key description: %s\\n", dbuf);
+
+    /*
+     * Instantiate the key using the callout data that was supplied
+     * in the payload of the authorization key.
+     */
+    if (keyctl(KEYCTL_INSTANTIATE, key_to_instantiate,
+               auth_key_payload, akp_size + 1, dest_keyring) == \-1) {
+        fprintf(fp, "KEYCTL_INSTANTIATE failed: %s\\n",
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .ad l
 .nh

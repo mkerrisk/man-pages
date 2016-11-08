@@ -15,7 +15,8 @@
 keyrings \- in-kernel key management and retention facility
 .SH DESCRIPTION
 The Linux key-management facility
-is primarily a way for drivers to retain or cache security data,
+is primarily a way for various kernel components
+to retain or cache security data,
 authentication keys, encryption keys, and other data in the kernel.
 .P
 System call interfaces are provided so that user-space programs can manage
@@ -38,8 +39,7 @@ for more information.
 A key has the following attributes:
 .TP
 Serial number (ID)
-This is a unique integer handle by which a key is referred to in system call
-arguments.
+This is a unique integer handle by which a key is referred to in system calls.
 The serial number is sometimes synonymously referred as the key ID.
 Programmatically, key serial numbers are represented using the type
 .IR key_serial_t .
@@ -50,7 +50,7 @@ how the proposed content of the key will be parsed,
 and how the payload will be used.
 
 There are a number of general-purpose types available, plus some specialist
-types defined by specific drivers.
+types defined by specific kernel components.
 .TP
 Description (name)
 The key description is a printable string that is used as the search term
@@ -78,13 +78,13 @@ and there is an additional category\(empossessor\(embeyond the usual user,
 group, and other (see below).
 
 Note that keys are quota controlled, since they require unswappable kernel
-memory
+memory.
 The owning user ID specifies whose quota is to be debited.
 .TP
 Expiration time
 Each key can have an expiration time set.
 When that time is reached,
-the key is marked as being expired and accesses to it fail with
+the key is marked as being expired and accesses to it fail with the error
 .BR EKEYEXPIRED .
 If not deleted, updated, or replaced, then, after a set amount of time,
 an expired key is automatically removed (garbage collected)
@@ -161,7 +161,7 @@ Various operations (system calls) may be applied only to keyrings:
 .IP Adding
 A key may be added to a keyring by system calls that create keys.
 This prevents the new key from being immediately deleted
-when the system call driver releases its last reference to the key.
+when the system call releases its last reference to the key.
 .IP Linking
 A link may be added to a keyring pointing to a key that is already known,
 provided this does not create a self-referential cycle.
@@ -193,7 +193,8 @@ when it is not in active use by the kernel.
 Keyrings are used to anchor other keys:
 each link is a reference on a key.
 Note that keyrings themselves are just keys and
-are also subject to the same anchoring necessity.
+are also subject to the same anchoring requirement to prevent
+them being garbage collected.
 
 The kernel makes available a number of anchor keyrings.
 Note that some of these keyrings will be created only when first accessed.
@@ -231,7 +232,7 @@ available to each UID known to the system.
 It may persist beyond the life of the UID record previously mentioned,
 but has an expiration time set such that it is automatically cleaned up
 after a set time.
-This permits, for example,
+The persistent keyring permits, for example,
 .BR cron (8)
 scripts to use credentials that are left in the persistent keyring after
 the user logs out.
@@ -247,16 +248,6 @@ encryption keys for module signature verification.
 .IP
 These special keyrings  are usually closed to direct alteration
 by user space.
-.P
-See
-.BR thread-keyring (7),
-.BR process-keyring (7),
-.BR session-keyring (7),
-.BR user-keyring (7),
-.BR user-session-keyring (7),
-and
-.BR persistent-keyring (7)
-for more information.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SS Possession
 The concept of possession is important to understanding the keyrings
@@ -290,7 +281,7 @@ but must rather be calculated each time the key is needed.
 Possession is designed to allow set-user-ID programs run from, say
 a user's shell to access the user's keys.
 Granting permissions to the key possessor while denying them
-to the key owner allows the prevention of access to keys
+to the key owner and group allows the prevention of access to keys
 on the basis of UID and GID matches.
 .P
 When it creates the session keyring,

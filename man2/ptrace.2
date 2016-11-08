@@ -914,6 +914,51 @@ Permission to perform a
 is governed by a ptrace access mode
 .B PTRACE_MODE_ATTACH_REALCREDS
 check; see below.
+.\"
+.TP
+.BR PTRACE_SECCOMP_GET_FILTER " (since Linux 4.4)"
+.\" commit f8e529ed941ba2bbcbf310b575d968159ce7e895
+This operation allows the tracer to dump the tracee's
+classic BPF filters.
+
+.I addr
+is an integer specifying the index of the filter to be dumped.
+The most recently installed filter has the index 0.
+If
+.I addr
+is greater than the number of installed filters,
+the operation fails with the error
+.BR ENOENT .
+
+.I data
+is either a pointer to a
+.IR "struct sock_filter"
+array that is large enough to store the BPF program,
+or NULL if the program is not to be stored.
+
+Upon success,
+the return value is the number of instructions in the BPF program.
+If
+.I data
+was NULL, then this return value can be used to correctly size the
+.IR "struct sock_filter"
+array passed in a subsequent call.
+
+This operation fails with the error
+.B EACCESS
+if the caller does not have the
+.B CAP_SYS_ADMIN
+capability or if the caller is in strict or filter seccomp mode.
+If the filter referred to by
+.I addr
+is not a classic BPF filter, the operation fails with the error
+.BR EMEDIUMTYPE .
+
+This operation is available if the kernel was configured with both the
+.B CONFIG_SECCOMP_FILTER
+and the
+.B CONFIG_CHECKPOINT_RESTORE
+options.
 .TP
 .B PTRACE_DETACH
 Restart the stopped tracee as for
@@ -923,6 +968,7 @@ Under Linux, a tracee can be detached in this way regardless
 of which method was used to initiate tracing.
 .RI ( addr
 is ignored.)
+.\"
 .TP
 .BR PTRACE_GET_THREAD_AREA " (since Linux 2.6.0)"
 This operation performs a similar task to

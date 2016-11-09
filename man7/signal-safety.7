@@ -1,0 +1,307 @@
+.\" Copyright (c) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH SIGNAL-SAFETY 7  2016-11-09 "Linux" "Linux Programmer's Manual"
+.SH NAME
+signal-safety \- async-signal-safe functions
+.SH DESCRIPTION
+An
+.I async-signal-safe
+function is one that can be safely called from within a signal handler.
+Many functions are
+.I not
+async-signal-safe.
+In particular,
+nonreentrant functions are generally unsafe to call from a signal handler.
+
+The kinds of issues that render a function
+unsafe can be quickly understood when one considers
+the implementation of the
+.I stdio
+library, all of whose functions are not async-signal-safe.
+
+When performing buffered I/O on a file, the
+.I stdio
+functions must maintain a statically allocated data buffer
+along with associated counters and indexes (or pointers)
+that record the amount of data and the current position in the buffer.
+Suppose that the main program is in the middle of a call to a 
+.I stdio
+function such as
+.BR printf (3)
+where the buffer and associated variables have been partially updated.
+If, at that moment,
+the program is interrupted by a signal handler that also calls
+.BR printf (3),
+then the second call to
+.BR printf (3)
+will operate on inconsistent data, with unpredictable results.
+
+To avoid problems with unsafe functions, there are two possible choices:
+.IP 1. 3
+Ensure that
+(a) the signal handler calls only async-signal-safe functions,
+and
+(b) the signal handler itself is reentrant
+with respect to global variables in the main program.
+.IP 2.
+Block signal delivery in the main program when calling functions
+that are unsafe or operating on global data that is also accessed 
+by the signal handler.
+.PP
+Generally, the second choice is difficult in programs of any complexity,
+so the first choice is taken.
+
+POSIX.1 specifies a set of functions that an implementation
+must make async-signal-safe.
+(An implementation may provide safe implementations of additional functions,
+but this is not required by the standard and other implementations
+may not provide the same guarantees.)
+In general, a function is async-signal-safe either because it is reentrant
+or because it is atomic with respect to signals
+(i.e., its execution can't be interrupted by a signal handler).
+
+The set of functions required to be async-signal-safe by POSIX.1
+is shown in the following table.
+The functions not otherwise noted were required to be async-signal-safe
+in POSIX.1-2001;
+the table details changes in the subsequent standards.
+
+.TS
+lb lb
+l l.
+Function	Notes
+\fBabort\fP(3)	Added in POSIX.1-2003
+\fBaccept\fP(2)
+\fBaccess\fP(2)
+\fBaio_error\fP(3)
+\fBaio_return\fP(3)
+\fBaio_suspend\fP(3)	See notes below
+\fBalarm\fP(2)
+\fBbind\fP(2)
+\fBcfgetispeed\fP(3)
+\fBcfgetospeed\fP(3)
+\fBcfsetispeed\fP(3)
+\fBcfsetospeed\fP(3)
+\fBchdir\fP(2)
+\fBchmod\fP(2)
+\fBchown\fP(2)
+\fBclock_gettime\fP(2)
+\fBclose\fP(2)
+\fBconnect\fP(2)
+\fBcreat\fP(2)
+\fBdup\fP(2)
+\fBdup2\fP(2)
+\fBexecl\fP(3)	Added in POSIX.1-2008; see notes below
+\fBexecle\fP(3)	See notes below
+\fBexecv\fP(3)	Added in POSIX.1-2008
+\fBexecve\fP(2)
+\fB_exit\fP(2)
+\fB_Exit\fP(2)
+\fBfaccessat\fP(2)	Added in POSIX.1-2008
+\fBfchdir\fP(2)	Added in POSIX.1-2013
+\fBfchmod\fP(2)
+\fBfchmodat\fP(2)	Added in POSIX.1-2008
+\fBfchown\fP(2)
+\fBfchownat\fP(2)	Added in POSIX.1-2008
+\fBfcntl\fP(2)
+\fBfdatasync\fP(2)
+\fBfexecve\fP(3)	Added in POSIX.1-2008
+\fBffs\fP(3)	Added in POSIX.1-2016
+\fBfork\fP(2)
+\fBfstat\fP(2)
+\fBfstatat\fP(2)	Added in POSIX.1-2008
+\fBfsync\fP(2)
+\fBftruncate\fP(2)
+\fBfutimens\fP(3)	Added in POSIX.1-2008
+\fBgetegid\fP(2)
+\fBgeteuid\fP(2)
+\fBgetgid\fP(2)
+\fBgetgroups\fP(2)
+\fBgetpeername\fP(2)
+\fBgetpgrp\fP(2)
+\fBgetpid\fP(2)
+\fBgetppid\fP(2)
+\fBgetsockname\fP(2)
+\fBgetsockopt\fP(2)
+\fBgetuid\fP(2)
+\fBhtonl\fP(3)	Added in POSIX.1-2016
+\fBhtons\fP(3)	Added in POSIX.1-2016
+\fBkill\fP(2)
+\fBlink\fP(2)
+\fBlinkat\fP(2)	Added in POSIX.1-2008
+\fBlisten\fP(2)
+\fBlongjmp\fP(3)	Added in POSIX.1-2016; see notes below
+\fBlseek\fP(2)
+\fBlstat\fP(2)
+\fBmemccpy\fP(3)	Added in POSIX.1-2016
+\fBmemchr\fP(3)	Added in POSIX.1-2016
+\fBmemcmp\fP(3)	Added in POSIX.1-2016
+\fBmemcpy\fP(3)	Added in POSIX.1-2016
+\fBmemmove\fP(3)	Added in POSIX.1-2016
+\fBmemset\fP(3)	Added in POSIX.1-2016
+\fBmkdir\fP(2)
+\fBmkdirat\fP(2)	Added in POSIX.1-2008
+\fBmkfifo\fP(3)
+\fBmkfifoat\fP(3)	Added in POSIX.1-2008
+\fBmknod\fP(2)	Added in POSIX.1-2008
+\fBmknodat\fP(2)	Added in POSIX.1-2008
+\fBntohl\fP(3)	Added in POSIX.1-2016
+\fBntohs\fP(3)	Added in POSIX.1-2016
+\fBopen\fP(2)
+\fBopenat\fP(2)	Added in POSIX.1-2008
+\fBpause\fP(2)
+\fBpipe\fP(2)
+\fBpoll\fP(2)
+\fBposix_trace_event\fP(3)
+\fBpselect\fP(2)
+\fBpthread_kill\fP(3)	Added in POSIX.1-2013
+\fBpthread_self\fP(3)	Added in POSIX.1-2013
+\fBpthread_sigmask\fP(3)	Added in POSIX.1-2013
+\fBraise\fP(3)
+\fBread\fP(2)
+\fBreadlink\fP(2)
+\fBreadlinkat\fP(2)	Added in POSIX.1-2008
+\fBrecv\fP(2)
+\fBrecvfrom\fP(2)
+\fBrecvmsg\fP(2)
+\fBrename\fP(2)
+\fBrenameat\fP(2)	Added in POSIX.1-2008
+\fBrmdir\fP(2)
+\fBselect\fP(2)
+\fBsem_post\fP(3)
+\fBsend\fP(2)
+\fBsendmsg\fP(2)
+\fBsendto\fP(2)
+\fBsetgid\fP(2)
+\fBsetpgid\fP(2)
+\fBsetsid\fP(2)
+\fBsetsockopt\fP(2)
+\fBsetuid\fP(2)
+\fBshutdown\fP(2)
+\fBsigaction\fP(2)
+\fBsigaddset\fP(3)
+\fBsigdelset\fP(3)
+\fBsigemptyset\fP(3)
+\fBsigfillset\fP(3)
+\fBsigismember\fP(3)
+\fBsiglongjmp\fP(3)	Added in POSIX.1-2016; see notes below
+\fBsignal\fP(2)
+\fBsigpause\fP(3)
+\fBsigpending\fP(2)
+\fBsigprocmask\fP(2)
+\fBsigqueue\fP(2)
+\fBsigset\fP(3)
+\fBsigsuspend\fP(2)
+\fBsleep\fP(3)
+\fBsockatmark\fP(3)	Added in POSIX.1-2004
+\fBsocket\fP(2)
+\fBsocketpair\fP(2)
+\fBstat\fP(2)
+\fBstpcpy\fP(3)	Added in POSIX.1-2016
+\fBstpncpy\fP(3)	Added in POSIX.1-2016
+\fBstrcat\fP(3)	Added in POSIX.1-2016
+\fBstrchr\fP(3)	Added in POSIX.1-2016
+\fBstrcmp\fP(3)	Added in POSIX.1-2016
+\fBstrcpy\fP(3)	Added in POSIX.1-2016
+\fBstrcspn\fP(3)	Added in POSIX.1-2016
+\fBstrlen\fP(3)	Added in POSIX.1-2016
+\fBstrncat\fP(3)	Added in POSIX.1-2016
+\fBstrncmp\fP(3)	Added in POSIX.1-2016
+\fBstrncpy\fP(3)	Added in POSIX.1-2016
+\fBstrnlen\fP(3)	Added in POSIX.1-2016
+\fBstrpbrk\fP(3)	Added in POSIX.1-2016
+\fBstrrchr\fP(3)	Added in POSIX.1-2016
+\fBstrspn\fP(3)	Added in POSIX.1-2016
+\fBstrstr\fP(3)	Added in POSIX.1-2016
+\fBstrtok_r\fP(3)	Added in POSIX.1-2016
+\fBsymlink\fP(2)
+\fBsymlinkat\fP(2)	Added in POSIX.1-2008
+\fBtcdrain\fP(3)
+\fBtcflow\fP(3)
+\fBtcflush\fP(3)
+\fBtcgetattr\fP(3)
+\fBtcgetpgrp\fP(3)
+\fBtcsendbreak\fP(3)
+\fBtcsetattr\fP(3)
+\fBtcsetpgrp\fP(3)
+\fBtime\fP(2)
+\fBtimer_getoverrun\fP(2)
+\fBtimer_gettime\fP(2)
+\fBtimer_settime\fP(2)
+\fBtimes\fP(2)
+\fBumask\fP(2)
+\fBuname\fP(2)
+\fBunlink\fP(2)
+\fBunlinkat\fP(2)	Added in POSIX.1-2008
+\fButime\fP(2)
+\fButimensat\fP(2)	Added in POSIX.1-2008
+\fButimes\fP(2)	Added in POSIX.1-2008
+\fBwait\fP(2)
+\fBwaitpid\fP(2)
+\fBwcpcpy\fP(3)	Added in POSIX.1-2016
+\fBwcpncpy\fP(3)	Added in POSIX.1-2016
+\fBwcscat\fP(3)	Added in POSIX.1-2016
+\fBwcschr\fP(3)	Added in POSIX.1-2016
+\fBwcscmp\fP(3)	Added in POSIX.1-2016
+\fBwcscpy\fP(3)	Added in POSIX.1-2016
+\fBwcscspn\fP(3)	Added in POSIX.1-2016
+\fBwcslen\fP(3)	Added in POSIX.1-2016
+\fBwcsncat\fP(3)	Added in POSIX.1-2016
+\fBwcsncmp\fP(3)	Added in POSIX.1-2016
+\fBwcsncpy\fP(3)	Added in POSIX.1-2016
+\fBwcsnlen\fP(3)	Added in POSIX.1-2016
+\fBwcspbrk\fP(3)	Added in POSIX.1-2016
+\fBwcsrchr\fP(3)	Added in POSIX.1-2016
+\fBwcsspn\fP(3)	Added in POSIX.1-2016
+\fBwcsstr\fP(3)	Added in POSIX.1-2016
+\fBwcstok\fP(3)	Added in POSIX.1-2016
+\fBwmemchr\fP(3)	Added in POSIX.1-2016
+\fBwmemcmp\fP(3)	Added in POSIX.1-2016
+\fBwmemcpy\fP(3)	Added in POSIX.1-2016
+\fBwmemmove\fP(3)	Added in POSIX.1-2016
+\fBwmemset\fP(3)	Added in POSIX.1-2016
+\fBwrite\fP(2)
+.TE
+
+Notes:
+.IP * 3
+POSIX.1-2001 and POSIX.1-2004 required the functions
+.BR fpathconf (3),
+.BR pathconf (3),
+and
+.BR sysconf (3)
+to be async-signal-safe, but this requirement was removed in POSIX.1-2008.
+.IP *
+If a signal handler interrupts the execution of an unsafe function,
+and the handler terminates via a call to
+.BR longjmp (3)
+or
+.BR siglongjmp (3)
+and the program subsequently calls an unsafe function,
+then the behavior of the program is undefined.
+.SH SEE ALSO
+.BR sigaction (2),
+.BR signal (7),
+.BR standards (7)

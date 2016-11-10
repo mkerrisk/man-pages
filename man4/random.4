@@ -13,8 +13,6 @@
 .\" 2004-04-08, AEB, Improved description of read from /dev/urandom
 .\" 2008-06-20, George Spelvin <linux@horizon.com>,
 .\"             Matt Mackall <mpm@selenic.com>
-.\"     Add a Usage subsection that recommends most users to use
-.\"     /dev/urandom, and emphasizes parsimonious usage of /dev/random.
 .\"
 .TH RANDOM 4 2016-10-08 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -37,11 +35,26 @@ The generator also keeps an estimate of the
 number of bits of noise in the entropy pool.
 From this entropy pool random numbers are created.
 .LP
-When read, the \fI/dev/random\fP device will return random bytes
-only within the estimated number of bits of noise in the entropy
-pool.
-\fI/dev/random\fP should be suitable for uses that need very
-high quality randomness such as one-time pad or key generation.
+Linux 3.17 and later provides the simpler and safer (see below)
+.BR getrandom(2)
+interface which requires no special files.
+.LP
+When read, the \fI/dev/urandom\fP device return random bytes using a pseudorandom
+number generator seeded from the entropy pool. That operation is
+non-blocking. When used during early boot time, this device may return
+data prior to the entropy pool being initialized.
+If this is of concern in your application, use
+.BR getrandom(2)
+or \fI/dev/random\fP instead.
+
+.LP
+The \fI/dev/random\fP device is a legacy interface which dates back to
+a time where the cryptographic primitives used in the implementation
+of \fI/dev/urandom\fP were not widely trusted. It will return random bytes
+only within the estimated number of bits of fresh noise in the entropy
+pool, blocking if necessary.
+\fI/dev/random\fP is suitable for applications that need very
+high quality randomness, and can afford indeterminate delays.
 When the entropy pool is empty, reads from \fI/dev/random\fP will block
 until additional environmental noise is gathered.
 If
@@ -60,18 +73,8 @@ will return -1 and
 .I errno
 will be set to
 .BR EAGAIN .
-.LP
-A read from the \fI/dev/urandom\fP device will not block
-waiting for more entropy.
-If there is not sufficient entropy, a pseudorandom number generator is used
-to create the requested bytes.
-As a result, in this case the returned values are theoretically vulnerable to a
-cryptographic attack on the algorithms used by the driver.
-Knowledge of how to do this is not available in the current unclassified
-literature, but it is theoretically possible that such an attack may
-exist.
-If this is a concern in your application, use \fI/dev/random\fP
-instead.
+
+The flag
 .B O_NONBLOCK
 has no effect when opening
 .IR /dev/urandom .
@@ -104,14 +107,15 @@ This means that it will impact the contents
 read from both files, but it will not make reads from
 \fI/dev/random\fP faster.
 .SS Usage
-If you are unsure about whether you should use
+The
 .IR /dev/random
-or
+interface is considered a legacy interface, and
 .IR /dev/urandom ,
-then probably you want to use the latter.
-As a general rule,
-.IR /dev/urandom
-should be used for everything except long-lived GPG/SSL/SSH keys.
+is preferred and sufficient in all use cases, with the exception of
+applications which require randomness during early boot time; for
+these applications, the system call
+.BR getrandom(2)
+must be used instead, because will block until the entropy pool is initialized.
 
 If a seed file is saved across reboots as recommended below (all major
 Linux distributions have done this since 2000 at least), the output is
@@ -319,6 +323,9 @@ which gets added to the entropy pool.
 .BR RNDZAPENTCNT ", " RNDCLEARPOOL
 Zero the entropy count of all pools and add some system data (such as
 wall clock) to the pools.
+.SH KNOWN ISSUES
+When used during early boot, \fI/dev/urandom\fP may return data prior to the entropy pool being initialized.
+
 .SH FILES
 /dev/random
 .br

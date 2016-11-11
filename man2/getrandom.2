@@ -45,14 +45,16 @@ or for cryptographic purposes.
 By default,
 .BR getrandom ()
 draws entropy from the
+.I urandom
+pool (i.e., the same source as the
 .IR /dev/urandom
-pool.
+device).
 This behavior can be changed via the
 .I flags
 argument.
 
 If the
-.IR /dev/urandom
+.I urandom
 pool has been initialized,
 reads of up to 256 bytes will always return as many bytes as
 requested and will not be interrupted by signals.
@@ -60,7 +62,12 @@ No such guarantees apply for larger buffer sizes.
 For example, if the call is interrupted by a signal handler,
 it may return a partially filled buffer, or fail with the error
 .BR EINTR .
-If the entropy pool has not yet been initialized, then the call blocks, unless
+
+If the
+.I urandom
+pool has not yet been initialized, then
+.BR getrandom ()
+will block, unless
 .B GRND_NONBLOCK
 is specified in
 .IR flags .
@@ -72,17 +79,21 @@ ORed together:
 .TP
 .B GRND_RANDOM
 If this bit is set, then random bytes are drawn from the
-.I /dev/random
-pool instead of the
-.I /dev/urandom
+.I random
+pool
+(i.e., the same source as the 
+.IR /dev/random
+device)
+instead of the
+.I urandom
 pool.
 The
-.I /dev/random
+.I random
 pool is limited based on the entropy that can be obtained from environmental
 noise.
-If the number of available bytes in
-.I /dev/random
-is less than requested in
+If the number of available bytes in the
+.I random
+pool is less than requested in
 .IR buflen ,
 the call returns just the available random bytes.
 If no random bytes are available, the behavior depends on the presence of
@@ -92,13 +103,14 @@ in the
 argument.
 .TP
 .B GRND_NONBLOCK
-By default, when reading from
-.IR /dev/random ,
+By default, when reading from the
+.IR random
+pool,
 .BR getrandom ()
 blocks if no random bytes are available,
-and when reading from
-.IR /dev/urandom ,
-it blocks if the entropy pool has not yet been initialized.
+and when reading from the
+.IR urandom
+pool, it blocks if the entropy pool has not yet been initialized.
 If the
 .B GRND_NONBLOCK
 flag is set, then
@@ -114,13 +126,13 @@ returns the number of bytes that were copied to the buffer
 .IR buf .
 This may be less than the number of bytes requested via
 .I buflen
-if
+if either
 .BR GRND_RANDOM
 was specified in
 .IR flags
 and insufficient entropy was present in the
-.IR /dev/random
-pool, or if the system call was interrupted by a signal.
+.IR random
+pool or the system call was interrupted by a signal.
 .PP
 On error, \-1 is returned, and
 .I errno
@@ -178,26 +190,28 @@ that was opened by a library.
 .SS Maximum number of bytes returned
 As of Linux 3.19 the following limits apply:
 .IP * 3
-When reading from
-.IR /dev/urandom ,
-a maximum of 33554431 bytes is returned by a single call to
+When reading from the
+.IR urandom
+pool, a maximum of 33554431 bytes is returned by a single call to
 .BR getrandom ()
 on systems where
 .I int
 has a size of 32 bits.
 .IP *
-When reading from
-.IR /dev/random ,
-a maximum of 512 bytes is returned.
+When reading from the
+.IR random
+pool, a maximum of 512 bytes is returned.
+.\"
 .SS Initialization of the entropy pool
 The kernel collects bits of entropy from the environment.
 When a sufficient number of random bits has been collected, the
-.I /dev/urandom
+.I urandom
 entropy pool is considered to be initialized.
 This state is normally reached early in the system bootstrap phase.
 .SS Interruption by a signal handler
-When reading from
-.I /dev/urandom
+When reading from the
+.I urandom
+pool
 .RB ( GRND_RANDOM
 is not set),
 .BR getrandom ()
@@ -205,13 +219,14 @@ will block until the entropy pool has been initialized
 (unless the
 .BR GRND_NONBLOCK
 flag was specified).
-If a request is made to read a large number (more than 256) of bytes,
+If a request is made to read a large number of bytes (more than 256),
 .BR getrandom ()
 will block until those bytes have been generated and transferred
 from kernel memory to
 .IR buf .
-When reading from
-.I /dev/random
+When reading from the
+.I random
+pool
 .RB ( GRND_RANDOM
 is set),
 .BR getrandom ()
@@ -222,9 +237,9 @@ flag was specified).
 
 The behavior when a call to
 .BR getrandom ()
-that is blocked while reading from
-.I /dev/urandom
-is interrupted by a signal handler
+that is blocked while reading from the
+.I urandom
+pool is interrupted by a signal handler
 depends on the initialization state of the entropy buffer
 and on the request size,
 .IR buflen .
@@ -245,20 +260,18 @@ will not fail with
 .BR EINTR .
 Instead, it will return all of the bytes that have been requested.
 
-When reading from
-.IR /dev/random ,
-blocking requests of any size can be interrupted by a signal
+When reading from the
+.IR random
+pool, blocking requests of any size can be interrupted by a signal
 (the call fails with the error
 .BR EINTR ).
 
-Calling
+Using
 .BR getrandom ()
-to read
-.I /dev/urandom
-for small values (<=\ 256) of
-.I buflen
-is the preferred mode of usage.
-.PP
+to read small buffers (<=\ 256 bytes) from the
+.I urandom
+pool is the preferred mode of usage.
+
 The special treatment of small values of
 .I buflen
 was designed for compatibility with
@@ -282,22 +295,26 @@ but the careful programmer will check for this anyway!
 .SS Choice of random device
 Unless you are doing long-term key generation (and perhaps not even
 then), you probably shouldn't be using the
-.BR getrandom ()
 .BR GRND_RANDOM
-flag or the
+or the
 .IR /dev/random
 device.
 
-Instead, use
-.IR /dev/urandom ;
-the cryptographic algorithms used for
-.IR /dev/urandom ;
-are quite conservative, and so should be sufficient for all purposes.
+Instead, use either
+.BR getrandom ()
+without the
+.B GRND_RANDOM
+flag or the
+.IR /dev/urandom
+device.
+The cryptographic algorithms used for the
+.IR urandom
+pool are quite conservative, and so should be sufficient for all purposes.
 
 The disadvantage of
 .B GRND_RANDOM
 and reads from
-.I dev/random
+.I /dev/random
 is that the operation can block.
 Furthermore, dealing with the partially fulfilled
 requests that can occur when using

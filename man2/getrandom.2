@@ -170,6 +170,10 @@ was introduced in version 3.17 of the Linux kernel.
 .SH CONFORMING TO
 This system call is Linux-specific.
 .SH NOTES
+For an overview and comparison of the various interfaces that
+can be used to obtain randomness, see
+.BR random (7).
+
 Unlike
 .IR /dev/random
 and
@@ -201,13 +205,6 @@ has a size of 32 bits.
 When reading from the
 .IR random
 pool, a maximum of 512 bytes is returned.
-.\"
-.SS Initialization of the entropy pool
-The kernel collects bits of entropy from the environment.
-When a sufficient number of random bits has been collected, the
-.I urandom
-entropy pool is considered to be initialized.
-This state is normally reached early in the system bootstrap phase.
 .SS Interruption by a signal handler
 When reading from the
 .I urandom
@@ -292,80 +289,6 @@ is not specified and
 is less than or equal to 256,
 a return of fewer bytes than requested should never happen,
 but the careful programmer will check for this anyway!
-.SS Choice of random device
-Unless you are doing long-term key generation (and perhaps not even
-then), you probably shouldn't be using the
-.BR GRND_RANDOM
-or the
-.IR /dev/random
-device.
-
-Instead, use either
-.BR getrandom ()
-without the
-.B GRND_RANDOM
-flag or the
-.IR /dev/urandom
-device.
-The cryptographic algorithms used for the
-.IR urandom
-pool are quite conservative, and so should be sufficient for all purposes.
-
-The disadvantage of
-.B GRND_RANDOM
-and reads from
-.I /dev/random
-is that the operation can block.
-Furthermore, dealing with the partially fulfilled
-requests that can occur when using
-.B GRND_RANDOM
-or when reading from
-.I /dev/random
-increases code complexity.
-.\"
-.SS Usage recommendations
-The kernel random-number generator
-relies on entropy gathered from device drivers and other sources of
-environmental noise.
-It is designed to produce a small
-amount of high-quality seed material to seed a
-cryptographic pseudorandom number generator (CPRNG).
-It is designed for security, not speed, and is poorly
-suited to generating large amounts of cryptographic random data.
-Users should be very economical in the amount of seed
-material that they consume via
-.BR getrandom (),
-.IR /dev/urandom ,
-and
-.IR /dev/random .
-Consuming unnecessarily large quantities of data via these interfaces
-will have a negative impact on other consumers of randomness.
-
-These interfaces should not be used to provide large quantities
-of data for Monte Carlo simulations or other
-programs/algorithms which are doing probabilistic sampling.
-And indeed, such usage is unnecessary (and will be slow):
-instead, use these interfaces to provide a small amount of
-data used to seed a user-space pseudorandom number generator
-for use by such applications.
-.\"
-.SS Generating cryptographic keys
-The amount of seed material required to generate a cryptographic key
-equals the effective key size of the key.
-For example, a 3072-bit RSA
-or Diffie-Hellman private key has an effective key size of 128 bits
-(it requires about 2^128 operations to break) so a key generator
-needs only 128 bits (16 bytes) of seed material from
-.IR /dev/random .
-
-While some safety margin above that minimum is reasonable, as a guard
-against flaws in the CPRNG algorithm, no cryptographic primitive
-available today can hope to promise more than 256 bits of security,
-so if any program reads more than 256 bits (32 bytes) from the kernel
-random pool per invocation, or per reasonable reseed interval (not less
-than one minute), that should be taken as a sign that its cryptography is
-.I not
-skillfully implemented.
 .\"
 .SS Emulating OpenBSD's getentropy()
 The
@@ -403,4 +326,5 @@ does not react to interrupts before reading all bytes requested.
 .SH SEE ALSO
 .BR random (4),
 .BR urandom (4),
+.BR random (7),
 .BR signal (7)

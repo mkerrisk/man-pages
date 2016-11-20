@@ -29,8 +29,12 @@
 .SH NAME
 random \- overview of interfaces for obtaining randomness
 .SH DESCRIPTION
-The kernel provides the following interfaces to the kernel's
-cryptographically secure pseudorandom number generator (CSPRNG):
+The kernel random-number generator relies on entropy gathered from
+device drivers and other sources of environmental noise to seed
+a cryptographically secure pseudorandom number generator (CSPRNG).
+It is designed for security, rather than speed.
+
+The following interfaces provide access to output from the kernel CSPRNG:
 .IP * 3
 The
 .I /dev/urandom
@@ -98,44 +102,15 @@ or when reading from
 .I /dev/random
 increases code complexity.
 .\"
-.SS Usage recommendations
-The kernel random-number generator
-relies on entropy gathered from device drivers and other sources of
-environmental noise.
-It is designed to produce a small
-amount of high-quality seed material to seed a
-cryptographically secure pseudorandom number generator (CSPRNG).
-It is designed for security, not speed, and is poorly
-suited to generating large amounts of cryptographic random data.
-Users should be economical in the amount of seed
-material that they consume via
-.BR getrandom (2),
-.IR /dev/urandom ,
-and
-.IR /dev/random .
-.\" FIXME Is it really necessary to avoid consuming large amounts
-.\" from /dev/urandom? Various sources linked to by
-.\" https://bugzilla.kernel.org/show_bug.cgi?id=71211 suggest it is not.
-.\"
-.\" And: has the answer to the previous question changed across
-.\" kernel versions?
-Consuming unnecessarily large quantities of data via these interfaces
-will have a negative impact on other consumers of randomness.
-.\" FIXME Above: we need to define "negative impact". Is the only
-.\" negative impact that we may slow readers of /dev/random, since it
-.\" will block until sufficient entropy has once more accumulated?
-.\"
-.\" And: has the answer to the previous question changed across
-.\" kernel versions?
-
-These interfaces should not be used to provide large quantities
-of data for Monte Carlo simulations or other
-programs/algorithms which are doing probabilistic sampling.
-Indeed, such usage will be slow, and is unnecessary,
-because such applications do not need crytographically secure random numbers.
-Instead, use these interfaces to provide a small amount of
-data used to seed a user-space pseudorandom number generator
-for use by such applications.
+.SS Monte Carlo and other probabalistic sampling applications
+Using these interfaces to provide large quantities of data for
+Monte Carlo simulations or other programs/algorithms which are
+doing probabilistic sampling will be slow.
+Furthermore, it is unnecessary, because such applications do not
+need cryptographically secure random numbers.
+Instead, use the interfaces described in this page to obtain
+a small amount of data to seed a user-space pseudorandom
+number generator for use by such applications.
 .\"
 .SS Comparison between getrandom, /dev/urandom, and /dev/random
 The following table summarizes the behavior of the various

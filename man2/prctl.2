@@ -276,11 +276,13 @@ When more restrictive code is linked in,
 the overall requirement for the process is to use the more
 restrictive floating-point mode.
 
-Since the kernel has no means of knowing in advance
+Because the kernel has no means of knowing in advance
 which mode the process should be executed in,
-and having the possibility that these restrictions can
-be changed during the process's lifetime,
-the ability to control it from user space via this option is provided.
+and because these restrictions can
+change over the lifetime of the process, the
+.B PR_SET_FP_MODE
+operation is provided to allow control of the floating-point mode
+from user space.
 
 .\" https://dmz-portal.mips.com/wiki/MIPS_O32_ABI_-_FR0_and_FR1_Interlinking
 The
@@ -293,7 +295,7 @@ When this bit is
 .I unset
 (so called
 .BR FR=0 " or " FR0
-mode), 32 FP registers are 32-bit wide,
+mode), the 32 floating-point registers are 32-bit wide,
 and 64-bit registers are represented as pair of registers
 (even- and odd- numbered,
 with the even-numbered register containing the lower 32 bits,
@@ -301,12 +303,14 @@ and the odd-numbered register containing the higher 32 bits).
 
 When this bit is
 .I set
-(on supported hardware), 32 FP registers are 64-bit wide (so called
+(on supported hardware),
+the 32 floating-point registers are 64-bit wide (so called
 .BR FR=1 " or " FR1
 mode).
 Note that modern MIPS implementations (MIPS R6 and newer) support
 .B FR=1
 mode only.
+
 
 Applications that use the O32 FP32 ABI can operate only when this bit is
 .I unset
@@ -318,12 +322,16 @@ provide the ability to operate with existing FP32 code; see below)
 can operate only when this bit is
 .I set
 .RB ( FR=1 ).
-Applications that use the O32 FPXX ABI can operate in both cases.
+Applications that use the O32 FPXX ABI can operate in with either
+.BR FR=0
+or
+.BR FR=1 .
 .TP
 .BR PR_FP_MODE_FRE
-Compatibility with 32-bit FP mode.
+Enable emulation of 32-bit floating-point mode.
 When this mode is enabled,
-it emulates 32-bit FP operations by raising a reserved-instruction exception
+it emulates 32-bit floating-point operations
+by raising a reserved-instruction exception
 on every instruction that uses 32-bit formats and
 the kernel then handles the instruction in software.
 (The problem lies in the discrepancy of handling odd-numbered registers
@@ -347,16 +355,13 @@ Note that the use of emulation inherently has a significant performance hit
 and should be avoided if possible.
 .RE
 .IP
-Note that for N32/N64 ABI is a different story and
-does not need FPU emulation and always operates in
+In the N32/N64 ABI, 64-bit floating-point mode is always used,
+so FPU emulation is not required and the FPU always operates in
 .B FR=1
 mode.
 .IP
-This option is mainly intended for use by the dynamic loader,
-but may be of use in applications that perform library loading
-at run time (via
-.BR dlopen (3),
-for example).
+This option is mainly intended for use by the dynamic linker
+.RB ( ld.so (8)).
 .IP
 The arguments
 .IR arg3 ,
@@ -371,7 +376,7 @@ Get the current floating-point mode (see the description of
 for details).
 
 On success,
-the call returns a bit mask which represents the current FP mode.
+the call returns a bit mask which represents the current floating-point mode.
 
 The arguments
 .IR arg2 ,

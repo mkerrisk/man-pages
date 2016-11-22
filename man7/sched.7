@@ -678,6 +678,92 @@ paging delays; this can be done with
 .BR mlock (2)
 or
 .BR mlockall (2).
+.\"
+.SS The autogroup feature
+.\" commit 5091faa449ee0b7d73bc296a93bca9540fc51d0a
+Since Linux 2.6.38,
+the kernel provides a feature known as autogrouping to improve interactive
+desktop performance in the face of multiprocess CPU-intensive
+workloads such as building the Linux kernel with large numbers of
+parallel build processes (i.e., the
+.BR make (1)
+.BR \-j
+flag).
+
+This feature operates in conjunction with the
+CFS scheduler and requires a kernel that is configured with
+.BR CONFIG_SCHED_AUTOGROUP .
+On a running system, this feature is enabled or disabled via the file
+.IR /proc/sys/kernel/sched_autogroup_enabled ;
+a value of 0 disables the feature, while a value of 1 enables it.
+The default value in this file is 1, unless the kernel was booted with the
+.IR noautogroup
+parameter.
+
+When autogrouping is enabled, processes are automatically placed
+into "task groups" for the purposes of scheduling.
+In the current implementation,
+a new task group is created when a new session is created via
+.BR setsid (2),
+as happens, for example, when a new terminal window is created.
+A task group is automatically destroyed when the last process
+in the group terminates.
+
+.\" FIXME The following is a little vague. Does it need to be
+.\" made more precise?
+The CFS scheduler employs an algorithm that distributes the CPU
+across task groups.
+As a result of this algorithm,
+the processes in task groups that contain multiple CPU-intensive
+processes are in effect disfavored by the scheduler.
+
+A process's autogroup (task group) membership can be viewed via
+the file
+.IR /proc/[pid]/autogroup :
+
+.nf
+.in +4n
+$ \fBcat /proc/1/autogroup\fP
+/autogroup-1 nice 0
+.in
+.fi
+
+This file can also be used to modify the CPU bandwidth allocated
+to a task group.
+This is done by writing a number in the "nice" range to the file
+to set the task group's nice value.
+The allowed range is from +19 (low priority) to \-20 (high priority).
+Note that
+.I all
+values in this range cause a task group to be further disfavored
+by the scheduler,
+with \-20 resulting in the scheduler mildy disfavoring
+the task group and +19 greatly disfavoring it.
+.\" FIXME Regarding the previous paragraph...
+.\" My tests indicate that writing *any* value to
+.\" the autogroup file causes the task group to get a lower
+.\" priority. This somewhat surprised me, since I assumed
+.\" (based on the parallel with the process nice(2) value)
+.\" that negative values might boost the task group's priority
+.\" above a task group whose autogroup file had not been touched.
+.\"
+.\" Is this the expected behavior? I presume it is...
+.\"
+.\" But then there's a small surprise in the interface. Suppose that
+.\" the value 0 is written to the autogroup file, then this results
+.\" in the task group being significantly disfavored. But,
+.\" the nice value *shown* in the autogroup file will be the
+.\" same as if the file had not been modified. So, the user
+.\" has no way of discovering the difference. That seems odd.
+.\" Am I missing something?
+
+.\" FIXME Is the following correct? Does the statement need to
+.\" be more precise? (E.g., in precisely which circumstances does
+.\" the use of cgroups override autogroup?)
+The use of the
+.BR cgroups (7)
+CPU controller overrides the effect of autogrouping.
+.\" FIXME What needs to be said about autogroup and real-time tasks?
 .SH NOTES
 The
 .BR cgroups (7)

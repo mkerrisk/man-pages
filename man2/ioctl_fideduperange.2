@@ -95,7 +95,7 @@ struct file_dedupe_range_info {
 .in
 
 Each deduplication operation targets
-.IR length
+.IR src_length
 bytes in file descriptor
 .IR dest_fd
 at offset
@@ -108,8 +108,15 @@ During the call,
 must be open for reading and
 .IR dest_fd
 must be open for writing.
-For any call to this ioctl, there may not be more than 65,536
-requests attached; each request may not exceed 16MiB.
+The combined size of the struct
+.IR file_dedupe_range
+and the struct
+.IR file_dedupe_range_info
+array must not exceed the system page size.
+The maximum size of
+.IR src_length
+is filesystem dependent and is typically 16MiB.
+This limit will be enforced silently by the filesystem.
 By convention, the storage used by
 .IR src_fd
 is mapped into
@@ -143,6 +150,13 @@ is set to indicate the error.
 .PP
 .SH ERRORS
 Error codes can be one of, but are not limited to, the following:
+.TP
+.B ENOMEM
+The kernel was unable to allocate sufficient memory to perform the
+operation or
+.IR dest_count
+is so large that the input argument description spans more than a single
+page of memory.
 .TP
 .B EBADF
 .IR src_fd

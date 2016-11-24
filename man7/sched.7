@@ -683,7 +683,7 @@ or
 .\" commit 5091faa449ee0b7d73bc296a93bca9540fc51d0a
 Since Linux 2.6.38,
 the kernel provides a feature known as autogrouping to improve interactive
-desktop performance in the face of multiprocess CPU-intensive
+desktop performance in the face of multiprocess, CPU-intensive
 workloads such as building the Linux kernel with large numbers of
 parallel build processes (i.e., the
 .BR make (1)
@@ -700,25 +700,39 @@ The default value in this file is 1, unless the kernel was booted with the
 .IR noautogroup
 parameter.
 
-When autogrouping is enabled, processes are automatically placed
-into "task groups" for the purposes of scheduling.
-In the current implementation,
-a new task group is created when a new session is created via
-.BR setsid (2),
-as happens, for example, when a new terminal window is created.
-A task group is automatically destroyed when the last process
+A new autogroup is created created when a new session is created via
+.BR setsid (2);
+this happens, for example, when a new terminal window is started.
+A new process created by
+.BR fork (2)
+inherits its parent's autogroup membership.
+Thus, all of the processes in a session are members of the same autogroup.
+An autogroup is automatically destroyed when the last process
 in the group terminates.
 
-.\" FIXME The following is a little vague. Does it need to be
-.\" made more precise?
-The CFS scheduler employs an algorithm that distributes the CPU
-across task groups.
-As a result of this algorithm,
-the processes in task groups that contain multiple CPU-intensive
-processes are in effect disfavored by the scheduler.
+When autogrouping is enabled, all of the members of an autogroup
+are placed in the same kernel scheduler "task group".
+The CFS scheduler employs an algorithm that equalizes the
+distribution of CPU cycles across task groups.
+The benefits of this for interactive desktop performance
+can be described via the following example.
 
-A process's autogroup (task group) membership can be viewed via
-the file
+Suppose that there are two autogroups competing for the same CPU.
+The first group contains ten CPU-bound processes from
+a kernel build started with
+.IR "make\ \-j10" .
+The other contains a single CPU-bound process: a video player.
+The effect of autogrouping is that the two groups will
+each receive half of the CPU cycles.
+That is, the video player will receive 50% of the CPU cycles,
+rather just 9% of the cycles,
+which would likely lead to degraded video playback.
+Or to put things another way:
+an autogroup that contains a large number of CPU-bound processes
+does not end up overwhelming the CPU at the expense of the other
+jobs on the system.
+
+A process's autogroup (task group) membership can be viewed via the file
 .IR /proc/[pid]/autogroup :
 
 .nf
@@ -729,13 +743,15 @@ $ \fBcat /proc/1/autogroup\fP
 .fi
 
 This file can also be used to modify the CPU bandwidth allocated
-to a task group.
+to an autogroup.
 This is done by writing a number in the "nice" range to the file
-to set the task group's nice value.
+to set the autogroup's nice value.
+The allowed range is from +19 (low priority) to \-20 (high priority),
+and the setting has the same effect as modifying the nice level via
+.BR getpriority (2).
 (For a discussion of the nice value, see
 .BR getpriority (2).)
-The allowed range is from +19 (low priority) to \-20 (high priority).
-.\" FIXME
+.\" FIXME .
 .\" Because of a bug introduced in Linux 4.7
 .\" (commit 2159197d66770ec01f75c93fb11dc66df81fd45b made changes
 .\" that exposed the fact that autogroup didn't call scale_load()),
@@ -747,14 +763,17 @@ The allowed range is from +19 (low priority) to \-20 (high priority).
 .\" A patch was posted on 23 Nov 2016
 .\" ("sched/autogroup: Fix 64bit kernel nice adjustment";
 .\" check later to see in which kernel version it lands.
+.\"
+.\" FIXME How do the nice value of a process and the nice value of
+.\" an autogroup interact? Which has priority?
 
-.\" FIXME Is the following correct? Does the statement need to
-.\" be more precise? (E.g., in precisely which circumstances does
-.\" the use of cgroups override autogroup?)
 The use of the
 .BR cgroups (7)
 CPU controller overrides the effect of autogrouping.
-.\" FIXME What needs to be said about autogroup and real-time tasks?
+
+The autogroup feature does not group processes
+that are scheduled under a real-time and deadline policies.
+Those processes are scheduled according to the rules described earlier.
 .SH NOTES
 The
 .BR cgroups (7)

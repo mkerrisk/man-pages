@@ -438,52 +438,9 @@ resource limit can be used to define a limit to which
 an unprivileged process's nice value can be raised; see
 .BR setrlimit (2)
 for details.
-.\"
-.SS The nice value and group scheduling
-When scheduling non-real-time processes (i.e., those scheduled under the
-.BR SCHED_OTHER ,
-.BR SCHED_BATCH ,
-and
-.BR SCHED_IDLE
-policies), the CFS scheduler employs a technique known as "group scheduling",
-if the kernel was configured with the
-.BR CONFIG_GROUP_SCHED
-option (which is typical).
-Scheduling groups (also known as task groups)
-are formed in the following circumstances:
-.IP * 3
-All of the processes in a non-root CPU cgroup form a scheduling group.
-Thus, each non-root CPU cgroup is a scheduling group.
-.IP *
-All of the processes that are (implicitly) placed in an autogroup
-(i.e., the same session, as created by
-.BR setsid (2))
-form a scheduling group.
-Each new autogroup is thus a separate scheduling group.
-.IP *
-If autogrouping is disabled, then all processes in the root CPU cgroup
-form a scheduling group (sometimes called the "root task group").
-.PP
-Under group scheduling,
-the nice value has an effect for scheduling decisions
-.IR "only relative to other threads in the same group" .
-This has some surprising consequences in terms of the traditional semantics
-of the nice value on UNIX systems.
-In particular, if autogrouping
-is enabled (which is the default), then employing
-.BR setpriority (2)
-or
-.BR nice (1)
-on a process has an effect only for scheduling relative
-to other processes executed in the same session
-(typically: the same terminal window).
-Conversely, for two process that are (for example) the sole CPU-bound processes
-in different sessions (different terminal windows),
-.IR "modifying the nice value of the process in one of the sessions"
-.IR "has no effect"
-in terms of the scheduler's decisions relative to the
-process in the other session.
-.\" More succinctly: the nice(1) command is nearly a no-op since Linux 2.6.38.
+
+For further details on the nice value, see the subsections on
+the autogroup feature and group scheduling, below.
 .\"
 .SS SCHED_BATCH: Scheduling batch processes
 (Since Linux 2.6.16.)
@@ -849,21 +806,53 @@ and
 It does not group processes scheduled under real-time and
 deadline policies.
 Those processes are scheduled according to the rules described earlier.
-.SH NOTES
-The
-.BR cgroups (7)
-CPU controller can be used to limit the CPU consumption of
-groups of processes.
+.\"
+.SS The nice value and group scheduling
+When scheduling non-real-time processes (i.e., those scheduled under the
+.BR SCHED_OTHER ,
+.BR SCHED_BATCH ,
+and
+.BR SCHED_IDLE
+policies), the CFS scheduler employs a technique known as "group scheduling",
+if the kernel was configured with the
+.BR CONFIG_GROUP_SCHED
+option (which is typical).
+Scheduling groups (also known as task groups)
+are formed in the following circumstances:
+.IP * 3
+All of the processes in a non-root CPU cgroup form a scheduling group.
+Thus, each non-root CPU cgroup is a scheduling group.
+.IP *
+All of the processes that are (implicitly) placed in an autogroup
+(i.e., the same session, as created by
+.BR setsid (2))
+form a scheduling group.
+Each new autogroup is thus a separate scheduling group.
+.IP *
+If autogrouping is disabled, then all processes in the root CPU cgroup
+form a scheduling group (sometimes called the "root task group").
 .PP
-Originally, Standard Linux was intended as a general-purpose operating
-system being able to handle background processes, interactive
-applications, and less demanding real-time applications (applications that
-need to usually meet timing deadlines).
-Although the Linux kernel 2.6
-allowed for kernel preemption and the newly introduced O(1) scheduler
-ensures that the time needed to schedule is fixed and deterministic
-irrespective of the number of active tasks, true real-time computing
-was not possible up to kernel version 2.6.17.
+Under group scheduling,
+the nice value has an effect for scheduling decisions
+.IR "only relative to other threads in the same group" .
+This has some surprising consequences in terms of the traditional semantics
+of the nice value on UNIX systems.
+In particular, if autogrouping
+is enabled (which is the default), then employing
+.BR setpriority (2)
+or
+.BR nice (1)
+on a process has an effect only for scheduling relative
+to other processes executed in the same session
+(typically: the same terminal window).
+Conversely, for two process that are (for example) the sole CPU-bound processes
+in different sessions (different terminal windows),
+.IR "modifying the nice value of the process in one of the sessions"
+.IR "has no effect"
+in terms of the scheduler's decisions relative to the
+process in the other session.
+.\" More succinctly: the nice(1) command is nearly a no-op since Linux 2.6.38.
+.\"
 .SS Real-time features in the mainline Linux kernel
 .\" FIXME . Probably this text will need some minor tweaking
 .\" ask Carsten Emde about this.
@@ -904,6 +893,21 @@ If this is selected, Linux is transformed into a regular
 real-time operating system.
 The FIFO and RR scheduling policies are then used to run a thread
 with true real-time priority and a minimum worst-case scheduling latency.
+.SH NOTES
+The
+.BR cgroups (7)
+CPU controller can be used to limit the CPU consumption of
+groups of processes.
+.PP
+Originally, Standard Linux was intended as a general-purpose operating
+system being able to handle background processes, interactive
+applications, and less demanding real-time applications (applications that
+need to usually meet timing deadlines).
+Although the Linux kernel 2.6
+allowed for kernel preemption and the newly introduced O(1) scheduler
+ensures that the time needed to schedule is fixed and deterministic
+irrespective of the number of active tasks, true real-time computing
+was not possible up to kernel version 2.6.17.
 .SH SEE ALSO
 .ad l
 .nh

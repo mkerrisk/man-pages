@@ -815,26 +815,42 @@ and
 .BR SCHED_IDLE
 policies), the CFS scheduler employs a technique known as "group scheduling",
 if the kernel was configured with the
-.BR CONFIG_GROUP_SCHED
+.BR CONFIG_FAIR_GROUP_SCHED
 option (which is typical).
-Scheduling groups (also known as task groups)
-are formed in the following circumstances:
+
+Under group scheduling, threads are scheduled in "task groups".
+Task groups have a hierarchical relationship,
+rooted under the initial task group on the system,
+known as the "root task group".
+Task groups are formed in the following circumstances:
 .IP * 3
-All of the processes in a non-root CPU cgroup form a scheduling group.
-Thus, each non-root CPU cgroup is a scheduling group.
+All of the threads in a CPU cgroup form a task group.
+The parent of this task group is the task group of the
+corresponding parent cgroup.
 .IP *
-All of the processes that are (implicitly) placed in an autogroup
+If autogrouping is enabled,
+then all of the threads that are (implicitly) placed in an autogroup
 (i.e., the same session, as created by
 .BR setsid (2))
-form a scheduling group.
-Each new autogroup is thus a separate scheduling group.
+form a task group.
+Each new autogroup is thus a separate task group.
+The root task group is the parent of all such autogroups. 
 .IP *
-If autogrouping is disabled, then all processes in the root CPU cgroup
-form a scheduling group (sometimes called the "root task group").
+If autogrouping is enabled, then the root task group consists of
+all processes in the root CPU cgroup that were not
+otherwise implicitly placed into a new autogroup.
+.IP *
+If autogrouping is disabled, then the root task group consists of
+all processes in the root CPU cgroup.
+.IP *
+If group scheduling was disabled (i.e., the kernel was configured without
+.BR CONFIG_FAIR_GROUP_SCHED ),
+then all of the processes on the system are notionally placed
+in a single task group.
 .PP
 Under group scheduling,
-the nice value has an effect for scheduling decisions
-.IR "only relative to other threads in the same group" .
+a thread's nice value has an effect for scheduling decisions
+.IR "only relative to other threads in the same task group" .
 This has some surprising consequences in terms of the traditional semantics
 of the nice value on UNIX systems.
 In particular, if autogrouping
@@ -845,13 +861,17 @@ or
 on a process has an effect only for scheduling relative
 to other processes executed in the same session
 (typically: the same terminal window).
-Conversely, for two process that are (for example) the sole CPU-bound processes
-in different sessions (different terminal windows),
+
+Conversely, for two processes that are (for example)
+the sole CPU-bound processes in different sessions
+(e.g., different terminal windows,
+each of whose jobs are tied to different autogroups),
 .IR "modifying the nice value of the process in one of the sessions"
 .IR "has no effect"
 in terms of the scheduler's decisions relative to the
 process in the other session.
-.\" More succinctly: the nice(1) command is nearly a no-op since Linux 2.6.38.
+.\" More succinctly: the nice(1) command is in many cases a no-op since
+.\" Linux 2.6.38.
 .\"
 .SS Real-time features in the mainline Linux kernel
 .\" FIXME . Probably this text will need some minor tweaking

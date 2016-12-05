@@ -81,6 +81,10 @@ call was interrupted by a signal; see
 .TP
 .B EIO
 An I/O error occurred.
+.PP
+See NOTES for a discussion of why
+.BR close ()
+should not be retried after an error.
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2008, SVr4, 4.3BSD.
 .\" SVr4 documents an additional ENOLINK error condition.
@@ -98,12 +102,51 @@ Not checking the return value when closing the file may lead to
 silent loss of data.
 This can especially be observed with NFS
 and with disk quota.
-Note that the return value should be used only for diagnostics.
+
+Note, however, that the return value should be used only for diagnostics.
+.\" The FreeBSD 11.0 close(2) man page says similar:
+.\"     In case of any error except EBADF, the supplied file descriptor is
+.\"     deallocated and therefore is no longer valid.
+Retrying the
+.BR close ()
+after an error is the wrong thing to do,
+.\" The file descriptor is released early in close();
+.\" close() ==> __close_fd():
+.\"			__put_unused_fd() ==> __clear_open_fd()
+.\"			return filp_close(file, files);
+.\"
+.\" The errors are returned bt filp_close() after the FD has been
+.\" cleared for re-use.
+since this may cause a reused file descriptor
+from another thread to be closed.
+(The kernel releases the file descriptor early in the close
+operation, freeing it for reuse;
+the steps that may return an error,
+.\" filp_close()
+such as flushing data to disk, occur only later in the close operation.)
 In particular,
 .BR close ()
 should not be retried after an
 .B EINTR
-since this may cause a reused file descriptor from another thread to be closed.
+error.
+(POSIX.1 says:
+"If
+.BR close ()
+is interrupted by a signal that is to be caught, it shall return \-1 with
+.I errno
+set to
+.B EINTR
+and the state of fildes is
+.IR unspecified .")
+.\" FIXME . for later review when Issue 8 is one day released...
+.\" POSIX proposes further changes for EINTR
+.\" http://austingroupbugs.net/tag_view_page.php?tag_id=8
+.\" http://austingroupbugs.net/view.php?id=529
+
+Careful users who want to know about I/O errors may precede
+.BR close ()
+with a call to
+.BR fsync (2).
 .PP
 A successful close does not guarantee that the data has been successfully
 saved to disk, as the kernel uses the buffer cache to defer writes.

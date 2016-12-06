@@ -1,5 +1,6 @@
 .\" This manpage is Copyright (C) 1992 Drew Eckhardt;
-.\"             and Copyright (C) 1993 Michael Haardt, Ian Jackson.
+.\" and Copyright (C) 1993 Michael Haardt, Ian Jackson.
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -129,15 +130,47 @@ In particular,
 should not be retried after an
 .B EINTR
 error.
-(POSIX.1 says:
-"If
+
+Regarding the
+.B EINTR
+error, POSIX.1-2013 says:
+
+.RS
+If
 .BR close ()
 is interrupted by a signal that is to be caught, it shall return \-1 with
 .I errno
 set to
 .B EINTR
-and the state of fildes is
-.IR unspecified .")
+and the state of fildes is unspecified.
+.RE
+
+This permits the behavior that occurs on Linux and
+many other implementations (such as FreeBSD and AIX) where, even if
+.BR close ()
+fails with the error
+.BR EINTR ,
+the file descriptor is guaranteed to be closed.
+However, it also permits another possibility:
+that the implementation returns an
+.B EINTR
+error and keeps the file descriptor open.
+(According to its documentation, HP-UX's
+.BR close ()
+does this.)
+The caller must then once more use
+.BR close ()
+to close the file descriptor, to avoid file descriptor leaks.
+This divergence in implementation behaviors provides
+a difficult hurdle for portable applications, since on many implementations,
+.BR close ()
+must not be called again after an
+.B EINTR
+error, and on at least one,
+.BR close ()
+must be called again.
+There are plans to address this conundrum for
+the next major release of the POSIX.1 standard.
 .\" FIXME . for later review when Issue 8 is one day released...
 .\" POSIX proposes further changes for EINTR
 .\" http://austingroupbugs.net/tag_view_page.php?tag_id=8

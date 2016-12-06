@@ -109,7 +109,9 @@ diagnostic purposes.
 .\"     deallocated and therefore is no longer valid.
 Retrying the
 .BR close ()
-after an error is the wrong thing to do,
+after an error such as
+.BR EINTR
+is the wrong thing to do,
 .\" The file descriptor is released early in close();
 .\" close() ==> __close_fd():
 .\"			__put_unused_fd() ==> __clear_open_fd()
@@ -119,17 +121,14 @@ after an error is the wrong thing to do,
 .\" cleared for re-use.
 since this may cause a reused file descriptor
 from another thread to be closed.
-(The kernel releases the file descriptor early in the close
+This can occur because the Linux kernel
+.I always
+releases the file descriptor early in the close
 operation, freeing it for reuse;
 the steps that may return an error,
 .\" filp_close()
 such as flushing data to the filesystem or device,
-occur only later in the close operation.)
-In particular,
-.BR close ()
-should not be retried after an
-.B EINTR
-error.
+occur only later in the close operation.
 
 A careful programmer who wants to know about I/O errors may precede
 .BR close ()

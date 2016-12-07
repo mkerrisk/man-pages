@@ -102,25 +102,21 @@ Failing to check the return value when closing a file may lead to
 loss of data.
 This can especially be observed with NFS and with disk quota.
 
-Note, however, that the return value should be used only for
-diagnostic purposes (a warning to the application that there
+Note, however, that a failure return should be used only for
+diagnostic purposes (i.e., a warning to the application that there
 may still be I/O pending or there may have been failed I/O)
 or remedial purposes
 (e.g., writing the file once more or creating a backup).
-.\" The FreeBSD 11.0 close(2) man page says similar:
-.\"     In case of any error except EBADF, the supplied file descriptor is
-.\"     deallocated and therefore is no longer valid.
+
 Retrying the
 .BR close ()
-after an error such as
-.BR EINTR
-is the wrong thing to do,
+after a failure return is the wrong thing to do,
 .\" The file descriptor is released early in close();
 .\" close() ==> __close_fd():
 .\"			__put_unused_fd() ==> __clear_open_fd()
 .\"			return filp_close(file, files);
 .\"
-.\" The errors are returned bt filp_close() after the FD has been
+.\" The errors are returned by filp_close() after the FD has been
 .\" cleared for re-use.
 since this may cause a reused file descriptor
 from another thread to be closed.
@@ -143,6 +139,9 @@ A careful programmer who wants to know about I/O errors may precede
 with a call to
 .BR fsync (2).
 
+The
+.B EINTR
+error is a somewhat special case.
 Regarding the
 .B EINTR
 error, POSIX.1-2013 says:
@@ -160,10 +159,9 @@ is unspecified.
 .RE
 
 This permits the behavior that occurs on Linux and
-many other implementations (such as FreeBSD and AIX) where, even if
-.BR close ()
-fails with the error
-.BR EINTR ,
+many other implementations, where,
+as with other errors that may be reported by
+.BR close (),
 the file descriptor is guaranteed to be closed.
 However, it also permits another possibility:
 that the implementation returns an

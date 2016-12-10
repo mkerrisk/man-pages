@@ -177,9 +177,6 @@ of the minor versions provided by the daemon and the kernel and
 both parties should use the protocol corresponding to said minor version.
 .TP
 .BR FUSE_GETATTR
-.\" FIXME It looks like this is for implementing a stat(2) type of
-.\" operation. There needs to be a sentence here describing what
-.\" this option does.
 
 .in +4n
 .nf
@@ -192,47 +189,58 @@ struct fuse_getattr_in {
 .fi
 .in
 
-As usual, the filesystem object operated on is indicated by
-.IR header\->nodeid .
-The daemon should compute the attributes
-of this object and reply with the following message:
+The requested operation is to compute the attributes to be returned
+by
+.BR stat(2)
+and similar operations for the given file system object.
+The object for which the attributes should be computed is indicated
+either by
+.IR header\->nodeid
+or, if the
+.IR FUSE_GETATTR_FH
+flag is set, by the file handle
+.IR fh.
+The latter case of operation is analogous to
+.BR fstat(2).
+
+For performance reasons, these attributes may be cached in the kernel for
+a specified duration of time. While the cache timeout has not been exceeded,
+the attributes will be served from the cache and will not cause additional
+.B FUSE_GETATTR
+requests.
+
+The computed attributes and the requested
+cache timeout should then be returned in the following structure:
+
 .in +4n
-
 .nf
-struct fuse_attr {
-    uint64_t ino;
-    uint64_t size;
-    uint64_t blocks;
-    uint64_t atime;
-    uint64_t mtime;
-    uint64_t ctime;
-    uint32_t atimensec;
-    uint32_t mtimensec;
-    uint32_t ctimensec;
-    uint32_t mode;
-    uint32_t nlink;
-    uint32_t uid;
-    uint32_t gid;
-    uint32_t rdev;
-    uint32_t blksize;
-    uint32_t padding;
-};
-
 struct fuse_attr_out {
     /* Attribute cache duration (seconds + nanoseconds) */
     uint64_t attr_valid;
     uint32_t attr_valid_nsec;
     uint32_t dummy;
-    struct fuse_attr attr;
+    struct fuse_attr {
+        uint64_t ino;
+        uint64_t size;
+        uint64_t blocks;
+        uint64_t atime;
+        uint64_t mtime;
+        uint64_t ctime;
+        uint32_t atimensec;
+        uint32_t mtimensec;
+        uint32_t ctimensec;
+        uint32_t mode;
+        uint32_t nlink;
+        uint32_t uid;
+        uint32_t gid;
+        uint32_t rdev;
+        uint32_t blksize;
+        uint32_t padding;
+    } attr;
 };
 .fi
 .in
 
-The fields of
-.I struct fuse_attr
-describe the attributes of the required file.
-For the interpretation of these fields, see
-.BR stat (2).
 .TP
 .BR FUSE_ACCESS
 
@@ -249,9 +257,10 @@ If the
 .I default_permissions
 mount options is not used, this request may be used for permissions checking.
 No reply data is expected, but errors may be indicated
-as usual in the reply header (in particular, access denied errors
-may be indicated, by setting such field to
-.\" FIXME What does "such field" mean? The 'error' field?
+as usual by setting the
+.I error
+field in the reply header (in particular, access denied errors
+may be indicated by returning
 .BR \-EACCES ).
 .TP
 .BR FUSE_OPEN " and " FUSE_OPENDIR
@@ -328,10 +337,7 @@ The requested action is to read up to
 .I size
 bytes of the file or directory, starting at
 .IR offset .
-.\" FIXME
-.\" In the following, what are "out header" and "out structure"?
-The bytes should be returned directly following the out header,
-with no further special out structure.
+The bytes should be returned directly following the usual reply header.
 .TP
 .BR FUSE_INTERRUPT
 .in +4n

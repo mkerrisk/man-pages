@@ -37,20 +37,22 @@ and a userspace process wishing to provide the file system (referred to
 in the rest of this manual page as the
 .I file system daemon.
 This manual page is intended for those
-interested in understanding the kernel interface
-itself. Those implementing a FUSE filesystem may wish to make use of
+interested in understanding the kernel interface itself.
+Those implementing a FUSE filesystem may wish to make use of
 a userspace library such as libfuse that abstracts away the low level
 interface.
 
 At its core, FUSE is a simple client-server protocol, in which the Linux
-kernel is the client and the daemon is the server. After obtaining
-a file descriptor to this device, the daemon may
+kernel is the client and the daemon is the server.
+After obtaining a file descriptor to this device, the daemon may
 .BR read (2)
 requests from that file descriptor and is expected to
 .BR write (2)
-back its replied. It is important to note, that a file descriptor is
-associated to a unique FUSE file system. In particular, opening a
-second copy of this device, will not allow access to resources created
+back its replied.
+It is important to note, that a file descriptor is
+associated to a unique FUSE file system.
+In particular, opening a second copy of this device,
+will not allow access to resources created
 through the first file descriptor (and vice versa).
 
 .SS The basic protocol
@@ -72,16 +74,18 @@ struct fuse_in_header {
 .fi
 .in
 
-followed by a variable length data portion (which may be empty) specific to the requested operation
+followed by a variable length data portion (which may be empty)
+specific to the requested operation
 (the requested operation is indicated by
 .I opcode
 ).
 
-The daemon should then process the request and if applicable send a reply (almost
-all operations require a reply - if they do not this is documented below), by
-performing a
+The daemon should then process the request and if applicable send
+a reply (almost all operations require a reply - if they do not
+this is documented below), by performing a
 .BR write(2)
-to the file descriptor. All replies must start with the following header:
+to the file descriptor.
+All replies must start with the following header:
 
 .in +4n
 .nf
@@ -94,14 +98,18 @@ to the file descriptor. All replies must start with the following header:
 .in
 
 again followed by (potentially empty) variable sized data depending on the
-executed request. However, if the reply is an error reply (i.e. error is set),
+executed request.
+However, if the reply is an error reply (i.e. error is set),
 then no further payload data should be sent, independent of the request.
 
 .SS Exchanged messages
 
-This section should contain documentation for each of the messages in the protocol.
-This manual page is currently incomplete, so not all messages are documented. For
-each message, first the struct sent by the kernel is given, followed by a description of the semantics of the message.
+This section should contain documentation for each of the messages
+in the protocol.
+This manual page is currently incomplete,
+so not all messages are documented.
+For each message, first the struct sent by the kernel is given,
+followed by a description of the semantics of the message.
 
 .TP
 .BR FUSE_INIT " ( 25 )"
@@ -117,12 +125,14 @@ struct fuse_init_in {
 .fi
 .in
 
-This is the first request sent by the kernel to the daemon. It is used to
-negotiate the protocol version and other file system parameters. Note that
-the protocol version may affect the layout of any structure in the protocol
-(including this one). The daemon must thus remember the negotiated version
-and flags for each session. As of the writing of this man page, the highest
-supported kernel protocol version is
+This is the first request sent by the kernel to the daemon.
+It is used to negotiate the protocol version and other file system parameters.
+Note that the protocol version may affect the layout of any structure
+in the protocol (including this one).
+The daemon must thus remember the negotiated version
+and flags for each session.
+As of the writing of this man page,
+the highest supported kernel protocol version is
 .I 7.26.
 
 Users should be aware that the descriptions in this manual page
@@ -150,15 +160,17 @@ struct fuse_init_out {
 If the major version supported by the kernel, is larger than that supported
 by the daemon, the reply shall consist of only
 .I uint32_t major
-(following the usual header), indicating the largest major version supported
-by the daemon. The kernel will then issue a new
+(following the usual header),
+indicating the largest major version supported by the daemon.
+The kernel will then issue a new
 .I FUSE_INIT
-request conforming to the older version. In the reverse case, the daemon should
+request conforming to the older version.
+In the reverse case, the daemon should
 quietly fall back to the kernel's major version.
 
-The negotiated minor version is considered to be the minimum of the minor versions
-provided by the daemon and the kernel and both parties should use the protocol
-corresponding to said minor version.
+The negotiated minor version is considered to be the minimum
+of the minor versions provided by the daemon and the kernel and
+both parties should use the protocol corresponding to said minor version.
 
 .TP
 .BR FUSE_GETATTR " ( 3 )"
@@ -208,8 +220,8 @@ struct fuse_attr_out {
 
 The fields of
 .I struct fuse_attr
-describe the attributes of the required file. For the interpretation
-of these fields, see
+describe the attributes of the required file.
+For the interpretation of these fields, see
 .BR stat(2)
 
 .TP
@@ -226,8 +238,8 @@ struct fuse_access_in {
 
 If the
 .I default_permissions
-mount options is not used, this request may be used for permissions
-checking. No reply data is expected, but errors may be indicated
+mount options is not used, this request may be used for permissions checking.
+No reply data is expected, but errors may be indicated
 as usual in the reply header (in particular, access denied errors
 may be indicated, by setting such field to
 .I -EACCES
@@ -247,7 +259,8 @@ struct fuse_open_in {
 The requested operation is to open the node indicated by
 .I header->nodeid
 the exact semantics of what this means will depend on the
-filesystem being implemented. However, at the very least the
+filesystem being implemented.
+However, at the very least the
 file system should validate that the requested
 .I flags
 are valid for the indicated resource and then reply with
@@ -308,12 +321,15 @@ struct fuse_interrupt_in {
 
 The requested action is to cancel the pending operation indicated by
 .I unique
-This request requires no response. However, receipt of this message does
-not by itself cancel the indicated operation. The kernel will still expect
-a reply to said operation (e.g. an EINTR error or a short read). At most
-one
+This request requires no response.
+However, receipt of this message does
+not by itself cancel the indicated operation.
+The kernel will still expect
+a reply to said operation (e.g. an EINTR error or a short read).
+At most one
 .B FUSE_INTERRUPT
-request will be issued for a given operation. After issuing said operation,
+request will be issued for a given operation.
+After issuing said operation,
 the kernel will wait uninterrutably for completion of the indicated request.
 
 .TP
@@ -358,7 +374,9 @@ struct fuse_flush_in {
 .in
 
 The requested action is to flush any pending changes to the indicated
-file handle. No reply data is expected. However, an empty reply message
+file handle.
+No reply data is expected.
+However, an empty reply message
 still needs to be issued once the flush operation is complete.
 
 .TP
@@ -378,18 +396,21 @@ The counter operation to
 .BR FUSE_OPEN
 or
 .BR FUSE_OPENDIR
-respectively. The daemon may now free any resources associated with the
+respectively.
+The daemon may now free any resources associated with the
 file handle
 .I fh
-as the kernel will no longer refer to it. There are no reply data associated
-with this request, but a reply still needs to be issued once the request has
+as the kernel will no longer refer to it.
+There are no reply data associated with this request,
+but a reply still needs to be issued once the request has
 been completely processed.
 
 .TP
 .BR FUSE_STATFS " ( 17 )"
 This operation implements
 .BR statfs(2)
-for this file system. There is no input data associated with this request.
+for this file system.
+There is no input data associated with this request.
 The expected reply data has the following structure:
 .in +4n
 .nf
@@ -430,18 +451,17 @@ operations when the kernel's request is too large for the provided buffer.
 There are various ways in which incorrect use of these interfaces can cause
 operations on the provided filesystem's files and directories to fail with
 .BR EIO.
-A partial list of such incorrect uses is
-changing
+A partial list of such incorrect uses is changing
 .I mode & S_IFMT
-for an inode that has previous been reported to the
-kernel; or giving replies to the kernel that are shorter than what the kernel
-expected.
+for an inode that has previous been reported to the kernel; or giving
+replies to the kernel that are shorter than what the kernel expected.
 
 .B EINVAL
 Returned from
 .BR write(2)
-if validation of the reply failed. Note all mistakes in replies will be caught
-by this validation. However, basic mistakes, such as short replies or an incorrect
+if validation of the reply failed.
+Note all mistakes in replies will be caught by this validation.
+However, basic mistakes, such as short replies or an incorrect
 .I unique
 value.
 

@@ -442,7 +442,7 @@ and show that new UTS namespace is associated with the new user namespace:
 $ \fBunshare \-Uu sleep 1000 &\fP
 [1] 23235
 $ \fB./ns_introspect /proc/23235/ns/uts\fP
-Inode number of owning user namespace is: 4026532448
+Device/Inode of owning user namespace is: [0,3] / 4026532448
 $ \fBreadlink /proc/23235/ns/user \fP
 user:[4026532448]
 .in
@@ -456,7 +456,7 @@ example is the initial user namespace:
 $ \fBreadlink /proc/self/ns/user\fP
 user:[4026531837]
 $ \fB./ns_introspect /proc/23235/ns/user\fP
-Inode number of owning user namespace is: 4026531837
+Device/Inode of owning user namespace is: [0,3] / 4026531837
 .in
 .fi
 
@@ -480,16 +480,17 @@ The owning user namespace is outside your namespace scope
 .nf
 /* ns_introspect.c
 
-   Licensed under GNU General Public License v2 or later
+   Licensed under the GNU General Public License v2 or later.
 */
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <errno.h>
+#include <sys/sysmacros.h>
 
 #ifndef NS_GET_USERNS
 #define NSIO    0xb7
@@ -542,7 +543,9 @@ main(int argc, char *argv[])
             perror("fstat\-userns");
             exit(EXIT_FAILURE);
         }
-        printf("Inode number of owning user namespace is: %ld\\n",
+        printf("Device/Inode of owning user namespace is: "
+                "[%lx,%lx] / %ld\\n",
+                (long) major(sb.st_dev), (long) minor(sb.st_dev),
                 (long) sb.st_ino);
 
         close(userns_fd);
@@ -570,7 +573,8 @@ main(int argc, char *argv[])
             perror("fstat\-parentns");
             exit(EXIT_FAILURE);
         }
-        printf("Inode number of parent namespace is: %ld\\n",
+        printf("Device/Inode of parent namespace is: [%lx,%lx] / %ld\\n",
+                (long) major(sb.st_dev), (long) minor(sb.st_dev),
                 (long) sb.st_ino);
 
         close(parent_fd);

@@ -63,8 +63,8 @@ This is usually set when a key is created,
 but it is possible for the kernel to upcall to user space to finish the
 instantiation of a key if that key wasn't already known to the kernel
 when it was requested.
-(Details can be found in
-.BR request_key (2).)
+For further details, see
+.BR request_key (2).
 
 A key's payload can be read and updated if the key type supports it and if
 suitable permission is granted to the caller.
@@ -75,7 +75,9 @@ each key has an owning user ID, an owning group ID, and a security label.
 Each key also has a set of permissions,
 though there are more than for a normal UNIX file,
 and there is an additional category\(empossessor\(embeyond the usual user,
-group, and other (see below).
+group, and other (see
+.IR Possession ,
+below).
 
 Note that keys are quota controlled, since they require unswappable kernel
 memory.
@@ -147,7 +149,8 @@ This key type is similar to the
 .I """user"""
 key type, but it may hold a payload of up to 1 MiB in size.
 The data may be stored in the swap space rather than in kernel memory
-if the data size exceeds the overhead of storing the data in swap space
+if the data size exceeds the overhead of storing the data encrypted
+in swap space
 (a tmpfs file is used, which requires filesystem structures
 to be allocated in the kernel;
 the size of these determines the size threshold
@@ -197,7 +200,7 @@ and
 for more information.
 .\"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .SS Anchoring keys
-To prevent a key from being prematurely garbage collected,
+To prevent a key from being garbage collected,
 it must anchored to keep its reference count elevated
 when it is not in active use by the kernel.
 
@@ -445,7 +448,7 @@ upcall mechanism, then the keyrings of the original caller of
 .BR request_key (2)
 will be searched as well.
 .IP (3)
-The search of a keyring tree is in preorder:
+The search of a keyring tree is in breadth-first order:
 each keyring is searched first for a match,
 then the keyrings referred to by that keyring are searched.
 .IP (4)
@@ -510,13 +513,21 @@ This file exposes a list of the keys for which the reading thread has
 .I view
 permission, providing various information about each key.
 The thread need not possess the key for it to be visible in this file.
-.\" FIXME Is the preceding sentence correct? From my experiments,
-.\" it appears to be true.
+.\" David Howells, Dec 2016 linux-man@:
+.\" This [The thread need not possess the key for it to be visible in
+.\" this file.] is correct.  See proc_keys_show() in security/keys/proc.c:
+.\" 
+.\"	rc = key_task_permission(key_ref, ctx.cred, KEY_NEED_VIEW);
+.\"	if (rc < 0)
+.\"		return 0;
+.\"
+.\"Possibly it shouldn't be, but for now it is.
+.\"
 
 The only keys included in the list are those that grant
 .I view
-permission to the reading process,
-regardless of whether or not it possesses them.
+permission to the reading process
+(regardless of whether or not it possesses them).
 LSM security checks are still performed,
 and may filter out further keys that the process is not authorized to view.
 
@@ -550,7 +561,8 @@ The key has been instantiated.
 .IP R
 The key has been revoked.
 .IP D
-The key is dead (i.e., has been deleted).
+The key is dead (i.e., the key has been unregistered).
+.\" unregister_key_type() in the kernel source
 (A key may be briefly in this state during garbage collection.)
 .IP Q
 The key contributes to the user's quota.

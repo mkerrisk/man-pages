@@ -748,6 +748,48 @@ so that a process gains those capabilities when the file is executed.
 Before kernel 2.6.24, only the first two of these requirements are met;
 since kernel 2.6.24, all three requirements are met.
 .\"
+.SS Notes to kernel developers
+When adding a new kernel feature that should be governed by a capability,
+consider the following points.
+.IP * 3
+The goal of capabilities is divide the power of superuser into small pieces,
+such that if a program that has capabilities is compromised,
+its power to do damage to the system would be much less than a similar
+set-user-ID-root program.
+.IP *
+You have the choice of either creating a new capability for your new feature,
+or associating the feature with one of the existing capabilities.
+Because the size of capability sets is currently limited to 64 bits,
+the latter option is preferable,
+unless there are compelling reasons to take the former option.
+.IP *
+To determine which existing capability might best be associated
+with your new feature, review the list of capabilities above in order
+to find a "silo" into which your new feature best fits.
+.IP *
+.IR Don't
+choose
+.B CAP_SYS_ADMIN
+if you can possibly avoid it!
+A vast proportion of existing capability checks are associated
+with this capability,
+to the point where it can plausibly be called "the new root".
+Don't make the problem worse.
+The only new features that should be associated with
+.B CAP_SYS_ADMIN
+are ones that
+.I closely
+match existing uses in that silo.
+.IP *
+If you have determined that it really is necessary to create
+a new capability for your feature,
+avoid making (and naming) it as a "single-use" capability.
+Thus, for example, the addition of the highly specific
+.BR CAP_WAKE_ALARM
+was probably a mistake.
+Instead, try to identify and name your new capability as a broader
+silo into which other related future use cases might fit.
+.\"
 .SS Thread capability sets
 Each thread has three capability sets containing zero or more
 of the above capabilities:

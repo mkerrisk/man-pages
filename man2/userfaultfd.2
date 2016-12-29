@@ -37,19 +37,21 @@ space
 .IR Note :
 There is no glibc wrapper for this system call; see NOTES.
 .SH DESCRIPTION
-.BR userfaultfd (2)
-creates a userfaultfd object that can be used for delegation of page fault
-handling to a user space application.
-The userfaultfd should be configured using
+.BR userfaultfd ()
+creates a new userfaultfd object that can be used for delegation of page-fault
+handling to a user-space application,
+and returns a file descriptor that refers to the new object.
+The new userfaultfd object is configured using
 .BR ioctl (2).
-Once the userfaultfd is configured, the application can use
+
+Once the userfaultfd object is configured, the application can use
 .BR read (2)
 to receive userfaultfd notifications.
-The reads from userfaultfd may be blocking or non-blocking, depending on
-the value of
+The reads from userfaultfd may be blocking or non-blocking,
+depending on the value of
 .I flags
 used for the creation of the userfaultfd or subsequent calls to
-.BR fcntl (2) .
+.BR fcntl (2).
 
 The following values may be bitwise ORed in
 .IR flags
@@ -57,15 +59,14 @@ to change the behavior of
 .BR userfaultfd ():
 .TP
 .BR O_CLOEXEC
-Enable the close-on-exec flag for the new userfaultfd object.
+Enable the close-on-exec flag for the new userfaultfd file descriptor.
 See the description of the
 .B O_CLOEXEC
 flag in
-.BR open (2)
+.BR open (2).
 .TP
 .BR O_NONBLOCK
-Enables non-blocking operation for the userfaultfd
-.BR O_NONBLOCK
+Enables non-blocking operation for the userfaultfd object.
 See the description of the
 .BR O_NONBLOCK
 flag in
@@ -73,36 +74,45 @@ flag in
 .\"
 .SS Userfaultfd operation
 After the userfaultfd object is created with
-.BR userfaultfd (2)
-system call, the application have to enable it using
-.I UFFDIO_API
-ioctl to perform API version and supported features handshake between the
-kernel and the user space.
-If the
-.I UFFDIO_API
-is successful, the application should register memory ranges using
-.I UFFDIO_REGISTER
-ioctl. After successful completion of
-.I UFFDIO_REGISTER
-ioctl, a page fault occurring in the requested memory range, and satisfying
-the mode defined at the register time, will be forwarded by the kernel to
-the user space application.
-The application then can use
-.I UFFDIO_COPY
+.BR userfaultfd (),
+the application must enable it using the
+.B UFFDIO_API
+.BR ioctl (2)
+operation.
+This operation allows a handshake between the kernel and user space
+to determine the API version and supported features.
+After a successful
+.B UFFDIO_API
+operation,
+the application then registers memory address ranges using the
+.B UFFDIO_REGISTER
+.BR ioctl (2)
+operation.
+After successful completion of a
+.B UFFDIO_REGISTER
+operation,
+a page fault occurring in the requested memory range, and satisfying
+the mode defined at the registration time, will be forwarded by the kernel to
+the user-space application.
+The application can then use the
+.B UFFDIO_COPY
 or
-.I UFFDIO_ZERO
-ioctls to resolve the page fault.
+.B UFFDIO_ZERO
+.BR ioctl (2)
+operations to resolve the page fault.
 .PP
-Currently, userfaultfd can only be used with anonymous private memory
+Currently, userfaultfd can be used only with anonymous private memory
 mappings.
 .\"
-.SS API Ioctls
-The API ioctls are used to configure userfaultfd behavior.
-They allow to choose what features will be enabled and what kinds of events
-will be delivered to the application.
+.SS Configuration ioctl(2) operations
+The
+.BR ioctl (2)
+operations described below are used to configure userfaultfd behavior.
+They allow the caller to choose what features will be enabled and
+what kinds of events will be delivered to the application.
 .TP
-.BR "UFFDIO_API	struct uffdio_api *" api
-Enable userfaultfd and perform API handshake.
+.BR "UFFDIO_API	struct uffdio_api *" argp
+Enable operation of the userfaultfd and perform API handshake.
 The
 .I uffdio_api
 structure is defined as:
@@ -110,9 +120,9 @@ structure is defined as:
 .nf
 
 struct uffdio_api {
-	__u64 api;
-	__u64 features;
-	__u64 ioctls;
+    __u64 api;
+    __u64 features;
+    __u64 ioctls;
 };
 
 .fi
@@ -120,16 +130,19 @@ struct uffdio_api {
 The
 .I api
 field denotes the API version requested by the application.
-The kernel verifies that it can support the required API, and sets the
+The kernel verifies that it can support the requested version, and sets the
 .I features
 and
 .I ioctls
 fields to bit masks representing all the available features and the generic
-ioctls available.
+.BR ioctl (2
+operationss available.
+.\" FIXME We need to say more about the list of bits that can appear in
+.\" these two fields.
 .\"
 .TP
-.BI "UFFDIO_REGISTER	struct uffdio_register *" arg
-Register a memory range with userfaultfd.
+.BI "UFFDIO_REGISTER	struct uffdio_register *" argp
+Register a memory address range with the userfaultfd object.
 The
 .I uffdio_register
 structure is defined as:
@@ -137,14 +150,14 @@ structure is defined as:
 .nf
 
 struct uffdio_range {
-	__u64 start;
-	__u64 end;
+    __u64 start;
+    __u64 end;
 };
 
 struct uffdio_register {
-	struct uffdio_range range;
-	__u64 mode;
-	__u64 ioctls;
+    struct uffdio_range range;
+    __u64 mode;
+    __u64 ioctls;
 };
 
 .fi
@@ -157,146 +170,152 @@ field defines a memory range starting at
 and ending at
 .I end
 that should be handled by the userfaultfd.
+
 The
 .I mode
-defines mode of operation desired for this memory region.
+field defines the mode of operation desired for this memory region.
 The following values may be bitwise ORed to set the userfaultfd mode for
-particular range:
+the specified range:
+
 .RS
-.sp
-.PD 0
-.TP 12
+.TP
 .B UFFDIO_REGISTER_MODE_MISSING
 Track page faults on missing pages
-.TP 12
+.TP
 .B UFFDIO_REGISTER_MODE_WP
-Track page faults on write protected pages.
-Currently the only supported mode is
-.I UFFDIO_REGISTER_MODE_MISSING
-.PD
+Track page faults on write-protected pages.
+Currently, the only supported mode is
+.BR UFFDIO_REGISTER_MODE_MISSING .
 .RE
 .IP
+.\" FIXME In the following, what does "answers" mean, and what are the bits?
+.\" (we need a list of the bits here).
 The kernel answers which ioctl commands are available for the requested
 range in the
 .I ioctls
 field.
 .\"
 .TP
-.BI "UFFDIO_UNREGISTER	struct uffdio_register *" arg
+.BI "UFFDIO_UNREGISTER	struct uffdio_register *" argp
 Unregister a memory range from userfaultfd.
 .\"
-.SS Range Ioctls
-The range ioctls enable the calling application to resolve page fault
-events in consistent way.
+.SS Range ioctl(2) operations
+The range
+.BR ioctl (2)
+operations enable the calling application to resolve page fault
+events in a consistent way.
+.\" FIXME What does "consistent" mean?
 .TP
-.BI "UFFDIO_COPY struct uffdio_copy *" arg
+.BI "UFFDIO_COPY struct uffdio_copy *" argp
 Atomically copy a continuous memory chunk into the userfault registered
 range and optionally wake up the blocked thread.
-The source and destination addresses and the amount of bytes to copy are
-specified by
+The source and destination addresses and the number of bytes to copy are
+specified by the
 .IR src ", " dst ", and " len
 fields of
-.I "struct uffdio_copy"
-respectively:
+.IR "struct uffdio_copy" :
 
 .in +4n
 .nf
 struct uffdio_copy {
-	__u64 dst;
-	__u64 src;
-	__u64 len;
-	__u64 mode;
-	__s64 copy;
+    __u64 dst;
+    __u64 src;
+    __u64 len;
+    __u64 mode;
+    __s64 copy;
 };
 .nf
 .fi
-
+.IP
 The following values may be bitwise ORed in
 .IR mode
-to change the behavior of
-.I UFFDIO_COPY
-ioctl:
+to change the behavior of the
+.B UFFDIO_COPY
+operation:
+
 .RS
-.sp
-.PD 0
-.TP 12
+.TP
 .B UFFDIO_COPY_MODE_DONTWAKE
 Do not wake up the thread that waits for page fault resolution
-.PD
 .RE
 .IP
 The
 .I copy
 field of the
 .I uffdio_copy
-structure is used by the kernel to return amount of bytes that was actually
-copied, or an error.
+structure is used by the kernel to return the number of bytes
+that was actually copied, or an error.
 If
 .I uffdio_copy.copy
 doesn't match the
 .I uffdio_copy.len
 passed in input to
-.IR UFFDIO_COPY ,
-the ioctl will return
-.BR -EAGAIN .
-If the ioctl returns zero it means it succeeded, no error was reported and
+.BR UFFDIO_COPY ,
+the operation will return
+.\" FIXME In the 'copy' field? (This isn't clear.)
+.BR \-EAGAIN .
+If
+.BR ioctl (2)
+returns zero it means it succeeded, no error was reported and
 the entire area was copied.
-If a an invalid fault happens while writing to the
+If an invalid fault happens while writing to the
 .I uffdio_copy.copy
-field, the syscall will return
-.BR -EFAULT .
+field, the system call will return
+.\" FIXME In the 'copy' field? (This isn't clear.)
+.BR \-EFAULT .
 .I uffdio_copy.copy
-is an output-only field so it is not being read by the UFFDIO_COPY ioctl.
-
+is an output-only field;
+it is not read by the
+.B UFFDIO_COPY
+operation.
 .\"
 .TP
-.BI "UFFDIO_ZERO struct uffdio_zero *" arg
+.BI "UFFDIO_ZERO struct uffdio_zero *" argp
 Zero out a part of memory range registered with userfaultfd.
-The requested range is specified by
+The requested range is specified by the
 .I range
-field of
+field of the
 .I uffdio_zeropage
 structure:
 
 .in +4n
 .nf
 struct uffdio_zeropage {
-	struct uffdio_range range;
-	__u64 mode;
-	__s64 zeropage;
+    struct uffdio_range range;
+    __u64 mode;
+    __s64 zeropage;
 };
 .nf
 .fi
-
+.IP
 The following values may be bitwise ORed in
 .IR mode
 to change the behavior of
-.I UFFDIO_ZERO
-ioctl:
+.B UFFDIO_ZERO
+operation:
+
 .RS
-.sp
-.PD 0
-.TP 12
+.TP
 .B UFFDIO_ZEROPAGE_MODE_DONTWAKE
-Do not wake up the thread that waits for page fault resolution
-.PD
+Do not wake up the thread that waits for page-fault resolution.
 .RE
 .IP
 The
 .I zeropage
 field of the
 .I uffdio_zero
-structure is used by the kernel to return amount of bytes that was actually
-zeroed, or an error the same way like
+structure is used by the kernel to return the number of bytes
+that was actually zeroed,
+or an error in the same manner as
 .IR uffdio_copy.copy .
 .\"
 .TP
-.BI "UFFDIO_WAKE struct uffdio_range *" arg
-Wake up the thread waiting for the page fault resolution.
+.BI "UFFDIO_WAKE struct uffdio_range *" argp
+Wake up the thread waiting for page-fault resolution.
 .SH RETURN VALUE
-For a successful call, the
-.BR userfaultfd (2)
-system call returns the new file descriptor for the userfaultfd object.
+On success,
+.BR userfaultfd ()
+returns a new file descriptor that refers to the userfaultfd object.
 On error, \-1 is returned, and
 .I errno
 is set appropriately.
@@ -325,7 +344,8 @@ Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
 .SH SEE ALSO
 .BR fcntl (2),
-.BR ioctl (2)
+.BR ioctl (2),
+.BR mmap (2)
 
 .IR Documentation/vm/userfaultfd.txt
 in the Linux kernel source tree

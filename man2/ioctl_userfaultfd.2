@@ -1,0 +1,344 @@
+.\" Copyright (c) 2016, IBM Corporation.
+.\" Written by Mike Rapoport <rppt@linux.vnet.ibm.com>
+.\" and Copyright (C) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.\"
+.TH IOCTL_USERFAULTFD 2 2016-12-12 "Linux" "Linux Programmer's Manual"
+.SH NAME
+userfaultfd \- create a file descriptor for handling page faults in user
+space
+.SH SYNOPSIS
+.nf
+.B #include <sys/ioctl.h>
+
+.BI "int ioctl(int " fd ", int " cmd ", ...);"
+.fi
+.SH DESCRIPTION
+Various
+.BR ioctl (2)
+operations can be performed on a userfaultfd object (created by a call to
+.BR userfaultfd (2))
+using calls of the form:
+
+    ioctl(fd, cmd, argp);
+
+In the above,
+.I fd
+is a file descriptor referring to a userfaultfd object,
+.I cmd
+is one of the commands listed below, and
+.I argp
+is a pointer to a data structure that is specific to
+.IR cmd .
+.\"
+.SS Configuration ioctl(2) operations
+The
+.BR ioctl (2)
+operations described below are used to configure userfaultfd behavior.
+They allow the caller to choose what features will be enabled and
+what kinds of events will be delivered to the application.
+.TP
+.BR "UFFDIO_API 	struct uffdio_api *" argp
+Enable operation of the userfaultfd and perform API handshake.
+The
+.I uffdio_api
+structure is defined as:
+.in +4n
+.nf
+
+struct uffdio_api {
+    __u64 api;
+    __u64 features;
+    __u64 ioctls;
+};
+
+.fi
+.in
+The
+.I api
+field denotes the API version requested by the application.
+The kernel verifies that it can support the requested version, and sets the
+.I features
+and
+.I ioctls
+fields to bit masks representing all the available features and the generic
+.BR ioctl (2
+operations available.
+.\" FIXME We need to say more about the list of bits that can appear in
+.\" these two fields.
+.\"
+
+This
+.BR ioctl (2)
+operation returns 0 on success.
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+Possible errors include:
+.RS
+.TP
+.B EINVAL
+The
+.B UFFDIO_API
+operation has already been performed on this userfaultfd file descriptor.
+.RE
+.TP
+.BI "UFFDIO_REGISTER 	struct uffdio_register *" argp
+Register a memory address range with the userfaultfd object.
+The
+.I uffdio_register
+structure is defined as:
+.in +4n
+.nf
+
+struct uffdio_range {
+    __u64 start;
+    __u64 len;
+};
+
+struct uffdio_register {
+    struct uffdio_range range;
+    __u64 mode;
+    __u64 ioctls;
+};
+
+.fi
+.in
+
+The
+.I range
+field defines a memory range starting at
+.I start
+and continuing for
+.I len
+bytes that should be handled by the userfaultfd.
+
+The
+.I mode
+field defines the mode of operation desired for this memory region.
+The following values may be bitwise ORed to set the userfaultfd mode for
+the specified range:
+
+.RS
+.TP
+.B UFFDIO_REGISTER_MODE_MISSING
+Track page faults on missing pages
+.TP
+.B UFFDIO_REGISTER_MODE_WP
+Track page faults on write-protected pages.
+Currently, the only supported mode is
+.BR UFFDIO_REGISTER_MODE_MISSING .
+.RE
+.IP
+.\" FIXME In the following, what does "answers" mean, and what are the bits?
+.\" (we need a list of the bits here).
+The kernel answers which ioctl commands are available for the requested
+range in the
+.I ioctls
+field.
+.\"
+.TP
+.BI "UFFDIO_UNREGISTER  	struct uffdio_register *" argp
+Unregister a memory address range from userfaultfd.
+The address range to unregister is specified in the
+.IR uffdio_range
+structure pointed to by
+.IR argp .
+
+This
+.BR ioctl (2)
+operation returns 0 on success.
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+Possible errors include:
+.RS
+.TP
+.B EINVAL
+Either the
+.I start
+or the
+.I len
+field of the
+.I ufdio_range
+structure was not a multiple of the system page size.
+.TP
+.B EINVAL
+There as an incompatible mapping in the specified address range.
+.TP
+.B EINVAL
+There was no mapping in the specified address range.
+.RE
+.\"
+.SS Range ioctl(2) operations
+The range
+.BR ioctl (2)
+operations enable the calling application to resolve page fault
+events in a consistent way.
+.\" FIXME What does "consistent" mean?
+.TP
+.BI "UFFDIO_COPY 	struct uffdio_copy *" argp
+Atomically copy a continuous memory chunk into the userfault registered
+range and optionally wake up the blocked thread.
+The source and destination addresses and the number of bytes to copy are
+specified by the
+.IR src ", " dst ", and " len
+fields of
+.IR "struct uffdio_copy" :
+
+.in +4n
+.nf
+struct uffdio_copy {
+    __u64 dst;
+    __u64 src;
+    __u64 len;
+    __u64 mode;
+    __s64 copy;
+};
+.fi
+.in
+.IP
+The following values may be bitwise ORed in
+.IR mode
+to change the behavior of the
+.B UFFDIO_COPY
+operation:
+
+.RS
+.TP
+.B UFFDIO_COPY_MODE_DONTWAKE
+Do not wake up the thread that waits for page fault resolution
+.RE
+.IP
+The
+.I copy
+field of the
+.I uffdio_copy
+structure is used by the kernel to return the number of bytes
+that was actually copied, or an error.
+If
+.I uffdio_copy.copy
+doesn't match the
+.I uffdio_copy.len
+passed in input to
+.BR UFFDIO_COPY ,
+the operation will return
+.\" FIXME In the 'copy' field? (This isn't clear.)
+.BR \-EAGAIN .
+If
+.BR ioctl (2)
+returns zero it means it succeeded, no error was reported and
+the entire area was copied.
+If an invalid fault happens while writing to the
+.I uffdio_copy.copy
+field, the system call will return
+.\" FIXME In the 'copy' field? (This isn't clear.)
+.BR \-EFAULT .
+.I uffdio_copy.copy
+is an output-only field;
+it is not read by the
+.B UFFDIO_COPY
+operation.
+.\"
+.TP
+.BI "UFFDIO_ZERO 	struct uffdio_zero *" argp
+Zero out a part of memory range registered with userfaultfd.
+The requested range is specified by the
+.I range
+field of the
+.I uffdio_zeropage
+structure:
+
+.in +4n
+.nf
+struct uffdio_zeropage {
+    struct uffdio_range range;
+    __u64 mode;
+    __s64 zeropage;
+};
+.fi
+.in
+.IP
+The following values may be bitwise ORed in
+.IR mode
+to change the behavior of
+.B UFFDIO_ZERO
+operation:
+
+.RS
+.TP
+.B UFFDIO_ZEROPAGE_MODE_DONTWAKE
+Do not wake up the thread that waits for page-fault resolution.
+.RE
+.IP
+The
+.I zeropage
+field of the
+.I uffdio_zero
+structure is used by the kernel to return the number of bytes
+that was actually zeroed,
+or an error in the same manner as
+.IR uffdio_copy.copy .
+.\"
+.TP
+.BI "UFFDIO_WAKE 	struct uffdio_range *" argp
+Wake up the thread waiting for page-fault resolution.
+.\" FIXME: Need more detail here. What is the purpose of the
+.\" 'struct uffdio_range *' argument? 
+
+This
+.BR ioctl (2)
+operation returns 0 on success.
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+Possible errors include:
+.RS
+.TP
+.B EINVAL
+Either the
+.I start
+or the
+.I len
+field of the
+.I ufdio_range
+structure was not a multiple of the system page size.
+.RE
+.SH RETURN VALUE
+See descriptions of the individual operations, above.
+.SH ERRORS
+See descriptions of the individual operations, above.
+.SH CONFORMING TO
+These
+.BR ioctl (2)
+operations are Linux-specifix.
+.SH SEE ALSO
+.BR ioctl (2),
+.BR mmap (2),
+.BR userfaultfd (2)
+
+.IR Documentation/vm/userfaultfd.txt
+in the Linux kernel source tree
+

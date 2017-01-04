@@ -94,17 +94,46 @@ struct uffdio_api {
 The
 .I api
 field denotes the API version requested by the application.
-The kernel verifies that it can support the requested version, and sets the
+Before the call, the
+.I features
+field must be initialized to zero.
+.\" FIXME Why must the 'features' field be initialized to zero?
+
+The kernel verifies that it can support the requested API version,
+and sets the
 .I features
 and
 .I ioctls
 fields to bit masks representing all the available features and the generic
 .BR ioctl (2)
 operations available.
-.\" FIXME We need to say more about the list of bits that can appear in
-.\" these two fields.
+Currently, zero (i.e., no feature bits) is placed in the
+.I features
+field.
+The returned
+.I ioctls
+field can contain the following bits:
+.\" FIXME This user-space API seems not fully polished. Why are there
+.\" not constants defined for each of the bit-mask values listed here?
+.TP
+.B 1 << _UFFDIO_API
+The
+.B UFFDIO_API
+operation is supported.
+.TP
+.B 1 << _UFFDIO_REGISTER
+The
+.B UFFDIO_REGISTER
+operation is supported.
+.TP
+.B 1 << _UFFDIO_UNREGISTER
+The
+.B UFFDIO_UNREGISTER
+operation is supported.
+.\" FIXME Is the above description of the 'ioctls' field correct.
+.\" Does more need to be said?
 .\"
-
+.PP
 This
 .BR ioctl (2)
 operation returns 0 on success.
@@ -112,6 +141,8 @@ On error, \-1 is returned and
 .I errno
 is set to indicate the cause of the error.
 Possible errors include:
+.\" FIXME Is the following error list correct?
+.\"
 .TP
 .B EINVAL
 The userfaultfd has already been enabled by a previous
@@ -119,9 +150,13 @@ The userfaultfd has already been enabled by a previous
 operation.
 .TP
 .B EINVAL
-The
-.B UFFDIO_API
-operation has already been performed on this userfaultfd file descriptor.
+The API version requested in the
+.I api
+field is not supported by this kernel, or the
+.I features
+field was not zero.
+.\" FIXME In this error case, the returned 'uffdio_api' structure
+.\" zeroed out. Why is this done?
 .\"
 .SS UFFDIO_REGISTER
 Register a memory address range with the userfaultfd object.

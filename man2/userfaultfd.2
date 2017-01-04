@@ -1,5 +1,6 @@
 .\" Copyright (c) 2016, IBM Corporation.
 .\" Written by Mike Rapoport <rppt@linux.vnet.ibm.com>
+.\" and Copyright (C) 2017 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -23,11 +24,7 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.\" FIXME Need to mention poll/select/epoll
-.\"
 .\" FIXME Need to describe close(2) semantics for userfaulfd file descriptor
-.\"
-.\" FIXME Need to describe structure returned by read(2)
 .\"
 .TH USERFAULTFD 2 2016-12-12 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -78,6 +75,19 @@ See the description of the
 flag in
 .BR open (2).
 .\"
+.SS Usage
+The userfaultfd mechanism is designed to allow a thread in a multithreaded
+program to perform user-space paging for the other threads in the process.
+When a page fault occurs for one of the regions registered
+to the userfaultfd object,
+the faulting thread is put to sleep and
+an event is generated that can be read via the userfaultfd file descriptor.
+The fault-handling thread reads events from this file descriptor and services
+them using the operations described in
+.BR ioctl_userfaultfd (2).
+When servicing the page fault events,
+the fault-handling thread can trigger a wake-up for the sleeping thread.
+.\"
 .SS Userfaultfd operation
 After the userfaultfd object is created with
 .BR userfaultfd (),
@@ -120,6 +130,82 @@ operations can be found in
 
 Currently, userfaultfd can be used only with anonymous private memory
 mappings.
+.\"
+.SS Reading from the userfaultfd structure
+.\" FIXME are the details below correct
+Each
+.BR read (2)
+from the userfaultfd file descriptor returns one or more
+.I uffd_msg
+structures, each of which describes a page-fault event:
+
+.nf
+.in +4n
+struct uffd_msg {
+    __u8  event;                /* Type of event */
+    ...
+    union {
+        struct { 
+            __u64 flags;        /* Flags describing fault */
+            __u64 address;      /* Faulting address */
+        } pagefault;
+	...
+    } arg;
+
+    /* Padding fields omitted */
+} __packed;
+.in
+.fi
+
+If multiple events are available and the supplied buffer is large enough,
+.BR read (2)
+returns as many events as will fit in the supplied buffer.
+If the buffer supplied to
+.BR read (2)
+is smaller than the size of the
+.I uffd_msg
+structure, the
+.BR read (2)
+fails with the error
+.BR EINVAL .
+
+The fields set in the
+.I uffd_msg
+structure are as follows:
+.TP
+.I event
+The type of event.
+Currently, only one value can appear in this field:
+.BR UFFD_EVENT_PAGEFAULT ,
+which indicates a page fault event.
+.TP
+.I address
+The address that triggered the page fault.
+.TP
+.I flags
+A bit mask of flags that describe the event.
+For
+.BR UFFD_EVENT_PAGEFAULT ,
+the following flag may appear:
+.RS
+.TP
+.B UFFD_PAGEFAULT_FLAG_WRITE
+If the address is in a range that was registered with the
+.B UFFDIO_REGISTER_MODE_MISSING
+flag (see
+.BR ioctl_userfaultfd (2))
+and this flag is set, this a write fault;
+otherwise it is a read fault.
+.\"
+.\" UFFD_PAGEFAULT_FLAG_WP is not yet supported.
+.RE
+.PP
+The userfaultfd file descriptor can be monitored with
+.BR poll (2),
+.BR select (2),
+and
+.BR epoll (7).
+When events are available, the file descriptor indicates as readable.
 .SH RETURN VALUE
 On success,
 .BR userfaultfd ()
@@ -154,18 +240,6 @@ portable.
 .SH NOTES
 Glibc does not provide a wrapper for this system call; call it using
 .BR syscall (2).
-.SS Usage
-The userfaultfd mechanism is designed to allow a thread in a multithreaded
-program to perform user-space paging for the other threads in the process.
-When a page fault occurs for one of the regions registered
-to the userfaultfd object,
-the faulting thread is put to sleep and
-an event is generated that can be read via the userfaultfd file descriptor.
-The fault-handling thread reads events from this file descriptor and services
-them using the operations described in
-.BR ioctl_userfaultfd (2).
-When servicing the page fault events,
-the fault-handling thread can trigger a wake-up for the sleeping thread.
 .SH SEE ALSO
 .BR fcntl (2),
 .BR ioctl (2),

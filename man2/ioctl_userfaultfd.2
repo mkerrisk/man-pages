@@ -365,9 +365,9 @@ An invalid bit was specified in the
 .IR mode
 field.
 .\"
-.SS UFFDIO_ZERO
+.SS UFFDIO_ZEROPAGE
 (Since Linux 4.3.)
-Zero out a part of memory range registered with userfaultfd.
+Zero out a memory range registered with userfaultfd.
 The requested range is specified by the
 .I range
 field of the
@@ -385,7 +385,7 @@ struct uffdio_zeropage {
 .fi
 .in
 .PP
-The following values may be bitwise ORed in
+The following value may be bitwise ORed in
 .IR mode
 to change the behavior of the
 .B UFFDIO_ZERO
@@ -396,12 +396,53 @@ Do not wake up the thread that waits for page-fault resolution.
 .PP
 The
 .I zeropage
-field of the
-.I uffdio_zero
-structure is used by the kernel to return the number of bytes
+field is used by the kernel to return the number of bytes
 that was actually zeroed,
 or an error in the same manner as
-.IR uffdio_copy.copy .
+.BR UFFDIO_COPY .
+.\" FIXME Why is the 'zeropage' field used to return error values?
+If the value returned in the
+.I zeropage
+field doesn't match the value that was specified in
+.IR range.len ,
+the operation fails with the error
+.BR EAGAIN .
+The
+.I zeropage
+field is output-only;
+it is not read by the
+.B UFFDIO_ZERO
+operation.
+
+This
+.BR ioctl (2)
+operation returns 0 on success.
+In this case, the entire area was zeroed.
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+Possible errors include:
+.TP
+.B EAGAIN
+The number of bytes zeroed (i.e., the value returned in the
+.I zeropage
+field)
+does not equal the value that was specified in the
+.I range.len
+field.
+.TP
+.B EINVAL
+Either
+.I range.start
+or
+.I range.len
+was not a multiple of the system page size,
+or the range specified was invalid.
+.TP
+.B EINVAL
+An invalid bit was specified in the
+.IR mode
+field.
 .\"
 .SS UFFDIO_WAKE
 (Since Linux 4.3.)

@@ -299,7 +299,7 @@ struct uffdio_copy {
 .fi
 .in
 .PP
-The following values may be bitwise ORed in
+The following value may be bitwise ORed in
 .IR mode
 to change the behavior of the
 .B UFFDIO_COPY
@@ -310,33 +310,60 @@ Do not wake up the thread that waits for page-fault resolution
 .PP
 The
 .I copy
-field of the
-.I uffdio_copy
-structure is used by the kernel to return the number of bytes
-that was actually copied, or an error.
-If
-.I uffdio_copy.copy
-doesn't match the
-.I uffdio_copy.len
-passed in input to
-.BR UFFDIO_COPY ,
-the operation will return
-.\" FIXME In the 'copy' field? (This isn't clear.)
-.BR \-EAGAIN .
-If
-.BR ioctl (2)
-returns zero it means it succeeded, no error was reported and
-the entire area was copied.
-If an invalid fault happens while writing to the
-.I uffdio_copy.copy
-field, the system call will return
-.\" FIXME In the 'copy' field? (This isn't clear.)
-.BR \-EFAULT .
-.I uffdio_copy.copy
-is an output-only field;
+field is used by the kernel to return the number of bytes
+that was actually copied, or an error (a negated
+.IR errno -style
+value).
+.\" FIXME Why is the 'copy' field used to return error values?
+If the value returned in
+.I copy
+doesn't match the value that was specified in
+.IR len ,
+the operation fails with the error
+.BR EAGAIN .
+The
+.I copy
+field is output-only;
 it is not read by the
 .B UFFDIO_COPY
 operation.
+
+This
+.BR ioctl (2)
+operation returns 0 on success.
+In this case, the entire area was copied.
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+Possible errors include:
+.TP
+.B EAGAIN
+The number of bytes copied (i.e., the value returned in the
+.I copy
+field)
+does not equal the value that was specified in the
+.I len
+field.
+.TP
+.B EINVAL
+Either
+.I dst
+or
+.I len
+was not a multiple of the system page size, or the range specified by
+.IR src
+and
+.IR len
+or
+.IR dst
+and
+.IR len
+was invalid.
+.TP
+.B EINVAL
+An invalid bit was specified in the
+.IR mode
+field.
 .\"
 .SS UFFDIO_ZERO
 (Since Linux 4.3.)

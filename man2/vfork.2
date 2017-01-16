@@ -209,6 +209,44 @@ is designed to be implementable on systems that lack an MMU.)
 .\" http://stackoverflow.com/questions/4259629/what-is-the-difference-between-fork-and-vfork
 .\" http://developers.sun.com/solaris/articles/subprocess/subprocess.html
 .\" http://mailman.uclinux.org/pipermail/uclinux-dev/2009-April/000684.html
+.\"
+.SS Caveats
+The child process should take care not to modify the memory in unintended ways,
+since such changes will be seen by the parent process once
+the child terminates or executes another program.
+In this regard, signal handlers can be especially problematic:
+if a signal handler that is invoked in the child of
+.BR vfork ()
+changes memory, those changes may result in an inconsistent process state
+from the perspective of the parent process
+(e.g., memory changes would be visible in the parent,
+but changes to the state of open file descriptors would not be visible).
+
+When
+.BR vfork ()
+is called in a multithreaded process,
+only the calling thread is suspended until the child terminates
+or executes a new program.
+This means that the child is sharing an address space with other running code.
+This can be dangerous if another thread in the parent process
+changes credentials (using
+.BR setuid (2)
+or similar),
+since there are now two processes with different privilege levels
+running in the same address space.
+As an example of the dangers,
+suppose that a multithreaded pgroam running as root creates a child using
+.BR vfork ().
+After the
+.BR vfork (),
+a thread in the parent process drops the process to an unprivileged user
+in order to run some untrusted code
+(e.g., perhaps via plug-in opened with
+.BR dlopen (3)).
+In this case, attacks are possible where the parent process uses
+.BR mmap (2)
+to map in code that will be executed by the privileged child process.
+.\"
 .SS Linux notes
 Fork handlers established using
 .BR pthread_atfork (3)

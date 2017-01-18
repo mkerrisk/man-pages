@@ -1,0 +1,203 @@
+.\" Copyright (c) 2017 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.\"
+.TH IOCTL_IFLAGS 2 2017-01-18 "Linux" "Linux Programmer's Manual"
+.SH NAME
+ioctl_iflags \- ioctl() operations for inode flags
+.SH DESCRIPTION
+Various Linux filesystems support the notion of
+.IR "inode flags" \(emattributes
+that modify the semantics of files and directories.
+These flags can be retrieved and modified using two
+.BR ioctl (2)
+operations:
+
+.nf
+.in +4n
+int attr;
+fd = open("pathname", ...);
+
+ioctl(fd, FS_IOC_GETFLAGS, &attr);  /* Place current flags
+                                       in \(aqattr\(aq */
+attr |= FS_NOATIME_FL;              /* Tweak returned bit mask */
+ioctl(fd, FS_IOC_SETFLAGS, &attr);  /* Update flags for inode
+                                       referred to by \(aqfd\(aq */
+.in
+.fi
+
+The
+.BR lsattr (1)
+and
+.BR chattr (1)
+shell commands provide interfaces to these two operations,
+allowing a user to view and modify the inode flags associated with a file.
+
+The following flags are supported
+(shown along with the corresponding letter used to indicate the flag by
+.BR lsattr (1)
+and
+.BR chattr (1)):
+.TP
+.BR FS_APPEND_FL " \(aqa\(aq"
+The file can be opened only with the
+.B O_APPEND
+flag.
+(This restriction applies even to the superuser.)
+Only a privileged process
+.RB ( CAP_LINUX_IMMUTABLE )
+can set or clear this attribute.
+.TP
+.BR FS_COMPR_FL " \(aqc\(aq"
+Store the file in a compressed format on disk.
+This flag is
+.I not
+supported by most of the mainstream filesystem implementations;
+one exception is
+.BR btrfs (5).
+.TP
+.BR FS_DIRSYNC_FL " \(aqD\(aq (since Linux 2.6.0)"
+Write directory changes synchronously to disk.
+This flag provides semantics equivalent to the
+.BR mount  (2)
+.B MS_DIRSYNC
+option, but on a per-directory basis.
+This flag can be applied only to directories.
+.\" .TP
+.\" .BR FS_EXTENT_FL " \(aqe\(aq"
+.\" FIXME Some support on ext4? (EXT4_EXTENTS_FL)
+.TP
+.BR FS_IMMUTABLE_FL " \(aqi\(aq"
+The file is immutable:
+no changes are permitted to the file contents or metadata
+(permissions, timestamps, ownership, link count and so on).
+(This restriction applies even to the superuser.)
+Only a privileged process
+.RB ( CAP_LINUX_IMMUTABLE )
+can set or clear this attribute.
+.TP
+.BR FS_JOURNAL_DATA_FL " \(aqj\(aq"
+Enable journaling of file data on
+.BR ext3 (5)
+and
+.BR ext4 (5)
+filesystems.
+On a filesystem that is journaling in
+.I ordered
+or
+.I writeback
+mode, a privileged
+.RB ( CAP_SYS_RESOURCE )
+process can set this flag to enable journaling of data updates on
+a per-file basis.
+.TP
+.BR FS_NOATIME_FL " \(aqA\(aq"
+Don't update the file last access time when the file is accessed.
+This can provide I/O performance benefits for applications that do not care
+about the accuracy of this timestamp.
+This flag provides functionality similar to the
+.BR mount (2)
+.BR MS_NOATIME
+flag, but on a per-file basis.
+.\" .TP
+.\" .BR FS_NOCOMP_FL " \(aq\(aq"
+.\" FIXME Support for FS_NOCOMP_FL on Btrfs?
+.TP
+.BR FS_NOCOW_FL " \(aqC\(aq (since Linux 2.6.39)"
+The file will not be subject to copy-on-write updates.
+This flag has an effect only on filesystems that support copy-on-write
+semantics, such as Btrfs.
+See
+.BR chattr (1)
+and
+.BR btrfs (5).
+.TP
+.BR FS_NODUMP_FL " \(aqd\(aq"
+Don't include this file in backups made using
+.BR dump (8).
+.TP
+.BR FS_NOTAIL_FL " \(aqt\(aq"
+This flag is supported only on Reiserfs.
+It disables the Reiserfs tail-packing feature,
+which tries to pack small files (and the final fragment of larger files)
+into the same disk block as the file metadata.
+.TP
+.BR FS_SECRM_FL " \(aqs\(aq"
+Mark the file for secure deletion.
+This feature is not implemented by any filesystem,
+since the task of securely erasing a file from a recording medium
+is surprisingly difficult.
+.TP
+.BR FS_SYNC_FL " \(aqS\(aq"
+Make file updates synchronous.
+For files, this makes all writes synchronous
+(as though all opens of the file were with the
+.BR O_SYNC
+flag).
+For directories, this has the same effect as the
+.BR FS_DIRSYNC_FL
+flag.
+.TP
+.BR FS_TOPDIR_FL " \(aqT\(aq"
+Mark a directory for special treatment under the Orlov block-allocation
+strategy.
+See
+.BR chattr (1)
+for details.
+This flag can be applied only to directories and
+has an effect only for ext2, ext3, and ext4.
+.TP
+.BR FS_UNRM_FL " \(aqu\(aq"
+Allow the file to be undeleted if it is deleted.
+This feature is not implemented by any filesystem,
+since it is possible to implement file-recovery mechanisms outside the kernel.
+.PP
+In most cases,
+when any of the above flags is set on a directory,
+the flag is inherited by files and subdirectories
+created inside that directory.
+Exceptions include
+.BR FS_TOPDIR_FL ,
+which is not inheritable, and
+.BR FS_DIRSYNC_FL ,
+which is inherited only by subdirectories.
+.SH NOTES
+In order to change the inode flags of a file using the
+.BR FS_IOC_SETFLAGS
+operation,
+the effective user ID of the caller must match the owner of the file,
+or the caller must have the
+.BR CAP_FOWNER
+capability.
+.SH CONFORMING TO
+Inode flags are a nonstandard Linux extension.
+.SH SEE ALSO
+.BR chattr (1),
+.BR lsattr (1),
+.BR mount (2),
+.BR btrfs (5),
+.BR ext4 (5),
+.BR xfs (5),
+.BR xattr (7),
+.BR mount (8)

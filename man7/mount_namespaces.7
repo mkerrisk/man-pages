@@ -165,8 +165,6 @@ peer mount points will propagate to this mount point.
 .BR MS_PRIVATE
 This mount point is private; it does not have a peer group.
 Mount and unmount events do not propagate into or out of this mount point.
-This is the default propagation type for newly created mount points
-(but see NOTES).
 .TP
 .BR MS_SLAVE
 Mount and unmount events propagate into this mount point from
@@ -198,6 +196,9 @@ any bind mounts within the subtree are automatically pruned
 (i.e., not replicated)
 when replicating that subtree to produce the target subtree.
 .PP
+For a discussion of the propagation type assigned to a new mount,
+see NOTES.
+
 The propagation type is a per-mount-point setting;
 some mount points may be marked as shared
 (with each shared mount point being a member of a distinct peer group),
@@ -995,15 +996,29 @@ Mount namespaces first appeared in Linux 2.4.19.
 Namespaces are a Linux-specific feature.
 .\"
 .SH NOTES
-The kernel default propagation type for mount points is
+The propagation type assigned to a new mount point depends
+on the propagation type of the parent directory.
+If the mount point has a parent (i.e., it is a non-root mount
+point) and the propagation type of the parent is
+.BR MS_SHARED ,
+then the propagation type of the new mount is also
+.BR MS_SHARED .
+Otherwise, the propagation type of the new mount is
 .BR MS_PRIVATE .
-However,
+But see also NOTES.
+
+Notwithstanding the fact that the default propagation type
+for new mount points is in many cases
+.BR MS_PRIVATE ,
 .BR MS_SHARED
-is typically more commonly required, and for this reason,
+is typically more useful.
+For this reason,
 .BR systemd (1)
 automatically remounts all mount points as
 .BR MS_SHARED
 on system startup.
+Thus, on most modern systems, the default propagation type is in practice
+.BR MS_SHARED .
 
 Since, when one uses
 .BR unshare (1)
@@ -1026,6 +1041,13 @@ To prevent this, one can use the
 .IR "\-\-propagation\ unchanged"
 option to
 .BR unshare (1).
+
+For a discussion of propagation types when moving mounts
+.RB ( MS_MOVE )
+and creating bind mounts
+.RB ( MS_BIND ),
+see
+.IR Documentation/filesystems/sharedsubtree.txt .
 .SH SEE ALSO
 .BR unshare (1),
 .BR clone (2),

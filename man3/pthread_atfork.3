@@ -1,0 +1,127 @@
+'\" t
+.\" Copyright (C) 2017 Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH PTHREAD_ATFORK 3 2017-01-22 "Linux" "Linux Programmer's Manual"
+.SH NAME
+pthread_atfork \- register fork handlers
+.SH SYNOPSIS
+.nf
+.B  #include <pthread.h>
+
+.BI "int pthread_atfork(void (*" prepare ")(void), void (*" parent ")(void),"
+.BI "                   void (*" child ")(void));"
+.fi
+.sp
+Link with \fI\-pthread\fP.
+.SH DESCRIPTION
+The
+.BR pthread_atfork ()
+function registers fork handlers that are to be executed when
+.BR fork (2)
+is called by this thread.
+The handlers are executed in the context of the thread that calls
+.BR fork (2).
+
+Three kinds of handler can be registered:
+.IP * 3
+.IR prepare
+specifies a handler that is executed before
+.BR fork (2)
+processing starts.
+.IP *
+.I parent
+specifies a handler that is executed in the parent process after
+.BR fork (2)
+processing completes.
+.IP *
+.I child
+specifies a handler that is executed in the child process after
+.BR fork (2)
+processing completes.
+.PP
+Any of the three arguments may be NULL if no handler is needed
+in the corresponding phase of
+.BR fork (2)
+processing.
+
+.SH RETURN VALUE
+On success,
+.BR pthread_atfork ()
+returns zero.
+On error, it returns an error number.
+.BR pthread_atfork ()
+may be called multiple times by a thread,
+to register multiple handlers for each phase.
+The handlers for each phase are called in a specified order: the
+.I prepare
+handlers are called in reverse order of registration; the
+.I parent
+and
+.I child
+handlers are called in the order of registration.
+.SH ERRORS
+.TP
+.B ENOMEM
+Could not allocate memory to record the form handler entry.
+.SH CONFORMING TO
+POSIX.1-2001, POSIX.1-2008.
+.SH NOTES
+When
+.BR fork (2)
+is called in a multithreaded process,
+only the calling thread is duplicated in the child process.
+The original intention of
+.BR pthread_atfork ()
+was to allow the calling thread to be returned to a consistent state.
+For example, at the time of the call to
+.BR fork (2),
+other threads may have locked mutexes that are visible in the
+user-space memory duplicated in the child.
+Such mutexes would never be unlocked,
+since the threads that placed the locks are not duplicated in the child.
+The intent of
+.BR pthread_atfork ()
+was to provide a mechanism whereby the application (or a library)
+could ensure that mutexes and other process and thread state would be
+restored to a consistent state.
+In practice, this task is generally too difficult to be practicable.
+
+After a
+.BR fork (2)
+in a multithreaded process returns in the child,
+the child should call only async-signal-safe functions (see
+.BR signal-safety (7))
+until such time as it calls
+.BR execve (2)
+to execute a new program.
+
+POSIX.1 specifies that
+.BR pthread_atfork ()
+shall not fail with the error
+.BR EINTR .
+.SH SEE ALSO
+.BR fork (2),
+.BR atexit (3),
+.BR pthreads (7)

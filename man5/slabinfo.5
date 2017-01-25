@@ -1,4 +1,5 @@
 .\" Copyright (c) 2001 Andreas Dilger (adilger@turbolinux.com)
+.\" and Copyright (c) 2017 Michael kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -22,15 +23,6 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.\" FIXME Over time, the slabinfo format has gone through
-.\" version changes. These should be documented:
-.\"
-.\"     slabinfo 1.0 - Linux 2.2 (precisely: 2.1.23)
-.\"     slabinfo 1.1 - Linux 2.4 (precisely: 2.4.0-test3)
-.\"     slabinfo 1.2 - Linux 2.5.45
-.\"     slabinfo 2.0 - Linux 2.6 (precisely: 2.5.71)
-.\"     slabinfo 2.1 - Linux 2.6.10
-.\"
 .TH SLABINFO 5 2017-03-13 "" "Linux Programmer's Manual"
 .SH NAME
 slabinfo \- kernel slab allocator statistics
@@ -42,95 +34,181 @@ Frequently used objects in the Linux kernel
 have their own cache.
 The file
 .I /proc/slabinfo
-gives statistics.
-For example:
+gives statistics on these caches.
+The following (edited) output shows an example of the
+contents of this file:
 .LP
-.in +4n
+.in 0
 .nf
-% cat /proc/slabinfo
-slabinfo \- version: 1.1
-kmem_cache            60     78    100    2    2    1
-blkdev_requests     5120   5120     96  128  128    1
-mnt_cache             20     40     96    1    1    1
-inode_cache         7005  14792    480 1598 1849    1
-dentry_cache        5469   5880    128  183  196    1
-filp                 726    760     96   19   19    1
-buffer_head        67131  71240     96 1776 1781    1
-vm_area_struct      1204   1652     64   23   28    1
-\&...
-size-8192              1     17   8192    1   17    2
-size-4096             41     73   4096   41   73    1
+$ \fBsudo cat /proc/slabinfo\fP
+slabinfo - version: 2.1
+# name    <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab> ...
+sigqueue      100  100  160   25  1 : tunables  0  0  0 : slabdata   4   4  0
+sighand_cache 355   405 2112  15  8 : tunables  0  0  0 : slabdata  27  27  0
+kmalloc-8192   96   96  8192   4  8 : tunables  0  0  0 : slabdata  24  24  0
 \&...
 .fi
 .in
 .LP
-For each slab cache, the cache name, the number of currently
-active objects, the total number of available objects, the
-size of each object in bytes, the number of pages with at
-least one active object, the total number of allocated pages,
-and the number of pages per slab are given.
+The first line of output includes a version number,
+which allows an application that is reading the file to handle changes
+in the file format.
+(See VERSIONS, below.)
+The next line lists the names of the columns in the remaining lines.
 
+Each of the remaining lines displays information about a specified cache.
+Following the cache name,
+the output shown in each line shows three components for each cache:
+.IP * 3
+statistics
+.IP *
+tunables
+.IP *
+slabdata
+.PP
+The statistics are as follows:
+.TP
+.I active_objs
+The number of objects that are currently active (i.e., in use).
+.TP
+.I num_objs
+The total number of allocated objects
+(i.e., objects that are both in use and not in use).
+.TP
+.I objsize
+The size of objects in this slab, in bytes.
+.TP
+.I objperslab
+The number of objects stored in each slab.
+.TP
+.I pagesperslab
+The number of pages allocated for each slab.
+.PP
+The
+.I tunables
+entries in each line show tunable parameters for the corresponding cache.
+When using the default SLUB allocator, there are no tunables, the
+.I /proc/slabinfo
+is not writable, and the value 0 is shown in these fields.
+When using the older SLAB allocator,
+the tunables for a particular cache can be set by writing
+lines of the following form to
+.IR /proc/slabinfo :
+
+    # \fBecho 'name limit batchcount sharedfactor' > /proc/slabinfo\fP
+
+Here,
+.I name
+is the cache name, and
+.IR limit ,
+.IR batchcount ,
+and
+.IR sharedfactor
+are integers defining new values for the corresponding tunables.
+
+The
+.I tunables
+entries in each line contain the following fields:
+.TP
+.I limit
+The maximum number of objects that will be cached.
+.\" https://lwn.net/Articles/56360/
+.\"     This is the limit on the number of free objects that can be stored
+.\"     in the per-CPU free list for this slab cache.
+.TP
+.I batchcount
+[To be documented]
+.\" https://lwn.net/Articles/56360/
+.\"     On SMP systems, when we refill the available object list, instead
+.\"     of doing one object at a time, we do batch-count objects at a time.
+.TP
+.I sharedfactor
+[To be documented]
+.\" 
+.PP
+The
+.I slabdata
+entries in each line contain the following fields:
+.TP
+.I active_slabs
+The number of active slabs.
+.TP
+.I nums_slabs
+The total number of slabs.
+.TP
+.I sharedavail
+[To be documented]
+.PP
 Note that because of object alignment and slab cache overhead,
 objects are not normally packed tightly into pages.
 Pages with even one in-use object are considered in-use and cannot be
 freed.
 
-Kernels compiled with slab cache statistics will also have
-"(statistics)" in the first line of output, and will have 5
-additional columns, namely: the high water mark of active
+Kernels configured with
+.B CONFIG_DEBUG_SLAB
+will also have additional statistics fields in each line,
+and the first line of the file will contain the string "(statistics)".
+The statistics field include : the high water mark of active
 objects; the number of times objects have been allocated;
 the number of times the cache has grown (new pages added
 to this cache); the number of times the cache has been
 reaped (unused pages removed from this cache); and the
 number of times there was an error allocating new pages
 to this cache.
-If slab cache statistics are not enabled
-for this kernel, these columns will not be shown.
-
-SMP systems will also have "(SMP)" in the first line of
-output, and will have two additional columns for each slab,
-reporting the slab allocation policy for the CPU-local
-cache (to reduce the need for inter-CPU synchronization
-when allocating objects from the cache).
-The first column is the per-CPU limit: the maximum number of objects that
-will be cached for each CPU.
-The second column is the
-batchcount: the maximum number of free objects in the
-global cache that will be transferred to the per-CPU cache
-if it is empty, or the number of objects to be returned
-to the global cache if the per-CPU cache is full.
-
-If both slab cache statistics and SMP are defined, there
-will be four additional columns, reporting the per-CPU
-cache statistics.
-The first two are the per-CPU cache
-allocation hit and miss counts: the number of times an
-object was or was not available in the per-CPU cache
-for allocation.
-The next two are the per-CPU cache free
-hit and miss counts: the number of times a freed object
-could or could not fit within the per-CPU cache limit,
-before flushing objects to the global cache.
-
-It is possible to tune the SMP per-CPU slab cache limit
-and batchcount via:
-
-.in +4n
-.nf
-echo "\fIcache_name limit batchcount\fP" > /proc/slabinfo
-.fi
-.in
-.SH FILES
-.I <linux/slab.h>
+.\"
+.\" SMP systems will also have "(SMP)" in the first line of
+.\" output, and will have two additional columns for each slab,
+.\" reporting the slab allocation policy for the CPU-local
+.\" cache (to reduce the need for inter-CPU synchronization
+.\" when allocating objects from the cache).
+.\" The first column is the per-CPU limit: the maximum number of objects that
+.\" will be cached for each CPU.
+.\" The second column is the
+.\" batchcount: the maximum number of free objects in the
+.\" global cache that will be transferred to the per-CPU cache
+.\" if it is empty, or the number of objects to be returned
+.\" to the global cache if the per-CPU cache is full.
+.\"
+.\" If both slab cache statistics and SMP are defined, there
+.\" will be four additional columns, reporting the per-CPU
+.\" cache statistics.
+.\" The first two are the per-CPU cache
+.\" allocation hit and miss counts: the number of times an
+.\" object was or was not available in the per-CPU cache
+.\" for allocation.
+.\" The next two are the per-CPU cache free
+.\" hit and miss counts: the number of times a freed object
+.\" could or could not fit within the per-CPU cache limit,
+.\" before flushing objects to the global cache.
 .SH VERSIONS
+The
 .I /proc/slabinfo
-exists since Linux 2.1.23.
-SMP per-CPU caches exist since Linux 2.4.0-test3.
+file first appeared in Linux 2.1.23.
+The file is versioned,
+and over time there have been a number of versions with different layouts:
+.TP
+1.0
+Present throughout the Linux 2.2.x kernel series.
+.TP
+1.1
+Present in the Linux 2.4.x kernel series.
+.\" First appeared in 2.4.0-test3
+.TP
+1.2
+A format that was briefly present in the Linux 2.5 development series.
+.\" from 2.5.45 to 2.5.70
+.TP
+2.0
+Present in Linux 2.6.x kernels up to and including Linux 2.6.9.
+.\" First appeared in 2.5.71
+.TP
+2.1
+The current format, which first appeared in Linux 2.6.10.
 .SH NOTES
-Since Linux 2.6.16 the file
-.I /proc/slabinfo
-is present only if the
-.B CONFIG_SLAB
-kernel configuration option is enabled.
+Only root can read and (if the kernel was configured with
+.BR CONFIG_SLAB )
+write the
+.IR /proc/slabinfo
+file.
 .SH SEE ALSO
 .BR slabtop (1)

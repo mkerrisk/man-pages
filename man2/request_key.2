@@ -150,18 +150,42 @@ The session keyring for the process's user ID
 see
 .BR user-session-keyring (7)).
 This keyring is expected to always exist.
-.\" FIXME
-.\" Are there circumstances where the session keyring does not exist?
-.\" What are they?
 .IP \(bu
 The UID-specific keyring
 .RB ( KEY_REQKEY_DEFL_USER_KEYRING ;
 see
 .BR user-keyring (7)).
 This keyring is also expected to always exist.
-.\" FIXME
-.\" Are there circumstances where the UID-specific keyring does not exist?
-.\" What are they?
+.\" mtk: Are there circumstances where the user sessions and UID-specific
+.\" keyrings do not exist?
+.\"
+.\" David Howells:
+.\"     The uid keyrings don't exist until someone tries to access them -
+.\"     at which point they're both created.  When you log in, pam_keyinit
+.\"     creates a link to your user keyring in the session keyring it just
+.\"     created, thereby creating the user and user-session keyrings.
+.\"
+.\" and David elaborated that "access" means:
+.\"
+.\"     It means lookup_user_key() was passed KEY_LOOKUP_CREATE.  So:
+.\"
+.\"         add_key() - destination keyring
+.\"         request_key() - destination keyring
+.\"         KEYCTL_GET_KEYRING_ID - if create arg is true
+.\"         KEYCTL_CLEAR
+.\"         KEYCTL_LINK - both args
+.\"         KEYCTL_SEARCH - destination keyring
+.\"         KEYCTL_CHOWN
+.\"         KEYCTL_SETPERM
+.\"         KEYCTL_SET_TIMEOUT
+.\"         KEYCTL_INSTANTIATE - destination keyring
+.\"         KEYCTL_INSTANTIATE_IOV - destination keyring
+.\"         KEYCTL_NEGATE - destination keyring
+.\"         KEYCTL_REJECT - destination keyring
+.\"         KEYCTL_GET_PERSISTENT - destination keyring
+.\"
+.\"     will all create a keyring under some circumstances.  Whereas the rest,
+.\"     such as KEYCTL_GET_SECURITY, KEYCTL_READ and KEYCTL_REVOKE, won't.
 .PP
 If the
 .BR keyctl (2)

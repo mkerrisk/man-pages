@@ -102,13 +102,14 @@ Thus, using
 instead of the wrapper provided by glibc,
 the
 .BR readahead ()
-system call would be invoked as follows on the ARM architecture with the EABI:
+system call would be invoked as follows on the ARM architecture with the EABI
+in little endian mode:
 
 .in +4n
 .nf
 syscall(SYS_readahead, fd, 0,
-        (unsigned int) (offset >> 32),
         (unsigned int) (offset & 0xFFFFFFFF),
+        (unsigned int) (offset >> 32),
         count);
 .fi
 .in
@@ -124,6 +125,8 @@ register pair.
 That means inserting a dummy value into
 .I r1
 (the second argument of 0).
+Care also must be taken so that the split follows endian conventions
+(according to the C ABI for the platform).
 
 Similar issues can occur on MIPS with the O32 ABI,
 on PowerPC with the 32-bit ABI, and on Xtensa.
@@ -140,6 +143,21 @@ The affected system calls are
 .BR sync_file_range (2),
 and
 .BR truncate64 (2).
+
+.\" You need to look up the syscalls directly in the kernel source to see if
+.\" they should be in this list.  For example, look at fs/read_write.c and
+.\" the function signatures that do:
+.\" ..., unsigned long, pos_l, unsigned long, pos_h, ...
+.\" If they use off_t, then they most likely do not belong in this list.
+This does not affect syscalls that manually split and assemble 64-bit values
+such as
+.BR _llseek (2),
+.BR preadv (2),
+.BR preadv2 (2),
+.BR pwritev (2).
+and
+.BR pwritev2 (2).
+Welcome to the wonderful world of historical baggage.
 .SS Architecture calling conventions
 Every architecture has its own way of invoking and passing arguments to the
 kernel.

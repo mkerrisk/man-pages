@@ -202,6 +202,92 @@ these symbolic links is governed by a ptrace access mode
 check; see
 .BR ptrace (2).
 .\"
+.\" ==================== The /proc/sys/user directory ====================
+.\"
+.SS The /proc/sys/user directory
+The files in the
+.I /proc/sys/user
+directory (which is present since Linux 4.9) expose limits
+on the number of namespaces of various types that can be created.
+The files are as follows:
+.TP
+.IR max_cgroup_namespaces
+The value in this file defines a per-user limit on the number of
+cgroup namespaces that may be created in the user namespace.
+.TP
+.IR max_ipc_namespaces
+The value in this file defines a per-user limit on the number of
+ipc namespaces that may be created in the user namespace.
+.TP
+.IR max_mnt_namespaces
+The value in this file defines a per-user limit on the number of
+mount namespaces that may be created in the user namespace.
+.TP
+.IR max_net_namespaces
+The value in this file defines a per-user limit on the number of
+network namespaces that may be created in the user namespace.
+.TP
+.IR max_pid_namespaces
+The value in this file defines a per-user limit on the number of
+pid namespaces that may be created in the user namespace.
+.TP
+.IR max_user_namespaces
+The value in this file defines a per-user limit on the number of
+user namespaces that may be created in the user namespace.
+.TP
+.IR max_uts_namespaces
+The value in this file defines a per-user limit on the number of
+user namespaces that may be created in the user namespace.
+.PP
+Note the following details about these files:
+.IP * 3
+The values in these files are modifiable by privileged processes.
+.IP *
+The values exposed by these files are the limits for the user namespace
+in which the opening process resides.
+.IP *
+The limits are per-user.
+Each user in the same user namespace
+can create namespaces up to the defined limit.
+.IP *
+The limits apply to all users, including UID 0.
+.IP *
+These limits apply in addition to any other per-namespace
+limits (such as those for PID and user namespaces) that may be enforced.
+.IP *
+Upon encountering these limits,
+.BR clone (2)
+and
+.BR unshare (2)
+fail with the error
+.BR ENOSPC .
+.IP *
+For the initial user namespace,
+the default value in each of these files is half the limit on the number
+of threads that may be created
+.RI ( /proc/sys/kernel/threads-max ).
+In all descendant user namespaces, the default value in each file is
+.BR MAXINT .
+.IP *
+When a namespace is created, the object is also accounted
+against ancestor namespaces.
+More precisely:
+.RS
+.IP + 3
+Each user namespace has a creator UID.
+.IP +
+When a namespace is created,
+it is accounted against the creator UIDs in each of the
+ancestor user namespaces,
+and the kernel ensures that the corresponding namespace limit
+for the creator UID in the ancestor namespace is not exceeded.
+.IP +
+The aforementioned point ensures that creating a new user namespace
+cannot be used as a means to escape the limits in force
+in the current user namespace.
+.RE
+.PP
+.\"
 .\" ==================== Cgroup namespaces ====================
 .\"
 .SS Cgroup namespaces (CLONE_NEWCGROUP)

@@ -67,35 +67,44 @@ The buffer is filled in according to the following type:
 .in +4n
 .nf
 struct statx {
-    __u32 stx_mask;          -- Mask of bits indicating filled fields
-    __u32 stx_blksize;       -- Block size for filesystem I/O
-    __u64 stx_attributes;    -- Extra file attribute indicators
-    __u32 stx_nlink;         -- Number of hard links
-    __u32 stx_uid;           -- User ID of owner
-    __u32 stx_gid;           -- Group ID of owner
-    __u16 stx_mode;          -- File type and mode
-    __u64 stx_ino;           -- Inode number
-    __u64 stx_size;          -- Total size in bytes
-    __u64 stx_blocks;        -- Number of 512B blocks allocated
-    struct statx_timestamp stx_atime;  -- Time of last access
-    struct statx_timestamp stx_btime;  -- Time of creation
-    struct statx_timestamp stx_ctime;  -- Time of last status change
-    struct statx_timestamp stx_mtime;  -- Time of last modification
-    __u32 stx_rdev_major;    } Device number if device file
-    __u32 stx_rdev_minor;    }
-    __u32 stx_dev_major;      } Device number of containing file
-    __u32 stx_dev_minor;      }
+    __u32 stx_mask;          /* Mask of bits indicating
+                                filled fields */
+    __u32 stx_blksize;       /* Block size for filesystem I/O */
+    __u64 stx_attributes;    /* Extra file attribute indicators */
+    __u32 stx_nlink;         /* Number of hard links */
+    __u32 stx_uid;           /* User ID of owner */
+    __u32 stx_gid;           /* Group ID of owner */
+    __u16 stx_mode;          /* File type and mode */
+    __u64 stx_ino;           /* Inode number */
+    __u64 stx_size;          /* Total size in bytes */
+    __u64 stx_blocks;        /* Number of 512B blocks allocated */
+
+    /* The following fields are file timestamps */
+    struct statx_timestamp stx_atime;  /* Last access */
+    struct statx_timestamp stx_btime;  /* Creation */
+    struct statx_timestamp stx_ctime;  /* Last status change */
+    struct statx_timestamp stx_mtime;  /* Last modification */
+
+    /* If this file represents device, then the next two feilds
+       contain the ID of the device */
+    __u32 stx_rdev_major;    /* Major ID */
+    __u32 stx_rdev_minor;    /* Minor ID */
+
+    /* The next two fields contain the ID of the device
+       contain the filesystem where the file resides */
+    __u32 stx_dev_major;      /* Major ID */
+    __u32 stx_dev_minor;      /* Minor ID */
 };
 .fi
 .in
 .PP
-Where the timestamps are defined as:
+The file timestamps are structures of the following type:
 .PP
 .in +4n
 .nf
 struct statx_timestamp {
-    __s64 tv_sec;    -- Number of seconds (UNIX time)
-    __s32 tv_nsec;   -- Number of nanoseconds before or since tv_sec
+    __s64 tv_sec;    /* Seconds since the Epoch (UNIX time) */
+    __s32 tv_nsec;   /* Nanoseconds before or since tv_sec */
 };
 .fi
 .in
@@ -114,7 +123,10 @@ that lead to the file.
 .PP
 .BR statx ()
 uses
-.IR pathname ", " dirfd " and " flags
+.IR pathname ,
+.IR dirfd ,
+and
+.IR flags
 to locate the target file in one of a variety of ways:
 .TP
 [*] By absolute path.
@@ -127,7 +139,9 @@ filesystem as seen by the calling process.
 [*] By cwd-relative path.
 .I pathname
 points to a relative path and
-.IR dirfd " is " AT_FDCWD .
+.IR dirfd
+is
+.BR AT_FDCWD .
 The file is looked up by name, starting from the current working directory.
 .TP
 [*] By dir-relative path.
@@ -193,7 +207,7 @@ If
 .I pathname
 is a symbolic link, do not dereference it:
 instead return information about the link itself, like
-.BR lstat ().
+.BR lstat (2).
 .PP
 .I flags
 can also be used to control what sort of synchronisation the kernel will do
@@ -202,7 +216,7 @@ the following values:
 .TP
 AT_STATX_SYNC_AS_STAT
 Do whatever
-.BR stat ()
+.BR stat (2)
 does.  This is the default and is very much filesystem specific.
 .TP
 AT_STATX_FORCE_SYNC

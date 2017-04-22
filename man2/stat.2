@@ -217,7 +217,10 @@ macros may be useful to decompose the device ID in this field.)
 This field contains the file's inode number.
 .TP
 .I st_mode
-See the discussion of file type and mode, below.
+This field contains the file type and mode.
+See
+.BR inode (7)
+for further information.
 .TP
 .I st_nlink
 This field contains the number of hard links to the file.
@@ -239,241 +242,25 @@ it contains, without a terminating null byte.
 .TP
 .I st_blksize
 This field gives the "preferred" blocksize for efficient filesystem I/O.
-(Writing to a file in smaller chunks may cause
-an inefficient read-modify-rewrite.)
 .TP
 .I st_blocks
 This field indicates the number of blocks allocated to the file,
-512-byte units.
+in 512-byte units.
 (This may be smaller than
 .IR st_size /512
 when the file has holes.)
 .TP
 .I st_atime
 This is the file's last access timestamp.
-It is changed by file accesses, for example, by
-.BR execve (2),
-.BR mknod (2),
-.BR pipe (2),
-.BR utime (2),
-and
-.BR read (2)
-(of more than zero bytes).
-Other routines, like
-.BR mmap (2),
-may or may not update
-.IR st_atime .
 .TP
 .I st_mtime
 This is the file's last modification timestamp.
-It is changed by file modifications, for example, by
-.BR mknod (2),
-.BR truncate (2),
-.BR utime (2),
-and
-.BR write (2)
-(of more than zero bytes).
-Moreover,
-.I st_mtime
-of a directory is changed by the creation or deletion of files
-in that directory.
-The
-.I st_mtime
-field is
-.I not
-changed for changes in owner, group, hard link count, or mode.
 .TP
 .I st_ctime
 This is the file's last status change timestamp.
-It is changed by writing or by setting inode information
-(i.e., owner, group, link count, mode, etc.).
 .PP
-Not all of the Linux filesystems implement all of the time fields.
-Some filesystem types allow mounting in such a way that file
-and/or directory accesses do not cause an update of the
-.I st_atime
-field.
-(See
-.IR noatime ,
-.IR nodiratime ,
-and
-.I relatime
-in
-.BR mount (8),
-and related information in
-.BR mount (2).)
-In addition,
-.I st_atime
-is not updated if a file is opened with the
-.BR O_NOATIME
-flag; see
-.BR open (2).
-.\"
-.SS The file type and mode (st_mode)
-POSIX refers to the
-.I st_mode
-bits corresponding to the mask
-.B S_IFMT
-(see below) as the
-.IR "file type" ,
-the 12 bits corresponding to the mask 07777 as the
-.IR "file mode bits"
-and the least significant 9 bits (0777) as the
-.IR "file permission bits" .
-.PP
-The following mask values are defined for the file type of the
-.I st_mode
-field:
-.in +4n
-.TS
-lB l l.
-S_IFMT	0170000	bit mask for the file type bit field
-
-S_IFSOCK	0140000	socket
-S_IFLNK	0120000	symbolic link
-S_IFREG	0100000	regular file
-S_IFBLK	0060000	block device
-S_IFDIR	0040000	directory
-S_IFCHR	0020000	character device
-S_IFIFO	0010000	FIFO
-.TE
-.in
-.PP
-Thus, to test for a regular file (for example), one could write:
-
-.nf
-.in +4n
-stat(pathname, &sb);
-if ((sb.st_mode & S_IFMT) == S_IFREG) {
-    /* Handle regular file */
-}
-.in
-.fi
-.PP
-Because tests of the above form are common, additional
-macros are defined by POSIX to allow the test of the file type in
-.I st_mode
-to be written more concisely:
-.RS 4
-.TP 1.2i
-.BR S_ISREG (m)
-is it a regular file?
-.TP
-.BR S_ISDIR (m)
-directory?
-.TP
-.BR S_ISCHR (m)
-character device?
-.TP
-.BR S_ISBLK (m)
-block device?
-.TP
-.BR S_ISFIFO (m)
-FIFO (named pipe)?
-.TP
-.BR S_ISLNK (m)
-symbolic link?  (Not in POSIX.1-1996.)
-.TP
-.BR S_ISSOCK (m)
-socket?  (Not in POSIX.1-1996.)
-.RE
-.PP
-The preceding code snippet could thus be rewritten as:
-
-.nf
-.in +4n
-stat(pathname, &sb);
-if (S_ISREG(sb.st_mode)) {
-    /* Handle regular file */
-}
-.in
-.fi
-.PP
-The definitions of most of the above file type test macros
-are provided if any of the following feature test macros is defined:
-.BR _BSD_SOURCE
-(in glibc 2.19 and earlier),
-.BR _SVID_SOURCE
-(in glibc 2.19 and earlier),
-or
-.BR _DEFAULT_SOURCE
-(in glibc 2.20 and later).
-In addition, definitions of all of the above macros except
-.BR S_IFSOCK
-and
-.BR S_ISSOCK ()
-are provided if
-.BR _XOPEN_SOURCE
-is defined.
-The definition of
-.BR S_IFSOCK
-can also be exposed by defining
-.BR _XOPEN_SOURCE
-with a value of 500 or greater.
-
-The definition of
-.BR S_ISSOCK ()
-is exposed if any of the following feature test macros is defined:
-.BR _BSD_SOURCE
-(in glibc 2.19 and earlier),
-.BR _DEFAULT_SOURCE
-(in glibc 2.20 and later),
-.BR _XOPEN_SOURCE
-with a value of 500 or greater, or
-.BR _POSIX_C_SOURCE
-with a value of 200112L or greater.
-.PP
-The following mask values are defined for
-the file mode component of the
-.I st_mode
-field:
-.in +4n
-.TS
-lB l l.
-S_ISUID	  04000	set-user-ID bit
-S_ISGID	  02000	set-group-ID bit (see below)
-S_ISVTX	  01000	sticky bit (see below)
-
-S_IRWXU	  00700	owner has read, write, and execute permission
-S_IRUSR	  00400	owner has read permission
-S_IWUSR	  00200	owner has write permission
-S_IXUSR	  00100	owner has execute permission
-
-S_IRWXG	  00070	group has read, write, and execute permission
-S_IRGRP	  00040	group has read permission
-S_IWGRP	  00020	group has write permission
-S_IXGRP	  00010	group has execute permission
-
-S_IRWXO	  00007	T{
-others (not in group) have read, write, and execute permission
-T}
-S_IROTH	  00004	others have read permission
-S_IWOTH	  00002	others have write permission
-S_IXOTH	  00001	others have execute permission
-.TE
-.in
-.P
-The set-group-ID bit
-.RB ( S_ISGID )
-has several special uses.
-For a directory, it indicates that BSD semantics is to be used
-for that directory: files created there inherit their group ID from
-the directory, not from the effective group ID of the creating process,
-and directories created there will also get the
-.B S_ISGID
-bit set.
-For a file that does not have the group execution bit
-.RB ( S_IXGRP )
-set,
-the set-group-ID bit indicates mandatory file/record locking.
-.P
-The sticky bit
-.RB ( S_ISVTX )
-on a directory means that a file
-in that directory can be renamed or deleted only by the owner
-of the file, by the owner of the directory, and by a privileged
-process.
-.\"
+For further information on the above fields, see
+.BR inode (7).
 .\"
 .SS fstatat()
 The
@@ -688,53 +475,6 @@ fields may be less portable.
 (They were introduced in BSD.
 The interpretation differs between systems,
 and possibly on a single system when NFS mounts are involved.)
-If you need to obtain the definition of the
-.IR blkcnt_t
-or
-.IR blksize_t
-types from
-.IR <sys/stat.h> ,
-then define
-.BR _XOPEN_SOURCE
-with the value 500 or greater (before including
-.I any
-header files).
-.LP
-POSIX.1-1990 did not describe the
-.BR S_IFMT ,
-.BR S_IFSOCK ,
-.BR S_IFLNK ,
-.BR S_IFREG ,
-.BR S_IFBLK ,
-.BR S_IFDIR ,
-.BR S_IFCHR ,
-.BR S_IFIFO ,
-.B S_ISVTX
-constants, but instead specified the use of
-the macros
-.BR S_ISDIR (),
-and so on.
-The
-.BR S_IF*
-constants are present in POSIX.1-2001 and later.
-
-The
-.BR S_ISLNK ()
-and
-.BR S_ISSOCK ()
-macros were not in
-POSIX.1-1996, but both are present in POSIX.1-2001;
-the former is from SVID 4, the latter from SUSv2.
-.LP
-UNIX\ V7 (and later systems) had
-.BR S_IREAD ,
-.BR S_IWRITE ,
-.BR S_IEXEC ,
-where POSIX
-prescribes the synonyms
-.BR S_IRUSR ,
-.BR S_IWUSR ,
-.BR S_IXUSR .
 .SH NOTES
 On Linux,
 .BR lstat ()
@@ -744,21 +484,6 @@ will (but see the description of
 .BR fstatat ()
 .B AT_NO_AUTOMOUNT
 fag, above).
-
-For pseudofiles that are autogenerated by the kernel,
-.BR stat ()
-does not return an accurate value in the
-.IR st_size
-field.
-For example, the value 0 is returned for many files under the
-.I /proc
-directory,
-while various files under
-.IR /sys
-report a size of 4096 bytes, even though the file content is smaller.
-For such files, one should simply try to read as many bytes as possible
-(and append \(aq\e0\(aq to the returned buffer
-if it is to be interpreted as a string).
 .\"
 .SS Timestamp fields
 Older kernels and older standards did not support nanosecond timestamp
@@ -795,13 +520,7 @@ is defined.
 If none of the aforementioned macros are defined,
 then the nanosecond values are exposed with names of the form
 .IR st_atimensec .
-
-Nanosecond timestamps are supported on XFS, JFS, Btrfs, and
-ext4 (since Linux 2.6.23).
-.\" commit ef7f38359ea8b3e9c7f2cae9a4d4935f55ca9e80
-Nanosecond timestamps are not supported in ext2, ext3, and Reiserfs.
-On filesystems that do not support subsecond timestamps,
-the nanosecond fields are returned with the value 0.
+.\"
 .SS C library/kernel differences
 Over time, increases in the size of the
 .I stat

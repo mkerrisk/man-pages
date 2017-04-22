@@ -337,7 +337,9 @@ structure are:
 .TP
 .I stx_mode
 The file type and mode.
-This is described in more detail below.
+See
+.BR inode (7)
+for details.
 .TP
 .I stx_size
 The size of the file (if it is a regular file or a symbolic link) in bytes.
@@ -376,63 +378,18 @@ Further status information about the file (see below for more information).
 .TP
 .I stx_atime
 The file's last access timestamp.
-This field is changed by file accesses, for example, by
-.BR execve (2),
-.BR mknod (2),
-.BR pipe (2),
-.BR utime (2),
-and
-.BR read (2)
-(of more than zero bytes).
-Other routines, such as
-.BR mmap (2),
-may or may not update it.
 .TP
 .I stx_btime
 The file's creation timestamp.
-This is set on file creation and not changed subsequently.
 .TP
 .I stx_ctime
 The file's last status change timestamp.
-This field is changed by writing or
-by setting inode information (i.e., owner, group, link count, mode, etc.).
 .TP
 .I stx_mtime
 The file's last modification timestamp.
-This is changed by file modifications,
-for example, by
-.BR mknod (2),
-.BR truncate (2),
-.BR utime (2),
-and
-.BR write (2)
-(of more than zero bytes).
-Moreover, the modification time of a directory is
-changed by the creation or deletion of files in that directory.
-This field is
-.I not
-changed for changes in owner, group, hard link count, or mode.
 .PP
-Not all of the Linux filesystems implement all of the timestamp fields.
-Some filesystems allow mounting in such a way that file and/or
-directory accesses do not cause an update of the
-.I stx_atime
-field.
-(See
-.IR noatime ,
-.IR nodiratime ,
-and
-.I relatime
-in
-.BR mount (8),
-and related information in
-.BR mount (2).)
-In addition,
-.I stx_atime
-is not updated if a file is opened with the
-.BR O_NOATIME ;
-see
-.BR open (2).
+For further information on the above fields, see
+.BR inode (7).
 .\"
 .SS File attributes
 .PP
@@ -466,165 +423,6 @@ See
 .TP
 .B STATX_ATTR_ENCRYPTED
 A key is required for the file to be encrypted by the filesystem.
-.SS File type and mode
-.PP
-The
-.I stx_mode
-field contains the combined file type and mode.
-POSIX refers to the bits in
-this field corresponding to the mask
-.B S_IFMT
-(see below) as the
-.IR "file type" ,
-the 12 bits corresponding to the mask 07777 as the
-.IR "file mode bits"
-and the least significant 9 bits (0777) as the
-.IR "file permission bits" .
-.IP
-The following mask values are defined for the file type of the
-.I stx_mode
-field:
-.in +4n
-.TS
-lB l l.
-S_IFMT	0170000	bit mask for the file type bit field
-
-S_IFSOCK	0140000	socket
-S_IFLNK	0120000	symbolic link
-S_IFREG	0100000	regular file
-S_IFBLK	0060000	block device
-S_IFDIR	0040000	directory
-S_IFCHR	0020000	character device
-S_IFIFO	0010000	FIFO
-.TE
-.in
-.IP
-Note that
-.I stx_mode
-has two mask flags covering it: one for the type and one for the mode bits.
-.PP
-To test for a regular file (for example), one could write:
-.nf
-.in +4n
-statx(AT_FDCWD, pathname, 0, STATX_TYPE, &sb);
-if ((sb.stx_mask & STATX_TYPE) && (sb.stx_mode & S_IFMT) == S_IFREG) {
-    /* Handle regular file */
-}
-.in
-.fi
-.PP
-Because tests of the above form are common, additional macros are defined by
-POSIX to allow the test of the file type in
-.I stx_mode
-to be written more concisely:
-.RS 4
-.TS
-lB l.
-\fBS_ISREG\fR(m)	Is it a regular file?
-\fBS_ISDIR\fR(m)	Is it a directory?
-\fBS_ISCHR\fR(m)	Is it a character device?
-\fBS_ISBLK\fR(m)	Is it a block device?
-\fBS_ISFIFO\fR(m)	Is it a FIFO (named pipe)?
-\fBS_ISLNK\fR(m)	Is it a symbolic link?  (Not in POSIX.1-1996.)
-\fBS_ISSOCK\fR(m)	Is it a socket?  (Not in POSIX.1-1996.)
-.TE
-.RE
-.PP
-The preceding code snippet could thus be rewritten as:
-
-.nf
-.in +4n
-statx(AT_FDCWD, pathname, 0, STATX_TYPE, &sb);
-if ((sb.stx_mask & STATX_TYPE) && S_ISREG(sb.stx_mode)) {
-    /* Handle regular file */
-}
-.in
-.fi
-.PP
-The definitions of most of the above file type test macros
-are provided if any of the following feature test macros is defined:
-.BR _BSD_SOURCE
-(in glibc 2.19 and earlier),
-.BR _SVID_SOURCE
-(in glibc 2.19 and earlier),
-or
-.BR _DEFAULT_SOURCE
-(in glibc 2.20 and later).
-In addition, definitions of all of the above macros except
-.BR S_IFSOCK
-and
-.BR S_ISSOCK ()
-are provided if
-.BR _XOPEN_SOURCE
-is defined.
-The definition of
-.BR S_IFSOCK
-can also be exposed by defining
-.BR _XOPEN_SOURCE
-with a value of 500 or greater.
-
-The definition of
-.BR S_ISSOCK ()
-is exposed if any of the following feature test macros is defined:
-.BR _BSD_SOURCE
-(in glibc 2.19 and earlier),
-.BR _DEFAULT_SOURCE
-(in glibc 2.20 and later),
-.BR _XOPEN_SOURCE
-with a value of 500 or greater, or
-.BR _POSIX_C_SOURCE
-with a value of 200112L or greater.
-.PP
-The following mask values are defined for
-the file mode component of the
-.I stx_mode
-field:
-.in +4n
-.TS
-lB l l.
-S_ISUID	  04000	set-user-ID bit
-S_ISGID	  02000	set-group-ID bit (see below)
-S_ISVTX	  01000	sticky bit (see below)
-
-S_IRWXU	  00700	owner has read, write, and execute permission
-S_IRUSR	  00400	owner has read permission
-S_IWUSR	  00200	owner has write permission
-S_IXUSR	  00100	owner has execute permission
-
-S_IRWXG	  00070	group has read, write, and execute permission
-S_IRGRP	  00040	group has read permission
-S_IWGRP	  00020	group has write permission
-S_IXGRP	  00010	group has execute permission
-
-S_IRWXO	  00007	T{
-others (not in group) have read, write, and execute permission
-T}
-S_IROTH	  00004	others have read permission
-S_IWOTH	  00002	others have write permission
-S_IXOTH	  00001	others have execute permission
-.TE
-.in
-.P
-The set-group-ID bit
-.RB ( S_ISGID )
-has several special uses.
-For a directory, it indicates that BSD semantics is to be used
-for that directory: files created there inherit their group ID from
-the directory, not from the effective group ID of the creating process,
-and directories created there will also get the
-.B S_ISGID
-bit set.
-For a file that does not have the group execution bit
-.RB ( S_IXGRP )
-set,
-the set-group-ID bit indicates mandatory file/record locking.
-.P
-The sticky bit
-.RB ( S_ISVTX )
-on a directory means that a file
-in that directory can be renamed or deleted only by the owner
-of the file, by the owner of the directory, and by a privileged
-process.
 .SH RETURN VALUE
 On success, zero is returned.
 On error, \-1 is returned, and

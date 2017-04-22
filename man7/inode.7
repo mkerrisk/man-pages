@@ -1,0 +1,456 @@
+'\" t
+.\" Copyright (c) 2017 Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH INODE 7 2017-04-22 "Linux" "Linux Programmer's Manual"
+.SH NAME
+inode \- file inode information
+.SH DESCRIPTION
+Each file has an inode containing metadata about the file.
+An application can retrieve this metadata using
+.BR stat (2)
+(or related calls), which returns a
+.I stat
+structure, or
+.BR statx (2),
+which returns a
+.I statx
+structure.
+
+The following is a list of the information typically found in,
+or associated with, the file inode,
+with the names of the corresponding structure fields returned by
+.BR stat (2)
+and
+.BR statx (2):
+.TP
+Device where inode resides
+\fIstat.st_dev\fP; \fIstatx.stx_dev_minor\fP and \fIstatx.stx_dev_major\fP
+
+Each inode (as well as the associated file) resides in a filesystem
+that is hosted on a device.
+That device is identified by the combination of its major ID
+(which identifies the general class of device)
+and minor ID (which identifies a specific instance in the general class).
+.TP
+Inode number
+\fIstat.st_ino\fP; \fIstatx.stx_ino\fP
+
+Each file in a filesystem has a unique inode number.
+Inode numbers are guaranteed to be unique only within a filesystem
+(i.e., the same inode numbers may be used by different filesystems,
+which is the reason that hard links may not cross filesystem boundaries).
+This field contains the file's inode number.
+.TP
+File type and mode
+\fIstat.st_mode\fP; \fIstatx.stx_mode\fP
+
+See the discussion of file type and mode, below.
+.TP
+Link count
+\fIstat.st_nlink\fP; \fIstatx.stx_nlink\fP
+
+This field contains the number of hard links to the file.
+Additional links to an existing file are created using
+.BR link (2).
+.TP
+User ID
+.I st_uid
+\fIstat.st_uid\fP; \fIstatx.stx_uid\fP
+
+This field records the user ID of the owner of the file.
+For newly created files,
+the file user ID is the effective user ID of the creating process.
+The user ID of a file can be changed using
+.BR chown (2).
+.TP
+Group ID
+\fIstat.st_gid\fP; \fIstatx.stx_gid\fP
+
+The inode records the ID of the group owner of the file.
+For newly created files,
+the file group ID is either the group ID of the parent directory or
+the effective group ID of the creating process,
+dependeng on whether or not the set-group-ID bit
+is set on the parent directory (see below).
+The group ID of a file can be changed using
+.BR chown (2).
+.TP
+Device represented by this inode
+\fIstat.st_rdev\fP; \fIstatx.stx_rdev_minor\fP and \fIstatx.stx_rdev_major\fP
+
+If this file (inode) represents a device,
+then the inode records the major and minor ID of that device.
+.TP
+File size
+\fIstat.st_size\fP; \fIstatx.stx_size\fP
+
+This field gives the size of the file (if it is a regular
+file or a symbolic link) in bytes.
+The size of a symbolic link is the length of the pathname
+it contains, without a terminating null byte.
+.TP
+Preferred block size for I/O
+\fIstat.st_blksize\fP; \fIstatx.stx_blksize\fP
+
+This field gives the "preferred" blocksize for efficient filesystem I/O.
+(Writing to a file in smaller chunks may cause
+an inefficient read-modify-rewrite.)
+.TP
+Number of blocks allocated to the file
+\fIstat.st_blocks\fP; \fIstatx.stx_size\fP
+
+This field indicates the number of blocks allocated to the file,
+512-byte units,
+(This may be smaller than
+.IR st_size /512
+when the file has holes.)
+
+The POSIX.1 standard notes
+.\" Rationale for sys/stat.h in POSIX.1-2008
+that the unit for the
+.I st_blocks
+member of the
+.I stat
+structure is not defined by the standard.
+On many  implementations it is 512 bytes;
+on a few systems, a different unit is used, such as 1024.
+Furthermore, the unit may differ on a per-filesystem basis.
+.TP
+Last access timestamp (atime)
+\fIstat.st_atime\fP; \fIstatx.stx_atime\fP
+
+This is the file's last access timestamp.
+It is changed by file accesses, for example, by
+.BR execve (2),
+.BR mknod (2),
+.BR pipe (2),
+.BR utime (2),
+and
+.BR read (2)
+(of more than zero bytes).
+Other interfaces, such as
+.BR mmap (2),
+may or may not update the atime timestamp
+
+Some filesystem types allow mounting in such a way that file
+and/or directory accesses do not cause an update of the atime timestamp.
+(See
+.IR noatime ,
+.IR nodiratime ,
+and
+.I relatime
+in
+.BR mount (8),
+and related information in
+.BR mount (2).)
+In addition, the atime timestamp
+is not updated if a file is opened with the
+.BR O_NOATIME
+flag; see
+.BR open (2).
+.TP
+File creation (birth) timestamp (btime)
+(not returned in the \fIstat\fP structure); \fIstatx.stx_btime\fP
+
+The file's creation timestamp.
+This is set on file creation and not changed subsequently.
+
+The btime timestamp was not historically present on UNIX syystems
+and is not currently supported by most Linux filesystems.
+.\" FIXME Is it supported on ext4 and XFS?
+.TP
+Last modification timestamp (mtime)
+\fIstat.st_atime\fP; \fIstatx.stx_mtime\fP
+
+This is the file's last modification timestamp.
+It is changed by file modifications, for example, by
+.BR mknod (2),
+.BR truncate (2),
+.BR utime (2),
+and
+.BR write (2)
+(of more than zero bytes).
+Moreover, the mtime timestamp
+of a directory is changed by the creation or deletion of files
+in that directory.
+The mtime timestamp is
+.I not
+changed for changes in owner, group, hard link count, or mode.
+.TP
+Last status change timestamp (ctime)
+\fIstat.st_ctime\fP; \fIstatx.stx_ctime\fP
+
+This is the file's last status change timestamp.
+It is changed by writing or by setting inode information
+(i.e., owner, group, link count, mode, etc.).
+.PP
+Nanosecond timestamps are supported on XFS, JFS, Btrfs, and
+ext4 (since Linux 2.6.23).
+.\" commit ef7f38359ea8b3e9c7f2cae9a4d4935f55ca9e80
+Nanosecond timestamps are not supported in ext2, ext3, and Reiserfs.
+On filesystems that do not support subsecond timestamps,
+the nanosecond fields in the
+.I stat
+and
+.I statx
+structures are returned with the value 0.
+.\"
+.SS The file type and mode
+The
+.I stat.st_mode
+field (for
+.BR statx (2),
+the
+.I statx.stx_mode
+field) contains the file type and mode.
+
+POSIX refers to the
+.I stat.st_mode
+bits corresponding to the mask
+.B S_IFMT
+(see below) as the
+.IR "file type" ,
+the 12 bits corresponding to the mask 07777 as the
+.IR "file mode bits"
+and the least significant 9 bits (0777) as the
+.IR "file permission bits" .
+.PP
+The following mask values are defined for the file type:
+.in +4n
+.TS
+lB l l.
+S_IFMT	0170000	bit mask for the file type bit field
+
+S_IFSOCK	0140000	socket
+S_IFLNK	0120000	symbolic link
+S_IFREG	0100000	regular file
+S_IFBLK	0060000	block device
+S_IFDIR	0040000	directory
+S_IFCHR	0020000	character device
+S_IFIFO	0010000	FIFO
+.TE
+.in
+.PP
+Thus, to test for a regular file (for example), one could write:
+
+.nf
+.in +4n
+stat(pathname, &sb);
+if ((sb.st_mode & S_IFMT) == S_IFREG) {
+    /* Handle regular file */
+}
+.in
+.fi
+.PP
+Because tests of the above form are common, additional
+macros are defined by POSIX to allow the test of the file type in
+.I st_mode
+to be written more concisely:
+.RS 4
+.TP 1.2i
+.BR S_ISREG (m)
+is it a regular file?
+.TP
+.BR S_ISDIR (m)
+directory?
+.TP
+.BR S_ISCHR (m)
+character device?
+.TP
+.BR S_ISBLK (m)
+block device?
+.TP
+.BR S_ISFIFO (m)
+FIFO (named pipe)?
+.TP
+.BR S_ISLNK (m)
+symbolic link?  (Not in POSIX.1-1996.)
+.TP
+.BR S_ISSOCK (m)
+socket?  (Not in POSIX.1-1996.)
+.RE
+.PP
+The preceding code snippet could thus be rewritten as:
+
+.nf
+.in +4n
+stat(pathname, &sb);
+if (S_ISREG(sb.st_mode)) {
+    /* Handle regular file */
+}
+.in
+.fi
+.PP
+The definitions of most of the above file type test macros
+are provided if any of the following feature test macros is defined:
+.BR _BSD_SOURCE
+(in glibc 2.19 and earlier),
+.BR _SVID_SOURCE
+(in glibc 2.19 and earlier),
+or
+.BR _DEFAULT_SOURCE
+(in glibc 2.20 and later).
+In addition, definitions of all of the above macros except
+.BR S_IFSOCK
+and
+.BR S_ISSOCK ()
+are provided if
+.BR _XOPEN_SOURCE
+is defined.
+The definition of
+.BR S_IFSOCK
+can also be exposed by defining
+.BR _XOPEN_SOURCE
+with a value of 500 or greater.
+
+The definition of
+.BR S_ISSOCK ()
+is exposed if any of the following feature test macros is defined:
+.BR _BSD_SOURCE
+(in glibc 2.19 and earlier),
+.BR _DEFAULT_SOURCE
+(in glibc 2.20 and later),
+.BR _XOPEN_SOURCE
+with a value of 500 or greater, or
+.BR _POSIX_C_SOURCE
+with a value of 200112L or greater.
+.PP
+The following mask values are defined for
+the file mode component of the
+.I st_mode
+field:
+.in +4n
+.TS
+lB l l.
+S_ISUID	  04000	set-user-ID bit
+S_ISGID	  02000	set-group-ID bit (see below)
+S_ISVTX	  01000	sticky bit (see below)
+
+S_IRWXU	  00700	owner has read, write, and execute permission
+S_IRUSR	  00400	owner has read permission
+S_IWUSR	  00200	owner has write permission
+S_IXUSR	  00100	owner has execute permission
+
+S_IRWXG	  00070	group has read, write, and execute permission
+S_IRGRP	  00040	group has read permission
+S_IWGRP	  00020	group has write permission
+S_IXGRP	  00010	group has execute permission
+
+S_IRWXO	  00007	T{
+others (not in group) have read, write, and execute permission
+T}
+S_IROTH	  00004	others have read permission
+S_IWOTH	  00002	others have write permission
+S_IXOTH	  00001	others have execute permission
+.TE
+.in
+.P
+The set-group-ID bit
+.RB ( S_ISGID )
+has several special uses.
+For a directory, it indicates that BSD semantics is to be used
+for that directory: files created there inherit their group ID from
+the directory, not from the effective group ID of the creating process,
+and directories created there will also get the
+.B S_ISGID
+bit set.
+For a file that does not have the group execution bit
+.RB ( S_IXGRP )
+set,
+the set-group-ID bit indicates mandatory file/record locking.
+.P
+The sticky bit
+.RB ( S_ISVTX )
+on a directory means that a file
+in that directory can be renamed or deleted only by the owner
+of the file, by the owner of the directory, and by a privileged
+process.
+.SH CONFORMING TO
+If you need to obtain the definition of the
+.IR blkcnt_t
+or
+.IR blksize_t
+types from
+.IR <sys/stat.h> ,
+then define
+.BR _XOPEN_SOURCE
+with the value 500 or greater (before including
+.I any
+header files).
+.LP
+POSIX.1-1990 did not describe the
+.BR S_IFMT ,
+.BR S_IFSOCK ,
+.BR S_IFLNK ,
+.BR S_IFREG ,
+.BR S_IFBLK ,
+.BR S_IFDIR ,
+.BR S_IFCHR ,
+.BR S_IFIFO ,
+.B S_ISVTX
+constants, but instead specified the use of
+the macros
+.BR S_ISDIR (),
+and so on.
+The
+.BR S_IF*
+constants are present in POSIX.1-2001 and later.
+
+The
+.BR S_ISLNK ()
+and
+.BR S_ISSOCK ()
+macros were not in
+POSIX.1-1996, but both are present in POSIX.1-2001;
+the former is from SVID 4, the latter from SUSv2.
+.LP
+UNIX\ V7 (and later systems) had
+.BR S_IREAD ,
+.BR S_IWRITE ,
+.BR S_IEXEC ,
+where POSIX
+prescribes the synonyms
+.BR S_IRUSR ,
+.BR S_IWUSR ,
+.BR S_IXUSR .
+.SH NOTES
+For pseudofiles that are autogenerated by the kernel, the file size
+(\fIstat.st_size\fP; \fIstatx.stx_size\fP)
+reported by the kernel is not accurate.
+For example, the value 0 is returned for many files under the
+.I /proc
+directory,
+while various files under
+.IR /sys
+report a size of 4096 bytes, even though the file content is smaller.
+For such files, one should simply try to read as many bytes as possible
+(and append \(aq\e0\(aq to the returned buffer
+if it is to be interpreted as a string).
+.IR st_atimensec .
+.SH SEE ALSO
+.BR stat (1),
+.BR stat (2),
+.BR statx (2),
+.BR symlink (7)

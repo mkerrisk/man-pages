@@ -67,6 +67,9 @@ struct statx {
     __u64 stx_ino;         /* Inode number */
     __u64 stx_size;        /* Total size in bytes */
     __u64 stx_blocks;      /* Number of 512B blocks allocated */
+    __u64 stx_attributes_mask;
+                           /* Mask to show what's supported
+                              in stx_attributes */
 
     /* The following fields are file timestamps */
     struct statx_timestamp stx_atime;  /* Last access */
@@ -93,7 +96,7 @@ The file timestamps are structures of the following type:
 .nf
 struct statx_timestamp {
     __s64 tv_sec;    /* Seconds since the Epoch (UNIX time) */
-    __s32 tv_nsec;   /* Nanoseconds since tv_sec */
+    __u32 tv_nsec;   /* Nanoseconds since tv_sec */
 };
 .fi
 .in
@@ -139,7 +142,7 @@ then
 is a relative pathname that is interpreted relative to the process's
 current working directory.
 .TP
-A pathname interpreted relative to a directory file descriptor
+A directory-relative pathname
 If
 .I pathname
 is a string that begins with a character other than a slash and
@@ -356,6 +359,11 @@ Apart from
 .I statx
 structure are:
 .TP
+.I stx_attributes_mask
+A mask indicating which bits in
+.IR stx_attributes
+are supported by the VFS and the filesystem.
+.TP
 .I stx_mode
 The file type and mode.
 See
@@ -417,7 +425,16 @@ For further information on the above fields, see
 The
 .I stx_attributes
 field contains a set of ORed flags that indicate additional attributes
-of the file:
+of the file.
+Note that any attribute that is not indicated as supported by
+.I stx_attributes_mask
+has no usable value here.
+The bits in
+.I stx_attributes_mask
+correspond bit-by-bit to
+.IR stx_attributes .
+
+The flags are as follows:
 .TP
 .B STATX_ATTR_COMPRESSED
 The file is compressed by the filesystem and may take extra resources
@@ -469,6 +486,10 @@ Bad address.
 .B EINVAL
 Invalid flag specified in
 .IR flags .
+.TP
+.B EINVAL
+Reserved flag specified in
+.IR mask .
 .TP
 .B ELOOP
 Too many symbolic links encountered while traversing the pathname.

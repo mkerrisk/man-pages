@@ -454,8 +454,23 @@ The default is standard error.
 is ignored in secure-execution mode.
 .TP
 .BR LD_DYNAMIC_WEAK " (since glibc 2.1.91)"
-If this environment variable is defined (with any value),
-allow weak symbols to be overridden (reverting to old glibc behavior).
+By default, when searching shared libraries to resolve a symbol reference,
+the dynamic linker will resolve to the first definition it finds.
+
+Old glibc versions (before 2.2), provided a different behavior:
+if the linker found a symbol that was weak,
+it would remember that symbol and
+keep searching in the remaining shared libraries.
+If it subsequently found a strong definition of the same symbol,
+then it would instead use that definition.
+(If no further symbol was found,
+then the dynamic linker would use the weak symbol that it initially found.)
+
+The old glibc behavior was nonstandard.
+(Standard practice is that the distinction between between
+weak and strong symbols should have effect only at static link time.)
+In glibc 2.2
+.\" More precisely 2.1.92
 .\" See weak handling
 .\"     https://www.sourceware.org/ml/libc-hacker/2000-06/msg00029.html
 .\"     To: GNU libc hacker <libc-hacker at sourceware dot cygnus dot com>
@@ -463,6 +478,19 @@ allow weak symbols to be overridden (reverting to old glibc behavior).
 .\"     From: Ulrich Drepper <drepper at redhat dot com>
 .\"     Date: 07 Jun 2000 20:08:12 -0700
 .\"     Reply-To: drepper at cygnus dot com (Ulrich Drepper)
+the dynamic linker was modified to provide the current behavior
+(which was the behavior that was provided by most other implementations
+at that time).
+
+Defining the
+.B LD_DYNAMIC_WEAK
+environment variable (with any value) provides
+the old (nonstandard) glibc behavior,
+whereby a weak symbol in one shared library may be overridden by
+a strong symbol subsequently discovered in another shared library.
+(Note that even when this variable is set,
+a strong symbol in a shared library will not override
+a weak definition of the same symbol in the main program.)
 
 Since glibc 2.3.4,
 .B LD_DYNAMIC_WEAK

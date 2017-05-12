@@ -1,4 +1,4 @@
-.\" Copyright (c) 2003 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (c) 2003, 2017 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -243,9 +243,57 @@ field will be an empty string.
 .SH EXAMPLE
 The following program displays a list of pathnames of the
 shared objects it has loaded.
-For each shared object, the program lists the virtual addresses
-at which the object's ELF segments are loaded.
+For each shared object, the program lists some information
+(virtual address, size, flags, and type)
+for each of the objects ELF segments.
 
+The following shell session demonstrates the output
+produced by the program on an x86-64 system.
+The first shared object for which output is displayed
+(where the name is an empty string)
+is the main program.
+.nf
+.in +4n
+$ \fB./a.out\fP
+Name: "" (9 segments)
+     0: [      0x400040; memsz:    1f8] flags: 0x5; PT_PHDR
+     1: [      0x400238; memsz:     1c] flags: 0x4; PT_INTERP
+     2: [      0x400000; memsz:    ac4] flags: 0x5; PT_LOAD
+     3: [      0x600e10; memsz:    240] flags: 0x6; PT_LOAD
+     4: [      0x600e28; memsz:    1d0] flags: 0x6; PT_DYNAMIC
+     5: [      0x400254; memsz:     44] flags: 0x4; PT_NOTE
+     6: [      0x400970; memsz:     3c] flags: 0x4; PT_GNU_EH_FRAME
+     7: [         (nil); memsz:      0] flags: 0x6; PT_GNU_STACK
+     8: [      0x600e10; memsz:    1f0] flags: 0x4; PT_GNU_RELRO
+Name: "linux-vdso.so.1" (4 segments)
+     0: [0x7ffc6edd1000; memsz:    e89] flags: 0x5; PT_LOAD
+     1: [0x7ffc6edd1360; memsz:    110] flags: 0x4; PT_DYNAMIC
+     2: [0x7ffc6edd17b0; memsz:     3c] flags: 0x4; PT_NOTE
+     3: [0x7ffc6edd17ec; memsz:     3c] flags: 0x4; PT_GNU_EH_FRAME
+Name: "/lib64/libc.so.6" (10 segments)
+     0: [0x7f55712ce040; memsz:    230] flags: 0x5; PT_PHDR
+     1: [0x7f557145b980; memsz:     1c] flags: 0x4; PT_INTERP
+     2: [0x7f55712ce000; memsz: 1b6a5c] flags: 0x5; PT_LOAD
+     3: [0x7f55716857a0; memsz:   9240] flags: 0x6; PT_LOAD
+     4: [0x7f5571688b80; memsz:    1f0] flags: 0x6; PT_DYNAMIC
+     5: [0x7f55712ce270; memsz:     44] flags: 0x4; PT_NOTE
+     6: [0x7f55716857a0; memsz:     78] flags: 0x4; PT_TLS
+     7: [0x7f557145b99c; memsz:   544c] flags: 0x4; PT_GNU_EH_FRAME
+     8: [0x7f55712ce000; memsz:      0] flags: 0x6; PT_GNU_STACK
+     9: [0x7f55716857a0; memsz:   3860] flags: 0x4; PT_GNU_RELRO
+Name: "/lib64/ld-linux-x86-64.so.2" (7 segments)
+     0: [0x7f557168f000; memsz:  20828] flags: 0x5; PT_LOAD
+     1: [0x7f55718afba0; memsz:   15a8] flags: 0x6; PT_LOAD
+     2: [0x7f55718afe10; memsz:    190] flags: 0x6; PT_DYNAMIC
+     3: [0x7f557168f1c8; memsz:     24] flags: 0x4; PT_NOTE
+     4: [0x7f55716acec4; memsz:    604] flags: 0x4; PT_GNU_EH_FRAME
+     5: [0x7f557168f000; memsz:      0] flags: 0x6; PT_GNU_STACK
+     6: [0x7f55718afba0; memsz:    460] flags: 0x4; PT_GNU_RELRO
+.in
+.fi
+
+.SS Program source
+\&
 .nf
 #define _GNU_SOURCE
 #include <link.h>
@@ -255,14 +303,35 @@ at which the object's ELF segments are loaded.
 static int
 callback(struct dl_phdr_info *info, size_t size, void *data)
 {
-    int j;
+    char *type;
+    int p_type, j;
 
-    printf("name=%s (%d segments)\\n", info\->dlpi_name,
-        info\->dlpi_phnum);
+    printf("Name: \\"%s\\" (%d segments)\\n", info\->dlpi_name,
+               info\->dlpi_phnum);
 
-    for (j = 0; j < info\->dlpi_phnum; j++)
-         printf("\\t\\t header %2d: address=%10p\\n", j,
-             (void *) (info\->dlpi_addr + info\->dlpi_phdr[j].p_vaddr));
+    for (j = 0; j < info\->dlpi_phnum; j++) {
+        p_type = info\->dlpi_phdr[j].p_type;
+        type =  (p_type == PT_LOAD) ? "PT_LOAD" :
+                (p_type == PT_DYNAMIC) ? "PT_DYNAMIC" :
+                (p_type == PT_INTERP) ? "PT_INTERP" :
+                (p_type == PT_NOTE) ? "PT_NOTE" :
+                (p_type == PT_INTERP) ? "PT_INTERP" :
+                (p_type == PT_PHDR) ? "PT_PHDR" :
+                (p_type == PT_TLS) ? "PT_TLS" :
+                (p_type == PT_GNU_EH_FRAME) ? "PT_GNU_EH_FRAME" :
+                (p_type == PT_GNU_STACK) ? "PT_GNU_STACK" :
+                (p_type == PT_GNU_RELRO) ? "PT_GNU_RELRO" : NULL;
+        
+        printf("    %2d: [%14p; memsz:%7lx] flags: 0x%x; ", j,
+                (void *) (info\->dlpi_addr + info\->dlpi_phdr[j].p_vaddr),
+                info\->dlpi_phdr[j].p_memsz,
+                info\->dlpi_phdr[j].p_flags);
+        if (type != NULL)
+            printf("%s\\n", type);
+        else
+            printf("[other (0x%x)]\\n", p_type);
+    }
+
     return 0;
 }
 

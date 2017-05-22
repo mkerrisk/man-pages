@@ -1,5 +1,5 @@
 '\" t
-.\" Copyright (c) 2001, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (c) 2001, 2017 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -103,7 +103,27 @@ To establish a new alternate signal stack,
 the fields of this structure are set as follows:
 .TP
 .I ss.ss_flags
-This field is set to zero.
+This field contains either 0, or the following flag:
+.RS
+.TP
+.BR SS_AUTODISARM " (since Linux 4.7)"
+.\" commit 2a74213838104a41588d86fd5e8d344972891ace
+.\" See tools/testing/selftests/sigaltstack/sas.c in kernel sources
+Clear the alternate signal stack settings on entry to the signal handler.
+When the signal handler returns,
+the previous alternate signal stack settings are restored.
+.IP
+This flag was added in order make it safe
+to switch away from the signal handler with
+.BR swapcontext (3).
+Without this flag, a subsequently handled signal will corrupt
+the state of the switched-away signal handler.
+On kernels where this flag is not supported,
+.BR sigaltstack ()
+fails with the error
+.BR EINVAL
+when this flag is supplied.
+.RE
 .TP
 .I ss.ss_sp
 This field specifies the starting address of the stack.
@@ -120,8 +140,10 @@ size required to execute a signal handler.
 .PP
 To disable an existing stack, specify \fIss.ss_flags\fP
 as \fBSS_DISABLE\fP.
-In this case, the remaining fields
-in \fIss\fP are ignored.
+In this case, the kernel ignores any other flags in
+.IR ss.ss_flags
+and the remaining fields
+in \fIss\fP.
 .PP
 If \fIold_ss\fP is not NULL, then it is used to return information about
 the alternate signal stack which was in effect prior to the
@@ -139,6 +161,25 @@ currently executing on it.)
 .TP
 .B SS_DISABLE
 The alternate signal stack is currently disabled.
+.IP
+Alternatively, this value is returned if the process is currently
+executing on an alternate signal stack that was established using the
+.B SS_AUTODISARM
+flag.
+In this case, it is safe to switch away from the signal handler with
+.BR swapcontext (3).
+It is also possible to set up a different alternative signal stack
+using a further call to
+.BR sigaltstack ().
+.\" FIXME Was it intended that one can set up a different alternative
+.\" signal stack in this scenario? (In passing, if one does this, the
+.\" sigaltstack(NULL, &old_ss) now returns old_ss.ss_flags==SS_AUTODISARM
+.\" rather than old_ss.ss_flags==SS_DISABLE. The API design here seems
+.\" confusing...
+.TP
+.B SS_AUTODISARM
+The alternate signal stack has been marked to be autodisarmed
+as described above.
 .PP
 By specifying
 .I ss
@@ -184,6 +225,10 @@ T}	Thread safety	MT-Safe
 .TE
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2009, SUSv2, SVr4.
+
+The
+.B SS_AUTODISARM
+flag is a Linux extension.
 .SH NOTES
 The most common usage of an alternate signal stack is to handle the
 .B SIGSEGV

@@ -41,7 +41,21 @@ malloc, free, calloc, realloc \- allocate and free dynamic memory
 .BI "void free(void " "*ptr" );
 .BI "void *calloc(size_t " "nmemb" ", size_t " "size" );
 .BI "void *realloc(void " "*ptr" ", size_t "  "size" );
+.BI "void *reallocarray(void " "*ptr" ", size_t " nmemb ", size_t "  "size" );
 .fi
+.PP
+.in -4n
+Feature Test Macro Requirements for glibc (see
+.BR feature_test_macros (7)):
+.in
+.PP
+.BR reallocarray ():
+.br
+.RS 4
+.ad l
+_GNU_SOURCE
+.RE
+.ad
 .SH DESCRIPTION
 .PP
 The
@@ -129,6 +143,34 @@ or
 If the area pointed to was moved, a
 .I free(ptr)
 is done.
+.PP
+The
+.BR reallocarray ()
+function changes the size of the memory block pointed to by
+.I ptr
+to be large enough for an array of
+.I nmemb
+elements, each of which is
+.I size
+bytes.
+It is equivalent to the call
+.PP
+.in +4n
+    realloc(ptr, nmemb * size);
+.in
+.PP
+However, unlike that
+.BR realloc ()
+call,
+.BR reallocarray ()
+fails safely in the case where the multiplication would overflow.
+If such an overflow occurs,
+.BR reallocarray ()
+returns NULL, sets
+.I errno
+to
+.BR ENOMEM ,
+and leaves the original block of memory unchanged.
 .SH RETURN VALUE
 The
 .BR malloc ()
@@ -168,11 +210,18 @@ is returned.
 If
 .BR realloc ()
 fails, the original block is left untouched; it is not freed or moved.
+.PP
+On success, the
+.BR reallocarray ()
+function returns a pointer to the newly allocated memory.
+On failure,
+it returns NULL and the original block of memory is left untouched.
 .SH ERRORS
 .BR calloc (),
 .BR malloc (),
+.BR realloc (),
 and
-.BR realloc ()
+.BR reallocarray ()
 can fail with the following error:
 .TP
 .B ENOMEM
@@ -205,6 +254,9 @@ T}	Thread safety	MT-Safe
 .BR calloc (),
 .BR realloc ():
 POSIX.1-2001, POSIX.1-2008, C89, C99.
+.PP
+.BR reallocarray ()
+is a nonstandard extension that first appeared in OpenBSD 5.6 and FreeBSD 11.0.
 .SH NOTES
 By default, Linux follows an optimistic memory allocation strategy.
 This means that when

@@ -1183,22 +1183,22 @@ On i386,
 should not be called through vsyscall, but directly through
 .IR "int $0x80" .
 .SH BUGS
-Versions of the GNU C library that include the NPTL threading library
-contain a wrapper function for
+GNU C library versions 2.3.4 up to and including 2.24
+contained a wrapper function for
 .BR getpid (2)
-that performs caching of PIDs.
-This caching relies on support in the glibc wrapper for
+that performed caching of PIDs.
+This caching relied on support in the glibc wrapper for
 .BR clone (),
-but as currently implemented,
-the cache may not be up to date in some circumstances.
+but limitations in the implementation
+meant that the cache was not up to date in some circumstances.
 In particular,
-if a signal is delivered to the child immediately after the
+if a signal was delivered to the child immediately after the
 .BR clone ()
 call, then a call to
 .BR getpid (2)
-in a handler for the signal may return the PID
+in a handler for the signal could return the PID
 of the calling process ("the parent"),
-if the clone wrapper has not yet had a chance to update the PID
+if the clone wrapper had not yet had a chance to update the PID
 cache in the child.
 (This discussion ignores the case where the child was created using
 .BR CLONE_THREAD ,
@@ -1212,9 +1212,9 @@ The stale-cache problem also does not occur if the
 .I flags
 argument includes
 .BR CLONE_VM .)
-To get the truth, it may be necessary to use code such as the following:
+To get the truth, it was sometimes necessary to use code such as the following:
+.PP
 .nf
-
     #include <syscall.h>
 
     pid_t mypid;
@@ -1224,6 +1224,10 @@ To get the truth, it may be necessary to use code such as the following:
 .\" See also the following bug reports
 .\" https://bugzilla.redhat.com/show_bug.cgi?id=417521
 .\" http://sourceware.org/bugzilla/show_bug.cgi?id=6910
+.PP
+Because of the stale-cache problem, as well as other problems noted in
+.BR getpid (2),
+the PID caching feature was removed in glibc 2.25.
 .SH EXAMPLE
 The following program demonstrates the use of
 .BR clone ()

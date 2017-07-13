@@ -61,25 +61,25 @@ If the caller's parent is in a different PID namespace (see
 returns 0.
 .\"
 .SS C library/kernel differences
-Since glibc version 2.3.4,
+From glibc version 2.3.4 up to and including version 2.24,
 the glibc wrapper function for
 .BR getpid ()
-caches PIDs,
-so as to avoid additional system calls when a process calls
+cached PIDs,
+with the goal of avoiding additional system calls when a process calls
 .BR getpid ()
 repeatedly.
-Normally this caching is invisible,
-but its correct operation relies on support in the wrapper functions for
+Normally this caching was invisible,
+but its correct operation relied on support in the wrapper functions for
 .BR fork (2),
 .BR vfork (2),
 and
 .BR clone (2):
-if an application bypasses the glibc wrappers for these system calls by using
+if an application bypassed the glibc wrappers for these system calls by using
 .BR syscall (2),
 then a call to
 .BR getpid ()
-in the child will return the wrong value
-(to be precise: it will return the PID of the parent process).
+in the child would return the wrong value
+(to be precise: it would return the PID of the parent process).
 .\" The following program demonstrates this "feature":
 .\"
 .\" #define _GNU_SOURCE
@@ -105,16 +105,20 @@ in the child will return the wrong value
 .\"    }
 .\"    wait(NULL);
 .\"}
-See also
-.BR clone (2)
-for discussion of a case where
+In addition, there were cases where
 .BR getpid ()
-may return the wrong value even when invoking
+could return the wrong value even when invoking
 .BR clone (2)
 via the glibc wrapper function.
+(For a discussion of one such case, see BUGS in
+.BR clone (2).)
+Furthermore, the complexity of the caching code had been
+the source of a few bugs within glibc over the years.
 .PP
-Since glibc version 2.25, the PID cache is removed:
+Because of the aforementioned problems,
+since glibc version 2.25, the PID cache is removed:
 .\" commit c579f48edba88380635ab98cb612030e3ed8691e
+.\" https://sourceware.org/glibc/wiki/Release/2.25#pid_cache_removal
 calls to
 .BR getpid ()
 always invoke the actual system call, rather than returning a cached value.

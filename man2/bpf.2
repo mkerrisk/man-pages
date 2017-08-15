@@ -55,13 +55,13 @@ eBPF maps are a generic data structure for storage of different data types.
 Data types are generally treated as binary blobs, so a user just specifies
 the size of the key and the size of the value at map-creation time.
 In other words, a key/value for a given map can have an arbitrary structure.
-
+.PP
 A user process can create multiple maps (with key/value-pairs being
 opaque bytes of data) and access them via file descriptors.
 Different eBPF programs can access the same maps in parallel.
 It's up to the user process and eBPF program to decide what they store
 inside maps.
-
+.PP
 There's one special map type, called a program array.
 This type of map stores file descriptors referring to other eBPF programs.
 When a lookup in the map is performed, the program flow is
@@ -93,7 +93,7 @@ Thus, whether a specific program continues to live inside the kernel
 depends on how it is further attached to a given kernel subsystem
 after it was loaded via
 .BR bpf ().
-
+.PP
 Each eBPF program is a set of instructions that is safe to run until
 its completion.
 An in-kernel verifier statically determines that the eBPF program
@@ -101,7 +101,7 @@ terminates and is safe to execute.
 During verification, the kernel increments reference counts for each of
 the maps that the eBPF program uses,
 so that the attached maps can't be removed until the program is unloaded.
-
+.PP
 eBPF programs can be attached to different events.
 These events can be the arrival of network packets, tracing
 events, classification events by network queueing  disciplines
@@ -112,12 +112,12 @@ A new event triggers execution of the eBPF program, which
 may store information about the event in eBPF maps.
 Beyond storing data, eBPF programs may call a fixed set of
 in-kernel helper functions.
-
+.PP
 The same eBPF program can be attached to multiple events and different
 eBPF programs can access the same map:
-
+.PP
 .in +4n
-.nf
+.EX
 tracing     tracing    tracing    packet      packet     packet
 event A     event B    event C    on eth0     on eth1    on eth2
  |             |         |          |           |          ^
@@ -127,7 +127,7 @@ event A     event B    event C    on eth0     on eth1    on eth2
       |  |              |           |         prog_4      prog_5
    |---  -----|  |------|          map_3        |           |
  map_1       map_2                              --| map_4 |--
-.fi
+.EE
 .in
 .\"
 .SS Arguments
@@ -176,15 +176,15 @@ returning a new file descriptor associated with the program.
 The close-on-exec file descriptor flag (see
 .BR fcntl (2))
 is automatically enabled for the new file descriptor.
-.P
+.IP
 The
 .I bpf_attr
 union consists of various anonymous structures that are used by different
 .BR bpf ()
 commands:
-
+.IP
 .in +4n
-.nf
+.EX
 union bpf_attr {
     struct {    /* Used by BPF_MAP_CREATE */
         __u32         map_type;
@@ -220,17 +220,15 @@ union bpf_attr {
 .\"                 commit 2541517c32be2531e0da59dfd7efc1ce844644f5
     };
 } __attribute__((aligned(8)));
-.fi
+.EE
 .in
 .\"
 .SS eBPF maps
 Maps are a generic data structure for storage of different types of data.
 They allow sharing of data between eBPF kernel programs,
 and also between kernel and user-space applications.
-
+.PP
 Each map type has the following attributes:
-
-.PD 0
 .IP * 3
 type
 .IP *
@@ -239,7 +237,6 @@ maximum number of elements
 key size in bytes
 .IP *
 value size in bytes
-.PD
 .PP
 The following wrapper functions demonstrate how various
 .BR bpf ()
@@ -253,9 +250,9 @@ The
 .B BPF_MAP_CREATE
 command creates a new map,
 returning a new file descriptor that refers to the map.
-
+.IP
 .in +4n
-.nf
+.EX
 int
 bpf_create_map(enum bpf_map_type map_type,
                unsigned int key_size,
@@ -271,9 +268,9 @@ bpf_create_map(enum bpf_map_type map_type,
 
     return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.IP
 The new map has the type specified by
 .IR map_type ,
 and attributes as specified in
@@ -289,7 +286,7 @@ is set to
 .BR EPERM ,
 or
 .BR ENOMEM .
-
+.IP
 The
 .I key_size
 and
@@ -306,18 +303,20 @@ beyond the specified
 For example, when a map is created with a
 .IR key_size
 of 8 and the eBPF program calls
-
+.IP
 .in +4n
-.nf
+.EX
 bpf_map_lookup_elem(map_fd, fp - 4)
-.fi
+.EE
 .in
-
+.IP
 the program will be rejected,
 since the in-kernel helper function
-
+.IP
+.EX
     bpf_map_lookup_elem(map_fd, void *key)
-
+.EE
+.IP
 expects to read 8 bytes from the location pointed to by
 .IR key ,
 but the
@@ -326,38 +325,38 @@ but the
 .I fp
 is the top of the stack)
 starting address will cause out-of-bounds stack access.
-
+.IP
 Similarly, when a map is created with a
 .I value_size
 of 1 and the eBPF program contains
-
+.IP
 .in +4n
-.nf
+.EX
 value = bpf_map_lookup_elem(...);
 *(u32 *) value = 1;
-.fi
+.EE
 .in
-
+.IP
 the program will be rejected, since it accesses the
 .I value
 pointer beyond the specified 1 byte
 .I value_size
 limit.
-
+.IP
 Currently, the following values are supported for
 .IR map_type :
-
+.IP
 .in +4n
-.nf
+.EX
 enum bpf_map_type {
     BPF_MAP_TYPE_UNSPEC,  /* Reserve 0 as invalid map type */
     BPF_MAP_TYPE_HASH,
     BPF_MAP_TYPE_ARRAY,
     BPF_MAP_TYPE_PROG_ARRAY,
 };
-.fi
+.EE
 .in
-
+.IP
 .I map_type
 selects one of the available map implementations in the kernel.
 .\" FIXME We need an explanation of why one might choose each of
@@ -377,9 +376,9 @@ command looks up an element with a given
 .I key
 in the map referred to by the file descriptor
 .IR fd .
-
+.IP
 .in +4n
-.nf
+.EX
 int
 bpf_lookup_elem(int fd, const void *key, void *value)
 {
@@ -391,16 +390,16 @@ bpf_lookup_elem(int fd, const void *key, void *value)
 
     return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.IP
 If an element is found,
 the operation returns zero and stores the element's value into
 .IR value ,
 which must point to a buffer of
 .I value_size
 bytes.
-
+.IP
 If no element is found, the operation returns \-1 and sets
 .I errno
 to
@@ -414,9 +413,9 @@ creates or updates an element with a given
 .I key/value
 in the map referred to by the file descriptor
 .IR fd .
-
+.IP
 .in +4n
-.nf
+.EX
 int
 bpf_update_elem(int fd, const void *key, const void *value,
                 uint64_t flags)
@@ -430,9 +429,9 @@ bpf_update_elem(int fd, const void *key, const void *value,
 
     return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.IP
 The
 .I flags
 argument should be specified as one of the following:
@@ -486,9 +485,9 @@ deleted the element whose key is
 .I key
 from the map referred to by the file descriptor
 .IR fd .
-
+.IP
 .in +4n
-.nf
+.EX
 int
 bpf_delete_elem(int fd, const void *key)
 {
@@ -499,9 +498,9 @@ bpf_delete_elem(int fd, const void *key)
 
     return bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.IP
 On success, zero is returned.
 If the element is not found, \-1 is returned and
 .I errno
@@ -518,9 +517,9 @@ in the map referred to by the file descriptor
 and sets the
 .I next_key
 pointer to the key of the next element.
-
-.nf
+.IP
 .in +4n
+.EX
 int
 bpf_get_next_key(int fd, const void *key, void *next_key)
 {
@@ -532,9 +531,9 @@ bpf_get_next_key(int fd, const void *key, void *next_key)
 
     return bpf(BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.IP
 If
 .I key
 is found, the operation returns zero and sets the
@@ -662,23 +661,23 @@ must be exactly four bytes.
 This map is used in conjunction with the
 .BR bpf_tail_call ()
 helper.
-
+.IP
 This means that an eBPF program with a program array map attached to it
 can call from kernel side into
-
+.IP
 .in +4n
-.nf
+.EX
 void bpf_tail_call(void *context, void *prog_map, unsigned int index);
-.fi
+.EE
 .in
-
+.IP
 and therefore replace its own program flow with the one from the program
 at the given program array slot, if present.
 This can be regarded as kind of a jump table to a different eBPF program.
 The invoked program will then reuse the same stack.
 When a jump into the new program has been performed,
 it won't return to the old program anymore.
-
+.IP
 If no eBPF program is found at the given index of the program array
 (because the map slot doesn't contain a valid program file descriptor,
 the specified lookup index/key is out of bounds,
@@ -687,7 +686,7 @@ or the limit of 32
 nested calls has been exceed),
 execution continues with the current eBPF program.
 This can be used as a fall-through for default cases.
-
+.IP
 A program array map is useful, for example, in tracing or networking, to
 handle individual system calls or protocols in their own subprograms and
 use their identifiers as an individual map index.
@@ -705,9 +704,9 @@ The
 command is used to load an eBPF program into the kernel.
 The return value for this command is a new file descriptor associated
 with this eBPF program.
-
+.PP
 .in +4n
-.nf
+.EX
 char bpf_log_buf[LOG_BUF_SIZE];
 
 int
@@ -727,14 +726,14 @@ bpf_prog_load(enum bpf_prog_type type,
 
     return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
 }
-.fi
+.EE
 .in
-
+.PP
 .I prog_type
 is one of the available program types:
-
+.IP
 .in +4n
-.nf
+.EX
 enum bpf_prog_type {
     BPF_PROG_TYPE_UNSPEC,        /* Reserve 0 as invalid
                                     program type */
@@ -743,11 +742,11 @@ enum bpf_prog_type {
     BPF_PROG_TYPE_SCHED_CLS,
     BPF_PROG_TYPE_SCHED_ACT,
 };
-.fi
+.EE
 .in
-
+.PP
 For further details of eBPF program types, see below.
-
+.PP
 The remaining fields of
 .I bpf_attr
 are set as follows:
@@ -793,13 +792,13 @@ in this case,
 must be a NULL pointer, and
 .I log_size
 must be zero.
-.P
+.PP
 Applying
 .BR close (2)
 to the file descriptor returned by
 .B BPF_PROG_LOAD
 will unload the eBPF program (but see NOTES).
-
+.PP
 Maps are accessible from eBPF programs and are used to exchange data between
 eBPF programs and between eBPF programs and user-space programs.
 For example,
@@ -825,35 +824,35 @@ format of
 .\" Somewhere in this page we need a general introduction to the
 .\" bpf_context. For example, how does a BPF program access the
 .\" context?
-
+.PP
 For example, a tracing program does not have the exact same
 subset of helper functions as a socket filter program
 (though they may have some helpers in common).
 Similarly,
 the input (context) for a tracing program is a set of register values,
 while for a socket filter it is a network packet.
-
+.PP
 The set of functions available to eBPF programs of a given type may increase
 in the future.
-
+.PP
 The following program types are supported:
 .TP
 .BR BPF_PROG_TYPE_SOCKET_FILTER " (since Linux 3.19)"
 Currently, the set of functions for
 .B BPF_PROG_TYPE_SOCKET_FILTER
 is:
-
+.IP
 .in +4n
-.nf
+.EX
 bpf_map_lookup_elem(map_fd, void *key)
                     /* look up key in a map_fd */
 bpf_map_update_elem(map_fd, void *key, void *value)
                     /* update key/value */
 bpf_map_delete_elem(map_fd, void *key)
                     /* delete key in a map_fd */
-.fi
+.EE
 .in
-
+.IP
 The
 .I bpf_context
 argument is a pointer to a
@@ -894,7 +893,7 @@ argument is a pointer to a
 .SS Events
 Once a program is loaded, it can be attached to an event.
 Various kernel subsystems have different ways to do so.
-
+.PP
 Since Linux 3.19,
 .\" commit 89aa075832b0da4402acebd698d0411dcc82d03e
 the following call will attach the program
@@ -903,14 +902,14 @@ to the socket
 .IR sockfd ,
 which was created by an earlier call to
 .BR socket (2):
-
+.PP
 .in +4n
-.nf
+.EX
 setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_BPF,
            &prog_fd, sizeof(prog_fd));
-.fi
+.EE
 .in
-
+.PP
 Since Linux 4.1,
 .\" commit 2541517c32be2531e0da59dfd7efc1ce844644f5
 the following call may be used to attach
@@ -929,7 +928,7 @@ ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
 .\"
 .\"
 .SH EXAMPLES
-.nf
+.EX
 /* bpf+sockets example:
  * 1. create array map of 256 elements
  * 2. load program that counts number of packets received
@@ -992,8 +991,8 @@ main(int argc, char **argv)
 
     return 0;
 }
-.fi
-
+.EE
+.PP
 Some complete working code can be found in the
 .IR samples/bpf
 directory in the kernel source tree.
@@ -1111,7 +1110,7 @@ In the current implementation, all
 commands require the caller to have the
 .B CAP_SYS_ADMIN
 capability.
-
+.PP
 eBPF objects (maps and programs) can be shared between processes.
 For example, after
 .BR fork (2),
@@ -1124,7 +1123,7 @@ in the usual way, using
 and similar calls.
 An eBPF object is deallocated only after all file descriptors
 referring to the object have been closed.
-
+.PP
 eBPF programs can be written in a restricted C that is compiled (using the
 .B clang
 compiler) into eBPF bytecode.
@@ -1136,7 +1135,7 @@ Some examples can be found in the
 files in the kernel source tree.
 .\" There are also examples for the tc classifier, in the iproute2
 .\" project, in examples/bpf
-
+.PP
 The kernel contains a just-in-time (JIT) compiler that translates
 eBPF bytecode into native machine code for better performance.
 The JIT compiler is disabled by default,
@@ -1161,6 +1160,6 @@ and s390 architectures.
 .BR socket (7),
 .BR tc (8),
 .BR tc-bpf (8)
-
+.PP
 Both classic and extended BPF are explained in the kernel source file
 .IR Documentation/networking/filter.txt .

@@ -45,7 +45,7 @@ The
 .BR seccomp ()
 system call operates on the Secure Computing (seccomp) state of the
 calling process.
-
+.PP
 Currently, Linux supports the following
 .IR operation
 values:
@@ -65,7 +65,7 @@ signal.
 Strict secure computing mode is useful for number-crunching
 applications that may need to execute untrusted byte code, perhaps
 obtained by reading from a pipe or socket.
-
+.IP
 Note that although the calling thread can no longer call
 .BR sigprocmask (2),
 it can use
@@ -92,19 +92,19 @@ or by using
 .BR setrlimit (2)
 to set the hard limit for
 .BR RLIMIT_CPU .
-
+.IP
 This operation is available only if the kernel is configured with
 .BR CONFIG_SECCOMP
 enabled.
-
+.IP
 The value of
 .IR flags
 must be 0, and
 .IR args
 must be NULL.
-
+.IP
 This operation is functionally identical to the call:
-
+.IP
     prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT);
 .TP
 .BR SECCOMP_SET_MODE_FILTER
@@ -121,7 +121,7 @@ fails, returning
 .BR EINVAL
 in
 .IR errno .
-
+.IP
 If
 .BR fork (2)
 or
@@ -133,7 +133,7 @@ If
 is allowed,
 the existing filters will be preserved across a call to
 .BR execve (2).
-
+.IP
 In order to use the
 .BR SECCOMP_SET_MODE_FILTER
 operation, either the caller must have the
@@ -143,9 +143,9 @@ capability in its user namespace, or the thread must already have the
 bit set.
 If that bit was not already set by an ancestor of this thread,
 the thread must make the following call:
-
+.IP
     prctl(PR_SET_NO_NEW_PRIVS, 1);
-
+.IP
 Otherwise, the
 .BR SECCOMP_SET_MODE_FILTER
 operation will fail and return
@@ -164,7 +164,7 @@ return 0 without actually making the system call.
 Thus, the program might be tricked into retaining superuser privileges
 in circumstances where it is possible to influence it to do
 dangerous things because it did not actually drop privileges.)
-
+.IP
 If
 .BR prctl (2)
 or
@@ -172,19 +172,19 @@ or
 is allowed by the attached filter, further filters may be added.
 This will increase evaluation time, but allows for further reduction of
 the attack surface during execution of a thread.
-
+.IP
 The
 .BR SECCOMP_SET_MODE_FILTER
 operation is available only if the kernel is configured with
 .BR CONFIG_SECCOMP_FILTER
 enabled.
-
+.IP
 When
 .IR flags
 is 0, this operation is functionally identical to the call:
-
+.IP
     prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, args);
-
+.IP
 The recognized
 .IR flags
 are:
@@ -197,7 +197,7 @@ A "filter tree" is the ordered list of filters attached to a thread.
 (Attaching identical filters in separate
 .BR seccomp ()
 calls results in different filters from this perspective.)
-
+.IP
 If any thread cannot synchronize to the same filter tree,
 the call will not attach the new seccomp filter,
 and will fail, returning the first thread ID found that cannot synchronize.
@@ -211,7 +211,7 @@ When adding filters via
 .BR SECCOMP_SET_MODE_FILTER ,
 .IR args
 points to a filter program:
-
+.PP
 .in +4n
 .nf
 struct sock_fprog {
@@ -221,9 +221,9 @@ struct sock_fprog {
 };
 .fi
 .in
-
+.PP
 Each program must contain one or more BPF instructions:
-
+.PP
 .in +4n
 .nf
 struct sock_filter {            /* Filter block */
@@ -234,7 +234,7 @@ struct sock_filter {            /* Filter block */
 };
 .fi
 .in
-
+.PP
 When executing the instructions, the BPF program operates on the
 system call information made available (i.e., use the
 .BR BPF_ABS
@@ -245,7 +245,7 @@ addressing mode) as a (read-only)
 .\"     that would need to use ptrace to catch the call an directly
 .\"     modify the registers before continuing with the call.
 buffer of the following form:
-
+.PP
 .in +4n
 .nf
 struct seccomp_data {
@@ -257,14 +257,14 @@ struct seccomp_data {
 };
 .fi
 .in
-
+.PP
 Because numbering of system calls varies between architectures and
 some architectures (e.g., x86-64) allow user-space code to use
 the calling conventions of multiple architectures, it is usually
 necessary to verify the value of the
 .IR arch
 field.
-
+.PP
 It is strongly recommended to use a whitelisting approach whenever
 possible because such an approach is more robust and simple.
 A blacklist will have to be updated whenever a potentially
@@ -272,7 +272,7 @@ dangerous system call is added (or a dangerous flag or option if those
 are blacklisted), and it is often possible to alter the
 representation of a value without altering its meaning, leading to
 a blacklist bypass.
-
+.PP
 The
 .IR arch
 field is not unique for all calling conventions.
@@ -294,7 +294,7 @@ is used on the system call number to tell the two ABIs apart.
 .\"     will have a value that is not all-ones, and this will trigger
 .\"     an extra instruction in system_call to mask off the extra bit,
 .\"     so that the syscall table indexing still works.
-
+.PP
 This means that in order to create a seccomp-based
 blacklist for system calls performed through the x86-64 ABI,
 it is necessary to not only check that
@@ -305,7 +305,7 @@ but also to explicitly reject all system calls that contain
 .BR __X32_SYSCALL_BIT
 in
 .IR nr .
-
+.PP
 The
 .I instruction_pointer
 field provides the address of the machine-language instruction that
@@ -319,7 +319,7 @@ made the system call.
 and
 .BR mprotect (2)
 system calls to prevent the program from subverting such checks.)
-
+.PP
 When checking values from
 .IR args
 against a blacklist, keep in mind that arguments are often
@@ -333,7 +333,7 @@ a system call that takes an argument of type
 .IR int ,
 the more-significant half of the argument register is ignored by
 the system call, but visible in the seccomp data.
-
+.PP
 A seccomp filter returns a 32-bit value consisting of two parts:
 the most significant 16 bits
 (corresponding to the mask defined by the constant
@@ -342,7 +342,7 @@ contain one of the "action" values listed below;
 the least significant 16-bits (defined by the constant
 .BR SECCOMP_RET_DATA )
 are "data" to be associated with this return value.
-
+.PP
 If multiple filters exist, they are \fIall\fP executed,
 in reverse order of their addition to the filter tree\(emthat is,
 the most recently installed filter is executed first.
@@ -366,7 +366,7 @@ The return value for the evaluation of a given system call is the first-seen
 .BR SECCOMP_RET_ACTION
 value of highest precedence (along with its accompanying data)
 returned by execution of all of the filters.
-
+.PP
 In decreasing order of precedence,
 the values that may be returned by a seccomp filter are:
 .TP
@@ -382,7 +382,7 @@ signal
 Even if a signal handler has been registered and otherwise catches
 .BR SIGSYS ,
 the handler will be ignored in this case and the task always terminates.
-
+.IP
 .\" See these commits:
 .\" seccomp: dump core when using SECCOMP_RET_KILL (b25e67161c295c98acda92123b2dd1e7d8642901)
 .\" seccomp: Only dump core when single-threaded (d7276e321ff8a53106a59c85ca46d03e34288893)
@@ -455,7 +455,7 @@ the system call is not executed and returns a failure status with
 .I errno
 set to
 .BR ENOSYS .
-
+.IP
 A tracer will be notified if it requests
 .BR PTRACE_O_TRACESECCOMP
 using
@@ -466,14 +466,14 @@ and the
 .BR SECCOMP_RET_DATA
 portion of the filter's return value will be available to the tracer via
 .BR PTRACE_GETEVENTMSG .
-
+.IP
 The tracer can skip the system call by changing the system call number
 to \-1.
 Alternatively, the tracer can change the system call
 requested by changing the system call to a valid system call number.
 If the tracer asks to skip the system call, then the system call will
 appear to return the value that the tracer puts in the return value register.
-
+.IP
 .\" This was changed in ce6526e8afa4.
 .\" A related hole, using PTRACE_SYSCALL instead of SECCOMP_RET_TRACE, was
 .\" changed in arch-specific commits, e.g. 93e35efb8de4 for X86 and
@@ -591,21 +591,21 @@ Rather than hand-coding seccomp filters as shown in the example below,
 you may prefer to employ the
 .I libseccomp
 library, which provides a front-end for generating seccomp filters.
-
+.PP
 The
 .IR Seccomp
 field of the
 .IR /proc/[pid]/status
 file provides a method of viewing the seccomp mode of a process; see
 .BR proc (5).
-
+.PP
 .BR seccomp ()
 provides a superset of the functionality provided by the
 .BR prctl (2)
 .BR PR_SET_SECCOMP
 operation (which does not support
 .IR flags ).
-
+.PP
 Since Linux 4.4, the
 .BR prctl (2)
 .B PTRACE_SECCOMP_GET_FILTER
@@ -658,11 +658,11 @@ that the example program should attempt to execute using
 .BR execve (2)
 system call).
 Some example runs of the program are shown below.
-
+.PP
 First, we display the architecture that we are running on (x86-64)
 and then construct a shell function that looks up system call
 numbers on this architecture:
-
+.PP
 .nf
 .in +4n
 $ \fBuname -m\fP
@@ -673,25 +673,25 @@ $ \fBsyscall_nr() {
 }\fP
 .in
 .fi
-
+.PP
 When the BPF filter rejects a system call (case [2] above),
 it causes the system call to fail with the error number
 specified on the command line.
 In the experiments shown here, we'll use error number 99:
-
+.PP
 .nf
 .in +4n
 $ \fBerrno 99\fP
 EADDRNOTAVAIL 99 Cannot assign requested address
 .in
 .fi
-
+.PP
 In the following example, we attempt to run the command
 .BR whoami (1),
 but the BPF filter rejects the
 .BR execve (2)
 system call, so that the command is not even executed:
-
+.PP
 .nf
 .in +4n
 $ \fBsyscall_nr execve\fP
@@ -704,13 +704,13 @@ $ \fB./a.out 59 0xC000003E 99 /bin/whoami\fP
 execv: Cannot assign requested address
 .in
 .fi
-
+.PP
 In the next example, the BPF filter rejects the
 .BR write (2)
 system call, so that, although it is successfully started, the
 .BR whoami (1)
 command is not able to write output:
-
+.PP
 .nf
 .in +4n
 $ \fBsyscall_nr write\fP
@@ -718,12 +718,12 @@ $ \fBsyscall_nr write\fP
 $ \fB./a.out 1 0xC000003E 99 /bin/whoami\fP
 .in
 .fi
-
+.PP
 In the final example,
 the BPF filter rejects a system call that is not used by the
 .BR whoami (1)
 command, so it is able to successfully execute and produce output:
-
+.PP
 .nf
 .in +4n
 $ \fBsyscall_nr preadv\fP

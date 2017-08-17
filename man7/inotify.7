@@ -35,7 +35,7 @@ Inotify can be used to monitor individual files,
 or to monitor directories.
 When a directory is monitored, inotify will return events
 for the directory itself, and for files inside the directory.
-
+.PP
 The following system calls are used with this API:
 .IP * 3
 .BR inotify_init (2)
@@ -99,7 +99,7 @@ in which case the call fails with the error
 .BR EINTR ;
 see
 .BR signal (7)).
-
+.PP
 Each successful
 .BR read (2)
 returns a buffer containing one or more of the following structures:
@@ -120,15 +120,15 @@ struct inotify_event {
 };
 .fi
 .in
-
+.PP
 .I wd
 identifies the watch for which this event occurs.
 It is one of the watch descriptors returned by a previous call to
 .BR inotify_add_watch (2).
-
+.PP
 .I mask
 contains bits that describe the event that occurred (see below).
-
+.PP
 .I cookie
 is a unique integer that connects related events.
 Currently, this is used only for rename events, and
@@ -140,7 +140,7 @@ events to be connected by the application.
 For all other event types,
 .I cookie
 is set to 0.
-
+.PP
 The
 .I name
 field is present only when an event is returned
@@ -149,7 +149,7 @@ it identifies the filename within to the watched directory.
 This filename is null-terminated,
 and may include further null bytes (\(aq\\0\(aq) to align subsequent reads to a
 suitable address boundary.
-
+.PP
 The
 .I len
 field counts all of the bytes in
@@ -159,7 +159,7 @@ the length of each
 .I inotify_event
 structure is thus
 .IR "sizeof(struct inotify_event)+len" .
-
+.PP
 The behavior when the buffer given to
 .BR read (2)
 is too small to return information about the next event depends
@@ -170,9 +170,9 @@ returns 0; since kernel 2.6.21,
 fails with the error
 .BR EINVAL .
 Specifying a buffer of size
-
+.PP
     sizeof(struct inotify_event) + NAME_MAX + 1
-
+.PP
 will be sufficient to read at least one event.
 .SS inotify events
 The
@@ -274,7 +274,7 @@ Inotify monitoring is inode-based: when monitoring a file
 (but not when monitoring the directory containing a file),
 an event can be generated for activity on any link to the file
 (in the same or a different directory).
-
+.PP
 When monitoring a directory:
 .IP * 3
 the events marked above with an asterisk (*) can occur both
@@ -288,7 +288,7 @@ when monitoring a directory,
 events are not generated for the files inside the directory
 when the events are performed via a pathname (i.e., a link)
 that lies outside the monitored directory.
-
+.PP
 When events are generated for objects inside a watched directory, the
 .I name
 field in the returned
@@ -302,7 +302,7 @@ This macro can be used as the
 .I mask
 argument when calling
 .BR inotify_add_watch (2).
-
+.PP
 Two additional convenience macros are defined:
 .RS 4
 .TP
@@ -582,7 +582,7 @@ Inotify file descriptors can be monitored using
 and
 .BR epoll (7).
 When an event is available, the file descriptor indicates as readable.
-
+.PP
 Since Linux 2.6.25,
 signal-driven I/O notification is available for inotify file descriptors;
 see the discussion of
@@ -611,7 +611,7 @@ and
 .B POLLIN
 is set in
 .IR si_band .
-
+.PP
 If successive output inotify events produced on the
 inotify file descriptor are identical (same
 .IR wd ,
@@ -624,13 +624,13 @@ older event has not yet been read (but see BUGS).
 This reduces the amount of kernel memory required for the event queue,
 but also means that an application can't use inotify to reliably count
 file events.
-
+.PP
 The events returned by reading from an inotify file descriptor
 form an ordered queue.
 Thus, for example, it is guaranteed that when renaming from
 one directory to another, events will be produced in the
 correct order on the inotify file descriptor.
-
+.PP
 The set of watch descriptors that is being monitored via
 an inotify file descriptor can be viewed via the entry for
 the inotify file descriptor in the process's
@@ -651,7 +651,7 @@ In particular, there is no easy
 way for a process that is monitoring events via inotify
 to distinguish events that it triggers
 itself from those that are triggered by other processes.
-
+.PP
 Inotify reports only events that a user-space program triggers through
 the filesystem API.
 As a result, it does not catch remote events that occur
@@ -664,28 +664,28 @@ Furthermore, various pseudo-filesystems such as
 and
 .IR /dev/pts
 are not monitorable with inotify.
-
+.PP
 The inotify API does not report file accesses and modifications that
 may occur because of
 .BR mmap (2),
 .BR msync (2),
 and
 .BR munmap (2).
-
+.PP
 The inotify API identifies affected files by filename.
 However, by the time an application processes an inotify event,
 the filename may already have been deleted or renamed.
-
+.PP
 The inotify API identifies events via watch descriptors.
 It is the application's responsibility to cache a mapping
 (if one is needed) between watch descriptors and pathnames.
 Be aware that directory renamings may affect multiple cached pathnames.
-
+.PP
 Inotify monitoring of directories is not recursive:
 to monitor subdirectories under a directory,
 additional watches must be created.
 This can take a significant amount time for large directory trees.
-
+.PP
 If monitoring an entire directory subtree,
 and a new subdirectory is created in that tree or an existing directory
 is renamed into that tree,
@@ -694,7 +694,7 @@ new files (and subdirectories) may already exist inside the subdirectory.
 Therefore, you may want to scan the contents of the subdirectory
 immediately after adding the watch (and, if desired,
 recursively add watches for any subdirectories that it contains).
-
+.PP
 Note that the event queue can overflow.
 In this case, events are lost.
 Robust applications should handle the possibility of
@@ -706,7 +706,7 @@ approach is to close the inotify file descriptor, empty the cache,
 create a new inotify file descriptor,
 and then re-create watches and cache entries
 for the objects to be monitored.)
-
+.PP
 If a filesystem is mounted on top of a monitored directory,
 no event is generated, and no events are generated
 for objects immediately under the new mount point.
@@ -723,7 +723,7 @@ event pair that is generated by
 .BR rename (2)
 can be matched up via their shared cookie value.
 However, the task of matching has some challenges.
-
+.PP
 These two events are usually consecutive in the event stream available
 when reading from the inotify file descriptor.
 However, this is not guaranteed.
@@ -740,7 +740,7 @@ inserted into the queue: there may be a brief interval where the
 has appeared, but the
 .B IN_MOVED_TO
 has not.
-
+.PP
 Matching up the
 .B IN_MOVED_FROM
 and
@@ -765,7 +765,7 @@ then those watch descriptors will be inconsistent with
 the watch descriptors in any pending events.
 (Re-creating the inotify file descriptor and rebuilding the cache may
 be useful to deal with this scenario.)
-
+.PP
 Applications should also allow for the possibility that the
 .B IN_MOVED_FROM
 event was the last event that could fit in the buffer
@@ -793,7 +793,7 @@ calls to
 generate
 .B IN_MODIFY
 events.
-
+.PP
 .\" FIXME . kernel commit 611da04f7a31b2208e838be55a42c7a1310ae321
 .\" implies that unmount events were buggy 2.6.11 to 2.6.36
 .\"
@@ -801,7 +801,7 @@ In kernels before 2.6.16, the
 .B IN_ONESHOT
 .I mask
 flag does not work.
-
+.PP
 As originally designed and implemented, the
 .B IN_ONESHOT
 flag did not cause an
@@ -811,7 +811,7 @@ However, as an unintended effect of other changes,
 since Linux 2.6.36, an
 .B IN_IGNORED
 event is generated in this case.
-
+.PP
 Before kernel 2.6.25,
 .\" commit 1c17d18e3775485bf1e0ce79575eb637a94494a2
 the kernel code that was intended to coalesce successive identical events
@@ -820,7 +820,7 @@ if the older had not yet been read)
 instead checked if the most recent event could be coalesced with the
 .I oldest
 unread event.
-
+.PP
 When a watch descriptor is removed by calling
 .BR inotify_rm_watch (2)
 (or because a watch file is deleted or the filesystem
@@ -1089,6 +1089,6 @@ main(int argc, char* argv[])
 .BR read (2),
 .BR stat (2),
 .BR fanotify (7)
-
+.PP
 .IR Documentation/filesystems/inotify.txt
 in the Linux kernel source tree

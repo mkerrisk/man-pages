@@ -260,9 +260,12 @@ For further information on the above fields, see
 .SS fstatat()
 The
 .BR fstatat ()
-system call operates in exactly the same way as
+system call is a more general interface for accessing file information
+which can still provide exactly the behavior of each of
 .BR stat (),
-except for the differences described here.
+.BR lstat (),
+and
+.BR fstat ().
 .PP
 If the pathname given in
 .I pathname
@@ -272,6 +275,8 @@ referred to by the file descriptor
 (rather than relative to the current working directory of
 the calling process, as is done by
 .BR stat ()
+and
+.BR lstat ()
 for a relative pathname).
 .PP
 If
@@ -284,7 +289,9 @@ then
 .I pathname
 is interpreted relative to the current working
 directory of the calling process (like
-.BR stat ()).
+.BR stat ()
+and
+.BR lstat ()).
 .PP
 If
 .I pathname
@@ -307,7 +314,11 @@ is an empty string, operate on the file referred to by
 flag).
 In this case,
 .I dirfd
-can refer to any type of file, not just a directory.
+can refer to any type of file, not just a directory, and
+the behavior of
+.BR fstatat ()
+is similar to that of
+.BR fstat ().
 If
 .I dirfd
 is
@@ -324,6 +335,8 @@ Don't automount the terminal ("basename") component of
 if it is a directory that is an automount point.
 This allows the caller to gather attributes of an automount point
 (rather than the location it would mount).
+Since Linux 4.14, also don't instantiate a non-existent name in an
+on-demand directory such as used for automounter indirect maps.
 This flag can be used in tools that scan directories
 to prevent mass-automounting of a directory of automount points.
 The
@@ -333,6 +346,13 @@ This flag is Linux-specific; define
 .B _GNU_SOURCE
 .\" Before glibc 2.16, defining _ATFILE_SOURCE sufficed
 to obtain its definition.
+Both
+.BR stat ()
+and
+.BR lstat ()
+act as though
+.B AT_NO_AUTOMOUNT
+was set.
 .TP
 .B AT_SYMLINK_NOFOLLOW
 If
@@ -474,15 +494,6 @@ fields may be less portable.
 The interpretation differs between systems,
 and possibly on a single system when NFS mounts are involved.)
 .SH NOTES
-On Linux,
-.BR lstat ()
-will generally not trigger automounter action, whereas
-.BR stat ()
-will (but see the description of the
-.BR fstatat ()
-.B AT_NO_AUTOMOUNT
-fag, above).
-.\"
 .SS Timestamp fields
 Older kernels and older standards did not support nanosecond timestamp
 fields.

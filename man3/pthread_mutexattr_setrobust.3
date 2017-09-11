@@ -158,14 +158,16 @@ successfully and gets the error
 .BR EOWNERDEAD .
 .SS Program source
 .EX
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
 
-pthread_mutex_t lock;
+static pthread_mutex_t lock;
 
-void *original_owner_thread(void *ptr)
+static void *
+original_owner_thread(void *ptr)
 {
     printf("[original owner] Setting lock...\\n");
     pthread_mutex_lock(&lock);
@@ -173,28 +175,35 @@ void *original_owner_thread(void *ptr)
     pthread_exit(NULL);
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     pthread_t lock_getter;
     pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);   /* initialize the attribute object */
-    pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST); /* set robustness */
+    int ret_code;
 
-    pthread_mutex_init(&lock, &attr);   /* initialize the lock */
+    pthread_mutexattr_init(&attr);   /* initialize the attribute object */
+    pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+                                     /* set robustness */
+
+    pthread_mutex_init(&lock, &attr);   /* initialize the mutex */
 
     pthread_create(&lock_getter, NULL, original_owner_thread, NULL);
-    sleep(2);   /* original_owner_thread should have exited now */
+
+    sleep(2);
+
+    /* Original_owner_thread should have exited by now */
 
     printf("Attempting to acquire the unlocked robust mutex.\\n");
-    int ret_code = pthread_mutex_lock(&lock);
-    if(EOWNERDEAD == ret_code) {
+    ret_code = pthread_mutex_lock(&lock);
+    if (EOWNERDEAD == ret_code) {
         printf("EOWNERDEAD returned. Make the mutex consistent now\\n");
         pthread_mutex_consistent(&lock);
     }
 
     pthread_mutex_unlock(&lock);
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 .EE
 .SH SEE ALSO

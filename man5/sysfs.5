@@ -57,6 +57,8 @@ Many of the files in the
 .B sysfs
 filesystem are read-only,
 but some files are writable, allowing kernel variables to be changed.
+To avoid redundancy,
+symbolic links are heavily used to connect entries across the filesystem tree.
 .\"
 .SS Files and directories
 The following list describes some of the files and directories under the
@@ -64,18 +66,93 @@ The following list describes some of the files and directories under the
 hierarchy.
 .TP
 .IR /sys/block
+This subdirectory contains one symbolic link for each block device
+that has been discovered on the system.
+The symbolic links point to corresponding directories under
+.IR /sys/devices .
 .TP
 .IR /sys/bus
+This directory contains one subdirectory for each of the bus types
+in the kernel.
+Inside each of these directories are two subdirectories:
+.RS
+.TP
+.IR devices
+This subdirectory contains symbolic links to entries in
+.IR /sys/devices
+that correspond to the devices discovered on this bus.
+.TP
+.IR drivers
+This subdirectory contains one subdirectory for each device driver
+that is loaded on this bus.
+.RE
 .TP
 .IR /sys/class
+This subdirectory contains a single layer of further subdirectories
+for each of the device classes that have been registered on the system
+(e.g., terminals, network devices, block devices, graphics devices,
+sound devices, and so on).
+Inside each of these subdirectories are symbolic links for each of the
+devices in this class.
+These symbolic links refer to entries in the
+.IR /sys/devices
+directory.
 .TP
 .IR /sys/dev
+This directory contains two subdirectories
+.IR block /
+and
+.IR char/ ,
+corresponding, respectively,
+to the block and character devices on the system.
+Inside each of these subdirectories are symbolic links with names of the form
+.IR major-ID : minor-ID , 
+where the ID values correspond to the major and minor ID of a specific device.
+Each symbolic link points to the
+.B sysfs
+directory for a device.
+The symbolic links inside
+.IR /sys/dev
+thus provide an easy way to look up the
+.B sysfs
+interface using the device IDs returned by a call to
+.BR stat (2)
+(or similar).
+.IP
+The following shell session shows an example from
+.IR /sys/dev :
+.IP
+.in +4n
+.EX
+$ \fBstat \-c "%t %T" /dev/null\fP
+1 3
+$ \fBreadlink /sys/dev/char/1\\:3\fP
+\&../../devices/virtual/mem/null
+$ \fBls \-Fd /sys/devices/virtual/mem/null\fP
+/sys/devices/virtual/mem/null/
+$ \fBls \-d1 /sys/devices/virtual/mem/null/*\fP
+/sys/devices/virtual/mem/null/dev
+/sys/devices/virtual/mem/null/power/
+/sys/devices/virtual/mem/null/subsystem@
+/sys/devices/virtual/mem/null/uevent
+.EE
+.in
 .TP
 .IR /sys/devices
+This is a directory that contains a filesystem representation of
+the kernel device tree,
+which is a hierarchy of
+.I device
+structures within the kernel.
 .TP
 .IR /sys/firmware
+This subdirectory contains interfaces for viewing and manipulating
+firmware-specific objects and attributes.
 .TP
 .IR /sys/fs
+This directory contains subdirectories for some filesystems.
+A filesystem will have a subdirectory here only if it chose
+to explicitly create the subdirectory.
 .TP
 .IR /sys/fs/cgroup
 This directory conventionally is used as a mount point for a
@@ -85,12 +162,70 @@ filesystem containing mount points for
 filesystems.
 .TP
 .IR /sys/hypervisor
+[To be documented]
 .TP
 .IR /sys/kernel
+[To be documented]
 .TP
 .IR /sys/module
+This subdirectory contains one subdirectory
+for each module that is loaded into the kernel.
+The name of each directory is the name of the module.
+In each of the subdirectories, there may be following files:
+.RS
+.TP
+.I coresize
+[to be documented]
+.TP
+.I initsize
+[to be documented]
+.TP
+.I initstate
+[to be documented]
+.TP
+.I refcnt
+[to be documented]
+.TP
+.I srcversion
+[to be documented]
+.TP
+.I taint
+[to be documented]
+.TP
+.I uevent
+[to be documented]
+.TP
+.I version
+[to be documented]
+.RE
+.IP
+In each of the subdirectories, there may be following subdirectories:
+.RS
+.TP
+.I drivers
+[To be documented]
+.TP
+.I holders
+[To be documented]
+.TP
+.I notes
+[To be documented]
+.TP
+.I parameters
+This directory contains one file for each module parameter,
+with each file containing the value of the corresponding parameter.
+Some of these files are writable, allowing the 
+.TP
+.I sections
+This subdirectories contains files with information about module sections.
+This information is mainly used for debugging.
+.TP
+.I
+[To be documented]
+.RE
 .TP
 .IR /sys/power
+[To be documented]
 .SH VERSIONS
 The
 .B sysfs
@@ -105,6 +240,11 @@ of thing that needs to be updated very often.
 .SH SEE ALSO
 .BR proc (5),
 .BR udev (7)
+.PP
+P. Mochel. (2005).
+.IR "The sysfs filesystem" .
+Proceedings of the 2005 Ottawa Linux Symposium.
+.\" https://www.kernel.org/pub/linux/kernel/people/mochel/doc/papers/ols-2005/mochel.pdf
 .PP
 The kernel source file
 .I Documentation/filesystems/sysfs.txt

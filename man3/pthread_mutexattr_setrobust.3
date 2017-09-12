@@ -191,13 +191,13 @@ successfully and gets the error
 #include <pthread.h>
 #include <errno.h>
 
-static pthread_mutex_t lock;
+static pthread_mutex_t mtx;
 
 static void *
 original_owner_thread(void *ptr)
 {
     printf("[original owner] Setting lock...\\n");
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&mtx);
     printf("[original owner] Locked. Now exiting without unlocking.\\n");
     pthread_exit(NULL);
 }
@@ -213,7 +213,7 @@ main(int argc, char *argv[])
     pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
                                      /* set robustness */
 
-    pthread_mutex_init(&lock, &attr);   /* initialize the mutex */
+    pthread_mutex_init(&mtx, &attr);   /* initialize the mutex */
 
     pthread_create(&lock_getter, NULL, original_owner_thread, NULL);
 
@@ -222,13 +222,13 @@ main(int argc, char *argv[])
     /* Original_owner_thread should have exited by now */
 
     printf("Attempting to acquire the unlocked robust mutex.\\n");
-    ret_code = pthread_mutex_lock(&lock);
+    ret_code = pthread_mutex_lock(&mtx);
     if (EOWNERDEAD == ret_code) {
         printf("EOWNERDEAD returned. Make the mutex consistent now\\n");
-        pthread_mutex_consistent(&lock);
+        pthread_mutex_consistent(&mtx);
     }
 
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&mtx);
 
     exit(EXIT_SUCCESS);
 }

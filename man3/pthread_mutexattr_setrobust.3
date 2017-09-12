@@ -1,4 +1,5 @@
 .\" Copyright (c) 2017, Yubin Ruan <ablacktshirt@gmail.com>
+.\" and Copyright (c) 2017, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -56,52 +57,64 @@ _POSIX_C_SOURCE >= 200809L
 .SH DESCRIPTION
 The
 .BR pthread_mutexattr_getrobust ()
-and
+places the value of the robustness attribute of the mutex referred to by
+.I attr
+in
+.IR *robustness .
+The
 .BR pthread_mutexattr_setrobust ()
-functions get and set the robustness attribute of an
-initialized mutex attribute object.
-The robustness attribute specifies the behavior of the mutex
-when its owner dies without unlocking it.
+sets the value of the robustness attribute of the mutex referred to by
+.I attr
+to the value specified in
+.IR *robustness .
 .PP
+The robustness attribute specifies the behavior of the mutex when
+the owning thread dies without unlocking the mutex.
 The following values are valid for
 .IR robustness :
 .TP
 .BR PTHREAD_MUTEX_STALLED
 This is the default value for a mutex attribute object.
-If a mutex is initialized with a
+If a mutex is initialized with the
 .BR PTHREAD_MUTEX_STALLED
-attribute object and its owner dies without unlocking it, it is kept locked
-afterwards and any future attempts to call
+attribute and its owner dies without unlocking it,
+the mutex remains locked afterwards and any future attempts to call
 .BR pthread_mutex_lock (3)
-on this mutex will block indefinitely.
+on the mutex will block indefinitely.
 .TP
 .B PTHREAD_MUTEX_ROBUST
-can be set on a mutex attribute object so that when the owner of the mutex
-dies or when the process containing such a locked mutex performs
-.BR execve (2),
+If a mutex is initialized with the
+.BR PTHREAD_MUTEX_ROBUST ,
+attribute and its owner dies without unlocking it,
+.\" FIXME Yubin claims execve(2) without first unlocking yields
+.\" the same behavior. To be verified...
 any future attempts to call
 .BR pthread_mutex_lock (3)
 on this mutex will succeed and return
 .B EOWNERDEAD
-to indicate that the original owner no longer exists and the mutex is left in
+to indicate that the original owner no longer exists and the mutex is in
 an inconsistent state.
 Usually after
 .B EOWNERDEAD
 is returned, the next owner should call
 .BR pthread_mutex_consistent (3)
 on the acquired mutex to make it consistent again before using it any further.
-If the next owner unlocks it using
+.IP
+If the next owner of the mutex unlocks it using
 .BR pthread_mutex_unlock (3)
-before making it consistent, the mutex will be unusable permanently and any
+before making it consistent, the mutex will be permanently unusable and any
 subsequent attempts to lock it using
 .BR pthread_mutex_lock (3)
 will fail with the error
 .BR ENOTRECOVERABLE .
+The only permitted operation on such a mutex is
+.BR pthread_mutex_destroy (3).
+.IP
 If the next owner terminates before calling
 .BR pthread_mutex_consistent (3),
 further
 .BR pthread_mutex_lock (3)
-on this mutex will still return
+operations on this mutex will still return
 .BR EOWNERDEAD .
 .PP
 Note that the
@@ -114,20 +127,10 @@ should refer to a mutex attribute object that was initialized by
 .BR pthread_mutexattr_init (3),
 otherwise the behavior is undefined.
 .SH RETURN VALUE
-On success, zero is returned by
-.BR pthread_mutexattr_getrobust ()
-and the value pointed to by the
-.IR robustness
-parameter is set to the robustness attribute of
-.IR attr .
-Otherwise, an error number shall be returned.
-On success,
-.BR pthread_mutexattr_setrobust()
-sets the robustness attribute into the mutex attribute object
-.IR attr
-and returns zero, otherwise an error number is returned to indicate the error.
-.SS Glibc\-specified features
-In glibc's implementation,
+On success, these functions return 0.
+On error, they return a positive error number.
+.PP
+In the glibc implementation,
 .BR pthread_mutexattr_getrobust ()
 always return zero.
 .SH ERRORS

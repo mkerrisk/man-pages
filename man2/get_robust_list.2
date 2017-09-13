@@ -1,5 +1,6 @@
 .\" Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
 .\" Written by Ivana Varekova <varekova@redhat.com>
+.\" and Copyright (c) 2017, Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -43,10 +44,25 @@ get_robust_list, set_robust_list \- get/set list of robust futexes
 .IR Note :
 There are no glibc wrappers for these system calls; see NOTES.
 .SH DESCRIPTION
-The robust futex implementation needs to maintain per-thread lists of
-the robust futexes which are to be unlocked when the thread exits.
-These lists are managed in user space; the kernel is notified about only
-the location of the head of the list.
+These system calls deal with per-thread robust futex lists.
+These lists are managed in user space:
+the kernel knows only about the location of the head of the list.
+A thread can inform the kernel of the location of its robust futex list using
+.BR set_robust_list ().
+The address of a thread's robust futex list can be obtained using
+.BR get_robust_list ().
+.PP
+The purpose of the robust futex list is to ensure that if a thread
+accidentally fails to unlock a futex before terminating or calling
+.BR execve (2),
+another thread that is waiting on that futex is notified that
+the former owner of the futex has died.
+This notification consists of two pieces: the
+.BR FUTEX_OWNER_DIED
+bit is set in the futex word, and the kernel performs a
+.BR futex (2)
+.BR FUTEX_WAKE
+operation on one of the threads waiting on the futex.
 .PP
 The
 .BR get_robust_list ()

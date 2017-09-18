@@ -192,39 +192,42 @@ following code (x86) can be transformed using
 static volatile int a, b;
 
 static void
-fast_path(void)
-{
-    int read_a, read_b;
-
-    read_b = b;
-    asm volatile ("mfence" : : : "memory");
-    read_a = a;
-
-    /* read_b == 1 implies read_a == 1. */
-
-    if (read_b == 1 && read_a == 0)
-        abort();
-}
-
-static void
-slow_path(void)
+fast_path(int *read_b)
 {
     a = 1;
     asm volatile ("mfence" : : : "memory");
+    *read_b = b;
+}
+
+static void
+slow_path(int *read_a)
+{
     b = 1;
+    asm volatile ("mfence" : : : "memory");
+    *read_a = a;
 }
 
 int
 main(int argc, char **argv)
 {
+    int read_a, read_b;
+
     /*
      * Real applications would call fast_path() and slow_path()
      * from different threads. Call those from main() to keep
      * this example short.
      */
 
-    slow_path();
-    fast_path();
+    slow_path(&read_a);
+    fast_path(&read_b);
+
+    /*
+     * read_b == 0 implies read_a == 1 and
+     * read_a == 0 implies read_b == 1.
+     */
+
+    if (read_b == 0 && read_a == 0)
+        abort();
 
     exit(EXIT_SUCCESS);
 }
@@ -275,31 +278,26 @@ init_membarrier(void)
 }
 
 static void
-fast_path(void)
+fast_path(int *read_b)
 {
-    int read_a, read_b;
-
-    read_b = b;
+    a = 1;
     asm volatile ("" : : : "memory");
-    read_a = a;
-
-    /* read_b == 1 implies read_a == 1. */
-
-    if (read_b == 1 && read_a == 0)
-        abort();
+    *read_b = b;
 }
 
 static void
-slow_path(void)
+slow_path(int *read_a)
 {
-    a = 1;
-    membarrier(MEMBARRIER_CMD_SHARED, 0);
     b = 1;
+    membarrier(MEMBARRIER_CMD_SHARED, 0);
+    *read_a = a;
 }
 
 int
 main(int argc, char **argv)
 {
+    int read_a, read_b;
+
     if (init_membarrier())
         exit(EXIT_FAILURE);
 
@@ -309,8 +307,16 @@ main(int argc, char **argv)
      * this example short.
      */
 
-    slow_path();
-    fast_path();
+    slow_path(&read_a);
+    fast_path(&read_b);
+
+    /*
+     * read_b == 0 implies read_a == 1 and
+     * read_a == 0 implies read_b == 1.
+     */
+
+    if (read_b == 0 && read_a == 0)
+        abort();
 
     exit(EXIT_SUCCESS);
 }

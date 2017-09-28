@@ -47,7 +47,7 @@ write \- write to a file descriptor
 .BR write ()
 writes up to
 .I count
-bytes from the buffer pointed
+bytes from the buffer starting at
 .I buf
 to the file referred to by the file descriptor
 .IR fd .
@@ -181,6 +181,22 @@ or the file offset is not suitably aligned.
 .TP
 .B EIO
 A low-level I/O error occurred while modifying the inode.
+This error may relate to the write-back of data written by an
+earlier
+.BR write (2),
+which may have been issued to a different file descriptor on
+the same file.  Since Linux 4.13, errors from write-back come
+with a promise that they
+.I may
+be reported by subsequent.
+.BR write (2)
+requests, and
+.I will
+be reported by a subsequent
+.BR fsync (2)
+(whether or not they were also reported by
+.BR write (2)).
+.\" commit 088737f44bbf6378745f5b57b035e57ee3dc4750
 .TP
 .B ENOSPC
 The device containing the file referred to by
@@ -222,8 +238,14 @@ unsigned and signed integer data types specified by POSIX.1.
 A successful return from
 .BR write ()
 does not make any guarantee that data has been committed to disk.
-In fact, on some buggy implementations, it does not even guarantee
-that space has successfully been reserved for the data.
+On some filesystems, including NFS, it does not even guarantee
+that space has successfully been reserved for the data.  In the case,
+some errors might be delayed to a future
+.BR write (2)
+or to
+.BR fsync (2)
+or even
+.BR close (2).
 The only way to be sure is to call
 .BR fsync (2)
 after you are done writing all your data.

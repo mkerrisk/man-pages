@@ -38,9 +38,9 @@ signal is pending for a process, then,
 at the next transition back to user mode in that process
 (e.g., upon return from a system call or
 when the process is rescheduled onto the CPU),
-it saves various pieces of process context
-(processor status word, registers, signal mask, and signal stack settings)
-into the user-space stack.
+it creates a new frame on the user-space stack where it
+saves various pieces of process context
+(processor status word, registers, signal mask, and signal stack settings).
 .\" See arch/x86/kernel/signal.c::__setup_frame() [in 3.17 source code]
 .PP
 The kernel also arranges that, during the transition back to user mode,
@@ -56,7 +56,9 @@ call undoes everything that was
 done\(emchanging the process's signal mask, switching signal stacks (see
 .BR sigaltstack "(2))\(emin "
 order to invoke the signal handler.
-It restores the process's signal mask, switches stacks,
+Using the information that was earlier saved on the user-space stack
+.BR sigreturn ()
+restores the process's signal mask, switches stacks,
 and restores the process's context
 (processor flags and registers,
 including the stack pointer and instruction pointer),
@@ -80,6 +82,11 @@ be called directly.
 Details of the arguments (if any) passed to
 .BR sigreturn ()
 vary depending on the architecture.
+(On some architectures, such as x86-64,
+.BR sigreturn ()
+takes no arguments, since all of the information that it requires
+is available in the stack frame that was previously created by the
+kernel on the user-space stack.)
 .PP
 Once upon a time, UNIX systems placed the signal trampoline code
 onto the user stack.

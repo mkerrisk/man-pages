@@ -834,20 +834,23 @@ arguments of the
 .BR clone ()
 wrapper function are omitted.
 .PP
-Unlike the glibc wrapper function, the raw
+Another difference for the raw
 .BR clone ()
-system call permits
-.IR child_stack
-to be specified as NULL,
-with the meaning that the child uses the stack that was
-duplicated from the parent.
+system call is that the
+.I child_stack
+argument may be zero,
+in which case the child uses a duplicate of the parent's stack.
+(Copy-on-write semantics ensure that the child gets separate copies
+of stack pages when either process modifies the stack.)
+In this case, for correct operation, the
+.B CLONE_VM
+option should not be specified.
 (If the child
 .I shares
 the parent's memory because of the use of the
 .BR CLONE_VM
-flag, then chaos is likely to result if
-.I child_stack
-is specified as NULL.)
+flag,
+then no copy-on-write duplication occurs and chaos is likely to result.)
 .PP
 The order of the arguments also differs in the raw system call,
 and there are variations in the arguments across architectures,
@@ -902,15 +905,6 @@ an additional argument is supplied:
 .BI "           unsigned long " newtls );
 .EE
 .in
-.PP
-Another difference for the raw system call is that the
-.I child_stack
-argument may be zero, in which case copy-on-write semantics ensure that the
-child gets separate copies of stack pages when either process modifies
-the stack.
-In this case, for correct operation, the
-.B CLONE_VM
-option should not be specified.
 .\"
 .SS blackfin, m68k, and sparc
 .\" Mike Frysinger noted in a 2013 mail:

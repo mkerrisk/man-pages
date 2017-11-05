@@ -684,6 +684,31 @@ the symbolic links in this directory is governed by a ptrace access mode
 .B PTRACE_MODE_READ_FSCREDS
 check; see
 .BR ptrace (2).
+.IP
+Note that for file descriptors referring to inodes (pipes and sockets, see above),
+those inodes still have permission bits and ownership information
+distinct from those of the
+.I /proc/[pid]/fd
+entry,
+and that the owner may differ from the user and group IDs of the process.
+An unprivileged process may lack permissions to open them, as in this example:
+.IP
+.in +4n
+.EX
+.RB "$" " echo test | sudo -u nobody cat"
+test
+.RB "$" " echo test | sudo -u nobody cat /proc/self/fd/0"
+cat: /proc/self/fd/0: Permission denied
+.EE
+.in
+.IP
+File descriptor 0 refers to the pipe created by the shell
+and owned by that shell's user, which is not
+.IR nobody ,
+so
+.B cat
+does not have permission to create a new file descriptor to read from that inode,
+even though it can still read from its existing file descriptor 0.
 .TP
 .IR /proc/[pid]/fdinfo/ " (since Linux 2.6.22)"
 This is a subdirectory containing one entry for each file which the

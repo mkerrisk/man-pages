@@ -296,6 +296,9 @@ dangerous system call is added (or a dangerous flag or option if those
 are blacklisted), and it is often possible to alter the
 representation of a value without altering its meaning, leading to
 a blacklist bypass.
+See also
+.IR Caveats
+below.
 .PP
 The
 .IR arch
@@ -691,6 +694,68 @@ Since Linux 4.4, the
 .BR prctl (2)
 .B PTRACE_SECCOMP_GET_FILTER
 operation can be used to dump a process's seccomp filters.
+.\"
+.SS Caveats
+There are various subtleties to consider when applying seccomp filters
+to a program, including the following:
+.IP * 3
+Some traditional system calls have user-space implementations in the
+.BR vdso (7)
+on many architectures.
+Notable examples include
+.BR clock_gettime (2),
+.BR gettimeofday (2),
+and
+.BR time (2).
+On such architectures,
+seccomp filtering for these system calls will have no effect.
+.IP *
+Seccomp filtering is based on system call numbers.
+However, applications typically do not directly invoke system calls,
+but instead call wrapper functions in the C library which
+in turn invoke the system calls.
+Consequently, one must be aware of the following:
+.RS
+.IP \(bu 3
+The glibc wrappers for some traditional system calls may actually
+employ system calls with different names in the kernel.
+For example, the
+.BR exit (2)
+wrapper function actually employs the
+.BR exit_group (2)
+system call, and the
+.BR fork (2)
+wrapper function actually calls
+.BR clone (2).
+.IP \(bu
+The behavior of wrapper functions may vary across architectures,
+according to the range of system calls provided on those architectures.
+In other words, the same wrapper function may invoke
+different system calls on different architectures.
+.IP \(bu
+Finally, the behavior of wrapper functions can change across glibc versions.
+For example, in older versions, the glibc wrapper function for
+.BR open (2)
+invoked the system call of the same name,
+but starting in glibc 2.26, the implementation switched to calling
+.BR openat (2)
+on all architectures.
+.RE
+.PP
+The consequence of the above points is that may be necessary
+to filter for a system call other than might be expected.
+Various manual pages in Section 2 provide helpful details
+about the differences between wrapper functions and
+the underlying system calls in subsections entitled
+.IR "C library/kernel differences" .
+.PP
+Furthermore, note that the application of seccomp filters
+even risks causing bugs in an application,
+when the filters cause unexpected failures for legitimate operations
+that the application might need to perform.
+Such bugs may not easily be discovered when testing the seccomp
+filters if the bugs occur in rarely used application code paths.
+.RS 3
 .\"
 .SS Seccomp-specific BPF details
 Note the following BPF details specific to seccomp filters:

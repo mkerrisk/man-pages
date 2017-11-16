@@ -1,4 +1,4 @@
-.\" Copyright 2015 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+.\" Copyright 2015-2017 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -22,7 +22,7 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.TH MEMBARRIER 2 2017-09-15 "Linux" "Linux Programmer's Manual"
+.TH MEMBARRIER 2 2017-11-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
 membarrier \- issue memory barriers on a set of threads
 .SH SYNOPSIS
@@ -87,6 +87,24 @@ order between entry to and return from the
 .BR membarrier ()
 system call.
 All threads on the system are targeted by this command.
+.TP
+.B MEMBARRIER_CMD_PRIVATE_EXPEDITED
+Execute a memory barrier on each running thread belonging to the same
+process as the current thread. Upon return from system call, the caller
+thread is ensured that all its running threads siblings have passed
+through a state where all memory accesses to user-space addresses match
+program order between entry to and return from the system call
+(non-running threads are de facto in such a state). This only covers
+threads from the same process as the caller thread. The "expedited"
+commands complete faster than the non-expedited ones, they never block,
+but have the downside of causing extra overhead. A process needs to
+register its intent to use the private expedited command prior to using
+it.
+.TP
+.B MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED
+Register the process intent to use
+.BR MEMBARRIER_CMD_PRIVATE_EXPEDITED .
+.TP
 .PP
 The
 .I flags
@@ -117,9 +135,12 @@ The pair ordering is detailed as (O: ordered, X: not ordered):
 .SH RETURN VALUE
 On success, the
 .B MEMBARRIER_CMD_QUERY
-operation returns a bit mask of supported commands and the
-.B MEMBARRIER_CMD_SHARED
-operation returns zero.
+operation returns a bit mask of supported commands, and the
+.B MEMBARRIER_CMD_SHARED ,
+.B MEMBARRIER_CMD_PRIVATE_EXPEDITED ,
+and
+.B MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED ,
+operations return zero.
 On error, \-1 is returned,
 and
 .I errno
@@ -138,22 +159,22 @@ set to 0, error handling is required only for the first call to
 .TP
 .B EINVAL
 .I cmd
-is invalid or
+is invalid, or
 .I flags
-is non-zero.
+is non-zero, or the
+.BR MEMBARRIER_CMD_SHARED
+command is disabled because the
+.I nohz_full
+CPU parameter has been set.
 .TP
 .B ENOSYS
 The
 .BR membarrier ()
 system call is not implemented by this kernel.
 .TP
-.BR ENOSYS " (since Linux 4.11)"
-.\" 907565337ebf998a68cb5c5b2174ce5e5da065eb
-The
-.BR membarrier ()
-system call is disabled because the
-.I nohz_full
-CPU parameter has been set.
+.B EPERM
+The current process was not registered prior to using private expedited
+commands.
 .SH VERSIONS
 The
 .BR membarrier ()
@@ -162,6 +183,10 @@ system call was added in Linux 4.3.
 .SH CONFORMING TO
 .BR membarrier ()
 is Linux-specific.
+.in
+.SH SEE ALSO
+.BR cpu_opv (2) ,
+.BR rseq (2)
 .SH NOTES
 A memory barrier instruction is part of the instruction set of
 architectures with weakly-ordered memory models.

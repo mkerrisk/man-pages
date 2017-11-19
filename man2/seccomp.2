@@ -606,6 +606,44 @@ file as it is not possible to log
 actions.
 Attempting to write "allow" to the file will fail with the error
 .BR EINVAL .
+.\"
+.SS Audit logging of seccomp actions
+.\" commit 59f5cf44a38284eb9e76270c786fb6cc62ef8ac4
+Since Linux 4.14, the kernel provides the facility to log the
+actions returned by seccomp filters in the audit log.
+The kernel makes the decision to log an action based on
+the action type,  whether or not the action is present in the
+.I actions_logged
+file, and whether kernel auditing is enabled
+(e.g., via the kernel boot option
+.IR audit=1 ).
+.\" or auditing could be enabled via the netlink API (AUDIT_SET)
+The rules are as follows:
+.IP * 3
+If the action is
+.BR SECCOMP_RET_ALLOW ,
+the action is not logged.
+.IP *
+Otherwise, if the action is either
+.BR SECCOMP_RET_KILL_PROCESS
+or
+.BR SECCOMP_RET_KILL_THREAD ,
+and that action appears in the 
+.IR actions_logged
+file, the action is logged.
+.IP *
+Otherwise, if the filter has requested logging (the
+.BR SECCOMP_FILTER_FLAG_LOG
+flag)
+and the action appears in the 
+.IR actions_logged
+file, the action is logged.
+.IP *
+Otherwise, if kernel auditing is enabled and the process is being audited
+.RB ( autrace (8)),
+the action is logged.
+.IP *
+Otherwise, the action is not logged.
 .SH RETURN VALUE
 On success,
 .BR seccomp ()

@@ -1,5 +1,3 @@
-# Do "make install" to copy the pages to their destination.
-
 DESTDIR=
 prefix?=/usr
 MANDIR=$(prefix)/share/man

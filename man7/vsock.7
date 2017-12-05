@@ -1,0 +1,180 @@
+.TH VSOCK 7 2017-11-30 "Linux" "Linux Programmer's Manual"
+.SH NAME
+vsock \- Linux VSOCK address family
+.SH SYNOPSIS
+.B #include <sys/socket.h>
+.br
+.B #include <linux/vm_sockets.h>
+.PP
+.IB stream_socket " = socket(AF_VSOCK, SOCK_STREAM, 0);"
+.br
+.IB datagram_socket " = socket(AF_VSOCK, SOCK_DGRAM, 0);"
+.SH DESCRIPTION
+The VSOCK address family facilitates communication between virtual machines and
+the host they are running on.  This address family is used by guest agents and
+hypervisor services that need a communications channel that is independent of
+virtual machine network configuration.
+.PP
+Valid socket types are
+.B SOCK_STREAM
+and
+.BR SOCK_DGRAM .
+.B SOCK_STREAM
+provides connection-oriented byte streams with guaranteed, in-order delivery.
+.B SOCK_DGRAM
+provides a connectionless datagram packet service with best-effort delivery and
+best-effort ordering.  Availability of these socket types is dependent on the
+underlying hypervisor.
+.PP
+A new socket is created with
+.PP
+    socket(AF_VSOCK, socket_type, 0);
+.PP
+When a process wants to establish a connection it calls
+.BR connect (2)
+with a given destination socket address.  The socket is automatically bound to
+a free port if unbound.
+.PP
+A process can listen for incoming connections by first binding to a socket
+address using
+.BR bind (2)
+and then calling
+.BR listen (2).
+.PP
+Data is transferred using the usual
+.BR send (2)
+and
+.BR recv (2)
+family of socket system calls.
+.SS Address format
+A socket address is defined as a combination of a 32-bit Context Identifier
+(CID) and a 32-bit port number.  The CID identifies the source or destination,
+which is either a virtual machine or the host.  The port number differentiates
+between multiple services running on a single machine.
+.PP
+.in +4n
+.EX
+struct sockaddr_vm {
+    sa_family_t     svm_family;     /* address family: AF_VSOCK */
+    unsigned short  svm_reserved1;
+    unsigned int    svm_port;       /* port in native byte order */
+    unsigned int    svm_cid;        /* address in native byte order */
+};
+.EE
+.in
+.PP
+.I svm_family
+is always set to
+.BR AF_VSOCK .
+.I svm_reserved1
+is always set to 0.
+.I svm_port
+contains the port in native byte order.
+The port numbers below 1024 are called
+.IR "privileged ports" .
+Only a process with
+.B CAP_NET_BIND_SERVER
+capability may
+.BR bind (2)
+to these port numbers.
+.PP
+There are several special addresses:
+.B VMADDR_CID_ANY
+(-1U)
+means any address for binding;
+.B VMADDR_CID_HYPERVISOR
+(0) is reserved for services built into the hypervisor;
+.B VMADDR_CID_RESERVED
+(1) must not be used;
+.B VMADDR_CID_HOST
+(2)
+is the well-known address of the host.
+.PP
+The special constant
+.B VMADDR_PORT_ANY
+(-1U)
+means any port number for binding.
+.SS Live migration
+Sockets are affected by live migration of virtual machines.  Connected
+.B SOCK_STREAM
+sockets become disconnected when the virtual machine migrates to a new host.
+Applications must reconnect when this happens.
+.PP
+The local CID may change across live migration if the old CID is not available
+on the new host.  Bound sockets are automatically updated to the new CID.
+.SS Ioctls
+.TP
+.B IOCTL_VM_SOCKETS_GET_LOCAL_CID
+Get the CID of the local machine.  The argument is a pointer to an unsigned int.
+.IP
+.in +4n
+.EX
+.IB error " = ioctl(" socket ", " IOCTL_VM_SOCKETS_GET_LOCAL_CID ", " &cid ");"
+.EE
+.in
+.IP
+Consider using
+.B VMADDR_CID_ANY
+when binding instead of getting the local CID with
+.BR IOCTL_VM_SOCKETS_GET_LOCAL_CID .
+.SH ERRORS
+.TP
+.B EACCES
+Unable to bind to a privileged port without the
+.B CAP_NET_BIND_SERVICE
+capability.
+.TP
+.B EINVAL
+Invalid parameters.  This includes:
+attempting to bind a socket that is already bound, providing an invalid struct
+.BR sockaddr_vm ,
+and other input validation errors.
+.TP
+.B EOPNOTSUPP
+Operation not supported.  This includes:
+the
+.B MSG_OOB
+flag that is not implemented for
+.BR sendmsg (2)
+and
+.B MSG_PEEK
+for
+.BR recvmsg (2).
+.TP
+.B EADDRINUSE
+Unable to bind to a port that is already in use.
+.TP
+.B EADDRNOTAVAIL
+Unable to find a free port for binding or unable to bind to a non-local CID.
+.TP
+.B ENOTCONN
+Unable to perform operation on an unconnected socket.
+.TP
+.B ENOPROTOOPT
+Invalid socket option in
+.BR setsockopt (2)
+or
+.BR getsockopt (2).
+.TP
+.B EPROTONOSUPPORT
+Invalid socket protocol number.  Protocol should always be 0.
+.TP
+.B ESOCKTNOSUPPORT
+Unsupported socket type in
+.BR socket (2).
+Only
+.B SOCK_STREAM
+and
+.B SOCK_DGRAM
+are valid.
+.SH VERSIONS
+Support for VMware (VMCI) has been available since Linux 3.9.  KVM (virtio) is
+supported since Linux 4.8.  Hyper-V is supported since 4.14.
+.SH SEE ALSO
+.BR socket (2),
+.BR bind (2),
+.BR connect (2),
+.BR listen (2),
+.BR send (2),
+.BR recv (2),
+.BR capabilities (7)

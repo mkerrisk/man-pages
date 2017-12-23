@@ -649,22 +649,57 @@ and
 other children.
 .\"
 .SS Cgroups v2 subtree control
-When a cgroup
-.I A/B
-is created, its
+Each cgroup in the v2 hierarchy contains the following two files:
+.TP
 .IR cgroup.controllers
-file contains the list of controllers which were active in its parent, A.
-This is the list of controllers which are available to this cgroup.
-No controllers are active until they are enabled through the
-.IR cgroup.subtree_control
-file, by writing the list of space-delimited names of the controllers,
-each preceded by '+' (to enable) or '\-' (to disable).
-For example, if the
-.I freezer
-controller is not enabled in
-.IR A/B ,
-then it cannot be enabled in
-.IR A/B/C .
+This is a list of the controllers that are
+.I available
+in this cgroup.
+The contents of this file match the contents of the
+.I cgroup.subtree_control
+file in the parent cgroup.
+.TP
+.I cgroup.subtree_control
+This is a list of controllers that are
+.IR active
+.RI ( enabled )
+in the cgroup.
+The set of controllers in this file is a subset of the set in the
+.IR cgroup.controllers
+of this cgroup.
+The set of active controllers is modified by writing strings to this file
+containing space-delimited controller names,
+each preceded by '+' (to enable a controller)
+or '\-' (to disable a controller), as in the following example:
+.IP
+.in +4n
+.EX
+echo '+pids -memory' > x/y/cgroup.subtree_control
+.EE
+.in
+.IP
+.PP
+Because the list of controllers in
+.I cgroup.subtree_control
+is a subset of those
+.IR cgroup.controllers ,
+a controller that has been disabled in one cgroup in the hierarchy
+can never be re-enabled in the subtree below that cgroup.
+.PP
+A cgroup's
+.I cgroup.subtree_control
+file determines the set of controllers that are exercised in the
+.I child
+cgroups.
+When a controller (e.g.,
+.IR pids )
+is present in the
+.I cgroup.subtree_control
+file of a parent cgroup,
+then the corresponding controller-interface files (e.g.,
+.IR pids.max )
+are automatically created in the children of that cgroup
+and can be used to exert resource control in the child cgroups.
 .\"
 .SS Cgroups v2 cgroup.events file
 With cgroups v2, a new mechanism is provided to obtain notification

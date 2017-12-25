@@ -1,5 +1,5 @@
 .\" Copyright (C) 2015 Serge Hallyn <serge@hallyn.com>
-.\" and Copyright (C) 2016 Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2016, 2017 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -749,6 +749,102 @@ By contrast, the cgroups v1 mechanism requires the creation
 of a process for each notification.
 Second, notification can be delegated to a process that lives inside
 a container associated with the newly empty cgroup.
+.\"
+.SS Cgroups v2 delegation
+In the context of cgroups,
+delegation means passing management of some subtree
+of the cgroup hierarchy to a nonprivileged process.
+Cgroups v1 provides support for delegation that was
+accidental and not fully secure.
+Cgroups v2 supports delegation by explicit design.
+.PP
+Some terminology is required in order to describe delegation.
+A
+.I delegater
+is a privileged user (i.e., root) who owns a parent cgroup.
+A
+.I delegatee
+is a nonprivileged user who will be granted the permissions needed
+to manage some subhierarchy under that parent cgroup,
+known as the
+.IR "delegated subtree" .
+.PP
+To perform delegation,
+the delegater makes certain directories and files writable by the delegatee,
+typically by changing the ownership of the objects to be the user ID
+of the delegatee.
+Assuming that we want to delegate the hierarchy rooted at
+.I /grp1
+and that there are not yet any child cgroups under that cgroup,
+the ownership of the following is changed to the user ID of the delegatee:
+.TP
+.IR /grp1
+Changing the ownership of the root of the subtree means that any new
+cgroups created under the subtree (and the files they contain)
+will also be owned by the delegatee.
+.TP
+.IR /grp1/cgroup.procs
+Changing ownership of this file means that the delegatee
+can move processes into the root of the delegated subtree.
+.TP
+.IR /grp1/cgroup.subtree_control
+Making this file owned by the delegatee is optional.
+Doing so means that that the delegatee can enable controllers
+(that are present in
+.IR /grp1/cgroup.controllers )
+in order to further redistribute resources at lower levels in the subtree.
+As an alternative to changing the ownership of this file,
+the delegater might instead add selected controllers to this file.
+.PP
+The delegater should
+.I not
+change the ownership of any of the controller interfaces files (e.g.,
+.IR pids.max ,
+.IR memory.high )
+in
+.IR grp1 .
+Those files are used from the next level above the delegated subtree
+in order to distribute resources into the subtree,
+and the delegatee should not have permission to change
+the resources that are distributed into the delegated subtree.
+.PP
+After the aforementioned steps have been performed,
+the delegatee can create child cgroups within the delegated subtree
+and move processes between cgroups in the subtree.
+If some controllers are present in
+.IR grp1/cgroup.subtree_control ,
+or the ownership of that file was passed to the delegatee,
+the the delegatee can also control the further redistribution
+of the corresponding resources into the delegated subtree.
+.PP
+Some delegation
+.IR "containment rules"
+ensure that the delegatee can move processes between cgroups within the
+delegated subtree,
+but can't move processes from outside the delegated subtree into
+the subtree or vice versa.
+A nonprivileged process (i.e., the delegatee) can write the PID of
+a "target" process into a
+.IR cgroup.procs
+file only if all of the following are true:
+.IP * 3
+The effective UID of the writer (i.e., the delegatee) matches the
+real user ID or the saved set-user-ID of the target process.
+.IP *
+The writer has write permission on the
+.I cgroup.procs
+file in the destination cgroup.
+.IP *
+The writer has write permission on the
+.I cgroup.procs
+file in the common ancestor of the source and destination cgroups.
+(In some cases,
+the common ancestor may be the source or destination cgroup itself.)
+.PP
+.IR Note :
+one consequence of these delegation containment rules is that the
+delegater must place the first process (a process owned by the delegatee)
+into the delegated subtree.
 .\"
 .SS /proc files
 .TP

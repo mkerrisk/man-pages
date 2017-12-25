@@ -509,6 +509,7 @@ which all controllers are mounted.
 "Internal" processes are not permitted.
 With the exception of the root cgroup, processes may reside
 only in leaf nodes (cgroups that do not themselves contain child cgroups).
+The details are somewhat more subtle than this, and are described below.
 .IP 3.
 Active cgroups must be specified via the files
 .IR cgroup.controllers
@@ -619,7 +620,9 @@ and
 controllers.
 .\"
 .SS Cgroups v2 """no internal processes""" rule
-With the exception of the root cgroup, processes may reside
+Cgroups v2 enforces a so-called "no internal processes" rule.
+Roughly speaking, this rule means that,
+with the exception of the root cgroup, processes may reside
 only in leaf nodes (cgroups that do not themselves contain child cgroups).
 This avoids the need to decide how to partition resources between
 processes which are members of cgroup A and processes in child cgroups of A.
@@ -647,6 +650,19 @@ the relationship between processes in
 and
 .IR /cg1 's
 other children.
+.PP
+The "no internal processes" rule is in fact more subtle than stated above.
+More precisely, the rule is that a (nonroot) cgroup can't both
+(1) have member processes, and
+(2) distribute resources into child cgroups\(emthat is, have a nonempty
+.I cgroup.subtree_control
+file.
+Thus, it
+.I is
+possible for a cgroup to have both member processes and child cgroups,
+but before controllers can be enabled for that cgroup,
+the member processes must be moved out of the cgroup
+(e.g., perhaps into the child cgroups).
 .\"
 .SS Cgroups v2 subtree control
 Each cgroup in the v2 hierarchy contains the following two files:
@@ -678,7 +694,6 @@ echo '+pids -memory' > x/y/cgroup.subtree_control
 .EE
 .in
 .IP
-.PP
 An attempt to enable a controller
 that is not present in
 .I cgroup.controllers

@@ -935,6 +935,455 @@ one consequence of these delegation containment rules is that the
 delegater must place the first process (a process owned by the delegatee)
 into the delegated subtree.
 .\"
+.SH CGROUPS V2 THREAD MODE
+Among the restrictions imposed by cgroups v2 that were not present
+in cgroups v1 are the following:
+.IP * 3
+.IR "No thread-granularity control" :
+all of the threads of a process must be in the same cgroup.
+.IP *
+.IR "No internal processes" :
+a cgroup can't both have member processes and
+exercise controllers on child cgroups.
+.PP
+Both of these restrictions were added because
+the lack of these restrictions had caused problems
+in cgroups v1.
+In particular, the cgroups v1 ability to allow thread-level granularity
+for cgroup membership made no sense for some controllers.
+(A notable example was the
+.I memory
+controller: since threads share an address space,
+it made no sense to split threads across different
+.I memory
+cgroups.)
+.PP
+Notwithstanding the initial design decision in cgroups v2,
+there were use cases for certain controllers, notably the
+.IR cpu
+controller,
+for which thread-level granularity of control was meaningful and useful.
+To accommodate such use cases, Linux 4.14 added
+.I "thread mode"
+for cgroups v2.
+.PP
+Thread mode allows the following:
+.IP * 3
+The creation of
+.IR "threaded subtrees"
+in which the threads of a process may
+be spread across cgroups inside the tree.
+(A threaded subtree may contain multiple multithreaded processes.)
+.IP *
+The concept of
+.IR "threaded controllers",
+which can distribute resources across the cgroups in a threaded subtree.
+.IP *
+A relaxation of the "no internal processes rule",
+so that, within a threaded subtree,
+a cgroup can both contain member threads and
+exercise resource control over child cgroups.
+.PP
+With the addition of thread mode,
+each nonroot cgroup now contains a new file,
+.IR cgroup.type ,
+that exposes, and in some circumstances can be used to change,
+the "type" of a cgroup.
+This file contains one of the following type values:
+.TP
+.I "domain"
+This is a normal v2 cgroup that provides process-granularity control.
+If a process is a member of this cgroup,
+then all threads of the process are (by definition) in the same cgroup.
+This is the default cgroup type,
+and provides the same behavior that was provided for
+cgroups in the initial cgroups v2 implementation.
+.TP
+.I "threaded"
+This cgroup is a member of a threaded subtree.
+Threads can be added to this cgroup,
+and controllers can be enabled for the cgroup.
+.TP
+.I "domain threaded"
+This is a domain cgroup that serves as the root of a threaded subtree.
+This cgroup type is also known as "threaded root".
+.TP
+.I "domain invalid"
+This is a cgroup inside a threaded subtree
+that is in an "invalid" state.
+Processes can't be added to the cgroup,
+and controllers can't be enabled for the cgroup.
+The only thing that can be done with this cgroup (other than deleting it)
+is to convert it to a
+.IR threaded
+cgroup by writing the string
+.IR """threaded"""
+to the
+.I cgroup.type
+file.
+.\"
+.SS Threaded versus domain controllers
+With the addition of threads mode,
+cgroups v2 now distinguishes two types of resource controllers:
+.IP * 3
+.I Threaded
+controllers: these controllers support thread-granularity for
+resource control and can be enabled inside threaded subtrees,
+with the result that the corresponding controller-interface files
+appear inside the cgroups in the threaded subtree.
+As at Linux 4.15, the following controllers are threaded:
+.IR cpu ,
+.IR perf_event ,
+and
+.IR pids .
+.IP *
+.I Domain
+controllers: these controllers support only process granularity
+for resource control.
+From the perspective of a domain controller,
+all threads of a process are always in the same cgroup.
+Domain controllers can't be enabled inside a threaded subtree.
+.\"
+.SS Creating a threaded subtree
+There are two pathways that lead to the creation of a threaded subtree.
+The first pathway proceeds as follows:
+.IP 1. 3
+We write the string
+.IR """threaded"""
+to the
+.I cgroup.type
+file of a cgroup
+.IR y/z
+that currently has the type
+.IR domain .
+This has the following effects:
+.RS
+.IP * 3
+The type of the cgroup
+.IR y/z
+becomes
+.IR threaded .
+.IP *
+The type of the parent cgroup,
+.IR y ,
+becomes
+.IR "domain threaded" .
+The parent cgroup is the root of a threaded subtree
+(also known as the "threaded root").
+.IP *
+All other cgroups under
+.IR y
+that were not already of type
+.IR threaded
+(because they were inside already existing threaded subtrees
+under the new threaded root)
+are converted to type
+.IR "domain invalid" .
+Any subsequently created cgroups under
+.I y
+will also have the type
+.IR "domain invalid" .
+.RE
+.IP 2.
+We write the string
+.IR """threaded"""
+to each of the
+.IR "domain invalid"
+cgroups under
+.IR y ,
+in order to convert them to the type
+.IR threaded .
+As a consequence of this step, all threads under the threaded root
+now have the type
+.IR threaded
+and the threaded subtree is now fully usable.
+The requirement to write
+.IR """threaded"""
+to each of these cgroups is somewhat cumbersome,
+but allows for possible future extensions to the thread-mode model.
+.PP
+The second way of creating a threaded subtree is as follows:
+.IP 1. 3
+In an existing cgroup,
+.IR z ,
+that currently has the type
+.IR domain ,
+we (1) enable one or more threaded controllers and
+(2) make a process a member of
+.IR z .
+(These two steps can be done in either order.)
+This has the following consequences:
+.RS
+.IP * 3
+The type of
+.I z
+becomes
+.IR "domain threaded" .
+.IP *
+All of the descendant cgroups of
+.I x
+that are were not already of type
+.IR threaded
+are converted to type
+.IR "domain invalid" .
+.RE
+.IP 2.
+As before, we make the threaded subtree usable by writing the string
+.IR """threaded"""
+to each of the
+.IR "domain invalid"
+cgroups under
+.IR y ,
+in order to convert them to the type
+.IR threaded .
+.PP
+One of the consequences of the above pathways to creating a threaded subtree
+is that the threaded root cgroup can be a parent only to
+.I threaded
+(and
+.IR "domain invalid" )
+cgroups.
+The threaded root cgroup can't be a parent of a
+.I domain
+cgroups, and a
+.I threaded
+cgroup
+can't have a sibling that is a
+.I domain
+cgroup.
+.\"
+.SS Using a threaded subtree
+Within a threaded subtree, threaded controllers can be enabled
+in each subgroup whose type has been changed to
+.IR threaded ;
+upon doing so, the corresponding controller interface files
+appear in the children of that cgroup.
+.PP
+A process can be moved into a threaded subtree by writing its PID to the
+.I cgroup.procs
+file in one of the cgroups inside the tree.
+This has the effect of making all of the threads
+in the process members of the corresponding cgroup
+and makes the process a member of the threaded subtree.
+The threads of the process can then be spread across
+the threaded subtree by writing their thread IDs (see
+.BR gettid (2))
+to the
+cgroup.threads
+files in different cgroups inside the subtree.
+The threads of a process must all reside in the same threaded subtree.
+.PP
+The
+cgroup.threads
+file is present in each cgroup (including
+.I domain
+cgroups) and can be read in order to discover the set of threads
+that is present in the cgroup.
+The set of thread IDs obtained when reading this file
+is not guaranteed to be ordered or free of duplicates.
+.PP
+The
+.I cgroup.procs
+file in the threaded root shows the PIDs of all processes
+that are members of the threaded subtree.
+The
+.I cgroup.procs
+files in the other cgroups in the subtree are not readable.
+.PP
+Domain controllers can't be enabled in a threaded subtree;
+no controller-interface files appear inside the cgroups underneath the
+threaded root.
+From the point of view of a domain controller,
+threaded subtrees are invisible:
+a multithreaded process inside a threaded subtree appears to a domain
+controller as a process that resides in the threaded root cgroup.
+.PP
+Within a threaded subtree, the "no internal processes" rule does not apply:
+a cgroup can both contain member processes (or thread)
+and exercise controllers on child cgroups.
+.\"
+.SS Rules for writing to cgroup.type and creating threaded subtrees
+A number of rules apply when writing to the
+.I cgroup.type
+file:
+.IP * 3
+Only the string
+.IR """threaded"""
+may be written.
+In other words, the only explicit transition that is possible is to convert a
+.I domain
+cgroup to type
+.IR threaded .
+.IP *
+The string
+.IR """threaded"""
+can be written only if the current value in
+.IR cgroup.type
+is one of the following
+.RS
+.IP \(bu 3
+.IR domain ,
+to start the creation of a threaded subtree via
+the first of the pathways described above;
+.IP \(bu
+.IR "domain\ invalid" ,
+to convert one of the cgroups in a threaded subtree into a usable (i.e.,
+.IR threaded )
+state;
+.IP \(bu
+.IR threaded ,
+which has no effect (a "no-op").
+.RE
+.IP *
+We can't write to a
+.I cgroup.type
+file if the parent's type is
+.IR "domain invalid" .
+In other words, the cgroups of a threaded subtree must be converted to the
+.I threaded
+state in a top-down manner.
+.PP
+There are also various constraints that must be satisfied
+in order to create a threaded subtree rooted at the cgroup
+.IR x :
+.IP * 3
+There can be no member processes in the descendant cgroups of
+.IR x .
+(The cgroup
+.I x
+can itself have member processes.)
+.IP *
+No domain controllers may be enabled in
+.IR x 's
+.IR cgroup.subtree_control
+file.
+.IP *
+The existing cgroups inside the threaded subtree must either be of type
+.IR domain
+or part of (unpopulated) threaded subtrees.
+.PP
+If any of the above constraints is violated, then an attempt to write
+.IR """threaded"""
+to a
+.IR cgroup.type
+file fails with the error
+.BR ENOTSUP .
+.\"
+.SS The """domain threaded""" cgroup type
+According to the pathways described above,
+the type of a cgroup can change to
+.IR "domain threaded"
+in either of the following cases:
+.IP * 3
+The string
+.IR """threaded"""
+is written to a child cgroup.
+.IP *
+A threaded controller is enabled inside the cgroup and
+a process is made a member of the cgroup.
+.PP
+A
+.IR "domain threaded"
+cgroup,
+.IR x ,
+can revert to the type
+.IR domain
+if the above conditions no longer hold true\(emthat is, if all
+.I threaded
+child cgroups of
+.I x
+are removed and either
+.I x
+no longer has threaded controllers enabled or
+no longer has member processes.
+.PP
+When a
+.IR "domain threaded"
+cgroup
+.IR x
+reverts to the type
+.IR domain :
+.IP * 3
+All
+.IR "domain invalid"
+descendants of
+.I x
+that are not in lower-level threaded subtrees revert to the type
+.IR domain .
+.IP *
+The root cgroups in any lower-level threaded subtrees revert to the type
+.IR "domain threaded" .
+.\"
+.SS Exceptions for the root cgroup
+The root cgroup of the v2 hierarchy is treated exceptionally:
+it can be the parent of both
+.I domain
+and
+.I threaded
+cgroups.
+If the string
+.I """threaded"""
+is written to the
+.I cgroup.type
+file of one of the children of the root cgroup, then
+.IP * 3
+The type of that cgroup becomes
+.IR threaded .
+.IP *
+The type of any descendants of that cgroup that
+are not part of lower-level threaded subtrees changes to
+.IR "domain invalid" .
+.PP
+Note that in this case, there is no cgroup whose type becomes
+.IR "domain threaded" .
+(Notionally, the root cgroup can be considered as the threaded root
+for the cgroup whose type was changed to
+.IR threaded .)
+.PP
+The aim of this exceptional treatment for the root cgroup is to
+allow a threaded cgroup that employs the
+.I cpu
+controller to be placed as high as possible in the hierarchy,
+so as to minimize the (small) cost of traversing the cgroup hierarchy.
+.\"
+.SS The cgroups v2 """cpu""" controller and realtime processes
+As at Linux 4.15, the cgroups v2
+.I cpu
+controller does not support control of realtime processes,
+and the controller can be enabled in the root cgroup only
+if all realtime threads are in the root cgroup.
+(If there are realtime processes in nonroot cgroups, then a
+.BR write (2)
+of the string
+.IR """+cpu"""
+to the
+.I cgroup.subtree_control
+file fails with the error
+.BR EINVAL .
+However, on some systems,
+.BR systemd (1)
+places certain realtime processes in nonroot cgroups in the v2 hierarchy.
+On such systems,
+these processes must first be moved to the root cgroup before the
+.I cpu
+controller can be enabled.
+.\"
+.SH ERRORS
+The following errors can occur for
+.BR mount (2):
+.TP
+.B EBUSY
+An attempt to mount a cgroup version 1 filesystem specified neither the
+.I name=
+option (to mount a named hierarchy) nor a controller name (or
+.IR all ).
+.SH NOTES
+A child process created via
+.BR fork (2)
+inherits its parent's cgroup memberships.
+A process's cgroup memberships are preserved across
+.BR execve (2).
+.\"
 .SS /proc files
 .TP
 .IR /proc/cgroups " (since Linux 2.6.24)"

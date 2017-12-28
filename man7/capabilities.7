@@ -936,6 +936,36 @@ if we specify the effective flag as being enabled for any capability,
 then the effective flag must also be specified as enabled
 for all other capabilities for which the corresponding permitted or
 inheritable flags is enabled.
+.PP
+Until 4.13, setting file capabilities required
+.BR CAP_SETFCAP
+over the user namespace which mounted the filesystem (usually the
+initial user namespace) and all capabilities were written as
+VFS_CAP_REVISION_2 extended attributes.  These store only the
+capabilities to be applied to the file.  Since 4.13 it is possible to
+write VFS_CAP_REVISION_3 extended attributes, which encode the user id
+of the root user in the writer's namespace.  Hence
+.BR CAP_SETFCAP
+is required only over the file inode, meaning the writing task must have
+.BR CAP_SETFCAP
+over a user namespace into which the inode's owning user ID is mapped.  The
+file capability will take effect only when run in a user namespace
+where that same user ID is mapped to UID 0, or a user namespace owned by
+such a namespace.
+.PP
+Users with the required privilege may use
+.BR setxattr(2)
+to request either a VFS_CAP_REVISION_2 or VFS_CAP_REVISION_3 write.
+The kernel will automatically convert a VFS_CAP_REVISION_2 to a
+VFS_CAP_REVISION_3 extended attribute, or, if a VFS_CAP_REVISION_3
+extended attribute is specified, then the kernel will map the
+specified root user ID (which must be a valid user ID mapped in the caller's
+user namespace) into the initial user namespace.  Likewise,
+.BR getxattr(2)
+results will be converted and simplified to show a VFS_CAP_REVISION_2
+extended attribute, if a VFS_CAP_REVISION_3 applies to the caller's
+namespace, or to map the VFS_CAP_REVISION_3 root user ID into the
+caller's namespace.
 .\"
 .SS Transformation of capabilities during execve()
 .PP

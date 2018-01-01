@@ -35,6 +35,8 @@ adjtimex, ntp_adjtime \- tune kernel clock
 .PP
 .BI "int adjtimex(struct timex *" "buf" );
 .PP
+.BI "int clock_adjtime(clockid_t " clk_id, " struct timex *" "buf" );
+.PP
 .BI "int ntp_adjtime(struct timex *" buf );
 .fi
 .SH DESCRIPTION
@@ -158,8 +160,26 @@ includes the
 .B ADJ_NANO
 flag, then
 .I buf.time.tv_usec
-is interpreted as a nanosecond value;
+is interpreted as a nanosecond value,
 otherwise it is interpreted as microseconds.
+.IP
+The value of
+.I buf.time
+is the sum of its two fields, but the
+field
+.I buf.time.tv_usec
+must always be non-negative.  The following example shows how to
+normalize a timeval with nanosecond resolution.
+.PP
+.in +12n
+.EX
+while (buf.time.tv_usec < 0) {
+    buf.time.tv_sec  -= 1;
+    buf.time.tv_usec += 1000000000;
+}
+.EE
+.in
+.PP
 .TP
 .BR ADJ_MICRO " (since Linux 2.6.26)"
 .\" commit eea83d896e318bda54be2d2770d2c5d6668d11db
@@ -344,6 +364,12 @@ Attempts to set read-only
 .I status
 bits are silently ignored.
 .\"
+.SS clock_adjtime ()
+The
+.BR clock_adjtime ()
+system call (added in Linux 2.6.39) behaves like adjtimex() but takes an additional
+.IR clk_id
+argument to specify the particular clock on which to act.
 .SS ntp_adjtime ()
 The
 .BR ntp_adjtime ()
@@ -472,6 +498,19 @@ An attempt was made to set
 to a value other than those listed above.
 .TP
 .B EINVAL
+The
+.I clk_id
+given to
+.BR clock_adjtime ()
+is invalid for one of two reasons.  Either the SYS-V style hard coded
+positive value is out of range, or the dynamic
+.I clk_id
+does not refer to a valid instance of a clock object.
+See
+.BR clock_gettime (2)
+for a discussion of dynamic clocks.
+.TP
+.B EINVAL
 An attempt was made to set
 .I buf.tick
 to a value outside the range
@@ -481,6 +520,20 @@ to
 where
 .B HZ
 is the system timer interrupt frequency.
+.TP
+.B ENODEV
+The hot-plugable device (like USB for example) represented by a
+dynamic
+.I clk_id
+has disappeared after its character device was opened.
+See
+.BR clock_gettime (2)
+for a discussion of dynamic clocks.
+.TP
+.B EOPNOTSUPP
+The given
+.I clk_id
+does not support adjustment.
 .TP
 .B EPERM
 .I buf.modes
@@ -503,10 +556,12 @@ T{
 T}	Thread safety	MT-Safe
 .TE
 .SH CONFORMING TO
-Neither of these interfaces is described in POSIX.1
+None of these interfaces is described in POSIX.1
 .PP
 .BR adjtimex ()
-is Linux-specific and should not be used in programs
+and
+.BR clock_adjtime ()
+are Linux-specific and should not be used in programs
 intended to be portable.
 .PP
 The preferred API for the NTP daemon is
@@ -533,6 +588,8 @@ is done by the kernel in timer context.
 Thus, it will take one tick into the second
 for the leap second to be inserted or deleted.
 .SH SEE ALSO
+.BR clock_gettime (2)
+.BR clock_settime (2)
 .BR settimeofday (2),
 .BR adjtime (3),
 .BR ntp_gettime (3),

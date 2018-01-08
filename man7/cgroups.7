@@ -493,14 +493,6 @@ the value in this file is inherited from the corresponding file
 in the parent cgroup.
 .\"
 .SH CGROUPS VERSION 2
-.\" FIXME
-.\" Document the 'nsdelegate' mount option added in Linux 4.13
-.\" To test this, it can be useful to boot the kernel with the options:
-.\"
-.\"    cgroup_no_v1=all systemd.legacy_systemd_cgroup_controller
-.\"
-.\" The effect of th latter option is to prevent systemd from employing
-.\" its "hybrid" cgroup mode, where it tries to make use of cgroups v2.
 In cgroups v2,
 all mounted controllers reside in a single unified hierarchy.
 While (different) controllers may be simultaneously
@@ -919,6 +911,93 @@ or the ownership of that file was passed to the delegatee,
 the delegatee can also control the further redistribution
 of the corresponding resources into the delegated subtree.
 .\"
+.SS Cgroups v2 delegation: nsdelegate and cgroup namespaces
+.\"
+.\" To test this, it can be useful to boot the kernel with the options:
+.\"
+.\"    cgroup_no_v1=all systemd.legacy_systemd_cgroup_controller
+.\"
+.\" The effect of the latter option is to prevent systemd from employing
+.\" its "hybrid" cgroup mode, where it tries to make use of cgroups v2.
+.\"
+Starting with Linux 4.13,
+.\" commit 5136f6365ce3eace5a926e10f16ed2a233db5ba9
+there is a second way to perform cgroup delegation.
+This is done by mounting the cgroup v2 filesystem with the
+.I nsdelegate
+mount option:
+.PP
+.in +4n
+.EX
+$ mount -t cgroup2 -o nsdelegate none /sys/fs/cgroup/unified
+.EE
+.in
+.PP
+The effect of this option is to cause cgroup namespaces
+to automatically become delegation boundaries.
+More specifically,
+the following restrictions apply for processes inside the cgroup namespace:
+.IP * 3
+Writes to controller interface files in the root directory
+will fail with the error
+.BR EPERM .
+Processes inside the cgroup namespace can still write to delegatable
+files such as
+.IR cgroup.procs
+and
+.IR cgroup.subtree_control ,
+and can create subhierarchy underneath the root directory of
+the cgroup namespace.
+.IP *
+Attempts to migrate processes across the namespace boundary are denied
+(with the error
+.BR ENOENT ).
+Processes inside the cgroup namespace can still
+(subject to the containment rules described below)
+move processes between cgroups
+.I within
+the subhierarchy under the namespace root.
+.PP
+The ability to define cgroup namespaces as delegation boundaries
+makes cgroup namespaces more useful.
+To understand why, suppose that we already have one cgroup hierarchy
+that has been delegated to a nonprivileged user,
+.IR cecilia ,
+using the older delegation technique described above.
+Suppose further that
+.I cecilia
+wanted to further delegate a subhierarchy
+under the existing delegated hierarchy.
+(For example, the delegated hierarchy might be associated with
+an unprivileged container run by
+.IR cecilia .)
+Even if a cgroup namespace was employed,
+because both hierarchies are owned by the unprivileged user
+.IR cecilia ,
+the following illegitimate actions could be performed:
+.IP * 3
+A process in the inferior hierarchy could change the
+resource controller settings in the root directory of the that hierarchy.
+(These resource controller settings are intended to allow control to
+be exercised from the
+.I parent
+cgroup;
+a process inside the child cgroup should not be allowed to modify them.)
+.IP *
+A process inside the inferior hierarchy could move processes
+into and out of the inferior hierarchy if the cgroups in the
+superior hierarchy were somehow visible.
+.PP
+Employing the
+.I nsdelegate
+mount option prevents both of these possibilities.
+.PP
+The
+.I nsdelegate
+mount option only has an effect when performed in
+the initial mount namespace;
+in other mount namespaces, the option is silently ignored.
+.\"
 .SS Cgroup v2 delegation containment rules
 Some delegation
 .IR "containment rules"
@@ -940,6 +1019,11 @@ The writer has write permission on the
 file in the common ancestor of the source and destination cgroups.
 (In some cases,
 the common ancestor may be the source or destination cgroup itself.)
+.IP *
+If the cgroup v2 filesystem was mounted with the
+.I nsdelegate
+option, the writer must be able to see the source and destination cgroup
+from its cgroup namespace.
 .IP *
 Before Linux 4.11:
 .\" commit 576dd464505fc53d501bb94569db76f220104d28

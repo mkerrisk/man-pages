@@ -959,7 +959,7 @@ it automatically uses the version 2 scheme.
 .\" commit 8db6c34f1dbc8e06aa016a9b829b06902c3e1340
 Version 3 file capabilities are designed to coexist
 with version 2 capabilities, but serve a different purpose:
-to support namespaced file capabilities.
+to support namespaced file capabilities (described below).
 As with version 2 file capabilities,
 the capability masks are 64 bits in size.
 In addition, the namespace root user ID is encoded in the
@@ -1411,6 +1411,52 @@ prctl(PR_SET_SECUREBITS,
 .SS Interaction with user namespaces
 For a discussion of the interaction of capabilities and user namespaces, see
 .BR user_namespaces (7).
+.\"
+.SS Namespaced file capabilities
+.\" commit 8db6c34f1dbc8e06aa016a9b829b06902c3e1340
+Traditional (i.e., version 2) file capabilities associate
+only a set of capability masks with a binary executable file.
+When a process executes a binary with such capabilities,
+it gains the associated capabilities (within its user namespace)
+as per the rules described above in
+"Transformation of capabilities during execve()".
+.PP
+Because version 2 file capabilities confer capabilities to
+the executing process regardless of which user namespace it resides in,
+only privileged processes are permitted to associate capabilities with a file.
+Here, privileged means a process that has the
+.BR CAP_SETFCAP
+capability in the user namespace where the filesystem was mounted
+(normally the initial user namespace).
+This limitation renders file capabilities useless for certain use cases.
+For example, in user-namespaced containers,
+it can be desirable to be able to create a binary that
+confers capabilities only to processes executed inside that container,
+but not to processes that are executed outside the container.
+.PP
+Linux 4.14 added so-called namespaced file capabilities
+to support such use cases.
+Namespaced file capabilities are recorded as version 3 (i.e.,
+.BR VFS_CAP_REVISION_3 )
+.I security.capability
+extended attributes.
+Such an attribute is automatically created when a process that resides
+in a noninitial user namespace associates
+.RB ( setxattr (2))
+file capabilities with a file whose user ID matches
+the user ID of the creator of the namespace.
+In this case,
+the kernel records not just the capability masks in the extended attribute,
+but also the user ID of the namespace creator.
+.PP
+Note that a file can have either a version 2 or a version 3
+.I security.capability
+extended attribute associated with it, but not both:
+creation or modification of the
+.I security.capability
+extended attribute will automatically modify the version
+according to the circumstances in which the extended attribute is
+created or modified.
 .SH CONFORMING TO
 .PP
 No standards govern capabilities, but the Linux capability implementation

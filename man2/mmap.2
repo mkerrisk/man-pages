@@ -261,6 +261,27 @@ Examples include
 and the PAM libraries
 .UR http://www.linux-pam.org
 .UE .
+Newer kernels
+(Linux 4.17 and later) have a
+.B MAP_FIXED_NOREPLACE
+option that avoids the corruption problem; if available, MAP_FIXED_NOREPLACE
+should be preferred over MAP_FIXED.
+.TP
+.BR MAP_FIXED_NOREPLACE " (since Linux 4.17)"
+Similar to MAP_FIXED with respect to the
+.I
+addr
+enforcement, but different in that MAP_FIXED_NOREPLACE never clobbers a pre-existing
+mapped range. If the requested range would collide with an existing
+mapping, then this call fails with
+.B EEXIST.
+This flag can therefore be used as a way to atomically (with respect to other
+threads) attempt to map an address range: one thread will succeed; all others
+will report failure. Please note that older kernels which do not recognize this
+flag will typically (upon detecting a collision with a pre-existing mapping)
+fall back to a "non-MAP_FIXED" type of behavior: they will return an address that
+is different than the requested one. Therefore, backward-compatible software
+should check the returned address against the requested address.
 .TP
 .B MAP_GROWSDOWN
 This flag is used for stacks.
@@ -486,6 +507,12 @@ The file has been locked, or too much memory has been locked (see
 is not a valid file descriptor (and
 .B MAP_ANONYMOUS
 was not set).
+.TP
+.B EEXIST
+range covered by
+.IR addr ,
+.IR length
+is clashing with an existing mapping.
 .TP
 .B EINVAL
 We don't like

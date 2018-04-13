@@ -932,7 +932,7 @@ then the effective flag must also be specified as enabled
 for all other capabilities for which the corresponding permitted or
 inheritable flags is enabled.
 .\"
-.SS File capability version numbering
+.SS File capability mask versioning
 To allow extensibility,
 the kernel supports a scheme to encode a version number inside the
 .I security.capability
@@ -953,34 +953,44 @@ The kernel transparently continues to support the execution of files
 that have 32-bit version 1 capability masks,
 but when adding capabilities to files that did not previously
 have capabilities, or modifying the capabilities of existing files,
-it automatically uses the version 2 scheme.
+it automatically uses the version 2 scheme
+(or possibly the version 3 scheme, as described below).
 .TP
 .BR VFS_CAP_REVISION_3 " (since Linux 4.14)"
 .\" commit 8db6c34f1dbc8e06aa016a9b829b06902c3e1340
-Version 3 file capabilities are designed to coexist
-with version 2 capabilities, but serve a different purpose:
+Version 3 file capabilities are provided
 to support namespaced file capabilities (described below).
+.IP
 As with version 2 file capabilities,
-the capability masks are 64 bits in size.
-In addition, the root user ID of namespace is encoded in the
+version 3 capability masks are 64 bits in size.
+But in addition, the root user ID of namespace is encoded in the
 .I security.capability
 extended attribute.
 (A namespace's root user ID is the value that user ID 0
 inside that namespace maps to in the initial user namespace.)
 .IP
-A binary with
-.BR VFS_CAP_REVISION_3
-file capabilities confers capabilities only when executed by a
-process that resides in a user namespace whose
-UID 0 maps to the root user ID that is saved in the extended attribute,
-or when executed by a process that resides in descendant of such a namespace.
-.IP
+Version 3 file capabilities are designed to coexist
+with version 2 capabilities;
+that is, on a modern Linux system,
+there may be some files with version 2 capabilities
+while others have version 3 capabilities.
+.PP
+Before Linux 4.14,
+the only kind of capability mask that could be attached to a file was a
+.B VFS_CAP_REVISION_2
+mask.
+Since Linux 4.14,
+the version of the capability mask that is attached to a file
+depends on the circumstances in which the
+.I security.capability
+extended attribute was created.
+.PP
 Starting with Linux 4.14, a
-.BR VFS_CAP_REVISION_3
 .I security.capability
 extended attribute is automatically created as (or converted to)
-a version 3 attribute if both of the following are true:
-.RS
+a version 3
+.RB ( VFS_CAP_REVISION_3 )
+attribute if both of the following are true:
 .IP (1) 4
 The thread writing the attribute resides in a noninitial namespace.
 (More precisely: the thread resides in a user namespace other
@@ -994,15 +1004,14 @@ meaning that (a) the thread has the
 capability in its own user namespace;
 and (b) the UID and GID of the file inode have mappings in
 the writer's user namespace.
-.RE
-.IP
+.PP
 When a
 .BR VFS_CAP_REVISION_3
 .I security.capability
 extended attribute is created, the root user ID of the creating thread's
 user namespace is saved in the extended attribute.
-.IP
-Creating a
+.PP
+By contrast, creating a
 .I security.capability
 extended attribute from a privileged
 .RB ( CAP_SETFCAP )
@@ -1010,8 +1019,17 @@ thread that resides in the
 namespace where the the underlying filesystem was mounted
 (this normally means the initial user namespace)
 automatically results in a version 2
-.RB ( VFS_CAP_REVISION_3 )
+.RB ( VFS_CAP_REVISION_2 )
 attribute.
+.PP
+Note that a file can have either a version 2 or a version 3
+.I security.capability
+extended attribute associated with it, but not both:
+creation or modification of the
+.I security.capability
+extended attribute will automatically modify the version
+according to the circumstances in which the extended attribute is
+created or modified.
 .\"
 .SS Transformation of capabilities during execve()
 .PP
@@ -1471,7 +1489,7 @@ as per the rules described above in
 Because version 2 file capabilities confer capabilities to
 the executing process regardless of which user namespace it resides in,
 only privileged processes are permitted to associate capabilities with a file.
-Here, privileged means a process that has the
+Here, "privileged" means a process that has the
 .BR CAP_SETFCAP
 capability in the user namespace where the filesystem was mounted
 (normally the initial user namespace).
@@ -1494,16 +1512,21 @@ file capabilities with a file whose user ID matches
 the user ID of the creator of the namespace.
 In this case,
 the kernel records not just the capability masks in the extended attribute,
-but also the user ID of the namespace creator.
+but also the namespace root user ID.
+For further details, see
+.IR "File capability mask versioning" ,
+above.
 .PP
-Note that a file can have either a version 2 or a version 3
-.I security.capability
-extended attribute associated with it, but not both:
-creation or modification of the
-.I security.capability
-extended attribute will automatically modify the version
-according to the circumstances in which the extended attribute is
-created or modified.
+As with a binary that has
+.BR VFS_CAP_REVISION_2
+file capabilities, a binary with
+.BR VFS_CAP_REVISION_3
+file capabilities confers capabilities to a process during
+.BR execve ().
+However, capabilities are conferred only if the binary is executed by
+a process that resides in a user namespace whose
+UID 0 maps to the root user ID that is saved in the extended attribute,
+or when executed by a process that resides in descendant of such a namespace.
 .SH CONFORMING TO
 .PP
 No standards govern capabilities, but the Linux capability implementation

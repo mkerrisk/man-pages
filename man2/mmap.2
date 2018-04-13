@@ -255,50 +255,7 @@ flag with care,
 keeping in mind that the exact layout of a process's memory mappings
 is allowed to change significantly between kernel versions,
 C library versions, and operating system releases.
-.IP
-The only safe use for
-.BR MAP_FIXED
-is where the address range specified by
-.IR addr
-and
-.I length
-was previously reserved using another mapping;
-otherwise, the use of
-.BR MAP_FIXED
-is hazardous because it forcibly removes preexisting mappings,
-making it easy for a multithreaded process to corrupt its own address space.
-.IP
-For example, suppose that thread A looks through
-.I /proc/<pid>/maps
-and locates an available address range,
-while thread B simultaneously acquires part or all of that same
-address range.
-Thread A then calls
-.BR mmap(MAP_FIXED) ,
-effectively overwriting the mapping that thread B created.
-In this scenario,
-thread B need not create a mapping directly; simply making a library call
-that, internally, uses
-.BR dlopen (3)
-to load some other shared library, will suffice.
-The
-.BR dlopen (3)
-call will map the library into the process's address space.
-Furthermore, almost any library call may be implemented in a way that
-adds memory mappings to the address space, either with this technique,
-or by simply allocating memory.
-Examples include
-.BR brk (2),
-.BR malloc (3),
-.BR pthread_create (3),
-and the PAM libraries
-.UR http://www.linux-pam.org
-.UE .
-.IP
-Since Linux 4.17, the
-.BR MAP_FIXED_NOREPLACE
-flag can be used in a multithreaded program to avoid the hazard
-described above.
+.IR "Carefully read the discussion of this flag in NOTES!"
 .TP
 .BR MAP_FIXED_NOREPLACE " (since Linux 4.17)"
 .\" commit a4ff8e8620d3f4f50ac4b41e8067b7d395056843
@@ -770,6 +727,51 @@ and
 An application can determine which pages of a mapping are
 currently resident in the buffer/page cache using
 .BR mincore (2).
+.\"
+.SS Using MAP_FIXED safely
+The only safe use for
+.BR MAP_FIXED
+is where the address range specified by
+.IR addr
+and
+.I length
+was previously reserved using another mapping;
+otherwise, the use of
+.BR MAP_FIXED
+is hazardous because it forcibly removes preexisting mappings,
+making it easy for a multithreaded process to corrupt its own address space.
+.PP
+For example, suppose that thread A looks through
+.I /proc/<pid>/maps
+and locates an available address range,
+while thread B simultaneously acquires part or all of that same
+address range.
+Thread A then calls
+.BR mmap(MAP_FIXED) ,
+effectively overwriting the mapping that thread B created.
+In this scenario,
+thread B need not create a mapping directly; simply making a library call
+that, internally, uses
+.BR dlopen (3)
+to load some other shared library, will suffice.
+The
+.BR dlopen (3)
+call will map the library into the process's address space.
+Furthermore, almost any library call may be implemented in a way that
+adds memory mappings to the address space, either with this technique,
+or by simply allocating memory.
+Examples include
+.BR brk (2),
+.BR malloc (3),
+.BR pthread_create (3),
+and the PAM libraries
+.UR http://www.linux-pam.org
+.UE .
+.PP
+Since Linux 4.17, the
+.BR MAP_FIXED_NOREPLACE
+flag can be used in a multithreaded program to avoid the hazard
+described above.
 .\"
 .SS Timestamps changes for file-backed mappings
 For file-backed mappings, the

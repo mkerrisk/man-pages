@@ -8,20 +8,54 @@
 .\"
 .TH SET_THREAD_AREA 2 2017-09-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-get_thread_area, set_thread_area \- set a GDT entry for thread-local storage
+get_thread_area, set_thread_area \- manipulate thread-local storage information
 .SH SYNOPSIS
 .nf
 .B #include <linux/unistd.h>
-.B #include <asm/ldt.h>
+
+.B #if defined __i386__ || defined __x86_64__
+.B # include <asm/ldt.h>
 .PP
 .BI "int get_thread_area(struct user_desc *" u_info );
 .BI "int set_thread_area(struct user_desc *" u_info );
+.PP
+.B #elif defined __m68k__
+.PP
+.B "int get_thread_area(void);
+.BI "int set_thread_area(unsigned long " tp );
+.PP
+.B #elif defined __mips__
+.PP
+.BI "int set_thread_area(unsigned long " addr );
+.PP
+.B #endif
 .fi
 .PP
 .IR Note :
 There are no glibc wrappers for these system calls; see NOTES.
 .SH DESCRIPTION
-Linux dedicates three global descriptor table (GDT) entries for
+These calls provide architecture-specific support for a thread-local storage
+implementation.
+At the moment,
+.BR set_thread_area ()
+is available on m68k, MIPS, and x86 (both 32-bit and 64-bit variants);
+.BR get_thread_area ()
+is available on m68k and x86.
+.PP
+On m68k and MIPS,
+.BR set_thread_area ()
+allows storing an arbitrary pointer (provided in the
+.B tp
+argument on m68k and in the
+.B addr
+argument on MIPS) in kernel's structure associated with the caller thread
+and then retrieving it via the
+.BR get_thread_area ()
+syscall (see also
+.I NOTES
+for the information regarding obtaining thread pointer on MIPS).
+.PP
+On x86, Linux dedicates three global descriptor table (GDT) entries for
 thread-local storage.
 For more information about the GDT, see the
 Intel Software Developer's Manual or the AMD Architecture Programming Manual.
@@ -41,6 +75,9 @@ struct user_desc {
     unsigned int  limit_in_pages:1;
     unsigned int  seg_not_present:1;
     unsigned int  useable:1;
+#ifdef __x86_64__
+    unsigned int  lm:1;
+#endif
 };
 .EE
 .in
@@ -93,10 +130,19 @@ Since Linux 3.19,
 cannot be used to write non-present segments, 16-bit segments, or code
 segments, although clearing a segment is still acceptable.
 .SH RETURN VALUE
-These system calls
+On x86, these syscalls
 return 0 on success, and \-1 on failure, with
 .I errno
 set appropriately.
+.PP
+On MIPS and m68k,
+.BR set_thread_area ()
+syscall always returns 0.
+On m68k,
+.BR get_thread_area ()
+syscall returns (previously set via
+.BR set_thread_area ())
+thread area pointer value.
 .SH ERRORS
 .TP
 .B EFAULT
@@ -131,13 +177,17 @@ In the unlikely event that you want to call them directly, use
 .PP
 .BR arch_prctl (2)
 can interfere with
-.BR set_thread_area ().
+.BR set_thread_area ()
+on x86.
 See
 .BR arch_prctl (2)
 for more details.
 This is not normally a problem, as
 .BR arch_prctl (2)
 is normally used only by 64-bit programs.
+.PP
+On MIPS, in order to obtain thread area pointer, "rdhwr dest, $29" instruction
+can be used; it traps and is handled by kernel.
 .SH BUGS
 On 64-bit kernels before Linux 3.19,
 .\" commit e30ab185c490e9a9381385529e0fd32f0a399495

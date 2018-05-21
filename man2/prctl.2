@@ -1008,6 +1008,102 @@ the "securebits" flags of the calling thread.
 See
 .BR capabilities (7).
 .TP
+.BR PR_GET_SPECULATION_CTRL
+Returns the state of the speculation misfeature which is selected with
+the value of
+.IR arg2 ,
+which must be
+.B PR_SPEC_STORE_BYPASS.
+Otherwise the call fails with the error
+.BR ENODEV .
+The return value uses bit 0-3 with the following meaning:
+.RS
+.TP
+.BR PR_SPEC_PRCTL
+Mitigation can be controlled per task by
+.B PR_SET_SPECULATION_CTRL
+.TP
+.BR PR_SPEC_ENABLE
+The speculation feature is enabled, mitigation is disabled.
+.TP
+.BR PR_SPEC_DISABLE
+The speculation feature is disabled, mitigation is enabled
+.TP
+.BR PR_SPEC_FORCE_DISABLE
+Same as
+.B PR_SPEC_DISABLE
+but cannot be undone.
+.RE
+.IP
+If all bits are
+.B 0
+then the CPU is not affected by the speculation misfeature.
+.IP
+If
+.B PR_SPEC_PRCTL
+is set, then the per task control of the mitigation is available. If not set,
+.B prctl()
+for the speculation misfeature will fail.
+In the above operation
+.I arg3
+,
+.I arg4,
+and
+.I arg5
+must be specified as 0, otherwise the call fails with the error
+.BR EINVAL.
+.TP
+.BR PR_SET_SPECULATION_CTRL
+Sets the state of the speculation misfeature which is selected with
+the value of
+.IR arg2 ,
+which must be
+.B PR_SPEC_STORE_BYPASS.
+Otherwise the call fails with the error
+.BR ENODEV .
+This control is per task. The
+.IR arg3
+is used to hand in the control value, which can be either:
+.RS
+.TP
+.BR PR_SPEC_ENABLE
+The speculation feature is enabled, mitigation is disabled.
+.TP
+.BR PR_SPEC_DISABLE
+The speculation feature is disabled, mitigation is enabled
+.TP
+.BR PR_SPEC_FORCE_DISABLE
+Same as
+.B PR_SPEC_DISABLE
+but cannot be undone. A subsequent
+.B
+prctl(..., PR_SPEC_ENABLE)
+will fail with
+.BR EPERM.
+.RE
+.IP
+Any other value in
+.IR arg3
+will result in the call failure with the error
+.BR ERANGE .
+Also
+.I arg4,
+and
+.I arg5
+must be specified as 0, otherwise the call fails with ethe rror
+.BR EINVAL.
+.IP
+Furtheremore this speculation feature can also be controlled by the boot-time
+parameter of
+.B
+spec_store_bypass_disable=
+Which could enforce a read-only policy which will result in the call failure
+with the error
+.BR ENXIO .
+Consult the
+.B PR_GET_SPECULATION_CTRL
+for details on the possible enumerations.
+.TP
 .BR PR_SET_THP_DISABLE " (since Linux 3.15)"
 .\" commit a0715cc22601e8830ace98366c0c2bd8da52af52
 Set the state of the "THP disable" flag for the calling thread.
@@ -1501,6 +1597,12 @@ and
 .IR arg3
 does not specify a valid capability.
 .TP
+.B ENODEV
+.I option
+was
+.BR PR_SET_SPECULATION_CTRL
+the kernel or CPU does not support the requested speculation misfeature.
+.TP
 .B ENXIO
 .I option
 was
@@ -1509,6 +1611,15 @@ or
 .BR PR_MPX_DISABLE_MANAGEMENT
 and the kernel or the CPU does not support MPX management.
 Check that the kernel and processor have MPX support.
+.TP
+.B ENXIO
+.I option
+was
+.BR PR_SET_SPECULATION_CTRL
+implies that the control of the selected speculation misfeature is not possible.
+See
+.BR PR_GET_SPECULATION_CTRL
+for the bit fields to determine which option is available.
 .TP
 .B EOPNOTSUPP
 .I option
@@ -1529,6 +1640,14 @@ or tried to unset a "locked" flag,
 or tried to set a flag whose corresponding locked flag was set
 (see
 .BR capabilities (7)).
+.TP
+.B EPERM
+.I option
+is
+.BR PR_SET_SPECULATION_CTRL
+wherein the speculation was disabled with
+.B PR_SPEC_FORCE_DISABLE
+and caller tried to enable it again.
 .TP
 .B EPERM
 .I option
@@ -1570,6 +1689,30 @@ is not present in the process's permitted and inheritable capability sets,
 or the
 .B PR_CAP_AMBIENT_LOWER
 securebit has been set.
+.TP
+.B ERANGE
+.I option
+was
+.BR PR_SET_SPECULATION_CTRL
+and
+.IR arg3
+is incorrect - neither
+.B PR_SPEC_ENABLE
+nor
+.B PR_SPEC_DISABLE
+nor
+.B PR_SPEC_FORCE_DISABLE
+was choosen
+.TP
+.B EINVAL
+.I option
+was
+.BR PR_GET_SPECULATION_CTRL
+or
+.BR PR_SET_SPECULATION_CTRL
+and unused arguments to
+.B prctl()
+are not 0.
 .SH VERSIONS
 The
 .BR prctl ()

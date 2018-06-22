@@ -475,18 +475,26 @@ a new file descriptor referring to the same open file description is
 created.
 An open file description continues to exist until all
 file descriptors referring to it have been closed.
+.IP
 A file descriptor is removed from an
-.B epoll
-set only after all the file descriptors referring to the underlying
-open file description have been closed
-(or before if the file descriptor is explicitly removed using
-.BR epoll_ctl (2)
-.BR EPOLL_CTL_DEL ).
+interest list only after all the file descriptors referring to the underlying
+open file description have been closed.
 This means that even after a file descriptor that is part of an
-.B epoll
-set has been closed,
+interest list has been closed,
 events may be reported for that file descriptor if other file
 descriptors referring to the same underlying file description remain open.
+To prevent this happening,
+the file descriptor must be explicitly removed from the interest list (using
+.BR epoll_ctl (2)
+.BR EPOLL_CTL_DEL )
+before it is duplicated.
+Alternatively,
+the application must ensure that all file descriptors are closed
+(which may be difficult if file descriptors were duplicated
+behind the scenes by library functions that used
+.BR dup (2)
+or
+.BR fork (2)).
 .IP 7.
 If more than one event occurs between
 .BR epoll_wait (2)

@@ -34,6 +34,29 @@ The
 API can be used either as an edge-triggered or a level-triggered
 interface and scales well to large numbers of watched file descriptors.
 .PP
+The central concept of the
+.B epoll
+API is the
+.B epoll
+.IR instance ,
+an in-kernel data structure which, from a user-space perspective,
+can be considered as a container for two lists:
+.IP * 4
+The
+.I interest
+list (sometimes also called the
+.B epoll
+set): the set of file descriptors that the process has registered
+an interest in monitoring.
+.IP *
+The
+.I ready
+list: the set of file descriptors that are "ready" for I/O.
+The ready list is a subset of
+(or, more precisely, a set of references to)
+the file descriptors in the interest list that is dynamically populated
+by the kernel as a result of I/O activity on those file descriptors.
+.PP
 The following system calls are provided to
 create and manage an
 .B epoll
@@ -49,16 +72,19 @@ extends the functionality of
 .BR epoll_create (2).)
 .IP *
 Interest in particular file descriptors is then registered via
-.BR epoll_ctl (2).
-The set of file descriptors currently registered on an
+.BR epoll_ctl (2),
+which adds items to the interest list of the
 .B epoll
-instance is sometimes called an
-.B epoll
-set.
+instance.
 .IP *
 .BR epoll_wait (2)
 waits for I/O events,
 blocking the calling thread if no events are currently available.
+(This system call can be thought of as fetching items from
+the ready list of the
+.B epoll
+instance.)
+.\"
 .SS Level-triggered and edge-triggered
 The
 .B epoll

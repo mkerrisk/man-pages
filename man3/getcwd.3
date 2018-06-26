@@ -79,22 +79,6 @@ The pathname is returned as the function result and via the argument
 .IR buf ,
 if present.
 .PP
-If the current directory is not below the root directory of the current
-process (e.g., because the process set a new filesystem root using
-.BR chroot (2)
-without changing its current directory into the new root),
-then, since Linux 2.6.36,
-.\" commit 8df9d1a4142311c084ffeeacb67cd34d190eff74
-the returned path will be prefixed with the string "(unreachable)".
-Such behavior can also be caused by an unprivileged user by changing
-the current directory into another mount namespace.
-When dealing with paths from untrusted sources, callers of these
-functions should consider checking whether the returned path starts
-with '/' or '(' to avoid misinterpreting an unreachable path
-as a relative path.
-This is no longer true under some C libraries; see
-.BR NOTES .
-.PP
 The
 .BR getcwd ()
 function copies an absolute pathname of the current working directory
@@ -273,7 +257,35 @@ Only in that case can
 these calls fail under Linux with
 .BR EACCES .
 .PP
-Since a Linux 2.6.36 change that added "(unreachable)", the glibc
+These functions are often used to save the location of the current working
+directory for the purpose of returning to it later.
+Opening the current
+directory (".") and calling
+.BR fchdir (2)
+to return is usually a faster and more reliable alternative when sufficiently
+many file descriptors are available, especially on platforms other than Linux.
+.\"
+.SS C library/kernel differences
+.PP
+Following a change in Linux 2.6.36,
+.\" commit 8df9d1a4142311c084ffeeacb67cd34d190eff74
+the path returned by the
+.BR getcwd ()
+system call will be prefixed with the string "(unreachable)"
+if the current directory is not below the root directory of the current
+process (e.g., because the process set a new filesystem root using
+.BR chroot (2)
+without changing its current directory into the new root).
+Such behavior can also be caused by an unprivileged user by changing
+the current directory into another mount namespace.
+When dealing with paths from untrusted sources, callers of the
+functions described in this page
+should consider checking whether the returned path starts
+with '/' or '(' to avoid misinterpreting an unreachable path
+as a relative path.
+.SH BUGS
+Since the Linux 2.6.36 change that added "(unreachable)" in the
+circumstances described above, the glibc implementation of
 .BR getcwd ()
 has failed to conform to POSIX and returned a relative path when the API
 contract requires an absolute path.
@@ -282,14 +294,6 @@ calling
 .BR getcwd ()
 from such a path will now result in failure with
 .BR ENOENT .
-.PP
-These functions are often used to save the location of the current working
-directory for the purpose of returning to it later.
-Opening the current
-directory (".") and calling
-.BR fchdir (2)
-to return is usually a faster and more reliable alternative when sufficiently
-many file descriptors are available, especially on platforms other than Linux.
 .SH SEE ALSO
 .BR pwd (1),
 .BR chdir (2),

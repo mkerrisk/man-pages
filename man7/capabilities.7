@@ -1024,16 +1024,45 @@ When a
 extended attribute is created, the root user ID of the creating thread's
 user namespace is saved in the extended attribute.
 .PP
-By contrast, creating a
+By contrast, creating or modifying a
 .I security.capability
 extended attribute from a privileged
 .RB ( CAP_SETFCAP )
 thread that resides in the
 namespace where the underlying filesystem was mounted
 (this normally means the initial user namespace)
-automatically results in a version 2
+automatically results in the creation of a version 2
 .RB ( VFS_CAP_REVISION_2 )
 attribute.
+.PP
+Note that the creation of a version 3
+.I security.capability
+extended attribute is automatic.
+That is to say, when a user-space application writes
+.RB ( setxattr (2))
+a
+.I security.capability
+attribute in the version 2 format,
+the kernel will automatically create a version 3 attribute
+if the attribute is created in the circumstances described above.
+Correspondingly, when a version 3
+.I security.capability
+attribute is retrieved
+.RB ( getxattr (2))
+by a process that resides inside a user namespace that was created by the
+root user ID (or a descendant of that user namespace),
+the returned attribute is (automatically)
+simplified to appear as a version 2 attribute
+(i.e., the returned value is the size of a version 2 attribute and does
+not include the root user ID).
+These automatic translations mean that no changes are required to
+user-space tools (e.g.,
+.BR setcap (1)
+and
+.BR getcap (1))
+in order for those tools to be used to create and retrieve version 3
+.I security.capability
+attributes.
 .PP
 Note that a file can have either a version 2 or a version 3
 .I security.capability

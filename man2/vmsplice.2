@@ -25,7 +25,7 @@
 .\"
 .TH VMSPLICE 2 2017-09-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-vmsplice \- splice user pages into a pipe
+vmsplice \- splice user pages to/from a pipe
 .SH SYNOPSIS
 .nf
 .BR "#define _GNU_SOURCE" "         /* See feature_test_macros(7) */"
@@ -44,13 +44,27 @@ vmsplice \- splice user pages into a pipe
 .\" the kernel-space one (contrast this to "write()", which copies
 .\" the actual data, and you can thus reuse the buffer immediately
 .\" after a successful write), but that is often easy to do.
-The
+If
+.I fd
+is opened for writting, the
 .BR vmsplice ()
 system call maps
 .I nr_segs
 ranges of user memory described by
 .I iov
 into a pipe.
+If
+.I fd
+is opened for reading,
+.\" Since Linux 2.6.23
+.\" commit 6a14b90bb6bc7cd83e2a444bf457a2ea645cbfe7
+the
+.BR vmsplice ()
+system call fills
+.I nr_segs
+ranges of user memory described by
+.I iov
+from a pipe.
 The file descriptor
 .I fd
 must refer to a pipe.
@@ -163,6 +177,13 @@ as defined in
 Currently,
 .\" UIO_MAXIOV in kernel source
 this limit is 1024.
+.PP
+.\" commit 6a14b90bb6bc7cd83e2a444bf457a2ea645cbfe7
+.BR vmsplice ()
+only really supports true splicing from user memory to a pipe. In another
+direction, it actually just copies the data to userspace. But this makes
+the interface nice and symmetric and enables people to build on splice,
+with room for future improvement in performance.
 .SH SEE ALSO
 .BR splice (2),
 .BR tee (2),

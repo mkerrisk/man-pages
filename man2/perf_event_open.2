@@ -2953,6 +2953,47 @@ Currently this is supported only for breakpoint events.
 The argument is a pointer to a
 .I perf_event_attr
 structure containing the updated event settings.
+.TP
+.BR PERF_EVENT_IOC_QUERY_BPF " (since Linux 4.16)"
+.\" commit f371b304f12e31fe30207c41ca7754564e0ea4dc
+This allows querying which Berkeley Packet Filter (BPF)
+programs are attached to an existing kprobe tracepoint.
+You can only attach one BPF program per event, but you can
+have multiple events attached to a tracepoint.
+Querying this value on one tracepoint event returns the id
+of all BPF programs in all events attached to the tracepoint.
+You need
+.B CAP_SYS_ADMIN
+privileges to use this ioctl.
+.IP
+The argument is a pointer to a structure
+.in +4n
+.EX
+struct perf_event_query_bpf {
+    __u32    ids_len;
+    __u32    prog_cnt;
+    __u32    ids[0];
+};
+.EE
+.IP
+The
+.I ids_len
+field indicates the number of ids that can fit in the provided
+.I ids
+array.
+The
+.I prog_cnt
+value is filled in by the kernel with the number of attached
+BPF programs.
+The
+.I ids
+array is filled with the id of each attached BPF program.
+If there are more programs than will fit in the array, then the
+kernel will return
+.B ENOSPC
+and
+.I ids_len
+will indicate the number of program IDs that were successfully copied.
 .\"
 .SS Using prctl(2)
 A process can enable or disable all currently open event groups

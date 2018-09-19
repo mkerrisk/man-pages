@@ -240,14 +240,42 @@ and so on up to
 .IR "trap #0x17"
 for 7-argument system calls.
 .IP [5]
-The x32 ABI uses the same instruction as the x86-64 ABI and is used on
-the same processors.
-To differentiate between them, the bit mask
+The x32 ABI shares syscall table with x86-64 ABI, however, there are some
+nuances:
+.RS
+.IP \(bu 3
+In order to signalise that a system call is called under the x32 ABI, additional
 .I __X32_SYSCALL_BIT
-is bitwise-ORed into the system call number for system calls
-under the x32 ABI.
-Both system call tables are available though,
-so setting the bit is not a hard requirement.
+is bitwise-ORed with the system call number.
+The ABI used by a process affects some things, signal handling or syscall
+restarting, for example.
+.IP \(bu
+Since x32 has different sizes for
+.I long
+and pointer types, layouts of some (but not all;
+.B struct timeval
+or
+.B struct rlimit
+are 64-bit, for example) structures are different, and, in order to handle this,
+additional syscalls are added to the syscall table, starting from number 512
+(without the
+.IR __X32_SYSCALL_BIT );
+for example,
+.B __NR_readv
+is defined to 19 for x86-64 ABI and to
+.IR __X32_SYSCALL_BIT " | " \fB515\fP
+for x32 ABI.
+Most of there additional system calls are actually identical to the syscalls
+used for providing i386 compat; there are some notable exceptions, however,
+such as
+.BR preadv2 (2),
+that uses
+.B struct iovec
+entities with 4-byte pointers and sizes ("compat_iovec" in kernel's terms), but
+passes 8-byte
+.I pos
+argument in a single register and not two, as it is implemented in every other
+ABI.
 .RE
 .if t \{\
 .in

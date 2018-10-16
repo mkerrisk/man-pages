@@ -155,9 +155,16 @@ and the
 .BR exec ()
 step (executed in the child).
 .SS fork() step
-The
+Since glibc 2.24, the
 .BR posix_spawn ()
 function commences by calling
+.BR clone (2)
+with
+.BR CLONE_VM
+and
+.BR CLONE_VFORK
+flags.
+Older implementations use
 .BR fork (2),
 or possibly
 .BR vfork (2)
@@ -176,7 +183,7 @@ If the child fails in any of the housekeeping steps described below,
 or fails to execute the desired file,
 it exits with a status of 127.
 .PP
-The child process is created using
+Before glibc 2.24, the child process is created using
 .BR vfork (2)
 instead of
 .BR fork (2)
@@ -480,14 +487,16 @@ The
 and
 .BR posix_spawnp ()
 functions fail only in the case where the underlying
-.BR fork (2)
-or
+.BR fork (2),
 .BR vfork (2)
+or
+.BR clone (2)
 call fails;  in these cases, these functions return an error number,
 which will be one of the errors described for
-.BR fork (2)
+.BR fork (2),
+.BR vfork (2)
 or
-.BR vfork (2).
+.BR clone (2).
 .PP
 In addition, these functions fail if:
 .TP
@@ -527,13 +536,14 @@ only the POSIX-specified functions.
 although these objects may be implemented as structures containing fields,
 portable programs must avoid dependence on such implementation details.)
 .PP
-According to POSIX, it unspecified whether fork handlers established with
+According to POSIX, it is unspecified whether fork handlers established with
 .BR pthread_atfork (3)
 are called when
 .BR posix_spawn ()
 is invoked.
-On glibc,
+Since glibc 2.24, the fork handlers are not executed in any case.
 .\" Tested on glibc 2.12
+On older implementations,
 fork handlers are called only if the child is created using
 .BR fork (2).
 .PP

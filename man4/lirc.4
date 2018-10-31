@@ -1,4 +1,5 @@
 .\" Copyright (c) 2015-2016, Alec Leamas
+.\" Copyright (c) 2018, Sean Young <sean@mess.org>
 .\"
 .\" %%%LICENSE_START(GPLv2+_DOC_FULL)
 .\" This is free documentation; you can redistribute it and/or
@@ -33,12 +34,13 @@ When receiving data, the driver works in two different modes depending
 on the underlying hardware.
 .PP
 Some hardware (typically TV-cards) decodes the IR signal internally
-and just provides decoded button presses as integer values.
-Drivers for this kind of hardware work in
-.BR LIRC_MODE_LIRCCODE
+and provide decoded button presses as scancode values. Drivers for this
+kind of hardware work in
+.BR LIRC_MODE_SCANCODE
 mode.
 Such hardware usually does not support sending IR signals.
-Furthermore, it usually only works with a specific remote which is
+Furthermore, they can only decode a limited set of IR protocols, usually
+only the protocol of the specific remote which is
 bundled with, for example, a TV-card.
 .PP
 Other hardware provides a stream of pulse/space durations.
@@ -47,18 +49,20 @@ Such drivers work in
 mode.
 Sometimes, this kind of hardware also supports
 sending IR data.
-Such hardware can be used with (almost) any kind of remote.
+Such hardware can be used with (almost) any kind of remote. This type
+of hardware can also be used in
+.BR LIRC_MODE_SCANCODE
+mode, in which case the kernel IR decoders will decode the IR. These
+decoders can be written in bpf(2) and attached to the lirc device.
 .PP
 The \fBLIRC_GET_REC_MODE\fR ioctl (see below) allows probing for the
 mode.
 .\"
-.SS Reading input with the LIRC_MODE_MODE2 drivers
+.SS Reading input with the LIRC_MODE_MODE2 mode
 .PP
 In the \fBLIRC_MODE_MODE2 mode\fR, the data returned by
 .BR read (2)
-provides 32-bit values representing a space or a pulse duration, by
-convention typed as
-.IR lirc_t .
+provides 32-bit values representing a space or a pulse duration.
 The time of the duration (microseconds) is encoded in the lower 24 bits.
 The upper 8 bit reflects the type of package:
 .TP 4
@@ -74,26 +78,22 @@ Value reflects a frequency (Hz); see the
 ioctl.
 .TP 4
 .BR LIRC_MODE2_TIMEOUT .
+Value reflects a space duration (microseconds).
 The package reflects a timeout; see the
 .B LIRC_SET_REC_TIMEOUT_REPORTS
 ioctl.
 .\"
-.SS Reading input with the LIRC_MODE_LIRCCODE drivers
+.SS Reading input with the LIRC_MODE_SCANCODE mode
 .PP
-In the \fBLIRC_MODE_LIRCCODE\fR
+In the \fBLIRC_MODE_SCANCODE\fR
 mode, the data returned by
 .BR read (2)
-reflects decoded button presses.
-The length of each packet can be retrieved using
-the \fBLIRC_GET_LENGTH\fR ioctl.
-Reads must be done in blocks matching
-the bit count returned by the \fBLIRC_GET_LENGTH\fR ioctl, rounded
-up so it matches full bytes.
+reflects decoded button presses, in the struct \fBlirc_scancode\fR. The
+scancode is stored in the \fBscancode\fR field, and the IR protocol
+in \fBrc_proto\fR. This field has on the values of the \fBenum rc_proto\fR.
 .\"
-.SS Sending data
+.SS Writing output with the LIRC_MODE_PULSE mode
 .PP
-When sending data, only the \fBLIRC_MODE_PULSE\fR
-mode is supported.
 The data written to the character device using
 .BR write (2)
 is a pulse/space sequence of integer values.
@@ -109,6 +109,16 @@ If more data is provided than the hardware can send, the
 call fails with the error
 .BR EINVAL
 .\"
+.SS Writing output with the LIRC_MODE_SCANCODE mode
+.PP
+The data written to the character devices must be a single struct
+\fBlirc_scancode\fR. The \fBscancode\fR and \fBrc_proto\fR fields must
+filled in, all other fields must be 0. The kernel IR encoders will
+convert the scancode to pulses and spaces.
+.BR write (2)
+call fails with the error
+.BR EINVAL
+The protocol or scancode is invalid, or the lirc device cannot transmit.
 .SH IOCTL COMMANDS
 .PP
 The complete list of ioctl commands is maintained in the kernel
@@ -159,9 +169,9 @@ Return the receive mode, which will be one of:
 .BR LIRC_MODE_MODE2 " (\fIvoid\fP)"
 The driver returns a sequence of pulse/space durations.
 .TP
-.BR LIRC_MODE_LIRCCODE
-The driver returns integer values, each of which represents a decoded
-button press.
+.BR LIRC_MODE_SCANCODE
+The driver returns struct lirc_scancode values, each of which represents
+a decoded button press.
 .RE
 .PP
 If a device returns an error code for
@@ -180,27 +190,24 @@ failed.
 Set the receive mode.
 .IR val
 is either
-.BR LIRC_MODE_LIRCCODE
+.BR LIRC_MODE_SCANCODE
 or
 .BR LIRC_MODE_MODE2 .
 .TP
-.BR LIRC_GET_LENGTH " (\fIvoid\fP)"
-Return the length of the returned codes for
-.BR LIRC_MODE_LIRCCODE -type
-drivers, otherwise fail with the error
-.BR ENOIOCTLCMD .
-.TP
 .BR LIRC_GET_SEND_MODE " (\fIvoid\fP)"
 Return the send mode.
-Currently, only
 .BR LIRC_MODE_PULSE
+or
+.BR LIRC_MODE_SCANCODE
 is supported.
 .TP
 .BR LIRC_SET_SEND_MODE " (\fIint\fP)"
 Set the send mode.
-Currently serves no purpose since only
-.BR LIRC_MODE_PULSE
-is supported.
+.IR val
+is either
+.BR LIRC_MODE_SCANCODE
+or
+.BR LIRC_MODE_PULSE.
 .TP
 .BR LIRC_SET_SEND_CARRIER " (\fIint\fP)"
 Set the modulation frequency.
@@ -318,9 +325,9 @@ The following bits may be returned in the mask:
 The driver is capable of receiving using
 .BR LIRC_MODE_MODE2 .
 .TP
-.BR LIRC_CAN_REC_LIRCCODE
+.BR LIRC_CAN_REC_SCANCODE
 The driver is capable of receiving using
-.BR LIRC_MODE_LIRCCODE .
+.BR LIRC_MODE_SCANCODE .
 .TP
 .BR LIRC_CAN_SET_SEND_CARRIER
 The driver supports changing the modulation frequency using
@@ -364,14 +371,9 @@ The driver supports learning mode using
 .TP
 .BR LIRC_CAN_SEND_PULSE
 The driver supports sending using
-.BR LIRC_MODE_PULSE .
-.TP
-.BR LIRC_CAN_SEND_LIRCCODE
-The driver supports sending.
-(This is uncommon, since
-.BR LIRCCODE
-drivers reflect hardware like TV-cards which usually dos not support
-sending.)
+.BR LIRC_MODE_PULSE
+or
+.BR LIRC_MODE_SCANCODE
 .\"
 .SH BUGS
 Using these devices requires the kernel source header file

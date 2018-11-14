@@ -1756,6 +1756,7 @@ Child  (18535) 4
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <errno.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -1785,22 +1786,19 @@ fwait(int *futexp)
 {
     int s;
 
-    /* __sync_bool_compare_and_swap(ptr, oldval, newval) is a gcc
-       built\-in function.  It atomically performs the equivalent of:
+    /* atomic_compare_exchange_strong(ptr, oldval, newval)
+       atomically performs the equivalent of:
 
-           if (*ptr == oldval)
+           if (*ptr == *oldval)
                *ptr = newval;
 
-       It returns true if the test yielded true and *ptr was updated.
-       The alternative here would be to employ the equivalent atomic
-       machine\-language instructions.  For further information, see
-       the GCC Manual. */
+       It returns true if the test yielded true and *ptr was updated. */
 
     while (1) {
 
         /* Is the futex available? */
-
-        if (__sync_bool_compare_and_swap(futexp, 1, 0))
+        const int zero = 0;
+        if (atomic_compare_exchange_strong(futexp, &zero, 1))
             break;      /* Yes */
 
         /* Futex is not available; wait */
@@ -1820,10 +1818,10 @@ fpost(int *futexp)
 {
     int s;
 
-    /* __sync_bool_compare_and_swap() was described in comments above */
+    /* atomic_compare_exchange_strong() was described in comments above */
 
-    if (__sync_bool_compare_and_swap(futexp, 0, 1)) {
-
+    const int one = 1;
+    if (atomic_compare_exchange_strong(futexp, &one, 0)) {
         s = futex(futexp, FUTEX_WAKE, 1, NULL, NULL, 0);
         if (s  == \-1)
             errExit("futex\-FUTEX_WAKE");

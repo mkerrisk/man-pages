@@ -79,7 +79,31 @@ starved.
 .B PTHREAD_RWLOCK_PREFER_WRITER_NP
 This is intended as the write lock analog of
 .BR PTHREAD_RWLOCK_PREFER_READER_NP .
-But see BUGS.
+This is ignored by glibc because the POSIX requirement to support
+recursive writer locks would cause this option to create trivial
+deadlocks; instead use
+.B PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP
+which ensures the application developer will not take recursive
+read locks thus avoiding deadlocks.
+.\" ---
+.\" Here is the relevant wording:
+.\"
+.\"     A thread may hold multiple concurrent read locks on rwlock (that is,
+.\"     successfully call the pthread_rwlock_rdlock() function n times). If
+.\"     so, the thread must perform matching unlocks (that is, it must call
+.\"     the pthread_rwlock_unlock() function n times).
+.\"
+.\" By making write-priority work correctly, I broke the above requirement,
+.\" because. I had no clue that recursive read locks are permissible.
+.\"
+.\" If a thread which holds a read lock tries to acquire another read lock,
+.\" and now one or more writers is waiting for a write lock, then the algorithm
+.\" will lead to an obvious deadlock. The reader will be suspended, waiting for
+.\" the writers to acquire and release the lock, and the writers will be
+.\" suspended waiting for every existing read lock to be released.
+.\" ---
+.\" http://sources.redhat.com/ml/libc-alpha/2000-01/msg00055.html
+.\" https://sourceware.org/bugzilla/show_bug.cgi?id=7057
 .TP
 .B PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP
 Setting the lock kind to this
@@ -115,17 +139,5 @@ functions first appeared in glibc 2.1.
 .SH CONFORMING TO
 These functions are non-standard GNU extensions;
 hence the suffix "_np" (nonportable) in the names.
-.SH BUGS
-Setting the value read-write lock kind to
-.BR  PTHREAD_RWLOCK_PREFER_WRITER_NP
-results in the same behavior as setting the value to
-.BR PTHREAD_RWLOCK_PREFER_READER_NP .
-As long as a reader thread holds the lock, the thread holding a
-write lock will be starved.
-Setting the lock kind to
-.BR PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP
-allows writers to run, but, as the name implies a writer
-may not lock recursively.
-.\" http://sourceware.org/bugzilla/show_bug.cgi?id=7057
 .SH SEE ALSO
 .BR pthreads (7)

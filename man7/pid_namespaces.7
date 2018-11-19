@@ -64,14 +64,9 @@ using the
 .BR CLONE_NEWPID
 flag) has the PID 1, and is the "init" process for the namespace (see
 .BR init (1)).
-A child process that is orphaned within the namespace will be reparented
-to this process rather than
-.BR init (1)
-(unless one of the ancestors of the child
-in the same PID namespace employed the
-.BR prctl (2)
-.B PR_SET_CHILD_SUBREAPER
-command to mark itself as the reaper of orphaned descendant processes).
+This process becomes the parent of any child processes that are orphaned
+because a process that resides in this PID namespace terminated
+(see below for further details).
 .PP
 If the "init" process of a PID namespace terminates,
 the kernel terminates all of the processes in the namespace via a
@@ -248,6 +243,29 @@ flag only once.
 After it has performed this operation, its
 .IR /proc/PID/ns/pid_for_children
 symbolic link will be empty until the first child is created in the namespace.
+.\"
+.\" ============================================================
+.\"
+.SS Adoption of orphaned children
+When a child process becomes orphaned, it is reparented to the "init"
+process in the PID namespace of its parent
+(unless one of the nearer ancestors of the parent employed the
+.BR prctl (2)
+.B PR_SET_CHILD_SUBREAPER
+command to mark itself as the reaper of orphaned descendant processes).
+Note that because of the
+.BR setns (2)
+and
+.BR unshare (2)
+semantics described above, this may be the "init" process in the PID
+namespace that is the
+.I parent
+of the child's PID namespace,
+rather than the "init" process in the child's own PID namespace.
+\" Furthermore, by definition, the parent of the "init" process
+.\" of a PID namespace resides in the parent PID namespace.
+.\"
+.\" ============================================================
 .\"
 .SS Compatibility of CLONE_NEWPID with other CLONE_* flags
 In current versions of Linux,

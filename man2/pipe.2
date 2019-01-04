@@ -40,6 +40,13 @@ pipe, pipe2 \- create pipe
 .nf
 .B #include <unistd.h>
 .PP
+/* On Alpha, IA-64, MIPS, SuperH, and SPARC/SPARC64; see NOTES */
+.B struct fd_pair {
+.B "    long fd[2];"
+.B "};"
+.B struct fd_pair pipe();
+.PP
+/* On all other architectures */
 .BI "int pipe(int " pipefd "[2]);"
 
 .BR "#define _GNU_SOURCE" "             /* See feature_test_macros(7) */"
@@ -184,6 +191,25 @@ has been reached and the caller is not privileged; see
 was added to Linux in version 2.6.27;
 glibc support is available starting with
 version 2.9.
+.SH NOTES
+.\" See http://math-atlas.sourceforge.net/devel/assembly/64.psabi.1.33.ps.Z
+.\" for example, section 3.2.1 "Registers and the Stack Frame".
+SystemV ABI on some architectures allows using more than one register
+for returning multiple values; several architectures
+(namely, Alpha, IA-64, MIPS, SuperH, and SPARC/SPARC64)
+(ab)use this feature in order to implement
+.BR pipe ()
+system call in a functional manner: it doesn't take any arguments and returns
+a pair of file descriptors as a return value on success.
+The glibc
+.BR pipe ()
+wrapper function transparently deal with this.
+See
+.BR syscall (2)
+for information regarding registers used for storing second file descriptor.
+Other examples of such peculiarity are
+.BR getxpid (2)/ getxuid (2)/ getxgid (2)
+on Alpha.
 .SH CONFORMING TO
 .BR pipe ():
 POSIX.1-2001, POSIX.1-2008.

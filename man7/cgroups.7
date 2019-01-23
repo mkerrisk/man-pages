@@ -870,7 +870,7 @@ to this file means that no limit is imposed.
 The default value in this file is
 .IR """max""" .
 .\"
-.SH Cgroups v2 delegation: delegation to a less privileged user
+.SH CGROUPS DELEGATION: DELEGATING A HIERARCHY TO A LESS PRIVILEGED USER
 In the context of cgroups,
 delegation means passing management of some subtree
 of the cgroup hierarchy to a nonprivileged user.
@@ -878,6 +878,8 @@ Cgroups v1 provides support for delegation based on file permissions
 in the cgroup hierarchy but with less strict containment rules than v2
 (as noted below).
 Cgroups v2 supports delegation with containment by explicit design.
+The focus of the discussion in this section is on delegation in cgroups v2,
+with some differences for cgroups v1 noted along the way.
 .PP
 Some terminology is required in order to describe delegation.
 A
@@ -908,7 +910,7 @@ will also be owned by the delegatee.
 Changing the ownership of this file means that the delegatee
 can move processes into the root of the delegated subtree.
 .TP
-.IR /dlgt_grp/cgroup.subtree_control
+.IR /dlgt_grp/cgroup.subtree_control " (cgroups v2 only)"
 Changing the ownership of this file means that that the delegatee
 can enable controllers (that are present in
 .IR /dlgt_grp/cgroup.controllers )
@@ -916,7 +918,7 @@ in order to further redistribute resources at lower levels in the subtree.
 (As an alternative to changing the ownership of this file,
 the delegater might instead add selected controllers to this file.)
 .TP
-.IR /dlgt_grp/cgroup.threads
+.IR /dlgt_grp/cgroup.threads " (cgroups v2 only)"
 Changing the ownership of this file is necessary if a threaded subtree
 is being delegated (see the description of "thread mode", below).
 This permits the delegatee to write thread IDs to the file.
@@ -926,6 +928,10 @@ since, as described below, it is not possible to move a thread between
 domain cgroups by writing its thread ID to the
 .IR cgroup.threads
 file.)
+.IP
+In cgroups v1, the corresponding file that should instead be delegated is the
+.I tasks
+file.
 .PP
 The delegater should
 .I not
@@ -941,7 +947,7 @@ the resources that are distributed into the delegated subtree.
 .PP
 See also the discussion of the
 .IR /sys/kernel/cgroup/delegate
-file in NOTES.
+file in NOTES for information about further delegatable files in cgroups v2.
 .PP
 After the aforementioned steps have been performed,
 the delegatee can create child cgroups within the delegated subtree
@@ -957,7 +963,7 @@ of the corresponding resources into the delegated subtree.
 .SS Cgroups v2 delegation: nsdelegate and cgroup namespaces
 Starting with Linux 4.13,
 .\" commit 5136f6365ce3eace5a926e10f16ed2a233db5ba9
-there is a second way to perform cgroup delegation.
+there is a second way to perform cgroup delegation in the cgroups v2 hierarchy.
 This is done by mounting or remounting the cgroup v2 filesystem with the
 .I nsdelegate
 mount option.
@@ -1067,7 +1073,7 @@ not to mount and use the cgroup v2 hierarchy,
 so that the v2 hierarchy can be manually mounted
 with the desired options after boot-up.
 .\"
-.SS Cgroup v2 delegation containment rules
+.SS Cgroup delegation containment rules
 Some delegation
 .IR "containment rules"
 ensure that the delegatee can move processes between cgroups within the
@@ -1088,17 +1094,22 @@ The writer has write permission on the
 file in the nearest common ancestor of the source and destination cgroups.
 Note that in some cases,
 the nearest common ancestor may be the source or destination cgroup itself.
-(This requirement is not enforced for cgroups v1 hierarchies.)
+This requirement is not enforced for cgroups v1 hierarchies,
+with the consequence that containment in v1 is less strict than in v2.
+(For example, in cgroups v1 the user that owns two distinct
+delegated subhierarchies can move a process between the hierarchies.)
 .IP *
 If the cgroup v2 filesystem was mounted with the
 .I nsdelegate
 option, the writer must be able to see the source and destination cgroups
 from its cgroup namespace.
 .IP *
-Before Linux 4.11:
-.\" commit 576dd464505fc53d501bb94569db76f220104d28
+In cgroups v1:
 the effective UID of the writer (i.e., the delegatee) matches the
 real user ID or the saved set-user-ID of the target process.
+Before Linux 4.11,
+.\" commit 576dd464505fc53d501bb94569db76f220104d28
+this requirement also applied in cgroups v2
 (This was a historical requirement inherited from cgroups v1
 that was later deemed unnecessary,
 since the other rules suffice for containment in cgroups v2.)

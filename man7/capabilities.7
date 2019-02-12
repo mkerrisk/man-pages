@@ -1186,61 +1186,77 @@ since it does not employ the
 API.
 .\"
 .SS Capabilities and execution of programs by root
-.\" See cap_bprm_set_creds() and handle_privileged_root() in
-.\" security/commoncap.c (Linux 5.0 source)
+.\" See cap_bprm_set_creds(), bprm_caps_from_vfs_cap() and
+.\" handle_privileged_root() in security/commoncap.c (Linux 5.0 source)
 In order to mirror traditional UNIX semantics,
-execution of programs by root (UID 0)
-as well as execution of set-user-ID-root programs
-result in special treatment of capabilities during an
-.BR execve (2).
+the kernel performs special treatment of file capabilities when
+a process with UID 0 (root) executes a program and
+when a set-user-ID-root program is executed.
 .PP
-When a process with nonzero UIDs executes a binary:
+After having performed any changes to the process effective ID that
+were triggered by the set-user-ID mode bit of the binary\(eme.g.,
+switching the effective user ID to 0 (root) because
+a set-user-ID-root program was executed\(emthe
+kernel calculates the file capability sets as follows:
 .IP 1. 3
 If the real or effective user ID of the process is 0 (root),
-then the file inheritable and permitted sets are defined to be all ones
+then the file inheritable and permitted sets are ignored;
+instead they are notionally considered to be all ones
 (i.e., all capabilities enabled).
+(There is one exception to this behavior, described below in
+.IR "Set-user-ID-root programs that have file capabilities" .)
 .IP 2.
 If the effective user ID of the process is 0 (root) or
 the file effective bit is in fact enabled,
-then the file effective bit is defined to be one (enabled).
+then the file effective bit is notionally defined to be one (enabled).
 .PP
-If a process with nonzero user IDs executes a set-user-ID-root binary
-that does not have attached capabilities,
-the file capability sets are considered to be all ones.
-(See below for a discussion of what happens
-when a process with nonzero UIDs executes a binary
-that is both set-user-ID root and has attached file capabilities.)
+These notional values for the file's capability sets are then used
+as described above to calculate the transformation of the process's
+capabilities during
+.BR execve (2).
 .PP
-The upshot of the above rules,
-combined with the capabilities transformations described above,
-is as follows:
-.IP * 3
-When a process with nonzero UIDs
+Thus, when a process with nonzero UIDs
 .BR execve (2)s
-a set-user-ID-root program, or when a process with an effective UID of 0
+a set-user-ID-root program that does not have capabilities attached,
+or when a process whose real and effective UIDs are zero
 .BR execve (2)s
-a program,
-it gains all capabilities in its permitted and effective capability sets,
+a program, the calculation of the process's new
+permitted capabilities simplifies to:
+.PP
+.in +4n
+.EX
+P'(permitted)   = P(inheritable) | P(bounding)
+
+P'(effective)   = P'(permitted)
+.EE
+.in
+.PP
+Consequently, the process gains all capabilities in its permitted and
+effective capability sets,
 except those masked out by the capability bounding set.
-.IP *
-When a process with a real UID of 0
-.BR execve (2)s
-a program,
-it gains all capabilities in its permitted capability set,
-.\" but no effective capabilities
-except those masked out by the capability bounding set.
-If, in addition, the file permitted capability bit is on,
-the process's new permitted capabilities are also assigned
-to its effective set.
+(In the calculation of P'(permitted),
+the P'(ambient) term can be simplified away because it is by
+definition a proper subset of P(inheritable).)
 .PP
-The above special treatments of user ID 0 can be disabled using the
-securebits mechanism described below.
+The special treatments of user ID 0 (root) described in this subsection
+can be disabled using the securebits mechanism described below.
+.\"
 .\"
 .SS Set-user-ID-root programs that have file capabilities
-Executing a program that is both set-user-ID root and has
-file capabilities by a process that has nonzero UIDs
-will cause the process to gain just the
-capabilities granted by the program
+There is one exception to the behavior described under
+.IR "Capabilities and execution of programs by root" .
+If (a) the binary that is being executed has capabilities attached and
+(b) the real user ID of the process is
+.I not
+0 (root) and
+(c) the effective user ID of the process
+.I is
+0 (root), then the file capability bits are honored
+(i.e., they are not notionally considered to be all ones).
+The usual way in which this situation can arise is when executing
+a set-UID-root program that also has file capabilities.
+When such a program is executed,
+the process gains just the capabilities granted by the program
 (i.e., not all capabilities,
 as would occur when executing a set-user-ID-root program
 that does not have any associated file capabilities).

@@ -25,7 +25,7 @@
 .\"
 .TH MALLOC_TRIM 3  2017-09-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-malloc_trim \- release free memory from the top of the heap
+malloc_trim \- release free memory from the heap
 .SH SYNOPSIS
 .B #include <malloc.h>
 .PP
@@ -33,10 +33,12 @@ malloc_trim \- release free memory from the top of the heap
 .SH DESCRIPTION
 The
 .BR malloc_trim ()
-function attempts to release free memory at the top of the heap
+function attempts to release free memory from the heap
 (by calling
 .BR sbrk (2)
-with a suitable argument).
+or
+.BR madvise (2)
+with suitable arguments).
 .PP
 The
 .I pad
@@ -82,12 +84,18 @@ and
 in
 .BR mallopt (3).
 .PP
-This function cannot release free memory located at places
-other than the top of the heap.
+Only the main heap (using
+.BR sbrk (2)
+) honors the pad argument; thread heaps do not.
 .PP
-This function releases only memory in the main arena.
-.\" malloc/malloc.c::mTRIm():
-.\"     return result | (av == &main_arena ? sYSTRIm (pad, av) : 0);
+Since glibc 2.8 this function frees memory in all arenas and in all
+chunks with whole free pages.
+.\" See commit 68631c8eb92ff38d9da1ae34f6aa048539b199cc
+.\" (dated 2007-12-16) which adds iteration over all
+.\" arenas and frees all pages in chunks which are free.
+.PP
+Before glibc 2.8 this function only freed memory at the
+top of the heap in the main arena.
 .SH SEE ALSO
 .BR sbrk (2),
 .BR malloc (3),

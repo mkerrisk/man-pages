@@ -539,6 +539,42 @@ The flag disappeared completely from the kernel sources in Linux 2.5.16.
 Since then, the kernel silently ignores this bit if it is specified in
 .IR flags .
 .TP
+.BR CLONE_PIDFD " (since Linux 5.2)"
+If
+.B CLONE_PIDFD
+is set,
+.BR clone ()
+stores a process file descriptor ("pidfd") referring to the child process at
+the location
+.I ptid
+in the parent's memory. Note, that the kernel verifies that the value for
+.I ptid
+is zero. If it is not an error will be returned. This ensures that
+.I ptid
+can potentially be used to specify additional options for
+.B CLONE_PIDFD
+in the future.
+.IP
+Since the
+.I ptid
+argument is used to return the pidfd,
+.B CLONE_PIDFD
+cannot be used with
+.B CLONE_PARENT_SETTID.
+.IP
+It is currently not possible to use this flag together with
+.B CLONE_THREAD.
+This means that the process identified by the pidfd will always be a
+thread-group leader.
+.IP
+For a while there was a
+.B CLONE_DETACHED
+flag. This flag is usually ignored when passed along with other flags.
+However, when passed alongside
+.B CLONE_PIDFD
+an error will be returned. This ensures that this flag can be reused
+for further pidfd features in the future.
+.TP
 .BR CLONE_PTRACE " (since Linux 2.2)"
 If
 .B CLONE_PTRACE
@@ -1121,6 +1157,21 @@ is not aligned to a suitable boundary for this architecture.
 For example, on aarch64,
 .I child_stack
 must be a multiple of 16.
+.TP
+.B EINVAL
+.B CLONE_PIDFD
+was specified together with
+.B CLONE_DETACHED.
+.TP
+.B EINVAL
+.B CLONE_PIDFD
+was specified together with
+.B CLONE_PARENT_SETTID.
+.TP
+.B EINVAL
+.B CLONE_PIDFD
+was specified together with
+.B CLONE_THREAD.
 .TP
 .B ENOMEM
 Cannot allocate sufficient memory to allocate a task structure for the

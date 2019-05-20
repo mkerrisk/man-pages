@@ -54,7 +54,7 @@ of the new namespace.
 (This applies both for the cgroups version 1 hierarchies
 and the cgroups version 2 unified hierarchy.)
 .PP
-When viewing
+When reading the cgroup memberships of a "target" process from
 .IR /proc/[pid]/cgroup ,
 the pathname shown in the third field of each record will be
 relative to the reading process's root directory
@@ -68,7 +68,8 @@ entries for each ancestor level in the cgroup hierarchy.
 The following shell session demonstrates the effect of creating
 a new cgroup namespace.
 .PP
-First, (as superuser) we create a child cgroup in the
+First, (as superuser) in a shell in the initial cgroup namespace,
+we create a child cgroup in the
 .I freezer
 hierarchy, and place a process in that cgroup that we will
 use as part of the demonstration below:
@@ -107,11 +108,12 @@ to create a process running a new shell in new cgroup and mount namespaces:
 .in
 .EE
 .PP
-We then inspect the
+From the new shell started by
+.BR unshare (1),
+we then inspect the
 .IR /proc/[pid]/cgroup
-files of, respectively, the new shell process started by the
-.BR unshare (1)
-command, a process that is in the initial cgroup namespace
+files of, respectively, the new shell,
+a process that is in the initial cgroup namespace
 .RI ( init ,
 with PID 1), and the process in the sibling cgroup
 .RI ( sub2 ):
@@ -160,11 +162,12 @@ Since by the definition of cgroup namespaces, the process's current
 freezer cgroup directory became its root freezer cgroup directory,
 we should see \(aq/\(aq in this field.
 The problem here is that we are seeing a mount entry for the cgroup
-filesystem corresponding to our initial shell process's cgroup namespace
-(whose cgroup filesystem is indeed rooted in the parent directory of
+filesystem corresponding to the initial cgroup namespace
+(whose cgroup filesystem is indeed rooted at the parent directory of
 .IR sub ).
-We need to remount the freezer cgroup filesystem
-inside this cgroup namespace, after which we see the expected results:
+To fix this problem, we must remount the freezer cgroup filesystem
+from the new shell (i.e., perform the mount from a process that is in the
+new cgroup namespace), after which we see the expected results:
 .PP
 .EX
 .in +4n

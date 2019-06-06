@@ -126,6 +126,15 @@ is not itself a mount point, the mount point containing
 will be marked.
 All directories, subdirectories, and the contained files of the mount point
 will be monitored.
+This value cannot be used if the
+.I fanotify_fd
+file descriptor has been initialized with the flag
+.BR FAN_REPORT_FID
+or if any of the new directory modification events are provided as a
+.IR mask .
+Attempting to do so will result in the error
+.B EINVAL
+being returned.
 .TP
 .BR FAN_MARK_FILESYSTEM " (since Linux 4.20)"
 .\" commit d54f4fba889b205e9cd8239182ca5d27d0ac3bc2
@@ -171,6 +180,28 @@ Create an event when a file or directory is opened.
 Create an event when a file is opened with the intent to be executed.
 See NOTES for additional details.
 .TP
+.B FAN_ATTRIB
+Create an event when the metadata for a file or directory has changed.
+.TP
+.B FAN_CREATE
+Create an event when a file or directory has been created in a marked
+parent directory.
+.TP
+.B FAN_DELETE
+Create an event when a file or directory has been deleted in a marked
+parent directory.
+.TP
+.B FAN_DELETE_SELF
+Create an event when a marked file or directory itself is deleted.
+.TP
+.B FAN_MOVED_FROM
+Create an event when a file or directory has been moved from a marked
+parent directory.
+.TP
+.B FAN_MOVED_TO
+Create an event when a file or directory has been moved to a marked parent
+directory.
+.TP
 .B FAN_Q_OVERFLOW
 Create an event when an overflow of the event queue occurs.
 The size of the event queue is limited to 16384 entries if
@@ -205,13 +236,33 @@ or
 is required.
 .TP
 .B FAN_ONDIR
-Create events for directories\(emfor example, when
+Create events for directories \(em for example, when
 .BR opendir (3),
 .BR readdir (3)
 (but see BUGS), and
 .BR closedir (3)
 are called.
 Without this flag, only events for files are created.
+The
+.BR FAN_ONDIR
+flag is reported in an event mask only if the
+.I fanotify_fd
+file descriptor has been initialized with the flag
+.BR FAN_REPORT_FID .
+In the context of directory entry events, such as
+.BR FAN_CREATE ,
+.BR FAN_DELETE ,
+.BR FAN_MOVED_FROM
+and
+.BR FAN_MOVED_TO
+for example, specifying the flag
+.BR FAN_ONDIR
+is required in order to create events when subdirectory entries are
+modified (i.e. mkdir/rmdir).
+Subdirectory entry modification events will never be merged with non
+subdirectory entry modification events.
+This flag is never reported individually within an event and is always
+supplied in conjunction with another event type.
 .TP
 .B FAN_EVENT_ON_CHILD
 Events for the immediate children of marked directories shall be created.
@@ -221,11 +272,15 @@ of marked directories.
 To monitor complete directory trees it is necessary to mark the relevant
 mount.
 .PP
-The following composed value is defined:
+The following composed values are defined:
 .TP
 .B FAN_CLOSE
 A file is closed
 .RB ( FAN_CLOSE_WRITE | FAN_CLOSE_NOWRITE ).
+.TP
+.B FAN_MOVE
+A file or directory has been moved
+.RB ( FAN_MOVED_FROM | FAN_MOVED_TO ).
 .PP
 The filesystem object to be marked is determined by the file descriptor
 .I dirfd
@@ -297,6 +352,8 @@ was not an fanotify file descriptor.
 .B EINVAL
 The fanotify file descriptor was opened with
 .B FAN_CLASS_NOTIF
+or
+.B FAN_REPORT_FID
 and mask contains a flag for permission events
 .RB ( FAN_OPEN_PERM
 or
@@ -335,6 +392,41 @@ and
 and
 .I pathname
 do not specify a directory.
+.TP
+.B EXDEV
+The object indicated by
+.I pathname
+resides within a filesystem subvolume (e.g. btrfs) which uses a different
+.I fsid
+than its root superblock.
+This error can only be returned when an fanotify file descriptor returned
+by
+.BR fanotify_init (2)
+has been created with
+.BR FAN_REPORT_FID .
+.TP
+.B ENODEV
+The object indicated by
+.I pathname
+is not associated with a filesystem that supports
+.I fsid
+(e.g. tmpfs).
+This error can only be returned when an fanotify file descriptor returned
+by
+.BR fanotify_init (2)
+has been created with
+.BR FAN_REPORT_FID .
+.TP
+.B EOPNOTSUPP
+The object indicated by
+.I pathname
+is associated with a filesystem that does not support the encoding of file
+handles.
+This error can only be returned when an fanotify file descriptor returned
+by
+.BR fanotify_init (2)
+has been created with
+.BR FAN_REPORT_FID .
 .SH VERSIONS
 .BR fanotify_mark ()
 was introduced in version 2.6.36 of the Linux kernel and enabled in version

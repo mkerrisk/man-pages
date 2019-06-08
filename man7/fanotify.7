@@ -405,7 +405,7 @@ also contains a
 field.
 In the current implementation, the value of
 .I len
-is always (event_len - FAN_EVENT_METADATA_LEN).
+is always (event_len \- FAN_EVENT_METADATA_LEN).
 .TP
 .I fsid
 This is a unique identifier of the filesystem containing the object
@@ -771,7 +771,7 @@ Listening for events.
 FAN_CREATE | FAN_ONDIR (subdirectory created): Directory /home/user has been modified.
 All events processed successfully. Program exiting.
 
-$ mkdir -p /home/user/testing
+$ mkdir \-p /home/user/testing
 .EE
 .in
 .SS Program source: fanotify_example.c
@@ -787,7 +787,7 @@ $ mkdir -p /home/user/testing
 #include <sys/fanotify.h>
 #include <unistd.h>
 
-/* Read all available fanotify events from the file descriptor 'fd' */
+/* Read all available fanotify events from the file descriptor \(aqfd\(aq */
 
 static void
 handle_events(int fd)
@@ -868,7 +868,7 @@ handle_events(int fd)
                     exit(EXIT_FAILURE);
                 }
 
-                path[path_len] = '\e0';
+                path[path_len] = \(aq\e0\(aq;
                 printf("File %s\en", path);
 
                 /* Close the file descriptor of the event */
@@ -954,7 +954,7 @@ main(int argc, char *argv[])
 
                 /* Console input is available: empty stdin and quit */
 
-                while (read(STDIN_FILENO, &buf, 1) > 0 && buf != '\en')
+                while (read(STDIN_FILENO, &buf, 1) > 0 && buf != \(aq\en\(aq)
                     continue;
                 break;
             }
@@ -1002,7 +1002,7 @@ int main(int argc, char **argv)
     struct fanotify_event_info_fid *fid;
 
     if (argc != 2) {
-        fprintf(stderr, "Invalid number of command line arguments.\\n");
+        fprintf(stderr, "Invalid number of command line arguments.\e\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1010,7 +1010,7 @@ int main(int argc, char **argv)
        so that program can receive fid events. */
 
     fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID, 0);
-    if (fd == -1) {
+    if (fd == \-1) {
         perror("fanotify_init");
         exit(EXIT_FAILURE);
     }
@@ -1020,17 +1020,17 @@ int main(int argc, char **argv)
     ret = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR,
                         FAN_CREATE | FAN_ONDIR,
                         AT_FDCWD, argv[1]);
-    if (ret == -1) {
+    if (ret == \-1) {
         perror("fanotify_mark");
         exit(EXIT_FAILURE);
     }
 
-    printf("Listening for events.\\n");
+    printf("Listening for events.\e\n");
 
     /* Read events from the event queue into a buffer */
 
     len = read(fd, (void *) &events_buf, sizeof(events_buf));
-    if (len == -1 && errno != EAGAIN) {
+    if (len == \-1 && errno != EAGAIN) {
         perror("read");
         exit(EXIT_FAILURE);
     }
@@ -1046,7 +1046,7 @@ int main(int argc, char **argv)
         /* Ensure that the event info is of the correct type */
 
         if (fid->hdr.info_type != FAN_EVENT_INFO_TYPE_FID) {
-            fprintf(stderr, "Received unexpected event info type.\\n");
+            fprintf(stderr, "Received unexpected event info type.\e\n");
             exit(EXIT_FAILURE);
         }
 
@@ -1058,17 +1058,17 @@ int main(int argc, char **argv)
 
         /* metadata->fd is set to FAN_NOFD when FAN_REPORT_FID is enabled.
            To obtain a file descriptor for the file object corresponding to
-           an event you can use the struct file_handle that's provided
+           an event you can use the struct file_handle that\(aqs provided
            within the fanotify_event_info_fid in conjunction with the
-           open_by_handle_at(2) system call. A check for -ESTALE is done
+           open_by_handle_at(2) system call. A check for \-ESTALE is done
            to accommodate for the situation where the file handle was
            deleted for the object prior to this system call. */
 
         event_fd = open_by_handle_at(AT_FDCWD, file_handle, O_RDONLY);
-        if (ret == -1 && errno == ESTALE) {
-            printf("File handle is no longer valid. File has been deleted\\n");
+        if (ret == \-1 && errno == ESTALE) {
+            printf("File handle is no longer valid. File has been deleted\e\n");
             continue;
-        } else if (ret == -1) {
+        } else if (ret == \-1) {
             perror("open_by_handle_at");
             exit(EXIT_FAILURE);
         }
@@ -1077,20 +1077,21 @@ int main(int argc, char **argv)
 
         /* Retrieve and print the path of the modified dentry */
 
-        path_len = readlink(procfd_path, path, sizeof(path) - 1);
-        if (path_len == -1) {
+        path_len = readlink(procfd_path, path, sizeof(path) \- 1);
+        if (path_len == \-1) {
             perror("readlink");
             exit(EXIT_FAILURE);
         }
 
-        path[path_len] = '\\0';
-        printf("Directory '%s' has been modified.\\n", path);
+        path[path_len] = \(aq\e\0\(aq;
+        printf("Directory \(aq%s\(aq has been modified.\e\n", path);
 
         /* Close associated file descriptor for this event */
+
         close(event_fd);
     }
 
-    printf("All events processed successfully. Program exiting.\\n");
+    printf("All events processed successfully. Program exiting.\e\n");
     exit(EXIT_SUCCESS);
 }
 .EE

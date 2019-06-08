@@ -1007,8 +1007,8 @@ int main(int argc, char **argv)
     }
 
     /* Create an fanotify file descriptor with FAN_REPORT_FID as a flag
-     * so that program can receive fid events.
-     */
+       so that program can receive fid events. */
+
     fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID, 0);
     if (fd == -1) {
         perror("fanotify_init");
@@ -1016,6 +1016,7 @@ int main(int argc, char **argv)
     }
 
     /* Place a mark on the filesystem object supplied in argv[1]. */
+
     ret = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR,
                         FAN_CREATE | FAN_ONDIR,
                         AT_FDCWD, argv[1]);
@@ -1027,6 +1028,7 @@ int main(int argc, char **argv)
     printf("Listening for events.\\n");
 
     /* Read events from the event queue into a buffer */
+
     len = read(fd, (void *) &events_buf, sizeof(events_buf));
     if (len == -1 && errno != EAGAIN) {
         perror("read");
@@ -1034,6 +1036,7 @@ int main(int argc, char **argv)
     }
 
     /* Process all events within the buffer */
+
     for (metadata = (struct fanotify_event_metadata *) events_buf;
             FAN_EVENT_OK(metadata, len);
             metadata = FAN_EVENT_NEXT(metadata, len)) {
@@ -1041,6 +1044,7 @@ int main(int argc, char **argv)
         file_handle = (struct file_handle *) fid->handle;
 
         /* Ensure that the event info is of the correct type */
+
         if (fid->hdr.info_type != FAN_EVENT_INFO_TYPE_FID) {
             fprintf(stderr, "Received unexpected event info type.\\n");
             exit(EXIT_FAILURE);
@@ -1053,13 +1057,13 @@ int main(int argc, char **argv)
             printf("FAN_CREATE | FAN_ONDIR (subdirectory created): ");
 
         /* metadata->fd is set to FAN_NOFD when FAN_REPORT_FID is enabled.
-         * To obtain a file descriptor for the file object corresponding to
-         * an event you can use the struct file_handle that's provided
-         * within the fanotify_event_info_fid in conjunction with the
-         * open_by_handle_at(2) system call. A check for -ESTALE is done
-         * to accommodate for the situation where the file handle was
-         * deleted for the object prior to this system call.
-         */
+           To obtain a file descriptor for the file object corresponding to
+           an event you can use the struct file_handle that's provided
+           within the fanotify_event_info_fid in conjunction with the
+           open_by_handle_at(2) system call. A check for -ESTALE is done
+           to accommodate for the situation where the file handle was
+           deleted for the object prior to this system call. */
+
         event_fd = open_by_handle_at(AT_FDCWD, file_handle, O_RDONLY);
         if (ret == -1 && errno == ESTALE) {
             printf("File handle is no longer valid. File has been deleted\\n");
@@ -1072,6 +1076,7 @@ int main(int argc, char **argv)
         snprintf(procfd_path, sizeof(procfd_path), "/proc/self/fd/%d", event_fd);
 
         /* Retrieve and print the path of the modified dentry */
+
         path_len = readlink(procfd_path, path, sizeof(path) - 1);
         if (path_len == -1) {
             perror("readlink");

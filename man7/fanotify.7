@@ -680,11 +680,12 @@ will not be set.
 Thus, the reading application has no way to detect the error.
 .SH EXAMPLE
 The two example programs below demonstrate the usage of the fanotify API.
-The first program (fanotify_example.c) is an example of fanotify being
+.SS Example program: fanotify_example.c
+The first program is an example of fanotify being
 used with its event object information passed in the form of a file
 descriptor.
-It marks the mount point passed as a command-line argument and waits for
-events of type
+The program marks the mount point passed as a command-line argument and
+waits for events of type
 .B FAN_OPEN_PERM
 and
 .BR FAN_CLOSE_WRITE .
@@ -692,21 +693,8 @@ When a permission event occurs, a
 .B FAN_ALLOW
 response is given.
 .PP
-The second program (fanotify_fid.c) is an example of fanotify being used
-with
-.B FAN_REPORT_FID
-enabled.
-It attempts to mark the filesystem object that is passed as
-a command-line argument
-and waits until an event of type
-.B FAN_CREATE
-has occurred.
-Depending on whether a file or directory is created depends on what mask
-is returned in the event mask.
-Once all events have been read from the buffer and processed accordingly,
-the program simply terminates.
-.PP
-The first example program output was captured from fanotify_example.
+The following shell session shows an example of
+running this program.
 This session involved editing the file
 .IR /home/user/temp/notes .
 Before the file was opened, a
@@ -717,33 +705,6 @@ After the file was closed, a
 event occurred.
 Execution of the program ends when the user presses the ENTER key.
 .PP
-The second example program output was captured from fanotify_fid.
-There are two discrete invocations of this program, with each invocation
-accommodating a different action performed on a watched object.
-This first session shows a mark being placed on
-.IR /home/user .
-This is followed by a subsequent regular file
-.IR /home/user/testfile.txt
-being created.
-This results in a
-.B FAN_CREATE
-event being created and reported against the file's parent watched
-directory object.
-Program execution ends once all events captured within the buffer have
-been processed.
-The second session shows a mark being placed on
-.IR /home/user .
-This is followed by a directory
-.IR /home/user/testdir
-being created.
-This specific action results in the program producing a
-.B FAN_CREATE
-and
-.B FAN_ONDIR
-event.
-Program execution ends once all events captured within the buffer are
-processed.
-.SS Example output (fanotify_example.c)
 .in +4n
 .EX
 # \fB./fanotify_example /home\fP
@@ -754,26 +715,7 @@ FAN_CLOSE_WRITE: File /home/user/temp/notes
 
 Listening for events stopped.
 .EE
-.SS Example output (fanotify_fid.c)
-.in +4n
-.EX
-# \fB./fanotify_fid /home/user\fP
-Listening for events.
-FAN_CREATE (file created):
-        Directory /home/user has been modified.
-All events processed successfully. Program exiting.
-
-$ \fBtouch /home/user/testing\fP
-
----
-
-# \fB./fanotify_fid /home/user\fP
-Listening for events.
-FAN_CREATE | FAN_ONDIR (subdirectory created):
-        Directory /home/user has been modified.
-All events processed successfully. Program exiting.
-
-$ \fBmkdir \-p /home/user/testing\fP
+.in
 .EE
 .in
 .SS Program source: fanotify_example.c
@@ -973,6 +915,68 @@ main(int argc, char *argv[])
     printf("Listening for events stopped.\en");
     exit(EXIT_SUCCESS);
 }
+.EE
+.\"
+.SS Example program: fanotify_fid.c
+The second program is an example of fanotify being used with
+.B FAN_REPORT_FID
+enabled.
+The program attempts to mark the filesystem object that is passed as
+a command-line argument
+and waits until an event of type
+.B FAN_CREATE
+has occurred.
+Depending on whether a file or directory is created depends on what mask
+is returned in the event mask.
+Once all events have been read from the buffer and processed accordingly,
+the program simply terminates.
+.PP
+The following shell sessions show two different invocations of
+this program, with different actions performed on a watched object.
+.PP
+The first session shows a mark being placed on
+.IR /home/user .
+This is followed by the creation of a regular file,
+.IR /home/user/testfile.txt .
+This results in a
+.B FAN_CREATE
+event being created and reported against the file's parent watched
+directory object.
+Program execution ends once all events captured within the buffer have
+been processed.
+Program execution ends once all events captured within the buffer are
+processed.
+.PP
+.in +4n
+.EX
+# \fB./fanotify_fid /home/user\fP
+Listening for events.
+FAN_CREATE (file created): Directory /home/user has been modified.
+All events processed successfully. Program exiting.
+
+$ \fBtouch /home/user/testing\fP              # In another terminal
+.EE
+.in
+.PP
+The second session shows a mark being placed on
+.IR /home/user .
+This is followed by the creation of a directory,
+.IR /home/user/testdir .
+This specific action results in the program producing a
+.B FAN_CREATE
+and
+.B FAN_ONDIR
+event.
+.PP
+.in +4n
+.EX
+# \fB./fanotify_fid /home/user\fP
+Listening for events.
+FAN_CREATE | FAN_ONDIR (subdirectory created):
+        Directory /home/user has been modified.
+All events processed successfully. Program exiting.
+
+$ \fBmkdir \-p /home/user/testing\fP          # In another terminal
 .EE
 .in
 .SS Program source: fanotify_fid.c

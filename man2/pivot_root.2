@@ -80,7 +80,8 @@ can't be
 .IR """/"""
 (but can be a bind mounted directory on the current root filesystem).
 .IP \-
-\fIput_old\fP must be underneath \fInew_root\fP, that is, adding a nonzero
+\fIput_old\fP must be at or underneath \fInew_root\fP;
+that is, adding a nonnegative
 number of \fI/..\fP to the string pointed to by \fIput_old\fP must yield
 the same directory as \fInew_root\fP.
 .IP \-
@@ -208,6 +209,42 @@ is necessary in order to prevent kernel threads from keeping the old
 root directory busy with their root and current working directory,
 even if they never access
 the filesystem in any way.
+.PP
+.I new_root
+and
+.I put_old
+may be the same directory.
+In particular, the following sequence allows a pivot-root operation
+without needing to create and remove a temporary directory:
+.PP
+.in +4n
+.EX
+chdir(new_root);
+pivot_root(".", ".");
+umount2(".", MNT_DETACH);
+.EE
+.in
+.PP
+This sequence succeeds because the
+.BR pivot_root ()
+call stacks the old root mount point
+.RI ( old_root )
+on top of the new root mount point at
+.IR / .
+At that point, the calling process's root directory and current
+working directory refer to the new root mount point
+.RI ( new_root ).
+During the subsequent
+.BR umount ()
+call, resolution of
+.IR """."""
+starts with
+.I new_root
+and then moves up the list of mounts stacked at
+.IR / ,
+with the result that
+.IR old_root
+is unmounted.
 .PP
 The rootfs (initial ramfs) cannot be
 .BR pivot_root ()ed.

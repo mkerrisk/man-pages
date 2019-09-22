@@ -1,0 +1,164 @@
+.\" Copyright (c) 2019 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.TH PIDFD_OPEN 2 2019-09-19 "Linux" "Linux Programmer's Manual"
+.SH NAME
+pidfd_open \- obtain a file descriptor that refers to a process
+.SH SYNOPSIS
+.nf
+.BI "int pidfd_open(pid_t " pid ", unsigned int " flags );
+.fi
+.SH DESCRIPTION
+The
+.BR pidfd_open ()
+system creates a file descriptor that refers to
+the process whose PID is specified in
+.IR pid .
+The file descriptor is returned as the function result;
+the close-on-exec flag is set on the file descriptor.
+.PP
+The
+.I flags
+argument is reserved for future use;
+currently, this argument must be specified as 0.
+.SH RETURN VALUE
+On success,
+.BR pidfd_open ()
+returns a nonnegative file descriptor.
+On success, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+.SH ERRORS
+.TP
+.B EINVAL
+.I flags
+is not 0.
+.TP
+.B EINVAL
+.I pid
+is not valid.
+.TP
+.B ESRCH
+The process specified by
+.I pid
+does not exist.
+.SH VERSIONS
+.BR pidfd_open ()
+first appeared in Linux 5.3.
+.SH CONFORMING TO
+.BR pidfd_open ()
+is Linux specific.
+.SH NOTES
+Currently, there is no glibc wrapper for this system call; call it using
+.BR syscall (2).
+.PP
+The
+.BR pidfd_send_signal (2)
+system call can be used to send a signal to the process referred to by
+a PID file descriptor.
+.PP
+A PID file descriptor can be monitored using
+.BR poll (2),
+.BR select (2),
+and
+.BR epoll (7).
+When the process that it refers to terminates,
+the file descriptor indicates as readable.
+Note, however, that in the current implementation,
+nothing can be read from the file descriptor.
+.PP
+See also the discussion of the
+.BR CLONE_PIDFD
+flag in
+.BR clone (2).
+.SH EXAMPLE
+The program below opens a PID file descriptor for the
+process whose PID is specified as its command-line argument.
+It then monitors the file descriptor for readability
+.RB ( POLLIN )
+using
+.BR poll (2).
+When the process with the specified by PID terminates,
+.BR poll (2)
+returns, and indicates that the file descriptor is readable.
+.\"
+.SS Program source
+\&
+.nf
+#define _GNU_SOURCE
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#ifndef __NR_pidfd_open
+#define __NR_pidfd_open 434
+#endif
+
+static
+int pidfd_open(pid_t pid, unsigned int flags)
+{
+    return syscall(__NR_pidfd_open, pid, flags);
+}
+
+int
+main(int argc, char *argv[])
+{
+    struct pollfd pollfd;
+    int pidfd, ready;
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <pid>\en", argv[0]);
+        exit(EXIT_SUCCESS);
+    }
+
+    pidfd = pidfd_open(atoi(argv[1]), 0);
+    if (pidfd == \-1) {
+        perror("pidfd_open");
+        exit(EXIT_FAILURE);
+    }
+
+    pollfd.fd = pidfd;
+    pollfd.events = POLLIN;
+
+    ready = poll(&pollfd, 1, \-1);
+    if (ready == \-1) {
+        perror("poll");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Events (0x%x): POLLIN is %sset\en", pollfd.revents,
+            (pollfd.revents & POLLIN) ? "" : "not ");
+
+    exit(EXIT_SUCCESS);
+}
+.fi
+.SH SEE ALSO
+.BR clone (2),
+.BR kill (2),
+.BR pidfd_send_signal (2),
+.BR poll (2),
+.BR select (2),
+.BR epoll (7)

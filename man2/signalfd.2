@@ -261,23 +261,33 @@ itself and the signals that are directed to the process
 (i.e., the entire thread group).
 (A thread will not be able to read signals that are directed
 to other threads in the process.)
+.\"
 .SS epoll(7) semantics
-If you add a signalfd file descriptor to
-.BR epoll(7)
-then
-.BR epoll_wait(2)
-will only return events for signals received by the process that did
-the
-.BR epoll_ctl(2).
-If you then
-.BR fork(2),
-say by calling
-.BR daemon(3),
-then you will find that you don't get any notifications for sent
-signals. For this to work, you need to add the signalfd file
-descriptor to
-.BR epoll(7)
-after forking.
+If a process adds (via
+.BR epoll_ctl (2))
+a signalfd file descriptor to an
+.BR epoll (7)
+instance, then
+.BR epoll_wait (2)
+returns events only for signals sent to that process.
+In particular, if the process then uses
+.BR fork ()
+to create a child process, then the child will be able to
+.BR read (2)
+signals that are sent to it using the signalfd file descriptor, but
+.BR epoll_wait (2)
+will
+.B not
+indicate that the signalfd file descriptor is ready.
+In this scenario, a possible workaround is that after the
+.BR fork (2),
+the child process can close the signalfd file descriptor that it inherited
+from the parent process and then create another signalfd file descriptor
+and add it to the epoll instance.
+Alternatively, the parent and the child could delay creating their
+(separate) signalfd file descriptors and adding them to the
+epoll instance until after the call to
+.BR fork (2).
 .SH RETURN VALUE
 On success,
 .BR signalfd ()

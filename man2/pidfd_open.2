@@ -105,12 +105,32 @@ if (pid > 0) {     /* If parent */
 .EE
 .in
 .PP
-Even if the child process has already terminated by the time of the
+Even if the child has already terminated by the time of the
 .BR pidfd_open ()
-call, the returned file descriptor
-is guaranteed to refer to the child because
-the parent has not yet waited on the child
-(and therefore, the child's ID has not been recycled).
+call, its PID will not have been recycled and the returned
+file descriptor will refer to the resulting zombie process.
+Note, however, that this is guaranteed only if the following
+conditions hold true:
+.IP * 3
+the disposition of
+.BR SIGCHLD
+has not been explicitly set to
+.BR SIG_IGN
+(see
+.BR sigaction (2));
+and
+.IP *
+the zombie process was not reaped elsewhere in the program
+(e.g., either by an asynchronously executed signal handler or by
+.BR wait (2)
+or similar in another thread).
+.PP
+If these conditions don't hold true,
+then the child process should instead be created using
+.BR clone (2)
+with the
+.BR CLONE_PID
+flag.
 .PP
 The
 .BR pidfd_send_signal (2)

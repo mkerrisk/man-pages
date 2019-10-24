@@ -54,24 +54,24 @@ clone, __clone2 \- create a child process
 .BI "          /* pid_t *" parent_tid ", void *" tls \
 ", pid_t *" child_tid " */ );"
 .PP
-/* For the prototype of the raw system call, see NOTES */
-.fi
-.SH DESCRIPTION
-.BR clone ()
-creates a new process, in a manner similar to
-.BR fork (2).
+/* For the prototype of the raw clone() system call, see NOTES */
 .PP
-This page describes both the glibc
-.BR clone ()
-wrapper function and the underlying system call on which it is based.
-The main text describes the wrapper function;
-the differences for the raw system call
-are described toward the end of this page.
+.BI "long clone3(struct  clone_args *" cl_args ", size_t " size );
+.fi
+.PP
+.IR Note :
+There is not yet a glibc wrapper for
+.BR clone3 ();
+see NOTES.
+.SH DESCRIPTION
+These system calls
+create a new process, in a manner similar to
+.BR fork (2).
 .PP
 Unlike
 .BR fork (2),
-.BR clone ()
-allows the child process to share parts of its execution context with
+these system calls
+allow the child process to share parts of its execution context with
 the calling process, such as the virtual address space, the table of file
 descriptors, and the table of signal handlers.
 (Note that on this manual
@@ -80,8 +80,24 @@ But see the description of
 .B CLONE_PARENT
 below.)
 .PP
-When the child process is created with
-.BR clone (),
+This page describes the following interfaces:
+.IP * 3
+The glibc
+.BR clone ()
+wrapper function and the underlying system call on which it is based.
+The main text describes the wrapper function;
+the differences for the raw system call
+are described toward the end of this page.
+.IP *
+The newer
+.BR clone3 ()
+system call.
+.\"
+.SS The clone() wrapper function
+.PP
+When the child process is created with the
+.BR clone ()
+wrapper function,
 it commences execution by calling the function pointed to by the argument
 .IR fn .
 (This differs from
@@ -104,8 +120,6 @@ is the exit status for the child process.
 The child process may also terminate explicitly by calling
 .BR exit (2)
 or after receiving a fatal signal.
-.\"
-.SS The child stack
 .PP
 The
 .I stack
@@ -122,14 +136,134 @@ Stacks grow downward on all processors that run Linux
 .I stack
 usually points to the topmost address of the memory space set up for
 the child stack.
+Note that
+.BR clone ()
+does not provide a means whereby the caller can inform the kernel of the
+size of the stack area.
+.PP
+The remaining arguments to
+.BR clone ()
+are discussed below.
+.\"
+.SS clone3()
+.PP
+The
+.BR clone3 ()
+system call provides a superset of the functionality of the older
+.BR clone ()
+interface.
+It also provides a number of API improvements, including:
+space for additional flags bits;
+cleaner separation in the use of various arguments;
+and the ability to specify the size of the child's stack area.
+.PP
+As with
+.BR fork (2),
+.BR clone3 ()
+returns in both the parent and the child.
+It returns 0 in the child process and returns the PID of the child
+in the parent.
+.PP
+The
+.I cl_args
+argument of
+.BR clone3 ()
+is a structure of the following form:
+.PP
+.in +4n
+.EX
+struct clone_args {
+    u64 flags;        /* Flags bit mask */
+    u64 pidfd;        /* Where to store PID file descriptor
+                         (\fIint *\fP) */
+    u64 child_tid;    /* Where to store child TID,
+                         in child's memory (\fIint *\fP) */
+    u64 parent_tid;   /* Where to store child TID,
+                         in parent's memory (\fIint *\fP) */
+    u64 exit_signal;  /* Signal to deliver to parent on
+                         child termination */
+    u64 stack;        /* Pointer to lowest byte of stack */
+    u64 stack_size;   /* Size of stack */
+    u64 tls;          /* Location of new TLS */
+};
+.EE
+.in
+.PP
+The
+.I size
+argument that is supplied to
+.BR clone3 ()
+should be initialized to the size of this structure.
+(The existence of the
+.I size
+argument permits future extensions to the
+.IR clone_args
+structure.)
+.PP
+The stack for the child process is specified via
+.IR cl_args.stack ,
+which points to the lowest byte of the stack area,
+and
+.IR cl_args.stack_size ,
+which specifies the size of the stack in bytes.
+In the case where the
+.BR CLONE_VM
+flag (see below) is specified, a stack must be explicitly allocated
+and specified.
+Otherwise, these two fields can be specified as NULL and 0,
+which causes the child to use the same stack area as the parent
+(in the child's own virtual address space).
+.PP
+The remaining fields in the
+.I cl_args
+argument are discussed below.
+.\"
+.SS Equivalence between clone() and clone3() arguments
+.PP
+Unlike the older
+.BR clone ()
+interface, where arguments are passed individually, in the newer
+.BR clone3 ()
+interface the arguments are packaged into the
+.I clone_args
+structure shown above.
+This structure allows for a superset of the information passed via the
+.BR clone ()
+arguments.
+.PP
+The following table shows the equivalence between the arguments of
+.BR clone ()
+and the fields in the
+.I clone_args
+argument supplied to
+.BR clone3 ():
+.RS
+.TS
+lb lb lb
+l l l
+li li l.
+clone()	clone(3)	Notes
+	\fIcl_args\fP field
+flags & ~0xff	flags
+parent_tid	pidfd	See CLONE_PIDFD
+child_tid	child_tid	See CLONE_CHILD_SETTID
+parent_tid	parent_tid	See CLONE_PARENT_SETTID
+flags & 0xff	exit_signal
+stack	stack
+\fP---\fP	stack_size
+tls	tls	See CLONE_SETTLS
+.TE
+.RE
 .\"
 .SS The child termination signal
 .PP
-The low byte of
+When the child process terminates, a signal may be sent to the parent.
+The termination signal is specified in the low byte of
 .I flags
-contains the number of the
-.I "termination signal"
-sent to the parent when the child dies.
+.RB ( clone ())
+or in
+.I cl_args.exit_signal
+.RB ( clone3 ()).
 If this signal is specified as anything other than
 .BR SIGCHLD ,
 then the parent process must specify the
@@ -138,19 +272,33 @@ or
 .B __WCLONE
 options when waiting for the child with
 .BR wait (2).
-If no signal is specified, then the parent process is not signaled
+If no signal (i.e., zero) is specified, then the parent process is not signaled
 when the child terminates.
 .\"
 .SS The flags bit mask
 .PP
-.I flags
-may be bitwise-ORed with zero or more of the following constants,
-in order to specify what is shared between the calling process
-and the child process:
+Both
+.BR clone ()
+and
+.BR clone3 ()
+allow a flags bit mask that modifies their behavior
+and allows the caller to specify what is shared between the calling process
+and the child process.
+This bit mask is specified as a
+bitwise-OR of zero or more of the constants listed below.
+Except as otherwise noted below, these flags are available
+(and have the same effect) in both
+.BR clone ()
+and
+.BR clone3 ().
 .TP
 .BR CLONE_CHILD_CLEARTID " (since Linux 2.5.49)"
 Clear (zero) the child thread ID at the location pointed to by
 .I child_tid
+.RB ( clone ())
+or
+.I cl_args.child_tid
+.RB ( clone3 ())
 in child memory when the child exits, and do a wakeup on the futex
 at that address.
 The address involved may be changed by the
@@ -161,6 +309,10 @@ This is used by threading libraries.
 .BR CLONE_CHILD_SETTID " (since Linux 2.5.49)"
 Store the child thread ID at the location pointed to by
 .I child_tid
+.RB ( clone ())
+or
+.I cl_args.child_tid
+.RB ( clone3 ())
 in the child's memory.
 The store operation completes before
 .BR clone ()
@@ -519,6 +671,10 @@ calling process itself, will be signaled.
 .BR CLONE_PARENT_SETTID " (since Linux 2.5.49)"
 Store the child thread ID at the location pointed to by
 .I parent_tid
+.RB ( clone ())
+or
+.I cl_args.child_tid
+.RB ( clone3 ())
 in the parent's memory.
 (In Linux 2.5.32-2.5.48 there was a flag
 .B CLONE_SETTID
@@ -542,24 +698,32 @@ Since then, the kernel silently ignores this bit if it is specified in
 .TP
 .BR CLONE_PIDFD " (since Linux 5.2)"
 .\" commit b3e5838252665ee4cfa76b82bdf1198dca81e5be
-If
-.B CLONE_PIDFD
-is set,
-.BR clone ()
-stores a PID file descriptor referring to the child process at
-the location pointed to by
-.I parent_tid
-in the parent's memory.
+If this flag is specified,
+a PID file descriptor referring to the child process is allocated
+and placed at a specified location in the parent's memory.
 The close-on-exec flag is set on this new file descriptor.
 PID file descriptors can be used for the purposes described in
 .BR pidfd_open (2).
-.IP
+.RS
+.IP * 3
+When using
+.BR clone3 (),
+the PID file descriptor is placed at the location pointed to by
+.IR cl_args.pidfd .
+.IP *
+When using
+.BR clone (),
+the PID file descriptor is placed at the location pointed to by
+.IR parent_tid .
 Since the
 .I parent_tid
 argument is used to return the PID file descriptor,
 .B CLONE_PIDFD
 cannot be used with
-.B CLONE_PARENT_SETTID.
+.B CLONE_PARENT_SETTID
+when calling
+.BR clone ().
+.RE
 .IP
 It is currently not possible to use this flag together with
 .B CLONE_THREAD.
@@ -861,10 +1025,14 @@ processes do not affect the other, as with
 .BR fork (2).
 .SH NOTES
 .PP
-One use of
-.BR clone ()
+One use of these systems calls
 is to implement threads: multiple flows of control in a program that
 run concurrently in a shared address space.
+.PP
+Glibc does not provide a wrapper for
+.BR clone (3);
+call it using
+.BR syscall (2).
 .PP
 Note that the glibc
 .BR clone ()
@@ -1173,12 +1341,12 @@ was specified together with
 .B EINVAL
 .B CLONE_PIDFD
 was specified together with
-.B CLONE_PARENT_SETTID.
+.B CLONE_THREAD.
 .TP
-.B EINVAL
+.BR "EINVAL " "("  clone "() only)"
 .B CLONE_PIDFD
 was specified together with
-.B CLONE_THREAD.
+.B CLONE_PARENT_SETTID.
 .TP
 .B ENOMEM
 Cannot allocate sufficient memory to allocate a task structure for the
@@ -1261,7 +1429,10 @@ and the limit on the number of nested user namespaces would be exceeded.
 See the discussion of the
 .BR ENOSPC
 error above.
-.\" .SH VERSIONS
+.SH VERSIONS
+The
+.BR clone3 ()
+system call first appeared in Linux 5.3.
 .\" There is no entry for
 .\" .BR clone ()
 .\" in libc5.
@@ -1269,8 +1440,8 @@ error above.
 .\" .BR clone ()
 .\" as described in this manual page.
 .SH CONFORMING TO
-.BR clone ()
-is Linux-specific and should not be used in programs
+These system calls
+are Linux-specific and should not be used in programs
 intended to be portable.
 .SH NOTES
 The

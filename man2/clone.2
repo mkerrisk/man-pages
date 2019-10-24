@@ -49,10 +49,10 @@ clone, __clone2 \- create a child process
 .B #define _GNU_SOURCE
 .B #include <sched.h>
 .PP
-.BI "int clone(int (*" "fn" ")(void *), void *" child_stack ,
-.BI "          int " flags ", void *" "arg" ", ... "
-.BI "          /* pid_t *" ptid ", void *" newtls \
-", pid_t *" ctid " */ );"
+.BI "int clone(int (*" "fn" ")(void *), void *" stack \
+", int " flags ", void *" "arg" ", ... "
+.BI "          /* pid_t *" parent_tid ", void *" tls \
+", pid_t *" child_tid " */ );"
 .PP
 /* For the prototype of the raw system call, see NOTES */
 .fi
@@ -111,7 +111,7 @@ The child process may also terminate explicitly by calling
 or after receiving a fatal signal.
 .PP
 The
-.I child_stack
+.I stack
 argument specifies the location of the stack used by the child process.
 Since the child and calling process may share memory,
 it is not possible for the child process to execute in the
@@ -122,7 +122,7 @@ space to
 .BR clone ().
 Stacks grow downward on all processors that run Linux
 (except the HP PA processors), so
-.I child_stack
+.I stack
 usually points to the topmost address of the memory space set up for
 the child stack.
 .PP
@@ -149,7 +149,7 @@ and the child process:
 .TP
 .BR CLONE_CHILD_CLEARTID " (since Linux 2.5.49)"
 Clear (zero) the child thread ID at the location
-.I ctid
+.I child_tid
 in child memory when the child exits, and do a wakeup on the futex
 at that address.
 The address involved may be changed by the
@@ -159,7 +159,7 @@ This is used by threading libraries.
 .TP
 .BR CLONE_CHILD_SETTID " (since Linux 2.5.49)"
 Store the child thread ID at the location
-.I ctid
+.I child_tid
 in the child's memory.
 The store operation completes before
 .BR clone ()
@@ -517,7 +517,7 @@ calling process itself, will be signaled.
 .TP
 .BR CLONE_PARENT_SETTID " (since Linux 2.5.49)"
 Store the child thread ID at the location
-.I ptid
+.I parent_tid
 in the parent's memory.
 (In Linux 2.5.32-2.5.48 there was a flag
 .B CLONE_SETTID
@@ -547,14 +547,14 @@ is set,
 .BR clone ()
 stores a PID file descriptor referring to the child process at
 the location
-.I ptid
+.I parent_tid
 in the parent's memory.
 The close-on-exec flag is set on this new file descriptor.
 PID file descriptors can be used for the purposes described in
 .BR pidfd_open (2).
 .IP
 Since the
-.I ptid
+.I parent_tid
 argument is used to return the PID file descriptor,
 .B CLONE_PIDFD
 cannot be used with
@@ -584,13 +584,13 @@ then trace the child also (see
 .TP
 .BR CLONE_SETTLS " (since Linux 2.5.32)"
 The TLS (Thread Local Storage) descriptor is set to
-.IR newtls .
+.IR tls .
 .IP
 The interpretation of
-.I newtls
+.I tls
 and the resulting effect is architecture dependent.
 On x86,
-.I newtls
+.I tls
 is interpreted as a
 .IR "struct user_desc\ *"
 (see
@@ -863,7 +863,7 @@ Note that the glibc
 .BR clone ()
 wrapper function makes some changes
 in the memory pointed to by
-.I child_stack
+.I stack
 (changes required to set the stack up correctly for the child)
 .I before
 invoking the
@@ -893,7 +893,7 @@ wrapper function are omitted.
 Another difference for the raw
 .BR clone ()
 system call is that the
-.I child_stack
+.I stack
 argument may be NULL,
 in which case the child uses a duplicate of the parent's stack.
 (Copy-on-write semantics ensure that the child gets separate copies
@@ -917,9 +917,9 @@ The raw system call interface on x86-64 and some other architectures
 .PP
 .in +4
 .EX
-.BI "long clone(unsigned long " flags ", void *" child_stack ,
-.BI "           int *" ptid ", int *" ctid ,
-.BI "           unsigned long " newtls );
+.BI "long clone(unsigned long " flags ", void *" stack ,
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
 .EE
 .in
 .PP
@@ -931,9 +931,9 @@ the order of the last two arguments is reversed:
 .PP
 .in +4
 .EX
-.BI "long clone(unsigned long " flags ", void *" child_stack ,
-.BI "          int *" ptid ", unsigned long " newtls ,
-.BI "          int *" ctid );
+.BI "long clone(unsigned long " flags ", void *" stack ,
+.BI "          int *" parent_tid ", unsigned long " tls ,
+.BI "          int *" child_tid );
 .EE
 .in
 .PP
@@ -943,9 +943,9 @@ the order of the first two arguments is reversed:
 .PP
 .in +4
 .EX
-.BI "long clone(void *" child_stack ", unsigned long " flags ,
-.BI "           int *" ptid ", int *" ctid ,
-.BI "           unsigned long " newtls );
+.BI "long clone(void *" stack ", unsigned long " flags ,
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
 .EE
 .in
 .PP
@@ -955,10 +955,10 @@ an additional argument is supplied:
 .PP
 .in +4
 .EX
-.BI "long clone(unsigned long " flags ", void *" child_stack ,
+.BI "long clone(unsigned long " flags ", void *" stack ,
 .BI "           int " stack_size , "\fR         /* Size of stack */"
-.BI "           int *" ptid ", int *" ctid ,
-.BI "           unsigned long " newtls );
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
 .EE
 .in
 .\"
@@ -975,10 +975,10 @@ On ia64, a different interface is used:
 .in +4
 .EX
 .BI "int __clone2(int (*" "fn" ")(void *), "
-.BI "             void *" child_stack_base ", size_t " stack_size ,
+.BI "             void *" stack_base ", size_t " stack_size ,
 .BI "             int " flags ", void *" "arg" ", ... "
-.BI "          /* pid_t *" ptid ", struct user_desc *" tls \
-", pid_t *" ctid " */ );"
+.BI "          /* pid_t *" parent_tid ", struct user_desc *" tls ,
+.BI "             pid_t *" child_tid " */ );"
 .EE
 .in
 .PP
@@ -990,9 +990,9 @@ prototype on microblaze):
 .PP
 .in +4
 .EX
-.BI "long clone2(unsigned long " flags ", void *" child_stack_base ,
+.BI "long clone2(unsigned long " flags ", void *" stack_base ,
 .BI "            int " stack_size , "\fR         /* Size of stack */"
-.BI "            int *" ptid ", int *" ctid ,
+.BI "            int *" parent_tid ", int *" child_tid ,
 .BI "            unsigned long " tls );
 .EE
 .in
@@ -1001,20 +1001,20 @@ prototype on microblaze):
 operates in the same way as
 .BR clone (),
 except that
-.I child_stack_base
+.I stack_base
 points to the lowest address of the child's stack area,
 and
 .I stack_size
 specifies the size of the stack pointed to by
-.IR child_stack_base .
+.IR stack_base .
 .SS Linux 2.4 and earlier
 In Linux 2.4 and earlier,
 .BR clone ()
 does not take arguments
-.IR ptid ,
+.IR parent_tid ,
 .IR tls ,
 and
-.IR ctid .
+.IR child_tid .
 .SH RETURN VALUE
 .\" gettid(2) returns current->pid;
 .\" getpid(2) returns current->tgid;
@@ -1106,7 +1106,7 @@ Returned by the glibc
 wrapper function when
 .IR fn
 or
-.IR child_stack
+.IR stack
 is specified as NULL.
 .TP
 .B EINVAL
@@ -1152,10 +1152,10 @@ but the kernel was not configured with the
 option.
 .TP
 .B EINVAL
-.I child_stack
+.I stack
 is not aligned to a suitable boundary for this architecture.
 For example, on aarch64,
-.I child_stack
+.I stack
 must be a multiple of 16.
 .TP
 .B EINVAL

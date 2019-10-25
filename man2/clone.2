@@ -92,6 +92,9 @@ are described toward the end of this page.
 The newer
 .BR clone3 ()
 system call.
+.PP
+In the remainder of this page, the terminology "the clone call" is used
+when noting details that apply to all of these interfaces, 
 .\"
 .SS The clone() wrapper function
 .PP
@@ -284,9 +287,16 @@ and
 allow a flags bit mask that modifies their behavior
 and allows the caller to specify what is shared between the calling process
 and the child process.
-This bit mask is specified as a
-bitwise-OR of zero or more of the constants listed below.
-Except as otherwise noted below, these flags are available
+This bit mask\(emthe
+.I flags
+argument of
+.BR clone ()
+or the
+.I cl_args.flags
+field passed to
+.BR clone3 ()\(emis
+specified as a bitwise-OR of zero or more of the constants listed below.
+Except as noted below, these flags are available
 (and have the same effect) in both
 .BR clone ()
 and
@@ -314,11 +324,9 @@ or
 .I cl_args.child_tid
 .RB ( clone3 ())
 in the child's memory.
-The store operation completes before
-.BR clone ()
+The store operation completes before the clone call
 returns control to user space in the child process.
-(Note that the store operation may not have completed before
-.BR clone ()
+(Note that the store operation may not have completed before the clone call
 returns in the parent process, which will be relevant if the
 .BR CLONE_VM
 flag is also employed.)
@@ -342,8 +350,7 @@ its file descriptor table is duplicated (unshared).
 If
 .B CLONE_FILES
 is not set, the child process inherits a copy of all file descriptors
-opened in the calling process at the time of
-.BR clone ().
+opened in the calling process at the time of the clone call.
 Subsequent operations that open or close file descriptors,
 or change file descriptor flags,
 performed by either the calling
@@ -373,9 +380,7 @@ other process.
 If
 .B CLONE_FS
 is not set, the child process works on a copy of the filesystem
-information of the calling process at the time of the
-.BR clone ()
-call.
+information of the calling process at the time of the clone call.
 Calls to
 .BR chroot (2),
 .BR chdir (2),
@@ -529,9 +534,7 @@ It is not permitted to specify both
 and
 .B CLONE_FS
 .\" See https://lwn.net/Articles/543273/
-in the same
-.BR clone ()
-call.
+in the same clone call.
 .IP
 For further information on mount namespaces, see
 .BR namespaces (7)
@@ -679,8 +682,7 @@ in the parent's memory.
 (In Linux 2.5.32-2.5.48 there was a flag
 .B CLONE_SETTID
 that did this.)
-The store operation completes before
-.BR clone ()
+The store operation completes before the clone call
 returns control to user space.
 .TP
 .BR CLONE_PID " (Linux 2.0 to 2.5.15)"
@@ -787,9 +789,7 @@ without affecting the other process.
 If
 .B CLONE_SIGHAND
 is not set, the child process inherits a copy of the signal handlers
-of the calling process at the time
-.BR clone ()
-is called.
+of the calling process at the time of the clone call.
 Calls to
 .BR sigaction (2)
 performed later by one of the processes have no effect on the other
@@ -865,15 +865,12 @@ return the TGID of the caller.
 The threads within a group can be distinguished by their (system-wide)
 unique thread IDs (TID).
 A new thread's TID is available as the function result
-returned to the caller of
-.BR clone (),
+returned to the caller,
 and a thread can obtain
 its own TID using
 .BR gettid (2).
 .IP
-When a call is made to
-.BR clone ()
-without specifying
+When a clone call is made without specifying
 .BR CLONE_THREAD ,
 then the resulting thread is placed in a new thread group
 whose TGID is the same as the thread's TID.
@@ -883,8 +880,7 @@ of the new thread group.
 .IP
 A new thread created with
 .B CLONE_THREAD
-has the same parent process as the caller of
-.BR clone ()
+has the same parent process as the process that made the clone call
 (i.e., like
 .BR CLONE_PARENT ),
 so that calls to
@@ -892,9 +888,7 @@ so that calls to
 return the same value for all of the threads in a thread group.
 When a
 .B CLONE_THREAD
-thread terminates, the thread that created it using
-.BR clone ()
-is not sent a
+thread terminates, the thread that created it is not sent a
 .B SIGCHLD
 (or other termination) signal;
 nor can the status of such a thread be obtained
@@ -1018,8 +1012,7 @@ by the child or calling process also affects the other process.
 If
 .B CLONE_VM
 is not set, the child process runs in a separate copy of the memory
-space of the calling process at the time of
-.BR clone ().
+space of the calling process at the time of the clone call.
 Memory writes or file mappings/unmappings performed by one of the
 processes do not affect the other, as with
 .BR fork (2).
@@ -1030,7 +1023,7 @@ is to implement threads: multiple flows of control in a program that
 run concurrently in a shared address space.
 .PP
 Glibc does not provide a wrapper for
-.BR clone (3);
+.BR clone3 ();
 call it using
 .BR syscall (2).
 .PP
@@ -1453,8 +1446,7 @@ System V semaphore undo operations, or a virtual address space.
 .PP
 Handlers registered using
 .BR pthread_atfork (3)
-are not executed during a call to
-.BR clone ().
+are not executed during a clone call.
 .PP
 In the Linux 2.4.x series,
 .B CLONE_THREAD

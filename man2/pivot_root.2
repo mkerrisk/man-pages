@@ -325,6 +325,7 @@ hello world
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <sys/mman.h>
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \e
                         } while (0)
@@ -392,9 +393,10 @@ main(int argc, char *argv[])
 {
     /* Create a child process in a new mount namespace */
 
-    char *stack = malloc(STACK_SIZE);
-    if (stack == NULL)
-        errExit("malloc");
+    char *stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, \-1, 0);
+    if (stack == MAP_FAILED)
+        errExit("mmap");
 
     if (clone(child, stack + STACK_SIZE,
                 CLONE_NEWNS | SIGCHLD, &argv[1]) == \-1)

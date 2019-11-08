@@ -255,7 +255,7 @@ l l l
 li li l.
 clone()	clone(3)	Notes
 	\fIcl_args\fP field
-flags & ~0xff	flags
+flags & ~0xff	flags	For most flags; details below
 parent_tid	pidfd	See CLONE_PIDFD
 child_tid	child_tid	See CLONE_CHILD_SETTID
 parent_tid	parent_tid	See CLONE_PARENT_SETTID
@@ -710,9 +710,12 @@ of not much use.
 From Linux 2.3.21 onward, this flag could be
 specified only by the system boot process (PID 0).
 The flag disappeared completely from the kernel sources in Linux 2.5.16.
-Since then, the kernel silently ignores this bit if it is specified in the
+Subsequently, the kernel silently ignored this bit if it was specified in the
 .IR flags
 mask.
+Much later, the same bit was recycled for use as the
+.B CLONE_PIDFD
+flag.
 .TP
 .BR CLONE_PIDFD " (since Linux 5.2)"
 .\" commit b3e5838252665ee4cfa76b82bdf1198dca81e5be
@@ -785,6 +788,9 @@ argument to
 .BR arch_prctl (2)).
 On architectures with a dedicated TLS register, it is the new value
 of that register.
+.IP
+Use of this flag requires detailed knowledge and generally it
+should not be used except in libraries implementing threading.
 .TP
 .BR CLONE_SIGHAND " (since Linux 2.0)"
 If
@@ -1075,12 +1081,16 @@ arguments of the
 .BR clone ()
 wrapper function are omitted.
 .PP
-Another difference for the raw
+In contrast to the glibc wrapper, the raw
 .BR clone ()
-system call is that the
+system call accepts NULL as a
 .I stack
-argument may be NULL,
-in which case the child uses a duplicate of the parent's stack.
+argument (and
+.BR clone3 ()
+likewise allows
+.I cl_args.stack
+to be NULL).
+In this case, the child uses a duplicate of the parent's stack.
 (Copy-on-write semantics ensure that the child gets separate copies
 of stack pages when either process modifies the stack.)
 In this case, for correct operation, the
@@ -1098,7 +1108,7 @@ and there are variations in the arguments across architectures,
 as detailed in the following paragraphs.
 .PP
 The raw system call interface on x86-64 and some other architectures
-(including sh, tile, ia-64, and alpha) is:
+(including sh, tile, and alpha) is:
 .PP
 .in +4
 .EX

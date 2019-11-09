@@ -346,6 +346,26 @@ returns in the parent process, which will be relevant if the
 .BR CLONE_VM
 flag is also employed.)
 .TP
+.BR CLONE_DETACHED " (historical)"
+For a while (during the Linux 2.5 development series)
+.\" added in 2.5.32; removed in 2.6.0-test4
+there was a
+.B CLONE_DETACHED
+flag,
+which caused the parent not to receive a signal when the child terminated.
+Ultimately, the effect of this flag was subsumed under the
+.BR CLONE_THREAD
+flag and by the time Linux 2.6.0 was released, this flag had no effect.
+Starting in Linux 2.6.2, the need to give this flag together with
+.B CLONE_THREAD
+disappeared.
+.IP
+This flag is still defined, but it is usually ignored when calling
+.BR clone ().
+However, see the description of
+.BR CLONE_PIDFD
+for some exceptions.
+.TP
 .BR CLONE_FILES " (since Linux 2.0)"
 If
 .B CLONE_FILES
@@ -695,15 +715,20 @@ It is currently not possible to use this flag together with
 This means that the process identified by the PID file descriptor
 will always be a thread group leader.
 .IP
-For a while there was a
+If the obsolete
 .B CLONE_DETACHED
-flag.
-This flag is usually ignored when passed along with other flags.
-However, when passed alongside
-.BR CLONE_PIDFD ,
+flag is specified alongside
+.BR CLONE_PIDFD
+when calling
+.BR clone (),
 an error is returned.
-This ensures that this flag can be reused
-for further PID file descriptor features in the future.
+An error also results if
+.B CLONE_DETACHED
+is specified when calling
+.BR clone3 ().
+This error behavior ensures that the bit corresponding to
+.BR CLONE_DETACHED
+can be reused for further PID file descriptor features in the future.
 .TP
 .BR CLONE_PTRACE " (since Linux 2.2)"
 If
@@ -1312,7 +1337,13 @@ For example, on aarch64,
 .I stack
 must be a multiple of 16.
 .TP
-.B EINVAL
+.BR EINVAL " (" clone3 "() only"
+.B  CLONE_DETACHED
+was specified in the
+.I flags
+mask.
+.TP
+.BR EINVAL " (" clone "() only"
 .B CLONE_PIDFD
 was specified together with
 .B CLONE_DETACHED
@@ -1456,15 +1487,6 @@ However, for kernel versions 2.4.7 to 2.4.18 the
 flag implied the
 .B CLONE_PARENT
 flag (as in Linux 2.6.0 and later).
-.PP
-For a while there was
-.B CLONE_DETACHED
-(introduced in 2.5.32):
-parent wants no child-exit signal.
-In Linux 2.6.2, the need to give this flag together with
-.B CLONE_THREAD
-disappeared.
-This flag is still defined, but has no effect.
 .PP
 On i386,
 .BR clone ()

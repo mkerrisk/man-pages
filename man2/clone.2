@@ -1547,6 +1547,28 @@ making it possible to see that the hostname
 differs in the UTS namespaces of the parent and child.
 For an example of the use of this program, see
 .BR setns (2).
+.PP
+Within the sample program, we allocate the memory that is to
+be used for the child's stack using
+.BR mmap (2)
+rather than
+.BR malloc (3)
+for the following reasons:
+.IP * 3
+.BR mmap (2)
+allocates a block of memory that starts on a page
+boundary and is a multiple of the page size.
+This is useful if we want to establish a guard page (a page with protection
+.BR PROT_NONE )
+at the end of the stack using
+.BR mprotect (2).
+.IP *
+We can specify the
+.BR MAP_STACK
+flag to request a mapping that is suitable for a stack.
+For the moment, this flag is a no-op on Linux,
+but it exists and has effect on some other systems,
+so we should include it for portability.
 .SS Program source
 .EX
 #define _GNU_SOURCE
@@ -1557,6 +1579,7 @@ For an example of the use of this program, see
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \e
                         } while (0)
@@ -1601,11 +1624,13 @@ main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    /* Allocate stack for child */
+    /* Allocate memory to be used for the stack of the child */
 
-    stack = malloc(STACK_SIZE);
+    stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, \-1, 0);
     if (stack == NULL)
-        errExit("malloc");
+        errExit("mmap");
+
     stackTop = stack + STACK_SIZE;  /* Assume stack grows downward */
 
     /* Create child that has its own UTS namespace;
@@ -1640,6 +1665,7 @@ main(int argc, char *argv[])
 .BR getpid (2),
 .BR gettid (2),
 .BR kcmp (2),
+.BR mmap (2),
 .BR pidfd_open (2),
 .BR set_thread_area (2),
 .BR set_tid_address (2),

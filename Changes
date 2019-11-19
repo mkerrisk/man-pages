@@ -10,26 +10,184 @@ The following people contributed patches/fixes or (noted in brackets
 in the changelog below) reports, notes, and ideas that have been
 incorporated in changes in this release:
 
+Andrew Price <anprice@redhat.com>
+Christian Brauner <christian.brauner@ubuntu.com>
+Florian Weimer <fweimer@redhat.com>
+Jakub Wilk <jwilk@jwilk.net>
+Jan Kara <jack@suse.cz>
+Jann Horn <jannh@google.com>
+Kenigbolo Meya Stephen <kenigbol@ut.ee>
+Marko Myllynen <myllynen@redhat.com>
+Michael Kerrisk <mtk.manpages@gmail.com>
+Mikael Magnusson <mikachu@gmail.com>
+Robert Edmonds <edmonds@debian.org>
+Silviu Popescu <silviupopescu1990@gmail.com>
+Torin Carey <torin@tcarey.uk>
+Witold Baryluk <witold.baryluk@gmail.com>
+Yang Xu <xuyang2018.jy@cn.fujitsu.com>
 
 Apologies if I missed anyone!
-
-
-New and rewritten pages
------------------------
 
 
 Newly documented interfaces in existing pages
 ---------------------------------------------
 
+clone.2
+    Michael Kerrisk  [Christian Brauner, Jakub Wilk]
+        Document clone3()
+
+wait.2
+    Michael Kerrisk
+        Add P_PIDFD for waiting on a child referred to by a PID file descriptor
+
+bpf-helpers.7
+    Michael Kerrisk
+        Refresh against kernel v5.4-rc7
+
 
 New and changed links
 ---------------------
 
-
-Global changes
---------------
+clone3.2
+    Michael Kerrisk
+        New link to clone(2)
 
 
 Changes to individual pages
 ---------------------------
 
+clone.2
+    Michael Kerrisk
+        Rename arguments for consistency with clone3()
+            Make the names of the clone() arguments the same as the fields
+            in the clone3() 'args' struct:
+
+                ctid        ==> child_pid
+                ptid        ==> parent_tid
+                newtls      ==> tld
+                child_stack ==> stack
+    Michael Kerrisk
+        Consistently order paragraphs for CLONE_NEW* flags
+            Sometimes the descriptions of these flags mentioned the
+            corresponding section 7 namespace manual page and then the
+            required capabilities, and sometimes the order was the was
+            the reverse. Make it consistent.
+    Michael Kerrisk  [Christian Brauner, Jann Horn]
+        EXAMPLE: Allocate child's stack using mmap(2) rather than malloc(3)
+            Christian Brauner suggested mmap(MAP_STACK), rather than
+            malloc(), as the canonical way of allocating a stack for the
+            child of clone(), and Jann Horn noted some reasons why
+            (MAP_STACK exists elsewhere, and mmap() returns a page-aligned
+            block of memory, which is useful if we want to set up a guard
+            page at the end of the stack).
+    Michael Kerrisk  [Christian Brauner]
+        Tidy up the description of CLONE_DETACHED
+            The obsolete CLONE_DETACHED flag has never been properly
+            documented, but now the discussion CLONE_PIDFD also requires
+            mention of CLONE_DETACHED. So, properly document CLONE_DETACHED,
+            and mention its interactions with CLONE_PIDFD.
+    Michael Kerrisk  [Christian Brauner]
+        Give the introductory paragraph a new coat of paint
+            Change the text in the introductory paragraph (which was written
+            20 years ago) to reflect the fact that clone*() does more things
+            nowadays.
+    Michael Kerrisk
+        Remove wording that suggests CLONE_NEW* flags are for containers
+            These flags are used for implementing many other interesting
+            things by now.
+    Michael Kerrisk
+        Remove various details that are already covered in namespaces pages
+            Remove details of UTS, IPC, and network namespaces that are
+            already covered in the corresponding namespaces pages in section 7.
+
+clone.2
+proc.5
+    Michael Kerrisk
+        Adjust references to namespaces(7)
+            Adjust references to namespaces(7) to be references to pages
+            describing specific namespace types.
+
+fallocate.2
+    Andrew Price
+        Add gfs2 to the list of punch hole-capable filesystems
+
+ioctl_iflags.2
+    Michael Kerrisk  [Robert Edmonds]
+        Emphasize that FS_IOC_GETFLAGS and FS_IOC_SETFLAGS argument is 'int *'
+
+ioctl_list.2
+    Michael Kerrisk
+        Add reference to ioctl(2) SEE ALSO section
+            The referenced section lists various pages that document ioctls.
+
+mmap.2
+    Michael Kerrisk
+        Note that MAP_STACK exists on some other systems
+    Michael Kerrisk
+        Some rewording of the description of MAP_STACK
+            Reword a little to allow for the fact that there are now
+            *two* reasons to consider using this flag.
+
+pidfd_open.2
+    Michael Kerrisk
+        Note the waitid() use case for PID file descriptors
+    Michael Kerrisk
+        Add a subsection header "Use cases for PID file descriptors"
+    Michael Kerrisk
+        Make it a little more explicit the CLONE_PIDFD returns a PID FD
+
+pivot_root.2
+    Michael Kerrisk
+        EXAMPLE: allocate stack using mmap() MAP_STACK rather than malloc()
+
+quotactl.2
+    Yang Xu  [Jan Kara]
+        Add some details about Q_QUOTAON
+
+seccomp.2
+cgroups.7
+    Michael Kerrisk
+        Switch to "considerate language"
+            Thanks-to: https://twitter.com/expensivestevie
+
+select.2
+    Michael Kerrisk
+        POLLIN_SET/POLLOUT_SET/POLLEX_SET are now defined in terms of EPOLL*
+            Since kernel commit a9a08845e9acbd224e4ee466f5c1275ed50054e8, the
+            equivalence between select() and poll()/epoll is defined in terms
+            of the EPOLL* constants, rather than the POLL* constants.
+
+wait.2
+    Michael Kerrisk
+        waitid() can be used to wait on children in same process group as caller
+            Since Linux 5.4, idtype == P_PGID && id == 0 can be used to wait
+            on children in same process group as caller.
+    Michael Kerrisk
+        Clarify semantics of waitpid(0, ...)
+            As noted in kernel commit 821cc7b0b205c0df64cce59aacc330af251fa8f7,
+            threads create an ambiguity: what if the calling process's PGID
+            is changed by another thread while waitpid(0, ...) is blocked?
+            So, clarify that waitpid(0, ...) means wait for children whose
+            PGID matches the caller's PGID at the time of the call to
+            waitpid().
+
+getauxval.3
+    Michael Kerrisk  [Witold Baryluk]
+        Clarify that AT_BASE_PLATFORM and AT_EXECFN return pointers to strings
+            See https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=942207
+
+resolv.conf.5
+    Florian Weimer
+        Attempt clarify domain/search interaction
+            The domain directive is historic at this point; it should not
+            be used.
+
+netdevice.7
+    Michael Kerrisk  [Silviu Popescu]
+        Small wording fix in description of SIOCGIFCONF
+            SIOCGIFCONF returns "network layer" addresses (not "transport
+            layer").
+
+uts_namespaces.7
+    Michael Kerrisk
+        Add a little more detail on scope of UTS namespaces

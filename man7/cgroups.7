@@ -771,53 +771,71 @@ With the Linux 4.14 addition of "thread mode" (described below),
 the "no internal processes" rule has been relaxed in some cases.
 .\"
 .SS Cgroups v2 cgroup.events file
-With cgroups v2, a new mechanism is provided to obtain notification
-about when a cgroup becomes empty.
+Each nonroot cgroup in the v2 hierarchy contains a read-only file,
+.IR cgroup.events ,
+whose contents are key-value pairs
+(delimited by newline characters, with the key and value separated by spaces)
+providing state information about the
+the cgroup:
+.PP
+.in +4n
+.EX
+$ \fBcat mygrp/cgroup.events\fP
+populated 1
+.EE
+.in
+.PP
+The following keys may appear in this file:
+.TP
+.IR populated
+The value of this key is either 1,
+if this cgroup or any of its descendants has member processes,
+or otherwise 0.
+.PP
+The
+.IR cgroup.events
+file can be monitored, in order to receive notification when the value of
+one of its keys changes.
+Such monitoring can be done using
+.BR inotify (7),
+which notifies changes as
+.BR IN_MODIFY
+events, or
+.BR poll (2),
+which notifies changes by returning the
+.B POLLPRI
+and
+.B POLLERR
+bits in the
+.IR revents
+field.
+.\"
+.SS Cgroup v2 release notification
+Cgroups v2 provides a new mechanism for obtaining notification
+when a cgroup becomes empty.
 The cgroups v1
 .IR release_agent
 and
 .IR notify_on_release
-files are removed, and replaced by a new, more general-purpose file,
-.IR cgroup.events .
-This read-only file contains key-value pairs
-(delimited by newline characters, with the key and value separated by spaces)
-that identify events or state for a cgroup.
-Currently, only one key appears in this file,
-.IR populated ,
-which has either the value 0,
-meaning that the cgroup (and its descendants)
-contain no (nonzombie) processes,
-or 1, meaning that the cgroup contains member processes.
-.PP
-The
-.IR cgroup.events
-file can be monitored, in order to receive notification when a cgroup
-transitions between the populated and unpopulated states (or vice versa).
-When monitoring this file using
-.BR inotify (7),
-transitions generate
-.BR IN_MODIFY
-events, and when monitoring the file using
-.BR poll (2),
-transitions cause the bits
-.B POLLPRI
-and
-.B POLLERR
-to be returned in the
-.IR revents
-field.
-.PP
-The cgroups v2 release-notification mechanism provided by the
+files are removed, and replaced by the
 .I populated
-field of the
-.I cgroup.events
-file offers at least two advantages over the cgroups v1
+key in the
+.IR cgroup.events
+file.
+This key either has the value 0,
+meaning that the cgroup (and its descendants)
+contain no (nonzombie) member processes,
+or 1, meaning that the cgroup (or one of its descendants)
+contains member processes.
+.PP
+The cgroups v2 release-notification mechanism
+offers at least two advantages over the cgroups v1
 .IR release_agent
 mechanism.
 First, it allows for cheaper notification,
 since a single process can monitor multiple
 .IR cgroup.events
-files.
+files (using the techniques described earlier).
 By contrast, the cgroups v1 mechanism requires the creation
 of a process for each notification.
 Second, notification can be delegated to a process that lives inside

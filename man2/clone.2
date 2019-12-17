@@ -195,6 +195,8 @@ struct clone_args {
     u64 stack;        /* Pointer to lowest byte of stack */
     u64 stack_size;   /* Size of stack */
     u64 tls;          /* Location of new TLS */
+    u64 set_tid;      /* Pointer to a \fIpid_t\fP array */
+    u64 set_tid_size; /* Number of elements in \fIset_tid\fP */
 };
 .EE
 .in
@@ -262,6 +264,8 @@ flags & 0xff	exit_signal
 stack	stack
 \fP---\fP	stack_size
 tls	tls	See CLONE_SETTLS
+\fP---\fP	set_tid	See below for details
+\fP---\fP	set_tid_size
 .TE
 .RE
 .\"
@@ -284,6 +288,80 @@ options when waiting for the child with
 .BR wait (2).
 If no signal (i.e., zero) is specified, then the parent process is not signaled
 when the child terminates.
+.\"
+.SS The set_tid array
+.PP
+By default, the kernel chooses the next sequential PID for the new
+process in each of the PID namespaces where it is present.
+When creating a process with
+.BR clone3 (),
+the
+.I set_tid
+array can be used to select specific PIDs for the process in some
+or all of the PID namespaces where it is present.
+If the PID of the newly created process should only be set for the current
+PID namespace or in the newly created PID namespace (if
+.I flags
+contains
+.BR CLONE_NEWPID )
+then the first element in the
+.I set_tid
+array has to be the desired PID and
+.I set_tid_size
+needs to be 1.
+.PP
+If the PID of the newly created process should have a certain value in
+multiple PID namespaces the
+.I set_tid
+array can have multiple entries. The first entry defines the PID in the most
+deeply nested PID namespace and all following entries contain the PID of the
+corresponding parent PID namespace. The number of PID namespaces in which a PID
+should be set is defined by
+.I set_tid_size
+which cannot be larger than the number of currently nested PID namespaces.
+.PP
+To create a process with the following PIDs in a PID namespace hierarchy:
+.RS
+.TS
+lb lb
+l l .
+PID NS level	Requested PID
+0 (host)	31496
+1	42
+2	7
+.TE
+.RE
+.PP
+Set the array to:
+.PP
+.EX
+	set_tid[0] = 7;
+	set_tid[1] = 42;
+	set_tid[2] = 31496;
+	set_tid_size = 3;
+.EE
+.PP
+If only the PIDs in the two innermost PID namespaces
+need to be specified, set the array to:
+.PP
+.EX
+	set_tid[0] = 7;
+	set_tid[1] = 42;
+	set_tid_size = 2;
+.EE
+.PP
+The PID in the PID namespaces outside the two innermost PID namespaces
+will be selected the same way as any other PID is selected.
+.PP
+The
+.I set_tid
+feature requires
+.RB CAP_SYS_ADMIN
+in all owning user namespaces of the target PID namespaces.
+.PP
+Callers may only choose a PID > 1 in a given PID namespace if an init
+process (i.e. a process with PID 1) already exists. Otherwise the PID
+entry for this PID namespace must be 1.
 .\"
 .SS The flags mask
 .PP
@@ -1201,6 +1279,11 @@ will be set appropriately.
 Too many processes are already running; see
 .BR fork (2).
 .TP
+.BR EEXIST " (" clone3 "() only)"
+One or more of the PIDs specified in
+.I set_tid
+already exists in the corresponding PID namespace.
+.TP
 .B EINVAL
 .B CLONE_SIGHAND
 was specified in the
@@ -1379,6 +1462,15 @@ in the
 .I flags
 mask.
 .TP
+.BR EINVAL " (" clone3 "() only)"
+.I set_tid_size
+larger than current number of nested PID namespaces.
+.TP
+.BR EINVAL " (" clone3 "() only)"
+If one of the PIDs specified in
+.I set_tid
+was an invalid PID.
+.TP
 .B ENOMEM
 Cannot allocate sufficient memory to allocate a task structure for the
 child, or to copy those parts of the caller's context that need to be
@@ -1449,6 +1541,13 @@ mask and the caller is in a chroot environment
 .\" FIXME What is the rationale for this restriction?
 (i.e., the caller's root directory does not match the root directory
 of the mount namespace in which it resides).
+.TP
+.BR EPERM " (" clone3 "() only)"
+.I set_tid_size
+was greater than zero, and the caller lacks the
+.B CAP_SYS_ADMIN
+capability in one or more of the user namespaces that own the
+corresponding PID namespaces.
 .TP
 .BR ERESTARTNOINTR " (since Linux 2.6.17)"
 .\" commit 4a2c7a7837da1b91468e50426066d988050e4d56

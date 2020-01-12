@@ -299,7 +299,7 @@ the
 .I set_tid
 array can be used to select specific PIDs for the process in some
 or all of the PID namespaces where it is present.
-If the PID of the newly created process should only be set for the current
+If the PID of the newly created process should be set only for the current
 PID namespace or in the newly created PID namespace (if
 .I flags
 contains
@@ -311,12 +311,13 @@ array has to be the desired PID and
 needs to be 1.
 .PP
 If the PID of the newly created process should have a certain value in
-multiple PID namespaces the
+multiple PID namespaces, then the
 .I set_tid
 array can have multiple entries.
 The first entry defines the PID in the most
-deeply nested PID namespace and all following entries contain the PID of the
-corresponding parent PID namespace.
+deeply nested PID namespace and each of the following entries contains
+the PID in the
+corresponding ancestor PID namespace.
 The number of PID namespaces in which a PID
 should be set is defined by
 .I set_tid_size
@@ -325,32 +326,36 @@ which cannot be larger than the number of currently nested PID namespaces.
 To create a process with the following PIDs in a PID namespace hierarchy:
 .RS
 .TS
-lb lb
-l l .
-PID NS level	Requested PID
-0 (host)	31496
+lb lb lb
+l l l.
+PID NS level	Requested PID	Notes
+0	31496	Outermost PID namespace
 1	42
-2	7
+2	7	Innermost PID namespace
 .TE
 .RE
 .PP
 Set the array to:
 .PP
+.in +4n
 .EX
-	set_tid[0] = 7;
-	set_tid[1] = 42;
-	set_tid[2] = 31496;
-	set_tid_size = 3;
+set_tid[0] = 7;
+set_tid[1] = 42;
+set_tid[2] = 31496;
+set_tid_size = 3;
 .EE
+.in
 .PP
 If only the PIDs in the two innermost PID namespaces
 need to be specified, set the array to:
 .PP
+.in +4n
 .EX
-	set_tid[0] = 7;
-	set_tid[1] = 42;
-	set_tid_size = 2;
+set_tid[0] = 7;
+set_tid[1] = 42;
+set_tid_size = 2;
 .EE
+.in
 .PP
 The PID in the PID namespaces outside the two innermost PID namespaces
 will be selected the same way as any other PID is selected.
@@ -358,11 +363,13 @@ will be selected the same way as any other PID is selected.
 The
 .I set_tid
 feature requires
-.RB CAP_SYS_ADMIN
+.BR CAP_SYS_ADMIN
 in all owning user namespaces of the target PID namespaces.
 .PP
-Callers may only choose a PID > 1 in a given PID namespace if an init
-process (i.e. a process with PID 1) already exists.
+Callers may only choose a PID greater than 1 in a given PID namespace
+if an
+.BR init
+process (i.e., a process with PID 1) already exists in that namespace.
 Otherwise the PID
 entry for this PID namespace must be 1.
 .\"
@@ -1283,7 +1290,7 @@ Too many processes are already running; see
 .BR fork (2).
 .TP
 .BR EEXIST " (" clone3 "() only)"
-One or more of the PIDs specified in
+One (or more) of the PIDs specified in
 .I set_tid
 already exists in the corresponding PID namespace.
 .TP
@@ -1467,7 +1474,7 @@ mask.
 .TP
 .BR EINVAL " (" clone3 "() only)"
 .I set_tid_size
-larger than current number of nested PID namespaces.
+is greater than the number of nested PID namespaces.
 .TP
 .BR EINVAL " (" clone3 "() only)"
 If one of the PIDs specified in

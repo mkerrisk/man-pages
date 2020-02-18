@@ -1,5 +1,6 @@
 .\" This manpage is copyright (C) 1992 Drew Eckhardt,
-.\"     copyright (C) 1995 Michael Shields.
+.\"     copyright (C) 1995 Michael Shields,
+.\"     copyright (C) 2001 Paul Sheer,
 .\"     copyright (C) 2006, 2019 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
@@ -80,56 +81,122 @@ without blocking.
 can monitor only file descriptors numbers that are less than
 .BR FD_SETSIZE ;
 .BR poll (2)
-does not have this limitation.
+and
+.BR epoll (7)
+do not have this limitation.
 See BUGS.
+.\"
+.SS File descriptor sets
+The principal arguments of
+.BR select ()
+are three "sets" of file descriptors (declared with the type
+.IR fd_set ),
+which allow the caller to wait for three classes of events
+on the specified set of file descriptors.
+Each of the
+.I fd_set
+arguments may be specified as NULL if no file descriptors are
+to be watched for the corresponding class of events.
 .PP
-Three independent sets of file descriptors are watched.
-The file descriptors listed in
+.BR "Note well" :
+Upon return, each of the file descriptor sets is modified in place
+to indicate which file descriptors are currently "ready".
+Thus, if using
+.BR select ()
+within a loop, the sets \fImust be reinitialized\fP before each call.
+.PP
+The implementation of the
+.I fd_set
+arguments as value-result arguments is a design error that is avoided in
+.BR poll (2)
+and
+.BR epoll (7).
+.PP
+The contents of a file descriptor set can be manipulated
+using the following macros:
+.TP
+.BR FD_ZERO ()
+This macro clears (removes all file descriptors from)
+.IR set .
+It should be employed as the first step in initializing a file descriptor set.
+.TP
+.BR FD_SET ()
+This macro adds the file descriptor
+.I fd
+to
+.IR set .
+.TP
+.BR FD_CLR ()
+This macro removes the file descriptor
+.I fd
+from
+.IR set .
+.TP
+.BR FD_ISSET ()
+.BR select ()
+modifies the contents of the sets according to the rules
+described below.
+After calling
+.BR select (),
+the
+.BR FD_ISSET ()
+macro
+can be used to test if a file descriptor is still present in a set.
+.BR FD_ISSET ()
+returns nonzero if the file descriptor
+.I fd
+is present in
+.IR set ,
+and zero if it is not.
+.\"
+.SS Arguments
+The arguments of
+.BR select ()
+are as follows:
+.TP
 .I readfds
-will be watched to see if characters become
-available for reading (more precisely, to see if a read will not
-block; in particular, a file descriptor is also ready on end-of-file).
-The file descriptors in
+The file descriptors in this set are watched to see if they are
+ready for reading.
+A file descriptor is ready for reading if a read operation will not
+block; in particular, a file descriptor is also ready on end-of-file.
+.IP
+After
+.BR select ()
+has returned, \fIreadfds\fP will be
+cleared of all file descriptors except for those that are ready for reading.
+.TP
 .I writefds
-will be watched to see if space is available for write (though a large
-write may still block).
-The file descriptors in
+The file descriptors in this set are watched to see if they are
+ready for writing.
+A file descriptor is ready for writing if a write operation will not block.
+However, even if a file descriptor indicates as writable,
+a large write may still block.
+.IP
+After
+.BR select ()
+has returned, \fIwritefds\fP will be
+cleared of all file descriptors except for those that are ready for writing.
+.TP
 .I exceptfds
-will be watched for exceptional conditions.
-(For examples of some exceptional conditions, see the discussion of
+The file descriptors in this set are watched for "exceptional conditions".
+For examples of some exceptional conditions, see the discussion of
 .B POLLPRI
 in
-.BR poll (2).)
-.PP
-Upon return, each of the file descriptor sets is modified in place
-to indicate which file descriptors actually changed status.
-(Thus, if using
+.BR poll (2).
+.IP
+After
 .BR select ()
-within a loop, the sets must be reinitialized before each call.)
-.PP
-Each of the three file descriptor sets may be specified as NULL
-if no file descriptors are to be watched for the corresponding class
-of events.
-.PP
-Four macros are provided to manipulate the sets.
-.BR FD_ZERO ()
-clears a set.
-.BR FD_SET ()
-and
-.BR FD_CLR ()
-add and remove a given file descriptor from a set.
-.BR FD_ISSET ()
-tests to see if a file descriptor is part of the set;
-this is useful after
-.BR select ()
-returns.
-.PP
+has returned,
+\fIexceptfds\fP will be cleared of all file descriptors except for those
+for which an exceptional condition has occurred.
+.TP
 .I nfds
-should be set to the highest-numbered file descriptor in any
+This argument should be set to the highest-numbered file descriptor in any
 of the three sets, plus 1.
 The indicated file descriptors in each set are checked, up to this limit
 (but see BUGS).
-.PP
+.TP
+.I timeout
 The
 .I timeout
 argument is a 
@@ -138,29 +205,33 @@ structure (shown below) that specifies the interval that
 .BR select ()
 should block waiting for a file descriptor to become ready.
 The call will block until either:
+.RS
 .IP * 3
 a file descriptor becomes ready;
 .IP *
 the call is interrupted by a signal handler; or
 .IP *
 the timeout expires.
-.PP
+.RE
+.IP
 Note that the
 .I timeout
 interval will be rounded up to the system clock granularity,
 and kernel scheduling delays mean that the blocking interval
 may overrun by a small amount.
+.IP
 If both fields of the
 .I timeval
 structure are zero, then
 .BR select ()
 returns immediately.
 (This is useful for polling.)
+.IP
 If
 .I timeout
-is NULL (no timeout),
+is specified as NULL,
 .BR select ()
-can block indefinitely.
+blocks indefinitely waiting for a file descriptor to become ready.
 .\"
 .SS pselect()
 .PP
@@ -211,6 +282,12 @@ first replaces the current signal mask by the one pointed to by
 .IR sigmask ,
 then does the "select" function, and then restores the original
 signal mask.
+(If
+.I sigmask
+is NULL,
+the signal mask is not modified during the
+.BR pselect ()
+call.)
 .PP
 Other than the difference in the precision of the
 .I timeout
@@ -567,16 +644,9 @@ defined as 1024, and the
 macros operating according to that limit.
 To monitor file descriptors greater than 1023, use
 .BR poll (2)
+or
+.BR epoll (7)
 instead.
-.PP
-The implementation of the
-.I fd_set
-arguments as value-result arguments means that they must be
-reinitialized on each call to
-.BR select ().
-This design error is avoided by
-.BR poll (2),
-which uses separate structure fields for the input and output of the call.
 .PP
 According to POSIX,
 .BR select ()

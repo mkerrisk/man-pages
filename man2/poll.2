@@ -1,5 +1,5 @@
 .\" Copyright (C) 1997 Andries Brouwer (aeb@cwi.nl)
-.\" and Copyright (C) 2006, Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (C) 2006, 2019 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -470,6 +470,183 @@ notion of the sigset.
 See the discussion of spurious readiness notifications under the
 BUGS section of
 .BR select (2).
+.SH EXAMPLE
+The program below opens each of the files named in its command-line
+arguments and monitors the resulting file descriptors for readiness to read
+.RB ( POLLIN ).
+The program loops, repeatedly using
+.BR poll ()
+to monitor the file descriptors,
+printing the number of ready file descriptors on return.
+For each ready file descriptor, the program:
+.IP \(bu 2
+displays the returned
+.I revents
+field in a human-readable form;
+.IP \(bu
+if the file descriptor is readable, reads some data from it,
+and displays that data on standard output; and
+.IP \(bu
+if the file descriptors was not readable,
+but some other event occurred (presumably
+.BR POLLHUP ),
+closes the file descriptor.
+.PP
+Suppose we run the program in one terminal, asking it to open a FIFO:
+.PP
+.in +4n
+.EX
+$ \fBmkfifo myfifo\fP
+$ \fB./poll_input myfifo\fP
+.EE
+.in
+.PP
+In a second terminal window, we then open the FIFO for writing,
+write some data to it, and close the FIFO:
+.PP
+.in +4n
+.EX
+$ \fBecho aaaaabbbbbccccc > myfifo\fP
+.EE
+.in
+.PP
+In the terminal where we are running the program, we would then see:
+.PP
+.in +4n
+.EX
+Opened "myfifo" on fd 3
+About to poll()
+Ready: 1
+  fd=3; events: POLLIN POLLHUP
+    read 10 bytes: aaaaabbbbb
+About to poll()
+Ready: 1
+  fd=3; events: POLLIN POLLHUP
+    read 6 bytes: ccccc
+
+About to poll()
+Ready: 1
+  fd=3; events: POLLHUP
+    closing fd 3
+All file descriptors closed; bye
+.EE
+.in
+.PP
+In the above output, we see that
+.BR poll ()
+returned three times:
+.IP \(bu 3
+On the first return, the bits returned in the
+.I revents
+field were
+.BR POLLIN ,
+indicating that the file descriptor is readable, and
+.BR POLLHUP ,
+indicating that the other end of the FIFO has been closed.
+The program then consumed some of the available input.
+.IP \(bu
+The second return from
+.BR poll ()
+also indicated
+.BR POLLIN
+and
+.BR POLLHUP ;
+the program then consumed the last of the available input.
+.IP \(bu
+On the final return,
+.BR poll ()
+indicated only
+.BR POLLHUP
+on the FIFO,
+at which point the file descriptor was closed and the program terminated.
+.\"
+.SS Program source
+\&
+.nf
+/* poll_input.c */
+
+#include <poll.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \e
+                        } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int nfds, num_open_fds;
+    struct pollfd *pfds;
+
+    if (argc < 2) {
+       fprintf(stderr, "Usage: %s file...\en", argv[0]);
+       exit(EXIT_FAILURE);
+    }
+
+    num_open_fds = nfds = argc \- 1;
+    pfds = calloc(nfds, sizeof(struct pollfd));
+    if (pfds == NULL)
+        errExit("malloc");
+
+    /* Open each file on command line, and add it \(aqpfds\(aq array */
+
+    for (int j = 0; j < nfds; j++) {
+        pfds[j].fd = open(argv[j + 1], O_RDONLY);
+        if (pfds[j].fd == \-1)
+            errExit("open");
+
+        printf("Opened \e"%s\e" on fd %d\en", argv[j + 1], pfds[j].fd);
+
+        pfds[j].events = POLLIN;
+    }
+
+    /* Keep calling poll() as long as at least one file descriptor is
+       open */
+
+    while (num_open_fds > 0) {
+        int ready;
+
+        printf("About to poll()\en");
+        ready = poll(pfds, nfds, \-1);
+        if (ready == \-1)
+            errExit("poll");
+
+        printf("Ready: %d\en", ready);
+
+        /* Deal with array returned by poll() */
+
+        for (int j = 0; j < nfds; j++) {
+            char buf[10];
+
+            if (pfds[j].revents != 0) {
+                printf("  fd=%d; events: %s%s%s\en", pfds[j].fd,
+                        (pfds[j].revents & POLLIN)  ? "POLLIN "  : "",
+                        (pfds[j].revents & POLLHUP) ? "POLLHUP " : "",
+                        (pfds[j].revents & POLLERR) ? "POLLERR " : "");
+
+                if (pfds[j].revents & POLLIN) {
+                    ssize_t s = read(pfds[j].fd, buf, sizeof(buf));
+                    if (s == \-1)
+                        errExit("read");
+                    printf("    read %zd bytes: %.*s\en",
+                            s, (int) s, buf);
+                } else {                /* POLLERR | POLLHUP */
+                    printf("    closing fd %d\en", pfds[j].fd);
+                    if (close(pfds[j].fd) == \-1)
+                        errExit("close");
+                    num_open_fds\-\-;
+                }
+            }
+        }
+    }
+
+    printf("All file descriptors closed; bye\en");
+    exit(EXIT_SUCCESS);
+}
+.fi
 .SH SEE ALSO
 .BR restart_syscall (2),
 .BR select (2),

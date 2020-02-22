@@ -1,5 +1,6 @@
 .\"  Copyright (C) 2003  Davide Libenzi
 .\"  Davide Libenzi <davidel@xmailserver.org>
+.\" and Copyright 2009, 2014, 2016, 2018, 2019 Michael Kerrisk <tk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(GPLv2+_SW_3_PARA)
 .\"  This program is free software; you can redistribute it and/or modify
@@ -42,13 +43,16 @@ Valid values for the
 argument are:
 .TP
 .B EPOLL_CTL_ADD
-Add
-.I fd
-to the interest list
-and associate the settings specified in
-.I event
-with the internal file linked to
-.IR fd .
+Add an entry to the interest list of the epoll file descriptor,
+.IR epfd .
+The entry includes the file descriptor,
+.IR fd ,
+a reference to the corresponding open file description (see
+.BR epoll (7)
+and
+.BR open (2)),
+and the settings specified in
+.IR event .
 .TP
 .B EPOLL_CTL_MOD
 Change the settings associated with
@@ -89,8 +93,18 @@ struct epoll_event {
 .in
 .PP
 The
+.I data
+member of the
+.I epoll_event
+structure specifies data that the kernel should save and then return (via
+.BR epoll_wait (2))
+when this file descriptor becomes ready.
+.PP
+The
 .I events
-member is a bit mask composed by ORing together zero or more of
+member of the
+.I epoll_event
+structure is a bit mask composed by ORing together zero or more of
 the following available event types:
 .TP
 .B EPOLLIN
@@ -107,7 +121,7 @@ operations.
 Stream socket peer closed connection,
 or shut down writing half of connection.
 (This flag is especially useful for writing simple code to detect
-peer shutdown when using Edge Triggered monitoring.)
+peer shutdown when using edge-triggered monitoring.)
 .TP
 .B EPOLLPRI
 There is an exceptional condition on the file descriptor.
@@ -120,15 +134,21 @@ in
 Error condition happened on the associated file descriptor.
 This event is also reported for the write end of a pipe when the read end
 has been closed.
+.IP
 .BR epoll_wait (2)
 will always report for this event; it is not necessary to set it in
-.IR events .
+.IR events
+when calling
+.BR epoll_ctl ().
 .TP
 .B EPOLLHUP
 Hang up happened on the associated file descriptor.
+.IP
 .BR epoll_wait (2)
 will always wait for this event; it is not necessary to set it in
-.IR events .
+.IR events
+when calling
+.BR epoll_ctl ().
 .IP
 Note that when reading from a channel such as a pipe or a stream socket,
 this event merely indicates that the peer closed its end of the channel.
@@ -136,20 +156,27 @@ Subsequent reads from the channel will return 0 (end of file)
 only after all outstanding data in the channel has been consumed.
 .TP
 .B EPOLLET
-Sets the Edge Triggered behavior for the associated file descriptor.
+Requests edge-triggered notification for the associated file descriptor.
 The default behavior for
 .B epoll
-is Level Triggered.
+is level-triggered.
 See
 .BR epoll (7)
-for more detailed information about Edge and Level Triggered event
-distribution architectures.
+for more detailed information about edge-triggered and
+level-triggered notification.
+.IP
+This flag is an input flag for the
+.I event.events
+field when calling
+.BR epoll_ctl ();
+it is never returned by
+.BR epoll_wait (2).
 .TP
 .BR EPOLLONESHOT " (since Linux 2.6.2)"
-Sets the one-shot behavior for the associated file descriptor.
-This means that after an event is pulled out with
-.BR epoll_wait (2)
-the associated file descriptor is internally disabled and no other events
+Requests one-shot notification for the associated file descriptor.
+This means that after an event notified for the file descriptor by
+.BR epoll_wait (2),
+the file descriptor is disabled in the interest list and no other events
 will be reported by the
 .B epoll
 interface.
@@ -158,6 +185,13 @@ The user must call
 with
 .B EPOLL_CTL_MOD
 to rearm the file descriptor with a new event mask.
+.IP
+This flag is an input flag for the
+.I event.events
+field when calling
+.BR epoll_ctl ();
+it is never returned by
+.BR epoll_wait (2).
 .TP
 .BR EPOLLWAKEUP " (since Linux 3.5)"
 .\" commit 4d7e30d98939a0340022ccd49325a3d70f7e0238
@@ -186,6 +220,13 @@ or the clearing of
 for the event file descriptor with
 .BR EPOLL_CTL_MOD .
 See also BUGS.
+.IP
+This flag is an input flag for the
+.I event.events
+field when calling
+.BR epoll_ctl ();
+it is never returned by
+.BR epoll_wait (2).
 .TP
 .BR EPOLLEXCLUSIVE " (since Linux 4.5)"
 Sets an exclusive wakeup mode for the epoll file descriptor that is being
@@ -256,6 +297,15 @@ and specifies the target file descriptor
 as an epoll instance will likewise fail.
 The error in all of these cases is
 .BR EINVAL .
+.IP
+The
+.BR EPOLLEXCLUSIVE
+flag is an input flag for the
+.I event.events
+field when calling
+.BR epoll_ctl ();
+it is never returned by
+.BR epoll_wait (2).
 .SH RETURN VALUE
 When successful,
 .BR epoll_ctl ()

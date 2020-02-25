@@ -1,4 +1,4 @@
-.\" Copyright 1993 Giorgio Ciucci (giorgio@crcc.it)
+.\" Copyright 2020 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -22,310 +22,78 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.\" FIXME . There is now duplication of some of the information
-.\" below in semctl.2, msgctl.2, and shmctl.2 -- MTK, Nov 04
-.\"
-.\" FIXME . Ultimately, there should probably be
-.\" svmq_overview(7), svshm_overview(7), and svsem_overview(7)
-.\" that provide an overview of each System V IPC mechanism.
-.\" In that case:
-.\"   * Those files should add a discussion of the /proc/sysvipc
-.\"     interfaces.
-.\"   * Documentation of the various /proc interfaces should move into
-.\"     those files (from proc(5)), and references in the various *.2
-.\"     pages that refer to the /proc files should be adjusted.
-.\"   * The only part that uniquely belongs in sysvipc(7) is perhaps
-.\"     the discussion of ipc_perm.
-.\"
 .TH SVIPC 7 2019-10-10 "Linux" "Linux Programmer's Manual"
 .SH NAME
 sysvipc \- System V interprocess communication mechanisms
-.SH SYNOPSIS
-.nf
-.B #include <sys/msg.h>
-.B #include <sys/sem.h>
-.B #include <sys/shm.h>
-.fi
 .SH DESCRIPTION
-This manual page refers to the Linux implementation of the System V
-interprocess communication (IPC) mechanisms:
-message queues, semaphore sets, and shared memory segments.
-In the following, the word
-.I resource
-means an instantiation of one among such mechanisms.
-.SS Resource access permissions
-For each resource, the system uses a common structure of type
-.I "struct ipc_perm"
-to store information needed in determining permissions to perform an
-IPC operation.
-The
-.I ipc_perm
-structure includes the following members:
-.PP
-.in +4n
-.EX
-struct ipc_perm {
-    uid_t          cuid;   /* creator user ID */
-    gid_t          cgid;   /* creator group ID */
-    uid_t          uid;    /* owner user ID */
-    gid_t          gid;    /* owner group ID */
-    unsigned short mode;   /* r/w permissions */
-};
-.EE
-.in
-.PP
-The
-.I mode
-member of the
-.I ipc_perm
-structure defines, with its lower 9 bits, the access permissions to the
-resource for a process executing an IPC system call.
-The permissions are interpreted as follows:
-.PP
-.nf
-    0400    Read by user.
-    0200    Write by user.
-    0040    Read by group.
-    0020    Write by group.
-    0004    Read by others.
-    0002    Write by others.
-.fi
-.PP
-Bits 0100, 0010, and 0001 (the execute bits) are unused by the system.
-Furthermore,
-"write"
-effectively means
-"alter"
-for a semaphore set.
-.PP
-The same system header file also defines the following symbolic
-constants:
-.TP 14
-.B IPC_CREAT
-Create entry if key doesn't exist.
-.TP
-.B IPC_EXCL
-Fail if key exists.
-.TP
-.B IPC_NOWAIT
-Error if request must wait.
-.TP
-.B IPC_PRIVATE
-Private key.
-.TP
-.B IPC_RMID
-Remove resource.
-.TP
-.B IPC_SET
-Set resource options.
-.TP
-.B IPC_STAT
-Get resource options.
-.PP
-Note that
-.B IPC_PRIVATE
-is a
-.I key_t
-type, while all the other symbolic constants are flag fields and can
-be OR'ed into an
-.I int
-type variable.
+System V IPC is the name given to three interprocess
+communication mechanisms that are widely available on UNIX systems:
+message queues, semaphore, and shared memory.
+.\"
 .SS Message queues
-A message queue is uniquely identified by a positive integer
-.RI "(its " msqid )
-and has an associated data structure of type
-.IR "struct msqid_ds" ,
-defined in
-.IR <sys/msg.h> ,
-containing the following members:
+System V message queues allow data to be exchanged in units called messages.
+Each messages can have an associated priority,
+POSIX message queues provide an alternative API for achieving the same result;
+see
+.BR mq_overview (7).
 .PP
-.in +4n
-.EX
-struct msqid_ds {
-    struct ipc_perm msg_perm;
-    msgqnum_t       msg_qnum;    /* no of messages on queue */
-    msglen_t        msg_qbytes;  /* bytes max on a queue */
-    pid_t           msg_lspid;   /* PID of last msgsnd(2) call */
-    pid_t           msg_lrpid;   /* PID of last msgrcv(2) call */
-    time_t          msg_stime;   /* last msgsnd(2) time */
-    time_t          msg_rtime;   /* last msgrcv(2) time */
-    time_t          msg_ctime;   /* last change time */
-};
-.EE
-.in
-.TP 11
-.I msg_perm
-.I ipc_perm
-structure that specifies the access permissions on the message
-queue.
+The System V message queue API consists of the following system calls:
 .TP
-.I msg_qnum
-Number of messages currently on the message queue.
+.BR msgget (2)
+Create a new message queue or obtain the ID of an existing message queue.
+This call returns an identifier that is used in the remaining APIs.
 .TP
-.I msg_qbytes
-Maximum number of bytes of message text allowed on the message
-queue.
-.TP
-.I msg_lspid
-ID of the process that performed the last
 .BR msgsnd (2)
-system call.
+Add a message to a queue.
 .TP
-.I msg_lrpid
-ID of the process that performed the last
 .BR msgrcv (2)
-system call.
+Remove a message from a queue.
 .TP
-.I msg_stime
-Time of the last
-.BR msgsnd (2)
-system call.
-.TP
-.I msg_rtime
-Time of the last
-.BR msgrcv (2)
-system call.
-.TP
-.I msg_ctime
-Time of the last
-system call that changed a member of the
-.I msqid_ds
-structure.
+.BR msgctl (2)
+Perform various control operations on a queue, including deletion.
+.\"
 .SS Semaphore sets
-A semaphore set is uniquely identified by a positive integer
-.RI "(its " semid )
-and has an associated data structure of type
-.IR "struct semid_ds" ,
-defined in
-.IR <sys/sem.h> ,
-containing the following members:
-.IP
-.in +4n
-.EX
-struct semid_ds {
-    struct ipc_perm sem_perm;
-    time_t          sem_otime;   /* last operation time */
-    time_t          sem_ctime;   /* last change time */
-    unsigned long   sem_nsems;   /* count of sems in set */
-};
-.EE
-.in
-.TP 11
-.I sem_perm
-.I ipc_perm
-structure that specifies the access permissions on the semaphore
-set.
+System V semaphores allow processes to synchronize their actions
+System V semaphores are allocated in groups called sets;
+each semaphore in a set is a counting semaphore.
+POSIX semaphores provide an alternative API for achieving the same result;
+see
+.BR sem_overview (7).
+.PP
+The System V semaphore API consists of the following system calls:
 .TP
-.I sem_otime
-Time of last
+.BR semget (2)
+Create a new set or obtain the ID of an existing set.
+This call returns an identifier that is used in the remaining APIs.
+.TP
 .BR semop (2)
-system call.
+Perform operations on the semaphores in a set.
 .TP
-.I sem_ctime
-Time of last
 .BR semctl (2)
-system call that changed a member of the above structure or of one
-semaphore belonging to the set.
-.TP
-.I sem_nsems
-Number of semaphores in the set.
-Each semaphore of the set is referenced by a nonnegative integer
-ranging from
-.B 0
-to
-.IR sem_nsems\-1 .
-.PP
-A semaphore is a data structure of type
-.I "struct sem"
-containing the following members:
-.PP
-.in +4n
-.EX
-struct sem {
-    int semval;  /* semaphore value */
-    int sempid;  /* PID of process that last modified */
-.\"    unsigned short semncnt; /* nr awaiting semval to increase */
-.\"    unsigned short semzcnt; /* nr awaiting semval = 0 */
-};
-.EE
-.in
-.TP 11
-.I semval
-Semaphore value: a nonnegative integer.
-.TP
-.I sempid
-PID of the last process that modified the value of
-this semaphore.
-.\".TP
-.\".I semncnt
-.\"Number of processes suspended awaiting for
-.\".I semval
-.\"to increase.
-.\".TP
-.\".I semznt
-.\"Number of processes suspended awaiting for
-.\".I semval
-.\"to become zero.
+Perform various control operations on a set, including deletion.
+.\"
 .SS Shared memory segments
-A shared memory segment is uniquely identified by a positive integer
-.RI "(its " shmid )
-and has an associated data structure of type
-.IR "struct shmid_ds" ,
-defined in
-.IR <sys/shm.h> ,
-containing the following members:
+System V shared memory allows processes to share a region a memory
+(a "segment").
+POSIX shared memory is an alternative API for achieving the same result; see
+.BR shm_overview (7).
 .PP
-.in +4n
-.EX
-struct shmid_ds {
-    struct ipc_perm shm_perm;
-    size_t          shm_segsz;   /* size of segment */
-    pid_t           shm_cpid;    /* PID of creator */
-    pid_t           shm_lpid;    /* PID, last operation */
-    shmatt_t        shm_nattch;  /* no. of current attaches */
-    time_t          shm_atime;   /* time of last attach */
-    time_t          shm_dtime;   /* time of last detach */
-    time_t          shm_ctime;   /* time of last change */
-};
-.EE
-.in
-.TP 11
-.I shm_perm
-.I ipc_perm
-structure that specifies the access permissions on the shared memory
-segment.
+The System V shared memory API consists of the following system calls:
 .TP
-.I shm_segsz
-Size in bytes of the shared memory segment.
+.BR shmget (2)
+Create a new segment or obtain the ID of an existing segment.
+This call returns an identifier that is used in the remaining APIs.
 .TP
-.I shm_cpid
-ID of the process that created the shared memory segment.
-.TP
-.I shm_lpid
-ID of the last process that executed a
 .BR shmat (2)
-or
+Attach an existing shared memory object into the calling process's
+address space.
+.TP
 .BR shmdt (2)
-system call.
+Detach a segment from the calling process's address space.
 .TP
-.I shm_nattch
-Number of current alive attaches for this shared memory segment.
-.TP
-.I shm_atime
-Time of the last
-.BR shmat (2)
-system call.
-.TP
-.I shm_dtime
-Time of the last
-.BR shmdt (2)
-system call.
-.TP
-.I shm_ctime
-Time of the last
 .BR shmctl (2)
-system call that changed
-.IR shmid_ds .
+Perform various control operations on a segment, including deletion.
+.\"
 .SS IPC namespaces
 For a discussion of the interaction of System V IPC objects and
 IPC namespaces, see

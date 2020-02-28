@@ -1,4 +1,5 @@
 .\" Copyright 1993 Giorgio Ciucci (giorgio@crcc.it)
+.\" and Copyright 2020 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -35,8 +36,6 @@
 .\"	Language and formatting clean-ups
 .\"	Changed wording and placement of sentence regarding attachment
 .\"		of segments marked for destruction
-.\"
-.\" FIXME . Add an example program to this page.
 .\"
 .TH SHMOP 2 2019-08-02 "Linux" "Linux Programmer's Manual"
 .SH NAME
@@ -292,6 +291,207 @@ is the same as the system page size.)
 The implementation places no intrinsic per-process limit on the
 number of shared memory segments
 .RB ( SHMSEG ).
+.SH EXAMPLE
+.PP
+The two programs shown below exchange a string using a shared memory segment.
+Further details about the programs are given below.
+First, we show a shell session demonstrating their use.
+.PP
+In one terminal window, we run the "reader" program,
+which creates a System V shared memory segment and a System V semaphore set.
+The program prints out the IDs of the created objects,
+and then waits for the semaphore to change value.
+.PP
+.in +4n
+.EX
+$ \fB./svshm_string_read \fP
+shmid = 1114194; semid = 15
+.EE
+.in
+.PP
+In another terminal window, we run the "writer" program.
+The "writer" program takes three command-line arguments:
+the IDs of the shared memory segment and semaphore set created
+by the "reader", and a string.
+It attaches the existing shared memory segment,
+copies the string to the shared memory, and modifies the semaphore value.
+.PP
+.in +4n
+.EX
+$ \fB./svshm_string_write 1114194 15 \(aqHello, world\(aq\fP
+.EE
+.in
+.PP
+Returning to the terminal where the "reader" is running,
+we see that the program has ceased waiting on the semaphore
+and has printed the string that was copied into the
+shared memory segment by the writer:
+.PP
+.in +4n
+.EX
+Hello, world
+.EE
+.in
+.PP
+.\"
+.SS Program source: svshm_string.h
+The following header file is included by the "reader" and "writer" programs.
+.PP
+.in +4n
+.EX
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \e
+                        } while (0)
+
+union semun {                   /* Used in calls to semctl() */
+    int                 val;
+    struct semid_ds *   buf;
+    unsigned short *    array;
+#if defined(__linux__)
+    struct seminfo *    __buf;
+#endif
+};
+
+#define MEM_SIZE 4096
+.EE
+.in
+.\"
+.SS Program source: svshm_string_read.c
+The "reader" program creates a shared memory segment and a semaphore set
+containing one semaphore.
+It then attaches the shared memory object into its address space
+and initializes the semaphore value to 1.
+Finally, the program waits for the semaphore value to become 0,
+and afterwards prints the string that has been copied into the
+shared memory segment by the "writer".
+.PP
+.in +4n
+.EX
+#include "svshm_string.h"
+
+int
+main(int argc, char *argv[])
+{
+    int semid, shmid;
+    union semun arg, dummy;
+    struct sembuf sop;
+    char *addr;
+
+    /* Create shared memory and semaphore set containing one
+       semaphore */
+
+    shmid = shmget(IPC_PRIVATE, MEM_SIZE, IPC_CREAT | 0600);
+    if (shmid == \-1)
+        errExit("shmget");
+
+    semid = semget(IPC_PRIVATE, 1, IPC_CREAT | 0600);
+    if (shmid == \-1)
+        errExit("shmget");
+
+    /* Attach shared memory into our address space */
+
+    addr = shmat(shmid, NULL, SHM_RDONLY);
+    if (addr == (void *) \-1)
+        errExit("shmat");
+
+    /* Initialize semaphore 0 in set with value 1 */
+
+    arg.val = 1;
+    if (semctl(semid, 0, SETVAL, arg) == \-1)
+        errExit("semctl");
+
+    printf("shmid = %d; semid = %d\en", shmid, semid);
+
+    /* Wait for semaphore value to become 0 */
+
+    sop.sem_num = 0;
+    sop.sem_op = 0;
+    sop.sem_flg = 0;
+
+    if (semop(semid, &sop, 1) == \-1)
+        errExit("semop");
+
+    /* Print the string from shared memory */
+
+    printf("%s\en", addr);
+
+    /* Remove shared memory and semaphore set */
+
+    if (shmctl(shmid, IPC_RMID, NULL) == \-1)
+        errExit("shmctl");
+    if (semctl(semid, 0, IPC_RMID, dummy) == \-1)
+        errExit("semctl");
+
+    exit(EXIT_SUCCESS);
+}
+.EE
+.in
+.\"
+.SS Program source: svshm_string_write.c
+The writer program takes three command-line arguments:
+the IDs of the shared memory segment and semaphore set
+that have already been created by the "reader", and a string.
+It attaches the shared memory segment into its address space,
+and then decrements the semaphore value to 0 in order to inform the
+"reader" that it can now examine the contents of the shared memory.
+.PP
+.in +4n
+.EX
+#include "svshm_string.h"
+
+int
+main(int argc, char *argv[])
+{
+    int semid, shmid;
+    struct sembuf sop;
+    char *addr;
+    size_t len;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s shmid semid string\en", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    len = strlen(argv[3]) + 1;  /* +1 to include trailing \(aq\e0\(aq */
+    if (len > MEM_SIZE) {
+        fprintf(stderr, "String is too big!\en");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Get object IDs from command\-line */
+
+    shmid = atoi(argv[1]);
+    semid = atoi(argv[2]);
+
+    /* Attach shared memory into our address space and copy string
+       (including trailing null byte) into memory. */
+
+    addr = shmat(shmid, NULL, 0);
+    if (addr == (void *) \-1)
+        errExit("shmat");
+
+    memcpy(addr, argv[3], len);
+
+    /* Decrement semaphore t0 0 */
+
+    sop.sem_num = 0;
+    sop.sem_op = \-1;
+    sop.sem_flg = 0;
+
+    if (semop(semid, &sop, 1) == \-1)
+        errExit("semop");
+
+    exit(EXIT_SUCCESS);
+}
+.EE
+.in
 .SH SEE ALSO
 .BR brk (2),
 .BR mmap (2),

@@ -48,7 +48,44 @@ for the "set" operations, or as an
 .IR "unsigned long\ *" ,
 for the "get" operations.
 .PP
-Subfunctions for x86-64 are:
+Subfunctions for both x86 and x86-64 are:
+.TP
+.BR ARCH_SET_CPUID " (since Linux 4.12)"
+Enable (
+.I addr != 0
+) or disable (
+.I addr == 0
+) the
+.I cpuid
+instruction for the current thread. The instruction
+is enabled by default. If disabled,
+any execution of a
+.I cpuid
+instruction will instead generate a
+.B SIGSEGV
+signal. This feature can be used to emulate
+.I cpuid
+results that differ from what the underlying
+hardware would have produced (e.g. in a paravirtualization setting).
+This setting is preserved across
+.BR fork (2)
+and
+.BR clone (2)
+but reset to default (i.e.
+.I cpuid
+enabled) on
+.BR execve (2)
+.
+.TP
+.BR ARCH_GET_CPUID " (since Linux 4.12)"
+Return the setting of the flag manipulated by
+.B ARCH_SET_CPUID
+as the result of the system call (1 for enabled, 0 for disabled).
+.I addr
+is ignored.
+
+.TP
+Subfunctions for x86-64 only are:
 .TP
 .B ARCH_SET_FS
 Set the 64-bit base for the
@@ -96,6 +133,10 @@ is not a valid subcommand.
 .B EPERM
 .I addr
 is outside the process address space.
+.TP
+.B ENODEV
+.B ARCH_SET_CPUID
+was requested, but the underlying hardware does not support CPUID faulting.
 .\" .SH AUTHOR
 .\" Man page written by Andi Kleen.
 .SH CONFORMING TO

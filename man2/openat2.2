@@ -196,6 +196,7 @@ flags is as follows:
 .RS
 .TP
 .B RESOLVE_BENEATH
+.\" commit adb21d2b526f7f196b2f3fdca97d80ba05dd14a0
 Do not permit the path resolution to succeed if any component of the resolution
 is not a descendant of the directory indicated by
 .IR dirfd .
@@ -210,6 +211,7 @@ the caller should explicitly specify
 .BR RESOLVE_NO_MAGICLINKS .
 .TP
 .B RESOLVE_IN_ROOT
+.\" commit 8db52c7e7ee1bd861b6096fcafc0fe7d0f24a994
 Treat the directory referred to by
 .I dirfd
 as the root directory while resolving
@@ -265,6 +267,7 @@ the caller should explicitly specify
 .BR RESOLVE_NO_MAGICLINKS .
 .TP
 .B RESOLVE_NO_MAGICLINKS
+.\" commit 278121417a72d87fb29dd8c48801f80821e8f75a
 Disallow all magic-link resolution during path resolution.
 .IP
 If the trailing component (i.e., basename) of
@@ -290,11 +293,17 @@ it may be
 preferable for users to disable their resolution entirely.
 .\" FIXME: what specific details in symlink(7) are being referred
 .\" by the following sentence? It's not clear.
+.\" From https://lwn.net/Articles/796868/:
+.\"     The presence of this flag will prevent a path lookup operation
+.\"     from traversing through one of these magic links, thus blocking
+.\"     (for example) attempts to escape from a container via a /proc
+.\"     entry for an open file descriptor.
 (See
 .BR symlink (7)
 for more details.)
 .TP
 .B RESOLVE_NO_SYMLINKS
+.\" commit 278121417a72d87fb29dd8c48801f80821e8f75a
 Disallow resolution of symbolic links during path resolution.
 This option implies
 .BR RESOLVE_NO_MAGICLINKS .
@@ -311,6 +320,18 @@ then an
 .B O_PATH
 file descriptor referencing the symbolic link will be returned.
 .IP
+Note that the effect of the
+.BR RESOLVE_NO_SYMLINKS
+flag,
+which affects the treatment of symbolic links in all of the components of
+.IR pathname ,
+differs from the effect of the
+.BR O_NOFOLLOW
+file creation flag (in
+.IR how.flags ),
+which affects the handling of symbolic links only in the final component of
+.IR pathname .
+.IP
 Applications that employ
 this flag are encouraged to make its use configurable (unless it is
 used for a specific security purpose), as symbolic links are very widely used
@@ -320,8 +341,17 @@ Setting this flag indiscriminately for all uses of
 may result in spurious errors on previously-functional systems.
 .TP
 .B RESOLVE_NO_XDEV
+.\" commit 72ba29297e1439efaa54d9125b866ae9d15df339
 Disallow traversal of mount points during path resolution (including all bind
 mounts).
+Consequently,
+.I pathname
+must either be on the same mount as the directory referred to by
+.IR dirfd ,
+or on the same mount as the current working directory if
+.I dirfd
+is specified as
+.BR AT_FDCWD .
 .IP
 Applications that employ
 this flag are encouraged to make its use configurable (unless it is
@@ -422,6 +452,7 @@ and a path component crosses a mount point.
 .SH VERSIONS
 .BR openat2 ()
 first appeared in Linux 5.6.
+.\" commit fddb5d430ad9fa91b49b1d34d0202ffe2fa0e179
 .SH CONFORMING TO
 This system call is Linux-specific.
 .PP

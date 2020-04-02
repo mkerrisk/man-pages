@@ -477,6 +477,9 @@ is not a valid timerfd file descriptor.
 .BR timerfd_settime ()
 can also fail with the following errors:
 .TP
+.B ECANCELED
+See NOTES.
+.TP
 .B EINVAL
 .I new_value
 is not properly initialized (one of the
@@ -493,6 +496,52 @@ These system calls are available on Linux since kernel 2.6.25.
 Library support is provided by glibc since version 2.8.
 .SH CONFORMING TO
 These system calls are Linux-specific.
+.SH NOTES
+Suppose the following scenario for
+.BR CLOCK_REALTIME
+or
+.BR CLOCK_REALTIME_ALARM
+timer that was created with
+.BR timerfd_create ():
+.IP (a) 4
+The timer has been started
+.RB ( timerfd_settime ())
+with the
+.BR TFD_TIMER_ABSTIME
+and
+.BR TFD_TIMER_CANCEL_ON_SET
+flags;
+.IP (b)
+A discontinuous change (e.g.
+.BR settimeofday (2))
+is subsequently made to the
+.BR CLOCK_REALTIME
+clock; and
+.IP (c)
+the caller once more calls
+.BR timerfd_settime ()
+to rearm the timer (without first doing a
+.BR read (2)
+on the file descriptor).
+.PP
+In this case the following occurs:
+.IP \(bu 2
+The
+.BR timerfd_settime ()
+returns \-1 with
+.I errno
+set to
+.BR ECANCELED .
+(This enables the caller to know that the previous timer was affected
+by a discontinuous change to the clock.)
+.IP \(bu
+The timer
+.I "is successfully rearmed"
+with the settings provided in the second
+.BR timerfd_settime ()
+call.
+(This was probably an implementation accident, but won't be fixed now,
+in case there are applications that depend on this behaviour.)
 .SH BUGS
 Currently,
 .\" 2.6.29

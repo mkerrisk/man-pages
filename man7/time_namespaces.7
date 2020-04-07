@@ -106,7 +106,9 @@ These offsets are expressed relative to the clock values in
 the initial time namespace.
 The
 .I offset-secs
-value can be negative.
+value can be negative, subject to restrictions noted below;
+.I offset-nanosecs
+is an unsigned value.
 .PP
 In the initial time namespace, the contents of the
 .I timens_offsets
@@ -135,6 +137,44 @@ In order to write to the
 file, a process must have the
 .BR CAP_SYS_TIME
 capability in the user namespace that owns the time namespace.
+.PP
+Writes to the
+.I timens_offsets
+file can fail with the following errors:
+.TP
+.B EINVAL
+An
+.I offset-nanosecs
+value is greater than 999,999,999.
+.TP
+.B EINVAL
+A
+.I clock-id
+value is not valid.
+.TP
+.B EPERM
+The caller does not have the
+the
+.BR CAP_SYS_TIME
+capability.
+.TP
+.B ERANGE
+An
+.I offset-secs
+value is out of range.
+In particular;
+.RS
+.IP \(bu 2
+.I offset-secs
+can't be set to a value which would make the current
+time on the corresponding clock inside the namespace a negative value; and
+.IP \(bu
+.I offset-secs
+can't be set to a value such that the time on the corresponding clock
+inside the namespace would exceed half of the value of the kernel constant
+.BR KTIME_SEC_MAX
+(this limits the clock value to a maximum of approximately 146 years).
+.RE
 .PP
 In a new time namespace created by
 .BR unshare (2),

@@ -47,9 +47,11 @@ except that it also includes any time that the system is suspended.
 Thus, the processes in a time namespace share per-namespace values
 for these clocks.
 This affects various APIs that measure against these clocks, including:
+.BR clock_gettime (2),
 .BR clock_nanosleep (2),
 .BR nanosleep (2),
-.BR clock_gettime (2),
+.BR timer_settime (2),
+.BR timerfd_settime (2),
 and
 .IR /proc/uptime .
 .PP
@@ -69,6 +71,10 @@ The
 .IR /proc/[pid]/ns/time_for_children
 symbolic link shows the time namespace in which
 the children of a process will be created.
+(A process can use a file descriptor opened on
+this symbolic link in a call to
+.BR setns (2)
+in order to move into the namespace.)
 .\"
 .SS /proc/PID/timens_offsets
 Associated with each time namespace are offsets,
@@ -98,7 +104,13 @@ The remaining fields express the offset (seconds plus nanoseconds) for the
 clock in this time namespace.
 These offsets are expressed relative to the clock values in
 the initial time namespace.
-In the initial time namespace, the contents of this file are as follows:
+The
+.I offset-secs
+value can be negative.
+.PP
+In the initial time namespace, the contents of the
+.I timens_offsets
+file are as follows:
 .PP
 .in +4n
 .EX
@@ -110,7 +122,9 @@ $ \fBcat /proc/self/timens_offsets\fP
 .PP
 In a new time namespace that has had no member processes,
 the clock offsets can be modified by writing newline-terminated
-records of the same form to the file.
+records of the same form to the
+.I timens_offsets
+file.
 The file can be written to multiple times,
 but after the first process has been created in or has entered the namespace,
 .BR write (2)s

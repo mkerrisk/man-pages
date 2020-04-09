@@ -1,4 +1,5 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright 2020 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -125,6 +126,83 @@ the last compared byte in
 from the last compared byte in
 .IR s1 .
 (If the two characters are equal, this difference is 0.)
+.SH EXAMPLE
+The program below can be used to demonstrate the operation of
+.BR strcmp ()
+(when given two arguments) and
+.BR strncmp ()
+(when given three arguments).
+First, some examples using
+.BR strcmp ():
+.PP
+.in +4n
+.EX
+$ \fB./string_comp ABC ABC\fP
+<str1> and <str2> are equal
+$ \fB./string_comp ABC AB\fP      # \(aqC\(aq is ASCII 67; \(aqC\(aq \- \(aq\0\(aq = 67
+<str1> is greater than <str2> (67)
+$ \fB./string_comp ABA ABZ\fP     # \(aqA\(aq is ASCII 65; \(aqZ\(aq is ASCII 90
+<str1> is less than <str2> (\-25)
+$ \fB./string_comp ABJ ABC\fP
+<str1> is greater than <str2> (7)
+$ .\fB/string_comp $\(aq\e201\(aq A\fP   # 0201 \- 0101 = 0100 (or 64 decimal)
+<str1> is greater than <str2> (64)
+.EE
+.in
+.PP
+The last example uses
+.BR bash (1)-specific
+syntax to produce a string containing an 8-bit ASCII code;
+the result demonstrates that the string comparison uses unsigned
+characters.
+.PP
+And then some examples using
+.BR strncmp ():
+.PP
+.in +4n
+.EX
+$ \fB./string_comp ABC AB 3\fP
+<str1> is greater than <str2> (67)
+$ \fB./string_comp ABC AB 2\fP
+<str1> and <str2> are equal in the first 2 bytes
+.EE
+.in
+.SS Program source
+\&
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int
+main(int argc, char *argv[])
+{
+    int res;
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <str1> <str2> [<len>]\en", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    if (argc == 3)
+        res = strcmp(argv[1], argv[2]);
+    else
+        res = strncmp(argv[1], argv[2], atoi(argv[3]));
+
+    if (res == 0) {
+        printf("<str1> and <str2> are equal");
+        if (argc > 3)
+            printf(" in the first %d characters\en", atoi(argv[3]));
+        printf("\en");
+    } else if (res < 0) {
+        printf("<str1> is less than <str2> (%d)\en", res);
+    } else {
+        printf("<str1> is greater than <str2> (%d)\en", res);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+.EE
 .SH SEE ALSO
 .BR bcmp (3),
 .BR memcmp (3),

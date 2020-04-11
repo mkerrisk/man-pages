@@ -95,10 +95,14 @@ three space-delimited fields:
 .PP
 The
 .I clock-id
-identifies the clock whose offsets are being shown.
-This field is either 1, for
+is a string that identifies the clock whose offsets are being shown.
+This field is either
+.IR monotonic ,
+for
 .BR CLOCK_MONOTONIC ,
-or 7, for
+or
+.IR boottime ,
+for
 .BR CLOCK_BOOTTIME .
 The remaining fields express the offset (seconds plus nanoseconds) for the
 clock in this time namespace.
@@ -117,8 +121,8 @@ file are as follows:
 .in +4n
 .EX
 $ \fBcat /proc/self/timens_offsets\fP
-1 0 0
-7 0 0
+monotonic           0         0
+boottime            0         0
 .EE
 .in
 .PP
@@ -193,6 +197,17 @@ clock.
 Virtualization of this clock was avoided for reasons of complexity
 and overhead within the kernel.
 .PP
+For compatibility with the initial implementation, when writing a
+.I clock-id
+to the
+.IR /proc/[pid]/timens_offsets
+file, the numerical values of the IDs can be written
+instead of the symbolic names show above; i.e., 1 instead of
+.IR monotonic ,
+and 7 instead of
+.IR boottime .
+However, writing
+.PP
 The motivation for adding time namespaces was to allow
 the monotonic and boot-time clocks to maintain consistent values
 during container migration and checkpoint/restore.
@@ -248,8 +263,8 @@ clock forward 7 days:
 .in +4n
 .EX
 $ \fBPS1="ns2# " sudo unshare \-T \-\- bash \-\-norc\fP
-ns2# \fBecho "1 $((2*24*60*60)) 0" > /proc/$$/timens_offsets\fP
-ns2# \fBecho "7 $((7*24*60*60)) 0" > /proc/$$/timens_offsets\fP
+ns2# \fBecho "monotonic $((2*24*60*60)) 0" > /proc/$$/timens_offsets\fP
+ns2# \fBecho "boottime  $((7*24*60*60)) 0" > /proc/$$/timens_offsets\fP
 .EE
 .in
 .PP
@@ -278,9 +293,9 @@ file produce an error.
 .in +4n
 .EX
 ns2# \fBcat /proc/$$/timens_offsets\fP
-1 172800 0
-7 604800 0
-ns2# \fBecho "7 $((9*24*60*60)) 0" > /proc/$$/timens_offsets\fP
+monotonic      172800         0
+boottime       604800         0
+ns2# \fBecho "boottime $((9*24*60*60)) 0" > /proc/$$/timens_offsets\fP
 bash: echo: write error: Permission denied
 .EE
 .in

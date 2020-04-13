@@ -245,16 +245,6 @@ However, unlike
 (which changes the filesystem root permanently for a process),
 .B RESOLVE_IN_ROOT
 allows a program to efficiently restrict path resolution on a per-open basis.
-.\" FIXME The next piece is unclear (to me). What kind of ".." escape
-.\" attempts does chroot() not detect that RESOLVE_IN_ROOT does?
-The
-.B RESOLVE_IN_ROOT
-flag also has several hardening features
-(such as detecting escape attempts during
-.I ".."
-resolution) which
-.BR chroot (2)
-does not.
 .IP
 Currently, this flag also disables magic-link resolution.
 However, this may change in the future.
@@ -265,6 +255,45 @@ the caller should explicitly specify
 .B RESOLVE_NO_MAGICLINKS
 .\" commit 278121417a72d87fb29dd8c48801f80821e8f75a
 Disallow all magic-link resolution during path resolution.
+.IP
+Magic links are symbolic link-like objects that are most notably found in
+.BR proc (5);
+examples include
+.IR /proc/[pid]/exe
+and
+.IR /proc/[pid]/fd/* .
+(See
+.BR symlink (7)
+for more details.)
+.IP
+Unknowingly opening magic links can be risky for some applications.
+Examples of such risks include the following:
+.RS
+.IP \(bu 2
+If the process opening a pathname is a controlling process that
+currently has no controlling terminal (see
+.BR credentials (7)),
+then opening a magic link inside
+.IR /proc/[pid]/fd
+that happens to refer to a terminal
+would cause the process to acquire a controlling terminal.
+.IP \(bu
+.\" From https://lwn.net/Articles/796868/:
+.\"     The presence of this flag will prevent a path lookup operation
+.\"     from traversing through one of these magic links, thus blocking
+.\"     (for example) attempts to escape from a container via a /proc
+.\"     entry for an open file descriptor.
+In a containerized environment,
+a magic link inside
+.I /proc
+may refer to an object outside the container,
+and thus may provide a means to escape from the container.
+.RE
+.IP
+Because of such risks,
+an application may prefer to disable magic link resolution using the
+.BR RESOLVE_NO_MAGICLINKS
+flag.
 .IP
 If the trailing component (i.e., basename) of
 .I pathname
@@ -277,26 +306,6 @@ and
 then an
 .B O_PATH
 file descriptor referencing the magic link will be returned.
-.IP
-Magic links are symbolic link-like objects that are most notably found in
-.BR proc (5)
-(examples include
-.IR /proc/[pid]/exe
-and
-.IR /proc/[pid]/fd/* ).
-Due to the potential danger of unknowingly opening these magic links,
-it may be
-preferable for users to disable their resolution entirely.
-.\" FIXME: what specific details in symlink(7) are being referred
-.\" by the following sentence? It's not clear.
-.\" From https://lwn.net/Articles/796868/:
-.\"     The presence of this flag will prevent a path lookup operation
-.\"     from traversing through one of these magic links, thus blocking
-.\"     (for example) attempts to escape from a container via a /proc
-.\"     entry for an open file descriptor.
-(See
-.BR symlink (7)
-for more details.)
 .TP
 .B RESOLVE_NO_SYMLINKS
 .\" commit 278121417a72d87fb29dd8c48801f80821e8f75a
@@ -328,13 +337,19 @@ file creation flag (in
 which affects the handling of symbolic links only in the final component of
 .IR pathname .
 .IP
-Applications that employ
-this flag are encouraged to make its use configurable (unless it is
-used for a specific security purpose), as symbolic links are very widely used
-by end-users.
-Setting this flag indiscriminately for all uses of
+Applications that employ the
+.BR RESOLVE_NO_SYMLINKS
+flag are encouraged to make its use configurable
+(unless it is used for a specific security purpose),
+as symbolic links are very widely used by end-users.
+Setting this flag indiscriminately\(emi.e.,
+for purposes not specifically related to security\(emfor all uses of
 .BR openat2 ()
 may result in spurious errors on previously-functional systems.
+This may occur if, for example,
+a system pathname that is used by an application is modified
+(e.g., in a new distribution release)
+so that a pathname component (now) contains a symbolic link.
 .TP
 .B RESOLVE_NO_XDEV
 .\" commit 72ba29297e1439efaa54d9125b866ae9d15df339

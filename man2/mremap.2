@@ -140,16 +140,26 @@ remaps a mapping to a new address but does not unmap the mapping at
 .IP
 The
 .B MREMAP_DONTUNMAP
-flag can be used only with private anonymous mappings.
+flag can be used only with private anonymous mappings
+(see the description of
+.BR MAP_PRIVATE
+and
+.BR MAP_ANONYMOUS
+in
+.BR mmap (2)).
 .IP
-Any access to the range specified at
+After completion,
+any access to the range specified by
 .IR old_address
-after completion will result in an anonymous page fault.
-The anonymous page fault will be handled by a
+and
+.I old_size
+will result in a page fault.
+The page fault will be handled by a
 .BR userfaultfd (2)
-if the range was previously registered on the mapping specified by
-.IR old_address .
-Otherwise, it will be zero filled by the kernel.
+handler
+if the address is in a range previously registered with
+.BR userfaultfd (2).
+Otherwise, the kernel allocates a zero-filled page to handle the fault.
 .PP
 If the memory segment specified by
 .I old_address
@@ -226,9 +236,11 @@ was specified without also specifying
 .BR MREMAP_MAYMOVE ;
 .IP *
 .B MREMAP_DONTUNMAP
-was specified with an
+was specified, but one or more pages in the range specified by
 .IR old_address
-that was not private anonymous;
+and
+.IR old_size
+were not private anonymous;
 .IP *
 .B MREMAP_DONTUNMAP
 was specified and

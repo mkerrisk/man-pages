@@ -227,6 +227,35 @@ On Linux, this clock is not settable.
 .BR CLOCK_THREAD_CPUTIME_ID " (since Linux 2.6.12)"
 This is a clock that measures CPU time consumed by this thread.
 On Linux, this clock is not settable.
+.PP
+Linux also implements dynamic clock instances as described below.
+.SH DYNAMIC CLOCKS " (since Linux 2.6.39)"
+In addition to hard coded SYS-V style clock ids, Linux also supports
+POSIX clock operations on certain character devices.  Such devices are
+called "dynamic" clocks.  Using the appropriate macros, open file
+descriptors may be converted into clock ids and passed to
+.BR clock_gettime (),
+.BR clock_settime (),
+and
+.BR clock_adj (2).
+The follow example shows how to convert a file descriptor into a
+dynamic clock id.
+.PP
+.in +4n
+.EX
+#define CLOCKFD 3
+#define FD_TO_CLOCKID(fd)       ((~(clockid_t) (fd) << 3) | CLOCKFD)
+#define CLOCKID_TO_FD(clk)      ((unsigned int) ~((clk) >> 3))
+
+struct timeval tv;
+clockid_t clkid;
+int fd;
+
+fd = open("/dev/ptp0", O_RDWR);
+clkid = FD_TO_CLOCKID(fd);
+clock_gettime(clkid, &tv);
+.EE
+.in
 .SH RETURN VALUE
 .BR clock_gettime (),
 .BR clock_settime (),
@@ -244,7 +273,9 @@ points outside the accessible address space.
 .B EINVAL
 The
 .I clockid
-specified is not supported on this system.
+specified is invalid for one of two reasons.  Either the SYS-V style
+hard coded positive value is out of range, or the dynamic clock id
+does not refer to a valid instance of a clock object.
 .\" Linux also gives this error on attempts to set CLOCK_PROCESS_CPUTIME_ID
 .\" and CLOCK_THREAD_CPUTIME_ID, when probably the proper error should be
 .\" EPERM.
@@ -279,6 +310,12 @@ attempted to set the time to a value less than
 the current value of the
 .B CLOCK_MONOTONIC
 clock.
+.TP
+.B ENODEV
+The hot-plugable device (like USB for example) represented by a
+dynamic
+.I clk_id
+has disappeared after its character device was opened.
 .TP
 .B EPERM
 .BR clock_settime ()

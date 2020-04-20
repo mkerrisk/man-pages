@@ -324,6 +324,9 @@ A watched file or directory was moved.
 .B FAN_MODIFY
 A file was modified.
 .TP
+.B FAN_DIR_MODIFY
+A directory entry was created, deleted or moved.
+.TP
 .B FAN_CLOSE_WRITE
 A file that was opened for writing
 .RB ( O_WRONLY
@@ -395,9 +398,11 @@ For example, when an fanotify file descriptor is created using
 the
 .I info_type
 field of this header is set to
-.BR FAN_EVENT_INFO_TYPE_FID .
-Event listeners can use this field to check that the additional
-information received for an event is of the correct type.
+.BR FAN_EVENT_INFO_TYPE_FID
+or
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME .
+Event listeners can use this field to check what additional information
+is received for an event.
 Additionally, the
 .I fanotify_event_info_header
 also contains a
@@ -443,6 +448,14 @@ and
 will carry the
 .IR file_handle
 information for the child object if the child object is being watched.
+For the event
+.BR FAN_DIR_MODIFY ,
+the
+.I info_type
+field of this header is set to
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME .
+The file handle describes the modified directory and a null terminated
+name of the modified entry follows directly after the file handle buffer.
 .PP
 The following macros are provided to iterate over a buffer containing
 fanotify event metadata returned by a
@@ -627,9 +640,11 @@ events for the monitored directory itself.
 Fanotify monitoring of directories is not recursive:
 to monitor subdirectories under a directory,
 additional marks must be created.
-(But note that the fanotify API provides no way of detecting when a
-subdirectory has been created under a marked directory,
-which makes recursive monitoring difficult.)
+The
+.B FAN_DIR_MODIFY
+event can be used for detecting when a subdirectory has been created under
+a marked directory.
+An additional mark must then be set on the newly created subdirectory.
 Monitoring mounts offers the capability to monitor a whole directory tree.
 Monitoring filesystems offers the capability to monitor changes made from
 any mount of a filesystem instance.
@@ -923,6 +938,8 @@ The program marks the filesystem object that is passed as
 a command-line argument
 and waits until an event of type
 .B FAN_CREATE
+or
+.B FAN_DIR_MODIFY
 has occurred.
 The event mask indicates which type of filesystem object\(emeither
 a file or a directory\(emwas created.
@@ -939,7 +956,9 @@ This is followed by the creation of a regular file,
 This results in a
 .B FAN_CREATE
 event being generated and reported against the file's parent watched
-directory object.
+directory object and a
+.B FAN_DIR_MODIFY
+event being generated and reported with the created file name.
 Program execution ends once all events captured within the buffer have
 been processed.
 .PP
@@ -949,6 +968,9 @@ been processed.
 Listening for events.
 FAN_CREATE (file created):
         Directory /home/user has been modified.
+FAN_DIR_MODIFY (entry changed):
+        Directory /home/user has been modified.
+        Entry 'testfile.txt' is not a subdirectory.
 All events processed successfully. Program exiting.
 
 $ \fBtouch /home/user/testfile.txt\fP              # In another terminal
@@ -963,7 +985,9 @@ This specific action results in a
 .B FAN_CREATE
 event being generated and is reported with the
 .B FAN_ONDIR
-flag set.
+flag set and a
+.B FAN_DIR_MODIFY
+event being generated and reported with the created directory name.
 .PP
 .in +4n
 .EX
@@ -971,6 +995,9 @@ flag set.
 Listening for events.
 FAN_CREATE | FAN_ONDIR (subdirectory created):
         Directory /home/user has been modified.
+FAN_DIR_MODIFY (entry changed):
+        Directory /home/user has been modified.
+        Entry 'testdir' is a subdirectory.
 All events processed successfully. Program exiting.
 
 $ \fBmkdir \-p /home/user/testdir\fP          # In another terminal
@@ -1003,6 +1030,8 @@ main(int argc, char **argv)
     struct file_handle *file_handle;
     struct fanotify_event_metadata *metadata;
     struct fanotify_event_info_fid *fid;
+    const char *file_name;
+    struct stat sb;
 
     if (argc != 2) {
         fprintf(stderr, "Invalid number of command line arguments.\en");
@@ -1028,7 +1057,7 @@ main(int argc, char **argv)
     /* Place a mark on the filesystem object supplied in argv[1]. */
 
     ret = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR,
-                        FAN_CREATE | FAN_ONDIR,
+                        FAN_DIR_MODIFY | FAN_CREATE | FAN_ONDIR,
                         AT_FDCWD, argv[1]);
     if (ret == \-1) {
         perror("fanotify_mark");
@@ -1055,10 +1084,17 @@ main(int argc, char **argv)
 
         /* Ensure that the event info is of the correct type */
 
-        if (fid\->hdr.info_type != FAN_EVENT_INFO_TYPE_FID) {
+        if (fid\->hdr.info_type == FAN_EVENT_INFO_TYPE_FID) {
+            file_name = NULL;
+        } else if (fid\->hdr.info_type == FAN_EVENT_INFO_TYPE_DFID_NAME) {
+            file_name = file_handle->f_handle + file_handle->handle_bytes;
+        } else {
             fprintf(stderr, "Received unexpected event info type.\en");
             exit(EXIT_FAILURE);
         }
+
+        if (metadata\->mask == FAN_DIR_MODIFY)
+            printf("FAN_DIR_MODIFY (entry changed):\en");
 
         if (metadata\->mask == FAN_CREATE)
             printf("FAN_CREATE (file created):\en");
@@ -1099,6 +1135,21 @@ main(int argc, char **argv)
 
         path[path_len] = \(aq\e0\(aq;
         printf("\etDirectory \(aq%s\(aq has been modified.\en", path);
+
+        if (file_name) {
+            ret = fstatat(event_fd, file_name, &sb, 0);
+            if (ret == \-1) {
+                if (errno != ENOENT) {
+                    perror("fstatat");
+                    exit(EXIT_FAILURE);
+                }
+                printf("\etEntry %\(aqs\(aq does not exist.\en", file_name);
+            } else if ((sb.st_mode & S_IFMT) == S_IFDIR) {
+                printf("\etEntry \(aq%s\(aq is a subdirectory.\en", file_name);
+            } else {
+                printf("\etEntry \(aq%s\(aq is not a subdirectory.\en", file_name);
+            }
+        }
 
         /* Close associated file descriptor for this event */
 

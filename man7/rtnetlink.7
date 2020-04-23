@@ -200,7 +200,7 @@ struct rtmsg {
     unsigned char rtm_src_len;  /* Length of source */
     unsigned char rtm_tos;      /* TOS filter */
 
-    unsigned char rtm_table;    /* Routing table ID */
+    unsigned char rtm_table;    /* Routing table ID; see RTA_TABLE below */
     unsigned char rtm_protocol; /* Routing protocol; see below */
     unsigned char rtm_scope;    /* See below */
     unsigned char rtm_type;     /* See below */
@@ -319,13 +319,60 @@ RTA_IIF:int:Input interface index.
 RTA_OIF:int:Output interface index.
 RTA_GATEWAY:protocol address:The gateway of the route
 RTA_PRIORITY:int:Priority of route.
-RTA_PREFSRC::
+RTA_PREFSRC:protocol address:Preferred source address.
 RTA_METRICS:int:Route metric
-RTA_MULTIPATH::
-RTA_PROTOINFO::
-RTA_FLOW::
-RTA_CACHEINFO::
+RTA_MULTIPATH::Multipath nexthop data (see below).
+RTA_PROTOINFO::No longer used
+RTA_FLOW:int:Route realm
+RTA_CACHEINFO:struct rta_cacheinfo:(see linux/rtnetlink.h)
+RTA_SESSION::No longer used
+RTA_MP_ALGO::No longer used
+RTA_TABLE:int:Routing table ID; if set, rtm_table is ignored.
+RTA_MARK:int:
+RTA_MFC_STATS:struct rta_mfc_stats:(see linux/rtnetlink.h)
+RTA_VIA:struct rtvia:Gateway in different AF (see below).
+RTA_NEWDST:protocol address:Change packet destination address.
+RTA_PREF:char:RFC4191 IPv6 router preference (see below).
+RTA_ENCAP_TYPE:short:Encapsulation type for lwtunnels (see below).
+RTA_ENCAP::Defined by RTA_ENCAP_TYPE.
+RTA_EXPIRES:int:Expire time for IPv6 routes (in seconds).
 .TE
+.I RTA_MULTIPATH
+contains several packed instances of
+.I struct rtnexthop
+together with nested RTA's (RTA_GATEWAY)
+
+.nf
+struct rtnexthop {
+    unsigned short  rtnh_len;       /* Length of struct + length of RTA's
+    unsigned char   rtnh_flags;     /* Flags (see linux/rtnetlink.h) */
+    unsigned char   rtnh_hops;      /* Nexthop priority */
+    int             rtnh_ifindex;   /* Interface index for this nexthop */
+}
+
+There exist a bunch of RTNH_* macros similar to RTA_* and NLHDR_* macros
+useful to handle these structures.
+
+.nf
+struct rtvia {
+    unsigned short rtvia_family;
+    unsigned char  rtvia_addr[0];
+};
+.fi
+
+.I rtvia_addr
+is the address,
+.I rtvia_family
+is its family type.
+
+.I RTA_PREF
+may contain values ICMPV6_ROUTER_PREF_LOW,
+ICMPV6_ROUTER_PREF_MEDIUM and
+ICMPV6_ROUTER_PREF_HIGH defined in <linux/icmpv6.h>
+
+.I RTA_ENCAP_TYPE
+may contain values LWTUNNEL_ENCAP_MPLS, LWTUNNEL_ENCAP_IP, LWTUNNEL_ENCAP_ILA or LWTUNNEL_ENCAP_IP6
+defined in <linux/lwtunnel.h>
 .sp 1
 .B Fill these values in!
 .TP

@@ -173,14 +173,14 @@ is a symbolic link, and \fBFTW_PHYS\fP was set in \fIflags\fP.
 .I fpath
 is a symbolic link pointing to a nonexistent file.
 (This occurs only if \fBFTW_PHYS\fP is not set.)
-On most implementations, in this case the
+In this case the
 .I sb
 argument passed to
 .IR fn ()
 contains information returned by performing
 .BR lstat (2)
-on the symbolic link.
-For the details on Linux, see BUGS.
+on the "dangling" symbolic link.
+(But see BUGS.)
 .PP
 The fourth argument
 .RI ( ftwbuf )
@@ -417,44 +417,32 @@ is passed in
 For predictable results, use
 .BR nftw ().
 .SH BUGS
-In the specification of
-.BR nftw (),
-POSIX.1 notes that when
-.B FTW_NS
-is passed as the
-.I typeflag
-argument of
-.IR fn (),
-then the contents of the buffer pointed to by the
+According to POSIX.1-2008, when the
+.IR typeflag
+argument passed to
+.IR fn ()
+contains
+.BR FTW_SLN ,
+the buffer pointed to by
 .I sb
-argument are undefined.
-The standard makes no such statement for the case where
-.B FTW_SLN
-is passed in
-.IR typeflag ,
-with the implication that the contents of the buffer pointed to by
-.I sb
-are defined.
-And indeed this is the case on most implementations: the buffer pointed to by
-.I sb
-contains the results produced by applying
+should contain information about the dangling symbolic link
+(obtained by calling
 .BR lstat (2)
-to the symbolic link.
-In early glibc, the behavior was the same.
-However, since glibc 2.4, the contents of the buffer pointed to by
+on the link).
+Early glibc versions correctly followed the POSIX specification on this point.
+However, as a result of a regression introduced in glibc 2.4,
+the contents of the buffer pointed to by
 .I sb
-are undefined when
+were undefined when
 .B FTW_SLN
 is passed in
 .IR typeflag .
-This change
-.I appears
-to be an unintended regression,
-but it is not (yet) clear if the behavior will be restored to that
-provided in the original glibc implementation (and on other implementations).
-.\" FIXME .
+(More precisely, the contents of the buffer were left unchanged in this case.)
+This regression was eventually fixed in glibc 2.30,
 .\" https://bugzilla.redhat.com/show_bug.cgi?id=1422736
 .\" http://austingroupbugs.net/view.php?id=1121
+.\" https://bugzilla.redhat.com/show_bug.cgi?id=1422736
+so that the glibc implementation (once more) follows the POSIX specification.
 .SH EXAMPLE
 The following program traverses the directory tree under the path named
 in its first command-line argument, or under the current directory

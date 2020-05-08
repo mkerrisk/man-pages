@@ -115,7 +115,8 @@ that a file descriptor is automatically closed upon a successful
 see
 .BR fcntl (2)
 for details.
-.PP
+.\"
+.SS Multithreaded processes and close()
 It is probably unwise to close file descriptors while
 they may be in use by system calls in
 other threads in the same process.
@@ -130,6 +131,35 @@ that may cause unintended side effects.
 .\" call has restarted after ERESTARTSYS, the original system call will
 .\" later restart with the reused file descriptor. This is most likely a
 .\" serious programming error.
+.PP
+Furthermore, consider the following scenario where two threads are
+performing operations on the same file descriptor:
+.IP 1. 3
+One thread is blocked in an I/O system call on the file descriptor.
+For example, it is trying to
+.BR write (2)
+to a pipe that is already full, or trying to
+.BR read (2)
+from a stream socket which currently has no available data.
+.IP 2.
+Another thread closes the file descriptor.
+.PP
+The behavior in this situation varies across systems.
+On some systems, when the file descriptor is closed,
+the blocking system call returns immediately with an error.
+.PP
+On Linux (and possibly some other systems), the behavior is different.
+the blocking I/O system call holds a reference to the underlying
+open file description, and this reference keeps the description open
+until the I/O system call completes.
+.\" 'struct file' in kernel-speak
+(See
+.BR open (2)
+for a discussion of open file descriptions.)
+Thus, the blocking system call in the first thread may successfully
+complete after the
+.BR close (2)
+in the second thread.
 .\"
 .SS Dealing with error returns from close()
 A careful programmer will check the return value of

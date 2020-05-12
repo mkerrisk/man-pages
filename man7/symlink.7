@@ -183,11 +183,39 @@ are not traversing a file tree.
 Symbolic links encountered by utilities that are traversing a file tree
 (either specified on the command line or encountered as part of the
 file hierarchy walk).
-.SS System calls
+.PP
+Before describing the treatment of symbolic links by system calls and commands,
+we require some terminology.
+Given a pathname of the form
+.IR a/b/c ,
+the part preceding the final slash (i.e.,
+.IR a/b )
+is called the
+.I dirname
+component, and the part following the final slash (i.e.,
+.IR c )
+is called the
+.IR basename
+component.
+.\"
+.SS Treatment of symbolic links in system calls
 The first area is symbolic links used as filename arguments for
 system calls.
 .PP
-Except as noted below, all system calls follow symbolic links.
+The treatment of symbolic links within a pathname passed to
+a system call is as follows:
+.IP 1. 3
+Within the dirname component of a pathname,
+symbolic links are always followed in nearly every system call.
+(This is also true for commands.)
+The one exception is
+.BR openat2 (2),
+which provides flags that can be used to explicitly
+prevent following of symbolic links in the dirname component.
+.IP 2.
+Except as noted below,
+all system calls follow symbolic links
+in the basename component of a pathname.
 For example, if there were a symbolic link
 .I slink
 which pointed to a file named
@@ -197,8 +225,9 @@ the system call
 would return a file descriptor referring to the file
 .IR afile .
 .PP
-Various system calls do not follow links, and operate
-on the symbolic link itself.
+Various system calls do not follow links in
+the basename component of a pathname,
+and operate on the symbolic link itself.
 They are:
 .BR lchown (2),
 .BR lgetxattr (2),
@@ -212,7 +241,8 @@ They are:
 and
 .BR unlink (2).
 .PP
-Certain other system calls optionally follow symbolic links.
+Certain other system calls optionally follow symbolic links
+in the basename component of a pathname.
 They are:
 .BR faccessat (2),
 .\" Maybe one day: .BR fchownat (2)

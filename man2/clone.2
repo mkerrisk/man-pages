@@ -199,8 +199,8 @@ struct clone_args {
                          (since Linux 5.5) */
     u64 set_tid_size; /* Number of elements in \fIset_tid\fP
                          (since Linux 5.5) */
-    u64 cgroup;       /* Target cgroup file descriptor for the
-                         child process (since Linux 5.7) */
+    u64 cgroup;       /* File descriptor for target cgroup
+                         of child (since Linux 5.7) */
 };
 .EE
 .in
@@ -270,6 +270,7 @@ stack	stack
 tls	tls	See CLONE_SETTLS
 \fP---\fP	set_tid	See below for details
 \fP---\fP	set_tid_size
+\fP---\fP	cgroup	See CLONE_INTO_CGROUP
 .TE
 .RE
 .\"
@@ -456,39 +457,37 @@ is nonsensical and disallowed.
 .\" commit ef2c41cf38a7559bbf91af42d5b6a4429db8fc68
 By default, a child process is placed in the same version 2
 cgroup as its parent.
-If this flag is specified, the child process will be created in a
-different version 2 cgroup than its parent.
+The
+.B CLONE_INTO_CGROUP
+allows the child process to be created in a different version 2 cgroup.
 (Note that
 .BR CLONE_INTO_CGROUP
 has effect only for version 2 cgroups.)
 .IP
-In order to place the child process in a different version 2 cgroup,
+In order to place the child process in a different cgroup,
 the caller specifies
 .BR CLONE_INTO_CGROUP
 in
 .I cl_args.flags
-and passes a directory file descriptor (see the
-.BR O_DIRECTORY
-flag for the
-.BR open (2)
-syscall) in the
+and passes a file descriptor that refers to a version 2 cgroup in the
 .I cl_args.cgroup
 field.
-The caller may also pass an
-.BR O_PATH
-(see
-.BR open (2))
-file descriptor for the target cgroup.
-Note, that all usual version 2 cgroup migration restrictions (see
-.BR cgroups (7)
-for details) apply.
+(This file descriptor can be obtained by opening a cgroup v2 directory file
+using either the
+.B O_RDONLY
+or the
+.B O_PATH
+flag.)
+Note that all of the usual restrictions (described in
+.BR cgroups (7))
+on placing a process into a version 2 cgroup apply.
 .IP
 Spawning a process into a cgroup different from the parent's cgroup
 makes it possible for a service manager to directly spawn new
 services into dedicated cgroups.
 This eliminates the accounting
-jitter that would be caused by the new process living in the
-parent's cgroup for a short time before being
+jitter that would be caused if the child process was first created in the
+same cgroup as the parent and then
 moved into the target cgroup.
 The
 .BR CLONE_INTO_CGROUP

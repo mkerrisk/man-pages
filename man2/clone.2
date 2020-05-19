@@ -197,7 +197,8 @@ struct clone_args {
     u64 tls;          /* Location of new TLS */
     u64 set_tid;      /* Pointer to a \fIpid_t\fP array */
     u64 set_tid_size; /* Number of elements in \fIset_tid\fP */
-    u64 cgroup;       /* Target cgroup file descriptor for the child process */
+    u64 cgroup;       /* Target cgroup file descriptor for
+                         the child process */
 };
 .EE
 .in
@@ -451,24 +452,26 @@ is nonsensical and disallowed.
 .TP
 .BR CLONE_INTO_CGROUP " (since Linux 5.7)"
 .\" commit ef2c41cf38a7559bbf91af42d5b6a4429db8fc68
-By default, the child process will be placed in the same version 2
+By default, a child process is placed in the same version 2
 cgroup as its parent.
-If this flag is specified the child process will be created in a
-different cgroup than its parent.
-Note, that
+If this flag is specified, the child process will be created in a
+different version 2 cgroup than its parent.
+(Note that
 .BR CLONE_INTO_CGROUP
-is limited to version 2 cgroups.
-To use this feature, callers
-need to raise
+has effect only for version 2 cgroups.)
+.IP
+In order to place the child process in a different version 2 cgroup,
+the caller specifies
 .BR CLONE_INTO_CGROUP
 in
 .I cl_args.flags
-and pass a directory file descriptor (see the
+and passes a directory file descriptor (see the
 .BR O_DIRECTORY
 flag for the
 .BR open (2)
 syscall) in the
-.I cl_args.cgroup.
+.I cl_args.cgroup
+field.
 The caller may also pass an
 .BR O_PATH
 (see
@@ -477,20 +480,23 @@ file descriptor for the target cgroup.
 Note, that all usual version 2 cgroup migration restrictions (see
 .BR cgroups (7)
 for details) apply.
-
+.IP
 Spawning a process into a cgroup different from the parent's cgroup
 makes it possible for a service manager to directly spawn new
 services into dedicated cgroups.
-This allows eliminating accounting
-jitter which would be caused by the new process living in the
-parent's cgroup for a short amount of time before being
+This eliminates the accounting
+jitter that would be caused by the new process living in the
+parent's cgroup for a short time before being
 moved into the target cgroup.
-This flag also allows the creation of
-frozen child process by spawning them into a frozen cgroup (see
+The
+.BR CLONE_INTO_CGROUP
+flag also allows the creation of
+frozen child processes by spawning them into a frozen cgroup.
+(See
 .BR cgroups (7)
-for a description of the freezer feature in version 2 cgroups).
-For threaded applications or even thread implementations which
-make use of cgroups to limit individual threads it is possible to
+for a description of the freezer controller.)
+For threaded applications (or even thread implementations which
+make use of cgroups to limit individual threads), it is possible to
 establish a fixed cgroup layout before spawning each thread
 directly into its target cgroup.
 .TP

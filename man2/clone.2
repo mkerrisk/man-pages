@@ -1171,177 +1171,6 @@ space of the calling process at the time of the clone call.
 Memory writes or file mappings/unmappings performed by one of the
 processes do not affect the other, as with
 .BR fork (2).
-.SH NOTES
-.PP
-One use of these systems calls
-is to implement threads: multiple flows of control in a program that
-run concurrently in a shared address space.
-.PP
-Glibc does not provide a wrapper for
-.BR clone3 ();
-call it using
-.BR syscall (2).
-.PP
-Note that the glibc
-.BR clone ()
-wrapper function makes some changes
-in the memory pointed to by
-.I stack
-(changes required to set the stack up correctly for the child)
-.I before
-invoking the
-.BR clone ()
-system call.
-So, in cases where
-.BR clone ()
-is used to recursively create children,
-do not use the buffer employed for the parent's stack
-as the stack of the child.
-.\"
-.SS C library/kernel differences
-The raw
-.BR clone ()
-system call corresponds more closely to
-.BR fork (2)
-in that execution in the child continues from the point of the
-call.
-As such, the
-.I fn
-and
-.I arg
-arguments of the
-.BR clone ()
-wrapper function are omitted.
-.PP
-In contrast to the glibc wrapper, the raw
-.BR clone ()
-system call accepts NULL as a
-.I stack
-argument (and
-.BR clone3 ()
-likewise allows
-.I cl_args.stack
-to be NULL).
-In this case, the child uses a duplicate of the parent's stack.
-(Copy-on-write semantics ensure that the child gets separate copies
-of stack pages when either process modifies the stack.)
-In this case, for correct operation, the
-.B CLONE_VM
-option should not be specified.
-(If the child
-.I shares
-the parent's memory because of the use of the
-.BR CLONE_VM
-flag,
-then no copy-on-write duplication occurs and chaos is likely to result.)
-.PP
-The order of the arguments also differs in the raw system call,
-and there are variations in the arguments across architectures,
-as detailed in the following paragraphs.
-.PP
-The raw system call interface on x86-64 and some other architectures
-(including sh, tile, and alpha) is:
-.PP
-.in +4
-.EX
-.BI "long clone(unsigned long " flags ", void *" stack ,
-.BI "           int *" parent_tid ", int *" child_tid ,
-.BI "           unsigned long " tls );
-.EE
-.in
-.PP
-On x86-32, and several other common architectures
-(including score, ARM, ARM 64, PA-RISC, arc, Power PC, xtensa,
-and MIPS),
-.\" CONFIG_CLONE_BACKWARDS
-the order of the last two arguments is reversed:
-.PP
-.in +4
-.EX
-.BI "long clone(unsigned long " flags ", void *" stack ,
-.BI "          int *" parent_tid ", unsigned long " tls ,
-.BI "          int *" child_tid );
-.EE
-.in
-.PP
-On the cris and s390 architectures,
-.\" CONFIG_CLONE_BACKWARDS2
-the order of the first two arguments is reversed:
-.PP
-.in +4
-.EX
-.BI "long clone(void *" stack ", unsigned long " flags ,
-.BI "           int *" parent_tid ", int *" child_tid ,
-.BI "           unsigned long " tls );
-.EE
-.in
-.PP
-On the microblaze architecture,
-.\" CONFIG_CLONE_BACKWARDS3
-an additional argument is supplied:
-.PP
-.in +4
-.EX
-.BI "long clone(unsigned long " flags ", void *" stack ,
-.BI "           int " stack_size , "\fR         /* Size of stack */"
-.BI "           int *" parent_tid ", int *" child_tid ,
-.BI "           unsigned long " tls );
-.EE
-.in
-.\"
-.SS blackfin, m68k, and sparc
-.\" Mike Frysinger noted in a 2013 mail:
-.\"     these arches don't define __ARCH_WANT_SYS_CLONE:
-.\"     blackfin ia64 m68k sparc
-The argument-passing conventions on
-blackfin, m68k, and sparc are different from the descriptions above.
-For details, see the kernel (and glibc) source.
-.SS ia64
-On ia64, a different interface is used:
-.PP
-.in +4
-.EX
-.BI "int __clone2(int (*" "fn" ")(void *), "
-.BI "             void *" stack_base ", size_t " stack_size ,
-.BI "             int " flags ", void *" "arg" ", ... "
-.BI "          /* pid_t *" parent_tid ", struct user_desc *" tls ,
-.BI "             pid_t *" child_tid " */ );"
-.EE
-.in
-.PP
-The prototype shown above is for the glibc wrapper function;
-for the system call itself,
-the prototype can be described as follows (it is identical to the
-.BR clone ()
-prototype on microblaze):
-.PP
-.in +4
-.EX
-.BI "long clone2(unsigned long " flags ", void *" stack_base ,
-.BI "            int " stack_size , "\fR         /* Size of stack */"
-.BI "            int *" parent_tid ", int *" child_tid ,
-.BI "            unsigned long " tls );
-.EE
-.in
-.PP
-.BR __clone2 ()
-operates in the same way as
-.BR clone (),
-except that
-.I stack_base
-points to the lowest address of the child's stack area,
-and
-.I stack_size
-specifies the size of the stack pointed to by
-.IR stack_base .
-.SS Linux 2.4 and earlier
-In Linux 2.4 and earlier,
-.BR clone ()
-does not take arguments
-.IR parent_tid ,
-.IR tls ,
-and
-.IR child_tid .
 .SH RETURN VALUE
 .\" gettid(2) returns current->pid;
 .\" getpid(2) returns current->tgid;
@@ -1687,6 +1516,32 @@ These system calls
 are Linux-specific and should not be used in programs
 intended to be portable.
 .SH NOTES
+.PP
+One use of these systems calls
+is to implement threads: multiple flows of control in a program that
+run concurrently in a shared address space.
+.PP
+Glibc does not provide a wrapper for
+.BR clone3 ();
+call it using
+.BR syscall (2).
+.PP
+Note that the glibc
+.BR clone ()
+wrapper function makes some changes
+in the memory pointed to by
+.I stack
+(changes required to set the stack up correctly for the child)
+.I before
+invoking the
+.BR clone ()
+system call.
+So, in cases where
+.BR clone ()
+is used to recursively create children,
+do not use the buffer employed for the parent's stack
+as the stack of the child.
+.PP
 The
 .BR kcmp (2)
 system call can be used to test whether two processes share various
@@ -1712,6 +1567,151 @@ On i386,
 .BR clone ()
 should not be called through vsyscall, but directly through
 .IR "int $0x80" .
+.\"
+.SS C library/kernel differences
+The raw
+.BR clone ()
+system call corresponds more closely to
+.BR fork (2)
+in that execution in the child continues from the point of the
+call.
+As such, the
+.I fn
+and
+.I arg
+arguments of the
+.BR clone ()
+wrapper function are omitted.
+.PP
+In contrast to the glibc wrapper, the raw
+.BR clone ()
+system call accepts NULL as a
+.I stack
+argument (and
+.BR clone3 ()
+likewise allows
+.I cl_args.stack
+to be NULL).
+In this case, the child uses a duplicate of the parent's stack.
+(Copy-on-write semantics ensure that the child gets separate copies
+of stack pages when either process modifies the stack.)
+In this case, for correct operation, the
+.B CLONE_VM
+option should not be specified.
+(If the child
+.I shares
+the parent's memory because of the use of the
+.BR CLONE_VM
+flag,
+then no copy-on-write duplication occurs and chaos is likely to result.)
+.PP
+The order of the arguments also differs in the raw system call,
+and there are variations in the arguments across architectures,
+as detailed in the following paragraphs.
+.PP
+The raw system call interface on x86-64 and some other architectures
+(including sh, tile, and alpha) is:
+.PP
+.in +4
+.EX
+.BI "long clone(unsigned long " flags ", void *" stack ,
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
+.EE
+.in
+.PP
+On x86-32, and several other common architectures
+(including score, ARM, ARM 64, PA-RISC, arc, Power PC, xtensa,
+and MIPS),
+.\" CONFIG_CLONE_BACKWARDS
+the order of the last two arguments is reversed:
+.PP
+.in +4
+.EX
+.BI "long clone(unsigned long " flags ", void *" stack ,
+.BI "          int *" parent_tid ", unsigned long " tls ,
+.BI "          int *" child_tid );
+.EE
+.in
+.PP
+On the cris and s390 architectures,
+.\" CONFIG_CLONE_BACKWARDS2
+the order of the first two arguments is reversed:
+.PP
+.in +4
+.EX
+.BI "long clone(void *" stack ", unsigned long " flags ,
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
+.EE
+.in
+.PP
+On the microblaze architecture,
+.\" CONFIG_CLONE_BACKWARDS3
+an additional argument is supplied:
+.PP
+.in +4
+.EX
+.BI "long clone(unsigned long " flags ", void *" stack ,
+.BI "           int " stack_size , "\fR         /* Size of stack */"
+.BI "           int *" parent_tid ", int *" child_tid ,
+.BI "           unsigned long " tls );
+.EE
+.in
+.\"
+.SS blackfin, m68k, and sparc
+.\" Mike Frysinger noted in a 2013 mail:
+.\"     these arches don't define __ARCH_WANT_SYS_CLONE:
+.\"     blackfin ia64 m68k sparc
+The argument-passing conventions on
+blackfin, m68k, and sparc are different from the descriptions above.
+For details, see the kernel (and glibc) source.
+.SS ia64
+On ia64, a different interface is used:
+.PP
+.in +4
+.EX
+.BI "int __clone2(int (*" "fn" ")(void *), "
+.BI "             void *" stack_base ", size_t " stack_size ,
+.BI "             int " flags ", void *" "arg" ", ... "
+.BI "          /* pid_t *" parent_tid ", struct user_desc *" tls ,
+.BI "             pid_t *" child_tid " */ );"
+.EE
+.in
+.PP
+The prototype shown above is for the glibc wrapper function;
+for the system call itself,
+the prototype can be described as follows (it is identical to the
+.BR clone ()
+prototype on microblaze):
+.PP
+.in +4
+.EX
+.BI "long clone2(unsigned long " flags ", void *" stack_base ,
+.BI "            int " stack_size , "\fR         /* Size of stack */"
+.BI "            int *" parent_tid ", int *" child_tid ,
+.BI "            unsigned long " tls );
+.EE
+.in
+.PP
+.BR __clone2 ()
+operates in the same way as
+.BR clone (),
+except that
+.I stack_base
+points to the lowest address of the child's stack area,
+and
+.I stack_size
+specifies the size of the stack pointed to by
+.IR stack_base .
+.SS Linux 2.4 and earlier
+In Linux 2.4 and earlier,
+.BR clone ()
+does not take arguments
+.IR parent_tid ,
+.IR tls ,
+and
+.IR child_tid .
 .SH BUGS
 GNU C library versions 2.3.4 up to and including 2.24
 contained a wrapper function for

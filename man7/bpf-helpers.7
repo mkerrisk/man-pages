@@ -59,7 +59,6 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" located in file include/uapi/linux/bpf.h of the Linux kernel sources
 .\" (helpers description), and from scripts/bpf_helpers_doc.py in the same
 .\" repository (header and footer).
-.
 .SH DESCRIPTION
 .sp
 The extended Berkeley Packet Filter (eBPF) subsystem consists in programs
@@ -143,8 +142,8 @@ Delete entry with \fIkey\fP from \fImap\fP\&.
 For tracing programs, safely attempt to read \fIsize\fP bytes from
 kernel space address \fIunsafe_ptr\fP and store the data in \fIdst\fP\&.
 .sp
-Generally, use bpf_probe_read_user() or bpf_probe_read_kernel()
-instead.
+Generally, use \fBbpf_probe_read_user\fP() or
+\fBbpf_probe_read_kernel\fP() instead.
 .TP
 .B Return
 0 on success, or a negative error in case of failure.
@@ -155,6 +154,8 @@ instead.
 .TP
 .B Description
 Return the time elapsed since system boot, in nanoseconds.
+Does not include time the system was suspended.
+See: \fBclock_gettime\fP(\fBCLOCK_MONOTONIC\fP)
 .TP
 .B Return
 Current \fIktime\fP\&.
@@ -1229,11 +1230,11 @@ direct packet access.
 .TP
 .B Description
 Copy a NUL terminated string from an unsafe kernel address
-\fIunsafe_ptr\fP to \fIdst\fP\&. See bpf_probe_read_kernel_str() for
+\fIunsafe_ptr\fP to \fIdst\fP\&. See \fBbpf_probe_read_kernel_str\fP() for
 more details.
 .sp
-Generally, use bpf_probe_read_user_str() or bpf_probe_read_kernel_str()
-instead.
+Generally, use \fBbpf_probe_read_user_str\fP() or
+\fBbpf_probe_read_kernel_str\fP() instead.
 .TP
 .B Return
 On success, the strictly positive length of the string,
@@ -1273,7 +1274,7 @@ A 8\-byte long non\-decreasing number.
 .INDENT 7.0
 .TP
 .B Description
-Equivalent to bpf_get_socket_cookie() helper that accepts
+Equivalent to \fBbpf_get_socket_cookie\fP() helper that accepts
 \fIskb\fP, but gets socket from \fBstruct bpf_sock_ops\fP context.
 .TP
 .B Return
@@ -1302,7 +1303,7 @@ to value \fIhash\fP\&.
 0
 .UNINDENT
 .TP
-.B \fBint bpf_setsockopt(struct bpf_sock_ops *\fP\fIbpf_socket\fP\fB, int\fP \fIlevel\fP\fB, int\fP \fIoptname\fP\fB, void *\fP\fIoptval\fP\fB, int\fP \fIoptlen\fP\fB)\fP
+.B \fBint bpf_setsockopt(void *\fP\fIbpf_socket\fP\fB, int\fP \fIlevel\fP\fB, int\fP \fIoptname\fP\fB, void *\fP\fIoptval\fP\fB, int\fP \fIoptlen\fP\fB)\fP
 .INDENT 7.0
 .TP
 .B Description
@@ -1311,6 +1312,15 @@ Emulate a call to \fBsetsockopt()\fP on the socket associated to
 which the option resides and the name \fIoptname\fP of the option
 must be specified, see \fBsetsockopt(2)\fP for more information.
 The option value of length \fIoptlen\fP is pointed by \fIoptval\fP\&.
+.sp
+\fIbpf_socket\fP should be one of the following:
+.INDENT 7.0
+.IP \(bu 2
+\fBstruct bpf_sock_ops\fP for \fBBPF_PROG_TYPE_SOCK_OPS\fP\&.
+.IP \(bu 2
+\fBstruct bpf_sock_addr\fP for \fBBPF_CGROUP_INET4_CONNECT\fP
+and \fBBPF_CGROUP_INET6_CONNECT\fP\&.
+.UNINDENT
 .sp
 This helper actually implements a subset of \fBsetsockopt()\fP\&.
 It supports the following \fIlevel\fPs:
@@ -1339,6 +1349,15 @@ It supports the following \fIlevel\fPs:
 .B Description
 Grow or shrink the room for data in the packet associated to
 \fIskb\fP by \fIlen_diff\fP, and according to the selected \fImode\fP\&.
+.sp
+By default, the helper will reset any offloaded checksum
+indicator of the skb to CHECKSUM_NONE. This can be avoided
+by the following flag:
+.INDENT 7.0
+.IP \(bu 2
+\fBBPF_F_ADJ_ROOM_NO_CSUM_RESET\fP: Do not reset offloaded
+checksum data of the skb to CHECKSUM_NONE.
+.UNINDENT
 .sp
 There are two supported modes at this time:
 .INDENT 7.0
@@ -1393,22 +1412,16 @@ support) as of this writing).
 .sp
 The lower two bits of \fIflags\fP are used as the return code if
 the map lookup fails. This is so that the return value can be
-one of the XDP program return codes up to XDP_TX, as chosen by
-the caller. Any higher bits in the \fIflags\fP argument must be
+one of the XDP program return codes up to \fBXDP_TX\fP, as chosen
+by the caller. Any higher bits in the \fIflags\fP argument must be
 unset.
 .sp
-See also bpf_redirect(), which only supports redirecting to an
-ifindex, but doesn\(aqt require a map to do so.
+See also \fBbpf_redirect\fP(), which only supports redirecting
+to an ifindex, but doesn\(aqt require a map to do so.
 .TP
 .B Return
 \fBXDP_REDIRECT\fP on success, or the value of the two lower bits
-of the 
-.nf
-**
-.fi
-flags* argument on error.
-.IP "System Message: WARNING/2 (/tmp/bpf-helpers.rst:, line 1105)"
-Inline strong start\-string without end\-string.
+of the \fIflags\fP argument on error.
 .UNINDENT
 .TP
 .B \fBint bpf_sk_redirect_map(struct sk_buff *\fP\fIskb\fP\fB, struct bpf_map *\fP\fImap\fP\fB, u32\fP \fIkey\fP\fB, u64\fP \fIflags\fP\fB)\fP
@@ -1537,7 +1550,7 @@ Where t_enabled is the time enabled for event and t_running is
 the time running for event since last normalization. The
 enabled and running times are accumulated since the perf event
 open. To achieve scaling factor between two invocations of an
-eBPF program, users can can use CPU id as the key (which is
+eBPF program, users can use CPU id as the key (which is
 typical for perf array usage model) to remember the previous
 value and do the calculation inside the eBPF program.
 .TP
@@ -1560,7 +1573,7 @@ more details).
 0 on success, or a negative error in case of failure.
 .UNINDENT
 .TP
-.B \fBint bpf_getsockopt(struct bpf_sock_ops *\fP\fIbpf_socket\fP\fB, int\fP \fIlevel\fP\fB, int\fP \fIoptname\fP\fB, void *\fP\fIoptval\fP\fB, int\fP \fIoptlen\fP\fB)\fP
+.B \fBint bpf_getsockopt(void *\fP\fIbpf_socket\fP\fB, int\fP \fIlevel\fP\fB, int\fP \fIoptname\fP\fB, void *\fP\fIoptval\fP\fB, int\fP \fIoptlen\fP\fB)\fP
 .INDENT 7.0
 .TP
 .B Description
@@ -1570,6 +1583,15 @@ which the option resides and the name \fIoptname\fP of the option
 must be specified, see \fBgetsockopt(2)\fP for more information.
 The retrieved value is stored in the structure pointed by
 \fIopval\fP and of length \fIoptlen\fP\&.
+.sp
+\fIbpf_socket\fP should be one of the following:
+.INDENT 7.0
+.IP \(bu 2
+\fBstruct bpf_sock_ops\fP for \fBBPF_PROG_TYPE_SOCK_OPS\fP\&.
+.IP \(bu 2
+\fBstruct bpf_sock_addr\fP for \fBBPF_CGROUP_INET4_CONNECT\fP
+and \fBBPF_CGROUP_INET6_CONNECT\fP\&.
+.UNINDENT
 .sp
 This helper actually implements a subset of \fBgetsockopt()\fP\&.
 It supports the following \fIlevel\fPs:
@@ -1596,7 +1618,7 @@ the return value of the probed function, and to set it to \fIrc\fP\&.
 The first argument is the context \fIregs\fP on which the kprobe
 works.
 .sp
-This helper works by setting setting the PC (program counter)
+This helper works by setting the PC (program counter)
 to an override function which is run in place of the original
 probed function. This means the probed function is not run at
 all. The replacement function just returns with the required
@@ -1804,10 +1826,11 @@ single IP address on a host that has multiple IP configured.
 .sp
 This helper works for IPv4 and IPv6, TCP and UDP sockets. The
 domain (\fIaddr\fP\fB\->sa_family\fP) must be \fBAF_INET\fP (or
-\fBAF_INET6\fP). Looking for a free port to bind to can be
-expensive, therefore binding to port is not permitted by the
-helper: \fIaddr\fP\fB\->sin_port\fP (or \fBsin6_port\fP, respectively)
-must be set to zero.
+\fBAF_INET6\fP). It\(aqs advised to pass zero port (\fBsin_port\fP
+or \fBsin6_port\fP) which triggers IP_BIND_ADDRESS_NO_PORT\-like
+behavior and lets the kernel efficiently pick up an unused
+port as long as 4\-tuple is unique. Passing non\-zero port might
+lead to degraded performance.
 .TP
 .B Return
 0 on success, or a negative error in case of failure.
@@ -1818,8 +1841,8 @@ must be set to zero.
 .TP
 .B Description
 Adjust (move) \fIxdp_md\fP\fB\->data_end\fP by \fIdelta\fP bytes. It is
-only possible to shrink the packet as of this writing,
-therefore \fIdelta\fP must be a negative integer.
+possible to both shrink and grow the packet tail.
+Shrink done via \fIdelta\fP being a negative integer.
 .sp
 A call to this helper is susceptible to change the underlying
 packet buffer. Therefore, at load time, all checks on pointers
@@ -2974,7 +2997,7 @@ void bpf_sys_open(struct pt_regs *ctx)
 .UNINDENT
 .UNINDENT
 .sp
-In comparison, using \fBbpf_probe_read_user()\fP helper here
+In comparison, using \fBbpf_probe_read_user\fP() helper here
 instead to read the string would require to estimate the length
 at compile time, and would often result in copying more memory
 than necessary.
@@ -2995,7 +3018,7 @@ value.
 .TP
 .B Description
 Copy a NUL terminated string from an unsafe kernel address \fIunsafe_ptr\fP
-to \fIdst\fP\&. Same semantics as with bpf_probe_read_user_str() apply.
+to \fIdst\fP\&. Same semantics as with \fBbpf_probe_read_user_str\fP() apply.
 .TP
 .B Return
 On success, the strictly positive length of the string, including
@@ -3006,7 +3029,7 @@ the trailing NUL character. On error, a negative value.
 .INDENT 7.0
 .TP
 .B Description
-Send out a tcp\-ack. \fItp\fP is the in\-kernel struct tcp_sock.
+Send out a tcp\-ack. \fItp\fP is the in\-kernel struct \fBtcp_sock\fP\&.
 \fIrcv_nxt\fP is the ack_seq to be sent out.
 .TP
 .B Return
@@ -3046,7 +3069,7 @@ The 64 bit jiffies
 .TP
 .B Description
 For an eBPF program attached to a perf event, retrieve the
-branch records (struct perf_branch_entry) associated to \fIctx\fP
+branch records (\fBstruct perf_branch_entry\fP) associated to \fIctx\fP
 and store it in the buffer pointed by \fIbuf\fP up to size
 \fIsize\fP bytes.
 .TP
@@ -3059,7 +3082,7 @@ instead return the number of bytes required to store all the
 branch entries. If this flag is set, \fIbuf\fP may be NULL.
 .sp
 \fB\-EINVAL\fP if arguments invalid or \fBsize\fP not a multiple
-of sizeof(struct perf_branch_entry).
+of \fBsizeof\fP(\fBstruct perf_branch_entry\fP).
 .sp
 \fB\-ENOENT\fP if architecture does not support branch records.
 .UNINDENT
@@ -3070,8 +3093,9 @@ of sizeof(struct perf_branch_entry).
 .B Description
 Returns 0 on success, values for \fIpid\fP and \fItgid\fP as seen from the current
 \fInamespace\fP will be returned in \fInsdata\fP\&.
-.sp
-On failure, the returned value is one of the following:
+.TP
+.B Return
+0 on success, or one of the following in case of failure:
 .sp
 \fB\-EINVAL\fP if dev and inum supplied don\(aqt match dev_t and inode number
 with nsfs of current task, or if dev conversion to dev_t lost high bits.
@@ -3117,8 +3141,8 @@ namespace cookie remains stable for its lifetime and provides
 a global identifier that can be assumed unique. If \fIctx\fP is
 NULL, then the helper returns the cookie for the initial
 network namespace. The cookie itself is very similar to that
-of bpf_get_socket_cookie() helper, but for network namespaces
-instead of sockets.
+of \fBbpf_get_socket_cookie\fP() helper, but for network
+namespaces instead of sockets.
 .TP
 .B Return
 A 8\-byte long opaque number.
@@ -3162,23 +3186,247 @@ This operation is only valid from TC ingress path.
 The \fIflags\fP argument must be zero.
 .TP
 .B Return
-0 on success, or a negative errno in case of failure.
+0 on success, or a negative error in case of failure:
+.sp
+\fB\-EINVAL\fP if specified \fIflags\fP are not supported.
+.sp
+\fB\-ENOENT\fP if the socket is unavailable for assignment.
+.sp
+\fB\-ENETUNREACH\fP if the socket is unreachable (wrong netns).
+.sp
+\fB\-EOPNOTSUPP\fP if the operation is not supported, for example
+a call from outside of TC ingress.
+.sp
+\fB\-ESOCKTNOSUPPORT\fP if the socket type is not supported
+(reuseport).
+.UNINDENT
+.TP
+.B \fBu64 bpf_ktime_get_boot_ns(void)\fP
+.INDENT 7.0
+.TP
+.B Description
+Return the time elapsed since system boot, in nanoseconds.
+Does include the time the system was suspended.
+See: \fBclock_gettime\fP(\fBCLOCK_BOOTTIME\fP)
+.TP
+.B Return
+Current \fIktime\fP\&.
+.UNINDENT
+.TP
+.B \fBint bpf_seq_printf(struct seq_file *\fP\fIm\fP\fB, const char *\fP\fIfmt\fP\fB, u32\fP \fIfmt_size\fP\fB, const void *\fP\fIdata\fP\fB, u32\fP \fIdata_len\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+\fBbpf_seq_printf\fP() uses seq_file \fBseq_printf\fP() to print
+out the format string.
+The \fIm\fP represents the seq_file. The \fIfmt\fP and \fIfmt_size\fP are for
+the format string itself. The \fIdata\fP and \fIdata_len\fP are format string
+arguments. The \fIdata\fP are a \fBu64\fP array and corresponding format string
+values are stored in the array. For strings and pointers where pointees
+are accessed, only the pointer values are stored in the \fIdata\fP array.
+The \fIdata_len\fP is the size of \fIdata\fP in bytes.
+.sp
+Formats \fB%s\fP, \fB%p{i,I}{4,6}\fP requires to read kernel memory.
+Reading kernel memory may fail due to either invalid address or
+valid address but requiring a major memory fault. If reading kernel memory
+fails, the string for \fB%s\fP will be an empty string, and the ip
+address for \fB%p{i,I}{4,6}\fP will be 0. Not returning error to
+bpf program is consistent with what \fBbpf_trace_printk\fP() does for now.
+.TP
+.B Return
+0 on success, or a negative error in case of failure:
+.sp
+\fB\-EBUSY\fP if per\-CPU memory copy buffer is busy, can try again
+by returning 1 from bpf program.
+.sp
+\fB\-EINVAL\fP if arguments are invalid, or if \fIfmt\fP is invalid/unsupported.
+.sp
+\fB\-E2BIG\fP if \fIfmt\fP contains too many format specifiers.
+.sp
+\fB\-EOVERFLOW\fP if an overflow happened: The same object will be tried again.
+.UNINDENT
+.TP
+.B \fBint bpf_seq_write(struct seq_file *\fP\fIm\fP\fB, const void *\fP\fIdata\fP\fB, u32\fP \fIlen\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+\fBbpf_seq_write\fP() uses seq_file \fBseq_write\fP() to write the data.
+The \fIm\fP represents the seq_file. The \fIdata\fP and \fIlen\fP represent the
+data to write in bytes.
+.TP
+.B Return
+0 on success, or a negative error in case of failure:
+.sp
+\fB\-EOVERFLOW\fP if an overflow happened: The same object will be tried again.
+.UNINDENT
+.TP
+.B \fBu64 bpf_sk_cgroup_id(struct bpf_sock *\fP\fIsk\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Return the cgroup v2 id of the socket \fIsk\fP\&.
+.sp
+\fIsk\fP must be a non\-\fBNULL\fP pointer to a full socket, e.g. one
+returned from \fBbpf_sk_lookup_xxx\fP(),
+\fBbpf_sk_fullsock\fP(), etc. The format of returned id is
+same as in \fBbpf_skb_cgroup_id\fP().
+.sp
+This helper is available only if the kernel was compiled with
+the \fBCONFIG_SOCK_CGROUP_DATA\fP configuration option.
+.TP
+.B Return
+The id is returned or 0 in case the id could not be retrieved.
+.UNINDENT
+.TP
+.B \fBu64 bpf_sk_ancestor_cgroup_id(struct bpf_sock *\fP\fIsk\fP\fB, int\fP \fIancestor_level\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Return id of cgroup v2 that is ancestor of cgroup associated
+with the \fIsk\fP at the \fIancestor_level\fP\&.  The root cgroup is at
+\fIancestor_level\fP zero and each step down the hierarchy
+increments the level. If \fIancestor_level\fP == level of cgroup
+associated with \fIsk\fP, then return value will be same as that
+of \fBbpf_sk_cgroup_id\fP().
+.sp
+The helper is useful to implement policies based on cgroups
+that are upper in hierarchy than immediate cgroup associated
+with \fIsk\fP\&.
+.sp
+The format of returned id and helper limitations are same as in
+\fBbpf_sk_cgroup_id\fP().
+.TP
+.B Return
+The id is returned or 0 in case the id could not be retrieved.
+.UNINDENT
+.TP
+.B \fBvoid *bpf_ringbuf_output(void *\fP\fIringbuf\fP\fB, void *\fP\fIdata\fP\fB, u64\fP \fIsize\fP\fB, u64\fP \fIflags\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Copy \fIsize\fP bytes from \fIdata\fP into a ring buffer \fIringbuf\fP\&.
+If BPF_RB_NO_WAKEUP is specified in \fIflags\fP, no notification of
+new data availability is sent.
+IF BPF_RB_FORCE_WAKEUP is specified in \fIflags\fP, notification of
+new data availability is sent unconditionally.
+.TP
+.B Return
+0, on success;
+< 0, on error.
+.UNINDENT
+.TP
+.B \fBvoid *bpf_ringbuf_reserve(void *\fP\fIringbuf\fP\fB, u64\fP \fIsize\fP\fB, u64\fP \fIflags\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Reserve \fIsize\fP bytes of payload in a ring buffer \fIringbuf\fP\&.
+.TP
+.B Return
+Valid pointer with \fIsize\fP bytes of memory available; NULL,
+otherwise.
+.UNINDENT
+.TP
+.B \fBvoid bpf_ringbuf_submit(void *\fP\fIdata\fP\fB, u64\fP \fIflags\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Submit reserved ring buffer sample, pointed to by \fIdata\fP\&.
+If BPF_RB_NO_WAKEUP is specified in \fIflags\fP, no notification of
+new data availability is sent.
+IF BPF_RB_FORCE_WAKEUP is specified in \fIflags\fP, notification of
+new data availability is sent unconditionally.
+.TP
+.B Return
+Nothing. Always succeeds.
+.UNINDENT
+.TP
+.B \fBvoid bpf_ringbuf_discard(void *\fP\fIdata\fP\fB, u64\fP \fIflags\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Discard reserved ring buffer sample, pointed to by \fIdata\fP\&.
+If BPF_RB_NO_WAKEUP is specified in \fIflags\fP, no notification of
+new data availability is sent.
+IF BPF_RB_FORCE_WAKEUP is specified in \fIflags\fP, notification of
+new data availability is sent unconditionally.
+.TP
+.B Return
+Nothing. Always succeeds.
+.UNINDENT
+.TP
+.B \fBu64 bpf_ringbuf_query(void *\fP\fIringbuf\fP\fB, u64\fP \fIflags\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Query various characteristics of provided ring buffer. What
+exactly is queries is determined by \fIflags\fP:
+.IP "System Message: ERROR/3 (/tmp/bpf-helpers.rst:, line 2636)"
+Unexpected indentation.
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+BPF_RB_AVAIL_DATA \- amount of data not yet consumed;
+.IP \(bu 2
+BPF_RB_RING_SIZE \- the size of ring buffer;
+.IP \(bu 2
+BPF_RB_CONS_POS \- consumer position (can wrap around);
+.IP \(bu 2
+BPF_RB_PROD_POS \- producer(s) position (can wrap around);
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.IP "System Message: WARNING/2 (/tmp/bpf-helpers.rst:, line 2640)"
+Block quote ends without a blank line; unexpected unindent.
+.sp
+Data returned is just a momentary snapshots of actual values
+and could be inaccurate, so this facility should be used to
+power heuristics and for reporting, not to make 100% correct
+calculation.
+.TP
+.B Return
+Requested value, or 0, if flags are not recognized.
+.UNINDENT
+.TP
+.B \fBint bpf_csum_level(struct sk_buff *\fP\fIskb\fP\fB, u64\fP \fIlevel\fP\fB)\fP
+.INDENT 7.0
+.TP
+.B Description
+Change the skbs checksum level by one layer up or down, or
+reset it entirely to none in order to have the stack perform
+checksum validation. The level is applicable to the following
+protocols: TCP, UDP, GRE, SCTP, FCOE. For example, a decap of
+| ETH | IP | UDP | GUE | IP | TCP | into | ETH | IP | TCP |
+through \fBbpf_skb_adjust_room\fP() helper with passing in
+\fBBPF_F_ADJ_ROOM_NO_CSUM_RESET\fP flag would require one call
+to \fBbpf_csum_level\fP() with \fBBPF_CSUM_LEVEL_DEC\fP since
+the UDP header is removed. Similarly, an encap of the latter
+into the former could be accompanied by a helper call to
+\fBbpf_csum_level\fP() with \fBBPF_CSUM_LEVEL_INC\fP if the
+skb is still intended to be processed in higher layers of the
+stack instead of just egressing at tc.
+.sp
+There are three supported level settings at this time:
 .INDENT 7.0
 .IP \(bu 2
-\fB\-EINVAL\fP           Unsupported flags specified.
+\fBBPF_CSUM_LEVEL_INC\fP: Increases skb\->csum_level for skbs
+with CHECKSUM_UNNECESSARY.
 .IP \(bu 2
-\fB\-ENOENT\fP           Socket is unavailable for assignment.
+\fBBPF_CSUM_LEVEL_DEC\fP: Decreases skb\->csum_level for skbs
+with CHECKSUM_UNNECESSARY.
 .IP \(bu 2
-\fB\-ENETUNREACH\fP      Socket is unreachable (wrong netns).
+\fBBPF_CSUM_LEVEL_RESET\fP: Resets skb\->csum_level to 0 and
+sets CHECKSUM_NONE to force checksum validation by the stack.
 .IP \(bu 2
-.INDENT 2.0
+\fBBPF_CSUM_LEVEL_QUERY\fP: No\-op, returns the current
+skb\->csum_level.
+.UNINDENT
 .TP
-.B \fB\-EOPNOTSUPP\fP       Unsupported operation, for example a
-call from outside of TC ingress.
-.UNINDENT
-.IP \(bu 2
-\fB\-ESOCKTNOSUPPORT\fP  Socket type not supported (reuseport).
-.UNINDENT
+.B Return
+0 on success, or a negative error in case of failure. In the
+case of \fBBPF_CSUM_LEVEL_QUERY\fP, the current skb\->csum_level
+is returned or the error code \-EACCES in case the skb is not
+subject to CHECKSUM_UNNECESSARY.
 .UNINDENT
 .UNINDENT
 .SH EXAMPLES
@@ -3240,6 +3488,12 @@ of eBPF maps are used with a given helper function.
 .IP \(bu 2
 \fIkernel/bpf/\fP directory contains other files in which additional helpers are
 defined (for cgroups, sockmaps, etc.).
+.IP \(bu 2
+The bpftool utility can be used to probe the availability of helper functions
+on the system (as well as supported program and map types, and a number of
+other parameters). To do so, run \fBbpftool feature probe\fP (see
+\fBbpftool\-feature\fP(8) for details). Add the \fBunprivileged\fP keyword to
+list features available to unprivileged users.
 .UNINDENT
 .sp
 Compatibility between helper functions and program types can generally be found
@@ -3259,6 +3513,7 @@ pointers for network processing are listed in function
 .SH SEE ALSO
 .sp
 \fBbpf\fP(2),
+\fBbpftool\fP(8),
 \fBcgroups\fP(7),
 \fBip\fP(8),
 \fBperf_event_open\fP(2),

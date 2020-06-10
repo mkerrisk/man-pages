@@ -247,31 +247,33 @@ before calling
 because of the race condition described above.
 Instead, code something like the following could be used:
 .PP
+.in +4n
 .EX
-    /* Obtain a duplicate of 'newfd' that can subsequently
-       be used to check for close() errors; an EBADF error
-       means that 'newfd' was not open. */
+/* Obtain a duplicate of 'newfd' that can subsequently
+   be used to check for close() errors; an EBADF error
+   means that 'newfd' was not open. */
 
-    tmpfd = dup(newfd);
-    if (tmpfd == \-1 && errno != EBADF) {
-        /* Handle unexpected dup() error */
+tmpfd = dup(newfd);
+if (tmpfd == \-1 && errno != EBADF) {
+    /* Handle unexpected dup() error */
+}
+
+/* Atomically duplicate 'oldfd' on 'newfd' */
+
+if (dup2(oldfd, newfd) == \-1) {
+    /* Handle dup2() error */
+}
+
+/* Now check for close() errors on the file originally
+   referred to by 'newfd' */
+
+if (tmpfd != \-1) {
+    if (close(tmpfd) == \-1) {
+        /* Handle errors from close */
     }
-
-    /* Atomically duplicate 'oldfd' on 'newfd' */
-
-    if (dup2(oldfd, newfd) == \-1) {
-        /* Handle dup2() error */
-    }
-
-    /* Now check for close() errors on the file originally
-       referred to by 'newfd' */
-
-    if (tmpfd != \-1) {
-        if (close(tmpfd) == \-1) {
-            /* Handle errors from close */
-        }
-    }
+}
 .EE
+.in
 .SH SEE ALSO
 .BR close (2),
 .BR fcntl (2),

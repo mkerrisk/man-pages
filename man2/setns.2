@@ -16,27 +16,46 @@ setns \- reassociate thread with a namespace
 .BI "int setns(int " fd ", int " nstype );
 .fi
 .SH DESCRIPTION
-Given a file descriptor referring to a namespace,
-reassociate the calling thread with that namespace.
-.PP
+The
+.BR setns ()
+system call allows the calling thread to move into different namespaces.
 The
 .I fd
-argument is a file descriptor referring to one of the namespace entries in a
+argument is one of the following:
+.IP \(bu 2
+a file descriptor referring to one of the magic links in a
 .I /proc/[pid]/ns/
-directory; see
-.BR namespaces (7)
-for further information on
-.IR /proc/[pid]/ns/ .
-The calling thread will be reassociated with the corresponding namespace,
+directory (or a bind mount to such a link);
+.IP \(bu
+a PID file descriptor (see
+.BR pidfd_open (2)).
+.PP
+The
+.I nstype
+argument is interpreted differently in each case.
+.\"
+.SS fd refers to a /proc/[pid]/ns/ link
+If
+.I fd
+refers to to a
+.I /proc/[pid]/ns/
+link, then
+.BR setns ()
+reassociates the calling thread with the namespace associated with that link,
 subject to any constraints imposed by the
 .I nstype
 argument.
+In this usage,
+.BR setns ()
+can change just one of the caller's namespace memberships.
 .PP
 The
 .I nstype
 argument specifies which type of namespace
 the calling thread may be reassociated with.
-This argument can have one of the following values:
+This argument can have
+.I one
+of the following values:
 .TP
 .BR 0
 Allow any type of namespace to be joined.
@@ -87,6 +106,43 @@ and wants to ensure that the namespace is of a particular type.
 .IR fd
 if the file descriptor was opened by another process and, for example,
 passed to the caller via a UNIX domain socket.)
+.\"
+.SS fd is a PID file descriptor
+Since Linux 5.8,
+.I fd
+may refer to a PID file descriptor obtained from
+.BR pidfd_open (2)
+or
+.BR clone (3).
+In this usage,
+.BR setns (2)
+atomically moves the calling thread into one or more of the same namespaces
+as the thread referred to by
+.IR fd .
+.PP
+The
+.IR nstype
+argument is a bit mask specified by ORing together
+.I "one or more"
+of the
+.BR CLONE_NEW*
+namespace constants listed above.
+The caller is moved into each of the target thread's namespaces
+that is specified in
+.IR nstype ;
+the caller's memberships in the remaining namespaces are left unchanged.
+.PP
+For example, the following code would move the caller into the
+same user, network, and UTS namespaces as PID 1234,
+but would leave the caller's other namespace memberships unchanged:
+.PP
+.in +4n
+.EX
+int fd = pidfd_open(1234, 0);
+setns(fd, CLONE_NEWUSER | CLONE_NEWNET | CLONE_NEWUTS);
+.EE
+.in
+.PP
 .\"
 .SS Details for specific namespace types
 Note the following details and restrictions when reassociating with
@@ -154,19 +210,15 @@ the caller must have the
 capability both in its own user namespace and in the user namespace
 that owns the target PID namespace.
 .IP
-If
-.I fd
-refers to a PID namespace, the semantics are somewhat different
-from other namespace types:
-reassociating the calling thread with a PID namespace changes only
+Reassociating the PID namespace has somewhat different
+from other namespace types.
+Reassociating the calling thread with a PID namespace changes only
 the PID namespace that subsequently created child processes of
 the caller will be placed in;
 it does not change the PID namespace of the caller itself.
 .IP
-Reassociating with a PID namespace is allowed only if the
-PID namespace specified by
-.IR fd
-is a descendant (child, grandchild, etc.)
+Reassociating with a PID namespace is allowed only if the target
+PID namespace is a descendant (child, grandchild, etc.)
 of, or is the same as, the current PID namespace of the caller.
 .IP
 For further details on PID namespaces, see
@@ -232,6 +284,12 @@ with other processes and tried to join a new user namespace.
 .\" See kernel/user_namespace.c::userns_install() [kernel 3.15 sources]
 The caller is multithreaded and tried to join a new user namespace.
 .TP
+.B EINVAL
+.I fd
+is a PID file descriptor and
+.I nstype
+does not specify any valid namespaces (e.g., it is 0).
+.TP
 .B ENOMEM
 Cannot allocate sufficient memory to change the specified namespace.
 .TP
@@ -248,6 +306,11 @@ The
 .BR setns ()
 system call is Linux-specific.
 .SH NOTES
+For further information on the
+.IR /proc/[pid]/ns/
+magic links, see
+.BR namespaces (7).
+.PP
 Not all of the attributes that can be shared when
 a new thread is created using
 .BR clone (2)

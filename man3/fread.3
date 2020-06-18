@@ -1,4 +1,5 @@
 .\" Copyright (c) 1990, 1991 The Regents of the University of California.
+.\" and Copyright (c) 2020 Arkadiusz Drabczyk <arkadiusz@drabczyk.org>
 .\" All rights reserved.
 .\"
 .\" This code is derived from software contributed to Berkeley by
@@ -116,6 +117,61 @@ T}	Thread safety	MT-Safe
 .TE
 .SH CONFORMING TO
 POSIX.1-2001, POSIX.1-2008, C89.
+.SH EXAMPLES
+The program below demonstrates the use of
+.BR fread ()
+by parsing /bin/sh ELF executable in binary mode and printing its
+magic and class:
+.PP
+.in +4n
+.EX
+$ \fB./a.out\fP
+./a.out
+ELF magic: 0x7f454c46
+Class: 0x02
+.EE
+.in
+.SS Program source
+\&
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(void)
+{
+    FILE *fp = fopen("/bin/sh", "rb");
+    if (!fp) {
+        perror("fopen");
+        return EXIT_FAILURE;
+    }
+
+    unsigned char buffer[4];
+
+    size_t ret =
+        fread(buffer, sizeof(buffer) / sizeof(*buffer), sizeof(*buffer),
+              fp);
+    if (ret != sizeof(*buffer)) {
+        fprintf(stderr, "fread() failed: %zu\en", ret);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("ELF magic: %#04x%02x%02x%02x\en", buffer[0], buffer[1],
+           buffer[2], buffer[3]);
+
+    ret = fread(buffer, 1, 1, fp);
+    if (ret != 1) {
+        fprintf(stderr, "fread() failed: %zu\en", ret);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Class: %#04x\en", buffer[0]);
+
+    fclose(fp);
+
+    exit(EXIT_SUCCESS);
+}
+.EE
 .SH SEE ALSO
 .BR read (2),
 .BR write (2),

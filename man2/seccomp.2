@@ -342,16 +342,38 @@ is used on the system call number to tell the two ABIs apart.
 .\"     an extra instruction in system_call to mask off the extra bit,
 .\"     so that the syscall table indexing still works.
 .PP
-This means that in order to create a seccomp-based
-deny-list for system calls performed through the x86-64 ABI,
-it is necessary to not only check that
-.IR arch
-equals
-.BR AUDIT_ARCH_X86_64 ,
-but also to explicitly reject all system calls that contain
+This means that a policy must either deny all syscalls with
 .BR __X32_SYSCALL_BIT
-in
-.IR nr .
+or it must recognize syscalls with and without
+.BR __X32_SYSCALL_BIT
+set.  A list of syscalls to be denied based on
+.IR nr
+that does not also contain
+.IR nr
+values with
+.BR __X32_SYSCALL_BIT
+set can be bypassed by a malicious program that sets
+.BR __X32_SYSCALL_BIT .
+.PP
+Additionally, kernels prior to 5.4 incorrectly permitted
+.IR nr
+in the ranges 512-547 as well as the corresponding non-x32 syscalls ored
+with
+.BR __X32_SYSCALL_BIT .
+For example,
+.IR nr
+== 521 and
+.IR nr
+== (101 |
+.BR __X32_SYSCALL_BIT )
+would result in invocations of
+.BR ptrace (2)
+with potentially confused x32-vs-x86_64 semantics in the kernel.
+Policies intended to work on kernels before 5.4 must ensure that they
+deny or otherwise correctly handle these system calls.  On kernels
+5.4 and newer, such system calls will return -ENOSYS without doing
+anything.
+.\" commit 6365b842aae4490ebfafadfc6bb27a6d3cc54757
 .PP
 The
 .I instruction_pointer
@@ -368,8 +390,8 @@ and
 system calls to prevent the program from subverting such checks.)
 .PP
 When checking values from
-.IR args
-against a deny-list, keep in mind that arguments are often
+.IR args,
+keep in mind that arguments are often
 silently truncated before being processed, but after the seccomp check.
 For example, this happens if the i386 ABI is used on an
 x86-64 kernel: although the kernel will normally not look beyond

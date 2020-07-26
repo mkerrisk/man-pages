@@ -33,7 +33,7 @@ fi
 out_dir="$1"
 shift
 
-enc_line="'\\\" t -*- coding: UTF-8 -*-"
+enc_line=""
 
 for f in "$@"; do
     enc=$(file -bi "$f" | cut -d = -f 2)

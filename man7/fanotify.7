@@ -110,14 +110,9 @@ Two types of events are generated:
 events and
 .I permission
 events.
-Notification events are merely informative
-and require no action to be taken by
-the receiving application with the exception being that the file
-descriptor provided within a generic event must be closed.
-The closing of file descriptors for each event applies only to
-applications that have initialized fanotify without using
-.BR FAN_REPORT_FID
-(see below).
+Notification events are merely informative and require no action to be taken
+by the receiving application with one exception - if a valid file descriptor
+is provided within a generic event, the file descriptor must be closed.
 Permission events are requests to the receiving application to decide
 whether permission for a file access shall be granted.
 For these events, the recipient must write a response which decides whether
@@ -147,7 +142,9 @@ The use of the
 flag in
 .BR fanotify_init (2)
 influences what data structures are returned to the event listener for each
-event.
+event. Events reported to a group initialized with this flag will
+use file handles to identify filesystem objects instead of file descriptors.
+.TP
 After a successful
 .BR read (2),
 the read buffer contains one or more of the following structures:
@@ -166,17 +163,20 @@ struct fanotify_event_metadata {
 .EE
 .in
 .PP
-In the case where
-.BR FAN_REPORT_FID
-is supplied as one of the flags to
-.BR fanotify_init (2),
-you should also expect to receive the structure detailed below following
-the generic
+In case of an fanotify group that identifies filesystem objects by file
+handles, you should also expect to receive one or more additional information
+records of the structure detailed below following the generic
 .I fanotify_event_metadata
 structure within the read buffer:
 .PP
 .in +4n
 .EX
+struct fanotify_event_info_header {
+        __u8 info_type;
+        __u8 pad;
+        __u16 len;
+};
+
 struct fanotify_event_info_fid {
     struct fanotify_event_info_header hdr;
     __kernel_fsid_t fsid;
@@ -202,16 +202,13 @@ structure are as follows:
 .I event_len
 This is the length of the data for the current event and the offset
 to the next event in the buffer.
-Without
-.BR FAN_REPORT_FID ,
-the value of
+Unless the group identifies filesystem objects by file handles, the value of
 .I event_len
 is always
 .BR FAN_EVENT_METADATA_LEN .
-With
-.BR FAN_REPORT_FID ,
+For a group that identifies filesystem objects by file handles,
 .I event_len
-also includes the variable length file identifier.
+also includes the variable length file identifier records.
 .TP
 .I vers
 This field holds a version number for the structure.
@@ -238,8 +235,7 @@ This is a bit mask describing the event (see below).
 This is an open file descriptor for the object being accessed, or
 .B FAN_NOFD
 if a queue overflow occurred.
-If the fanotify file descriptor has been initialized using
-.BR FAN_REPORT_FID ,
+With an fanotify group that identifies filesystem objects by file handles,
 applications should expect this value to be set to
 .B FAN_NOFD
 for each event that is received.
@@ -395,9 +391,8 @@ See
 for additional details.
 The
 .BR FAN_ONDIR
-flag is reported in an event mask only if the fanotify group has been
-initialized with the flag
-.BR FAN_REPORT_FID .
+flag is reported in an event mask only if the fanotify group identifies
+filesystem objects by file handles.
 .PP
 The fields of the
 .I fanotify_event_info_fid
@@ -406,24 +401,30 @@ structure are as follows:
 .I hdr
 This is a structure of type
 .IR fanotify_event_info_header .
-It is a generic header that contains information used to describe
-additional information attached to the event.
+It is a generic header that contains information used to describe an
+additional information record attached to the event.
 For example, when an fanotify file descriptor is created using
 .BR FAN_REPORT_FID ,
-the
+a single information record is expected to be attached to the event with
 .I info_type
-field of this header is set to
+field value of
 .BR FAN_EVENT_INFO_TYPE_FID .
-Event listeners can use this field to check that the additional
-information received for an event is of the correct type.
-Additionally, the
+The
 .I fanotify_event_info_header
-also contains a
+contains a
 .I len
 field.
-In the current implementation, the value of
+The value of
 .I len
-is always (event_len \- FAN_EVENT_METADATA_LEN).
+is the size of the additional information record including the
+.IR fanotify_event_info_header
+itself. The total size of all additional information records is not expected
+to be bigger than
+(
+.IR event_len
+\-
+.IR metadata_len
+).
 .TP
 .I fsid
 This is a unique identifier of the filesystem containing the object
@@ -436,31 +437,35 @@ when calling
 .BR statfs (2).
 .TP
 .I file_handle
-This is a variable length structure of type
-.IR file_handle .
+This is a variable length structure of type struct file_handle.
 It is an opaque handle that corresponds to a specified object on a
 filesystem as returned by
 .BR name_to_handle_at (2).
 It can be used to uniquely identify a file on a filesystem and can be
 passed as an argument to
 .BR open_by_handle_at (2).
-Note that for directory entry events, such as
+Note that for the directory entry modification events
 .BR FAN_CREATE ,
 .BR FAN_DELETE ,
 and
 .BR FAN_MOVE ,
 the
 .IR file_handle
-describes the modified directory and not the created/deleted/moved child
+identifies the modified directory and not the created/deleted/moved child
 object.
-The events
+For other events such as
+.BR FAN_OPEN ,
 .BR FAN_ATTRIB ,
 .BR FAN_DELETE_SELF ,
 and
-.BR FAN_MOVE_SELF
-will carry the
+.BR FAN_MOVE_SELF ,
+if the value of
+.I info_type
+field is
+.BR FAN_EVENT_INFO_TYPE_FID ,
+the
 .IR file_handle
-information for the child object if the child object is being watched.
+identifies the object correlated to the event.
 .PP
 The following macros are provided to iterate over a buffer containing
 fanotify event metadata returned by a

@@ -223,6 +223,60 @@ flag, no event will be reported.
 See
 .BR fanotify (7)
 for additional details.
+.TP
+.BR FAN_REPORT_NAME " (since Linux 5.9)"
+Events for fanotify groups initialized with this flag will contain additional
+information about the name of the directory entry correlated to an event.
+This flag must be provided in conjunction with the flag
+.BR FAN_REPORT_DIR_FID .
+Providing this flag value without
+.BR FAN_REPORT_DIR_FID
+will result in the error
+.BR EINVAL .
+This flag may be combined with the flag
+.BR FAN_REPORT_FID .
+An additional record of type
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME ,
+which encapsulates the information about the directory entry is included
+alongside the generic event metadata structure and substitutes the additional
+information record of type
+.BR FAN_EVENT_INFO_TYPE_DFID .
+The additional record includes a file handle that identifies a directory
+filesystem object followed by a name that identifies an entry in that
+directory.
+For the directory entry modification events
+.BR FAN_CREATE ,
+.BR FAN_DELETE ,
+and
+.BR FAN_MOVE ,
+the reported name is that of the created/deleted/moved directory entry.
+For other events that occur on a directory object, the reported file handle
+is that of the directory object itself and the reported name is '.'.
+For other events that occur on a non-directory object, the reported file handle
+is that of the parent directory object and the reported name is the name of a
+directory entry where the object was located at the time of the event.
+The rationale behind this logic is that the reported directory file handle can
+be passed to
+.BR open_by_handle_at (2)
+to get an open directory file descriptor and that file descriptor along with
+the reported name can be used to call
+.BR fstatat (2).
+The same rule that applies to record type
+.BR FAN_EVENT_INFO_TYPE_DFID
+also applies to record type
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME \ -
+if a non-directory object has no parent, either the event will not be reported
+or it will be reported without the directory entry information.
+Note that there is no guarantee that the filesystem object will be found at the
+location described by the directory entry information at the time the event is
+received.
+See
+.BR fanotify (7)
+for additional details.
+.TP
+.B FAN_REPORT_DFID_NAME
+This is a synonym for
+.RB ( FAN_REPORT_DIR_FID | FAN_REPORT_NAME ).
 .PP
 The
 .I event_f_flags

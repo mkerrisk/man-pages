@@ -467,6 +467,12 @@ the
 .IR file_handle
 identifies the modified directory and not the created/deleted/moved child
 object.
+If the value of
+.I info_type
+field is
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME ,
+the file handle is followed by a null terminated string that identifies the
+created/deleted/moved directory entry name.
 For other events such as
 .BR FAN_OPEN ,
 .BR FAN_ATTRIB ,
@@ -487,7 +493,18 @@ field is
 the
 .IR file_handle
 identifies the directory object correlated to the event or the parent directory
-of the non-directory object correlated to the event.
+of a non-directory object correlated to the event.
+If the value of
+.I info_type
+field is
+.BR FAN_EVENT_INFO_TYPE_DFID_NAME ,
+the
+.IR file_handle
+identifies the same directory object that would be reported with
+.BR FAN_EVENT_INFO_TYPE_DFID
+and the file handle is followed by a null terminated string that identifies the
+name of a directory entry in that directory, or '.' to identify the directory
+object itself.
 .PP
 The following macros are provided to iterate over a buffer containing
 fanotify event metadata returned by a
@@ -672,12 +689,17 @@ events for the monitored directory itself.
 Fanotify monitoring of directories is not recursive:
 to monitor subdirectories under a directory,
 additional marks must be created.
-(But note that the fanotify API provides no way of detecting when a
-subdirectory has been created under a marked directory,
-which makes recursive monitoring difficult.)
-Monitoring mounts offers the capability to monitor a whole directory tree.
+The
+.B FAN_CREATE
+event can be used for detecting when a subdirectory has been created under
+a marked directory.
+An additional mark must then be set on the newly created subdirectory.
+This approach is racy, because it can lose events that occurred inside the
+newly created subdirectory, before a mark is added on that subdirectory.
+Monitoring mounts offers the capability to monitor a whole directory tree
+in a race free manner.
 Monitoring filesystems offers the capability to monitor changes made from
-any mount of a filesystem instance.
+any mount of a filesystem instance in a race free manner.
 .PP
 The event queue can overflow.
 In this case, events are lost.
@@ -961,9 +983,8 @@ main(int argc, char *argv[])
 .EE
 .\"
 .SS Example program: fanotify_fid.c
-The second program is an example of fanotify being used with
-.B FAN_REPORT_FID
-enabled.
+The second program is an example of fanotify being used with a group that
+identifies objects by file handles.
 The program marks the filesystem object that is passed as
 a command-line argument
 and waits until an event of type
@@ -984,7 +1005,7 @@ This is followed by the creation of a regular file,
 This results in a
 .B FAN_CREATE
 event being generated and reported against the file's parent watched
-directory object.
+directory object and with the created file name.
 Program execution ends once all events captured within the buffer have
 been processed.
 .PP
@@ -994,6 +1015,7 @@ been processed.
 Listening for events.
 FAN_CREATE (file created):
         Directory /home/user has been modified.
+        Entry 'testfile.txt' is not a subdirectory.
 All events processed successfully. Program exiting.
 
 $ \fBtouch /home/user/testfile.txt\fP              # In another terminal
@@ -1008,7 +1030,7 @@ This specific action results in a
 .B FAN_CREATE
 event being generated and is reported with the
 .B FAN_ONDIR
-flag set.
+flag set and with the created directory name.
 .PP
 .in +4n
 .EX
@@ -1016,6 +1038,7 @@ flag set.
 Listening for events.
 FAN_CREATE | FAN_ONDIR (subdirectory created):
         Directory /home/user has been modified.
+        Entry 'testdir' is a subdirectory.
 All events processed successfully. Program exiting.
 
 $ \fBmkdir \-p /home/user/testdir\fP          # In another terminal
@@ -1048,6 +1071,8 @@ main(int argc, char **argv)
     struct file_handle *file_handle;
     struct fanotify_event_metadata *metadata;
     struct fanotify_event_info_fid *fid;
+    const char *file_name;
+    struct stat sb;
 
     if (argc != 2) {
         fprintf(stderr, "Invalid number of command line arguments.\en");
@@ -1061,10 +1086,10 @@ main(int argc, char **argv)
     }
 
 
-    /* Create an fanotify file descriptor with FAN_REPORT_FID as a flag
-       so that program can receive fid events. */
+    /* Create an fanotify file descriptor with FAN_REPORT_DFID_NAME as a flag
+       so that program can receive fid events with directory entry name. */
 
-    fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID, 0);
+    fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, 0);
     if (fd == \-1) {
         perror("fanotify_init");
         exit(EXIT_FAILURE);
@@ -1100,7 +1125,13 @@ main(int argc, char **argv)
 
         /* Ensure that the event info is of the correct type */
 
-        if (fid\->hdr.info_type != FAN_EVENT_INFO_TYPE_FID) {
+        if (fid\->hdr.info_type == FAN_EVENT_INFO_TYPE_FID ||
+            fid\->hdr.info_type == FAN_EVENT_INFO_TYPE_DFID) {
+            file_name = NULL;
+        } else if (fid\->hdr.info_type == FAN_EVENT_INFO_TYPE_DFID_NAME) {
+            file_name = file_handle->f_handle +
+                        file_handle->handle_bytes;
+        } else {
             fprintf(stderr, "Received unexpected event info type.\en");
             exit(EXIT_FAILURE);
         }
@@ -1111,8 +1142,8 @@ main(int argc, char **argv)
         if (metadata\->mask == (FAN_CREATE | FAN_ONDIR))
             printf("FAN_CREATE | FAN_ONDIR (subdirectory created):\en");
 
-        /* metadata\->fd is set to FAN_NOFD when FAN_REPORT_FID is
-           enabled.  To obtain a file descriptor for the file object
+        /* metadata\->fd is set to FAN_NOFD when the group identifies objects
+           by file handles.  To obtain a file descriptor for the file object
            corresponding to an event you can use the struct file_handle
            that\(aqs provided within the fanotify_event_info_fid in
            conjunction with the open_by_handle_at(2) system call.
@@ -1145,6 +1176,22 @@ main(int argc, char **argv)
 
         path[path_len] = \(aq\e0\(aq;
         printf("\etDirectory \(aq%s\(aq has been modified.\en", path);
+
+        if (file_name) {
+            ret = fstatat(event_fd, file_name, &sb, 0);
+            if (ret == \-1) {
+                if (errno != ENOENT) {
+                    perror("fstatat");
+                    exit(EXIT_FAILURE);
+                }
+                printf("\etEntry \(aq%s\(aq does not exist.\en", file_name);
+            } else if ((sb.st_mode & S_IFMT) == S_IFDIR) {
+                printf("\etEntry \(aq%s\(aq is a subdirectory.\en", file_name);
+            } else {
+                printf("\etEntry \(aq%s\(aq is not a subdirectory.\en",
+                        file_name);
+            }
+        }
 
         /* Close associated file descriptor for this event */
 

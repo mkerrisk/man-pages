@@ -1076,6 +1076,7 @@ CapEff:	0000001fffffffff
 #define _GNU_SOURCE
 #include <sched.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -1190,8 +1191,8 @@ proc_setgroups_write(pid_t child_pid, char *str)
     char setgroups_path[PATH_MAX];
     int fd;
 
-    snprintf(setgroups_path, PATH_MAX, "/proc/%ld/setgroups",
-            (long) child_pid);
+    snprintf(setgroups_path, PATH_MAX, "/proc/%jd/setgroups",
+            (intmax_t) child_pid);
 
     fd = open(setgroups_path, O_RDWR);
     if (fd == \-1) {
@@ -1323,16 +1324,17 @@ main(int argc, char *argv[])
     /* Parent falls through to here */
 
     if (verbose)
-        printf("%s: PID of child created by clone() is %ld\en",
-                argv[0], (long) child_pid);
+        printf("%s: PID of child created by clone() is %jd\en",
+                argv[0], (intmax_t) child_pid);
 
     /* Update the UID and GID maps in the child */
 
     if (uid_map != NULL || map_zero) {
-        snprintf(map_path, PATH_MAX, "/proc/%ld/uid_map",
-                (long) child_pid);
+        snprintf(map_path, PATH_MAX, "/proc/%jd/uid_map",
+                (intmax_t) child_pid);
         if (map_zero) {
-            snprintf(map_buf, MAP_BUF_SIZE, "0 %ld 1", (long) getuid());
+            snprintf(map_buf, MAP_BUF_SIZE, "0 %jd 1",
+                    (intmax_t) getuid());
             uid_map = map_buf;
         }
         update_map(uid_map, map_path);
@@ -1341,10 +1343,11 @@ main(int argc, char *argv[])
     if (gid_map != NULL || map_zero) {
         proc_setgroups_write(child_pid, "deny");
 
-        snprintf(map_path, PATH_MAX, "/proc/%ld/gid_map",
-                (long) child_pid);
+        snprintf(map_path, PATH_MAX, "/proc/%jd/gid_map",
+                (intmax_t) child_pid);
         if (map_zero) {
-            snprintf(map_buf, MAP_BUF_SIZE, "0 %ld 1", (long) getgid());
+            snprintf(map_buf, MAP_BUF_SIZE, "0 %ld 1",
+                    (intmax_t) getgid());
             gid_map = map_buf;
         }
         update_map(gid_map, map_path);

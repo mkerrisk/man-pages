@@ -629,6 +629,79 @@ See also:
 .SH NOTES
 The structures described in this manual page shall contain,
 at least, the members shown in their definition, in no particular order.
+.PP
+Most of the integer types described in this page don't have
+a corresponding length modifier for the
+.BR printf (3)
+and the
+.BR scanf (3)
+families of functions.
+To print a value of an integer type that doesn't have a length modifier,
+it should be converted to
+.I intmax_t
+or
+.I uintmax_t
+by an explicit cast.
+To scan into a variable of an integer type
+that doesn't have a length modifier,
+an intermediate temporary variable of type
+.I intmax_t
+or
+.I uintmax_t
+should be used.
+When copying from the temporary variable to the destination variable,
+the value could overflow.
+If POSIX provides lower and upper limits to the type,
+the user should check that the value is within those limits,
+before actually copying the value.
+The example below shows how these conversions should be done.
+.SH EXAMPLES
+The program shown below scans from a string and prints a value stored in
+a variable of an integer type that doesn't have a length modifier.
+The appropriate conversions from and to
+.IR intmax_t ,
+and the appropriate range checkings,
+are used as explained in the notes section above:
+.PP
+.EX
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+
+
+int
+main (void)
+{
+    static const char *const str = "500000 us in half a second";
+    suseconds_t us;
+    intmax_t    tmp;
+
+    /* Scan the number from the string into the temporary variable */
+    sscanf(str, "%jd", &tmp);
+
+    /* Check that the value is within the valid range of suseconds_t */
+    if (tmp < -1 || tmp > 1000000) {
+        fprintf(stderr, "Scaned value might overflow!\en");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Copy the value to the suseconds_t variable 'us' */
+    us = tmp;
+
+    /* Even though suseconds_t can hold the value -1,
+       it represents an error code */
+    if (us < 0) {
+        fprintf(stderr, "Scanned an error code!\en");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Print the value */
+    printf("There are %jd us in half a second.\en", (intmax_t) us);
+
+    exit(EXIT_SUCCESS);
+}
+.EE
 .SH SEE ALSO
 .BR feature_test_macros (7),
 .BR standards (7)

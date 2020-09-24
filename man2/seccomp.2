@@ -975,7 +975,7 @@ $ \fBuname \-m\fP
 x86_64
 $ \fBsyscall_nr() {
     cat /usr/src/linux/arch/x86/syscalls/syscall_64.tbl | \e
-    awk '$2 != "x32" && $3 == "'$1'" { print $1 }'
+    awk \(aq$2 != "x32" && $3 == "\(aq$1\(aq" { print $1 }\(aq
 }\fP
 .EE
 .in
@@ -1059,21 +1059,21 @@ install_filter(int syscall_nr, int t_arch, int f_errno)
 
     /* Assume that AUDIT_ARCH_X86_64 means the normal x86-64 ABI
        (in the x32 ABI, all system calls have bit 30 set in the
-       'nr' field, meaning the numbers are >= X32_SYSCALL_BIT) */
+       \(aqnr\(aq field, meaning the numbers are >= X32_SYSCALL_BIT) */
     if (t_arch == AUDIT_ARCH_X86_64)
         upper_nr_limit = X32_SYSCALL_BIT - 1;
 
     struct sock_filter filter[] = {
-        /* [0] Load architecture from 'seccomp_data' buffer into
+        /* [0] Load architecture from \(aqseccomp_data\(aq buffer into
                accumulator */
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
                  (offsetof(struct seccomp_data, arch))),
 
         /* [1] Jump forward 5 instructions if architecture does not
-               match 't_arch' */
+               match \(aqt_arch\(aq */
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, t_arch, 0, 5),
 
-        /* [2] Load system call number from 'seccomp_data' buffer into
+        /* [2] Load system call number from \(aqseccomp_data\(aq buffer into
                accumulator */
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
                  (offsetof(struct seccomp_data, nr))),
@@ -1084,11 +1084,11 @@ install_filter(int syscall_nr, int t_arch, int f_errno)
         BPF_JUMP(BPF_JMP | BPF_JGT | BPF_K, upper_nr_limit, 3, 0),
 
         /* [4] Jump forward 1 instruction if system call number
-               does not match 'syscall_nr' */
+               does not match \(aqsyscall_nr\(aq */
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, syscall_nr, 0, 1),
 
-        /* [5] Matching architecture and system call: don't execute
-           the system call, and return 'f_errno' in 'errno' */
+        /* [5] Matching architecture and system call: don\(aqt execute
+           the system call, and return \(aqf_errno\(aq in \(aqerrno\(aq */
         BPF_STMT(BPF_RET | BPF_K,
                  SECCOMP_RET_ERRNO | (f_errno & SECCOMP_RET_DATA)),
 

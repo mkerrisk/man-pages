@@ -70,17 +70,30 @@ the auditing library.
 When invoking this function, the dynamic linker passes, in
 .IR version ,
 the highest version of the auditing interface that the linker supports.
-If necessary, the auditing library can check that this version
-is sufficient for its requirements.
 .PP
-As its function result,
-this function should return the version of the auditing interface
-that this auditing library expects to use (returning
+A typical implementation of this function simply returns the constant
+.BR LAV_CURRENT ,
+which indicates the version of
+.I <link.h>
+that was used to build the audit module.  If the dynamic linker does
+not support this version of the audit interface, it will refuse to
+activate this audit module.  If the function returns zero, the dynamic
+linker also does not activate this audit module.
+.PP
+In order to enable backwards compatibility with older dynamic linkers,
+an audit module can examine the
 .I version
-is acceptable).
-If the returned value is 0,
-or a version that is greater than that supported by the dynamic linker,
-then the audit library is ignored.
+argument and return an earlier version than
+.BR LAV_CURRENT ,
+assuming the module can adjust its implementation to match the
+requirements of the previous version of the audit interface.  The
+.B la_version
+function should not return the value of
+.I version
+without further checks because it could correspond to an interface
+that does not match the
+.I <link.h>
+definitions used to build the audit module.
 .SS la_objsearch()
 \&
 .nf
@@ -508,9 +521,10 @@ This is reportedly fixed in glibc 2.10.
 unsigned int
 la_version(unsigned int version)
 {
-    printf("la_version(): %u\en", version);
+    printf("la_version(): version = %u; LAV_CURRENT = %u\en",
+            version, LAV_CURRENT);
 
-    return version;
+    return LAV_CURRENT;
 }
 
 char *

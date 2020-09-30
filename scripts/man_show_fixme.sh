@@ -5,13 +5,13 @@
 #
 for f in $*; do
     cat $f | awk '
-        /^\.\\\" *FIXME/ {
+        /^\.\\" *FIXME/ {
             if ($0 ~ /.*FIXME *\..*/) {
 		# FIXMES of the form "FIXME ." are "private" and 
 		# ignored by this script
             } else {
                 sub("FIXME[: ]*", "")
-		if ($0 ~ /^\.\\\"[ 	]*$/) {
+		if ($0 ~ /^\.\\"[ 	]*$/) {
 
 		    # If the FIXME line contains no additional text after
 		    # "FIXME", then discard the blank line
@@ -31,7 +31,7 @@ for f in $*; do
             }
         }
 
-        $0 !~ /^\.\\\"/ && fixme == 1 {
+        $0 !~ /^\.\\"/ && fixme == 1 {
             fixme = 0
             print "T}"
             print ".TE"

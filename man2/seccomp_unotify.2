@@ -33,6 +33,14 @@ seccomp_unotify \- Seccomp user-space notification mechanism
 .PP
 .BI "int seccomp(unsigned int " operation ", unsigned int " flags \
 ", void *" args );
+.PP
+.B #include <sys/ioctl.h>
+.PP
+.BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_RECV,"
+.BI "          struct seccomp_notif *" req );
+.BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_SEND,"
+.BI "          struct seccomp_notif_resp *" resp );
+.BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_ID_VALID, __u64 *" id );
 .fi
 .SH DESCRIPTION
 This page describes the user-space notification mechanism provided by the
@@ -62,15 +70,16 @@ to the seccomp filter and it can perform actions
 that can't be performed from the seccomp filter.
 .PP
 In the discussion that follows,
-the process that has installed the seccomp filter is referred to as the
+the thread(s) on which the seccomp filter is installed are referred to as the
 .IR target ,
 and the process that is notified by the user-space notification
 mechanism is referred to as the
 .IR supervisor .
-An overview of the steps performed by these two processes is as follows:
+An overview of the steps performed by these target and the supervisor
+is as follows:
 .\"-------------------------------------
 .IP 1. 3
-The target process establishes a seccomp filter in the usual manner,
+The target establishes a seccomp filter in the usual manner,
 but with two differences:
 .RS
 .IP \(bu 2
@@ -90,18 +99,28 @@ This return value will trigger a notification event.
 .RE
 .\"-------------------------------------
 .IP 2.
-In order that the supervisor process can obtain notifications
+In order that the supervisor can obtain notifications
 using the listening file descriptor,
 (a duplicate of) that file descriptor must be passed from
-the target process to the supervisor process.
+the target to the supervisor.
 One way in which this could be done is by passing the file descriptor
-over a UNIX domain socket connection between the two processes (using the
+over a UNIX domain socket connection between the target and the supervisor
+(using the
 .BR SCM_RIGHTS
 ancillary message type described in
 .BR unix (7)).
+.\" Jann Horn:
+.\"     Instead of using unix domain sockets to send the fd to the
+.\"     parent, I think you could also use clone3() with
+.\"     flags==CLONE_FILES|SIGCHLD, dup2() the seccomp fd to an fd
+.\"     that was reserved in the parent, call unshare(CLONE_FILES)
+.\"     in the child after setting up the seccomp fd, and wake
+.\"     up the parent with something like pthread_cond_signal()?
+.\"     I'm not sure whether that'd look better or worse in the
+.\"     end though, so maybe just ignore this comment.
 .\"-------------------------------------
 .IP 3.
-The supervisor process will receive notification events
+The supervisor will receive notification events
 on the listening file descriptor.
 These events are returned as structures of type
 .IR seccomp_notif .
@@ -120,22 +139,22 @@ In addition,the supervisor allocates another buffer of size
 bytes for the response (a
 .I struct seccomp_notif_resp
 structure)
-that it will provide to the kernel (and thus the target process).
+that it will provide to the kernel (and thus the target).
 .\"-------------------------------------
 .IP 4.
-The target process then performs its workload,
+The target then performs its workload,
 which includes system calls that will be controlled by the seccomp filter.
 Whenever one of these system calls causes the filter to return the
 .B SECCOMP_RET_USER_NOTIF
 action value, the kernel does
 .I not
 execute the system call;
-instead, execution of the target process is temporarily blocked inside
+instead, execution of the target is temporarily blocked inside
 the kernel and a notification event is generated on
 the listening file descriptor.
 .\"-------------------------------------
 .IP 5.
-The supervisor process can now repeatedly monitor the
+The supervisor can now repeatedly monitor the
 listening file descriptor for
 .BR SECCOMP_RET_USER_NOTIF -triggered
 events.
@@ -147,7 +166,7 @@ this operation blocks until an event is available.
 The operation returns a
 .I seccomp_notif
 structure containing information about the system call
-that is being attempted by the target process.
+that is being attempted by the target.
 .\"-------------------------------------
 .IP 6.
 The
@@ -158,16 +177,18 @@ operation includes the same information (a
 .I seccomp_data
 structure) that was passed to the seccomp filter.
 This information allows the supervisor to discover the system call number and
-the arguments for the target process's system call.
-In addition, the notification event contains the PID of the target process.
+the arguments for the target's system call.
+In addition, the notification event contains the ID of the thread
+that triggered the notification.
 .IP
 The information in the notification can be used to discover the
-values of pointer arguments for the target process's system call.
+values of pointer arguments for the target's system call.
 (This is something that can't be done from within a seccomp filter.)
-To do this (and assuming it has suitable permissions),
 One way in which the supervisor can do this is to open the corresponding
-.I /proc/[pid]/mem
-file and read bytes from the location that corresponds to one of
+.I /proc/[tid]/mem
+file (see
+.BR proc (5))
+and read bytes from the location that corresponds to one of
 the pointer arguments whose value is supplied in the notification event.
 .\" Tycho Andersen mentioned that there are alternatives to /proc/PID/mem,
 .\" such as ptrace() and /proc/PID/map_files
@@ -184,25 +205,25 @@ in user space but which is not accessible from a seccomp filter.
 .IP 7.
 Having obtained information as per the previous step,
 the supervisor may then choose to perform an action in response
-to the target process's system call
+to the target's system call
 (which, as noted above, is not executed when the seccomp filter returns the
 .B SECCOMP_RET_USER_NOTIF
 action value).
 .IP
 One example use case here relates to containers.
-The target process may be located inside a container where
+The target may be located inside a container where
 it does not have sufficient capabilities to mount a filesystem
 in the container's mount namespace.
 However, the supervisor may be a more privileged process that
-that does have sufficient capabilities to perform the mount operation.
+does have sufficient capabilities to perform the mount operation.
 .\"-------------------------------------
 .IP 8.
 The supervisor then sends a response to the notification.
 The information in this response is used by the kernel to construct
-a return value for the target process's system call and provide
+a return value for the target's system call and provide
 a value that will be assigned to the
 .I errno
-variable of the target process.
+variable of the target.
 .IP
 The response is sent using the
 .B SECCOMP_IOCTL_NOTIF_RECV
@@ -216,18 +237,18 @@ structure returned by the
 .B SECCOMP_IOCTL_NOTIF_RECV
 operation.
 This cookie value allows the kernel to associate the response with the
-target process.
+target.
 .\"-------------------------------------
 .IP 9.
 Once the notification has been sent,
-the system call in the target process unblocks,
+the system call in the target thread unblocks,
 returning the information that was provided by the supervisor
 in the notification response.
 .\"-------------------------------------
 .PP
 As a variation on the last two steps,
 the supervisor can send a response that tells the kernel that it
-should execute the target process's system call; see the discussion of
+should execute the target thread's system call; see the discussion of
 .BR SECCOMP_USER_NOTIF_FLAG_CONTINUE ,
 below.
 .\"
@@ -258,7 +279,7 @@ This structure must be zeroed out before the call.
 .EX
 struct seccomp_notif {
     __u64  id;              /* Cookie */
-    __u32  pid;             /* PID of target process */
+    __u32  pid;             /* TID of target thread */
     __u32  flags;           /* Currently unused (0) */
     struct seccomp_data data;   /* See seccomp(2) */
 };
@@ -272,15 +293,12 @@ The fields in this structure are as follows:
 This is a cookie for the notification.
 Each such cookie is guaranteed to be unique for the corresponding
 seccomp filter.
-In other words, this cookie is unique for each notification event
-from the target process.
-The cookie value has the following uses:
 .RS
 .IP \(bu 2
 It can be used with the
 .B SECCOMP_IOCTL_NOTIF_ID_VALID
 .BR ioctl (2)
-operation to verify that the target process is still alive.
+operation to verify that the target is still alive.
 .IP \(bu
 When returning a notification response to the kernel,
 the supervisor must include the cookie value in the
@@ -291,11 +309,8 @@ operation.
 .RE
 .TP
 .I pid
-This is the PID of the target process that triggered
+This is the thread ID of the target thread that triggered
 the notification event.
-.\" FIXME
-.\" This is a thread ID, rather than a
-.\" PID, right?
 .TP
 .I flags
 This is a bit mask of flags providing further information on the event.
@@ -325,20 +340,21 @@ The
 structure that was passed to the call contained nonzero fields.
 .TP
 .B ENOENT
-The target process was killed by a signal as the notification information
-was being generated.
+The target thread was killed by a signal as the notification information
+was being generated,
+or the target's system call was interrupted by a signal handler.
 .RE
 .\" FIXME
 .\" From my experiments,
 .\" it appears that if a SECCOMP_IOCTL_NOTIF_RECV is done after
-.\" the target process terminates, then the ioctl() simply
+.\" the target thread terminates, then the ioctl() simply
 .\" blocks (rather than returning an error to indicate that the
-.\" target process no longer exists).
+.\" target no longer exists).
 .\"
 .\" I found that surprising, and it required some contortions in
 .\" the example program.  It was not possible to code my SIGCHLD
 .\" handler (which reaps the zombie when the worker/target
-.\" process terminates) to simply set a flag checked in the main
+.\" terminates) to simply set a flag checked in the main
 .\" handleNotifications() loop, since this created an
 .\" unavoidable race where the child might terminate just after
 .\" I had checked the flag, but before I blocked (forever!) in the
@@ -348,7 +364,7 @@ was being generated.
 .\"
 .\" Is this expected behavior? It seems to me rather
 .\" desirable that SECCOMP_IOCTL_NOTIF_RECV should give an error
-.\" if the target process has terminated.
+.\" if the target has terminated.
 .\"
 .\" For now, this behavior is documented in BUGS.
 .TP
@@ -356,7 +372,7 @@ was being generated.
 This operation can be used to check that a notification ID
 returned by an earlier
 .B SECCOMP_IOCTL_NOTIF_RECV
-operation is still valid (i.e., that the target process still exists).
+operation is still valid (i.e., that the target still exists).
 .IP
 The third
 .BR ioctl (2)
@@ -377,38 +393,46 @@ An example of this kind of race is the following
 A notification is generated on the listening file descriptor.
 The returned
 .I seccomp_notif
-contains the PID of the target process.
+contains the TID of the target thread (in the
+.I pid
+filed of the structure).
 .IP 2.
-The target process terminates.
+The target terminates.
 .IP 3.
-Another process is created on the system that by chance reuses the
-PID that was freed when the target process terminates.
+Another thread or process is created on the system that by chance reuses the
+TID that was freed when the target terminated.
 .IP 4.
 The supervisor
 .BR open (2)s
 the
-.IR /proc/[pid]/mem
-file for the PID obtained in step 1, with the intention of (say)
-inspecting the memory locations that contains the arguments of
+.IR /proc/[tid]/mem
+file for the TID obtained in step 1, with the intention of (say)
+inspecting the memory location(s) that containiing the argument(s) of
 the system call that triggered the notification in step 1.
 .RE
 .IP
 In the above scenario, the risk is that the supervisor may try
 to access the memory of a process other than the target.
-This race can be avoided by following the call to open with a
+This race can be avoided by following the call to
+.BR open (2)
+with a
 .B SECCOMP_IOCTL_NOTIF_ID_VALID
 operation to verify that the process that generated the notification
 is still alive.
-(Note that if the target process subsequently terminates,
-its PID won't be reused because there remains an open reference to the
-.IR /proc[pid]/mem
-file;
-in this case, a subsequent
+(Note that if the target terminates after the latter step,
+a subsequent
 .BR read (2)
-from the file will return 0, indicating end of file.)
+from the file descriptor will return 0, indicating end of file.)
+.\" Jann Horn:
+.\"     the PID can be reused, but the /proc/$pid directory is
+.\"     internally not associated with the numeric PID, but,
+.\"     conceptually speaking, with a specific incarnation of the
+.\"     PID, or something like that.  (Actually, it is associated
+.\"     with the "struct pid", which is not reused, instead of the
+.\"     numeric PID.
 .IP
 On success (i.e., the notification ID is still valid),
-this operation returns 0
+this operation returns 0.
 On failure (i.e., the notification ID is no longer valid),
 \-1 is returned, and
 .I errno
@@ -445,19 +469,19 @@ with the system call that triggered the user-space notification.
 .TP
 .I val
 This is the value that will be used for a spoofed
-success return for the target process's system call; see below.
+success return for the target's system call; see below.
 .TP
 .I error
 This is the value that will be used as the error number
 .RI ( errno )
-for a spoofed error return for the target process's system call; see below.
+for a spoofed error return for the target's system call; see below.
 .TP
 .I flags
 This is a bit mask that includes zero or more of the following flags
 .RS
 .TP
 .BR SECCOMP_USER_NOTIF_FLAG_CONTINUE " (since Linux 5.5)"
-Tell the kernel to execute the target process's system call.
+Tell the kernel to execute the target's system call.
 .\" commit fb3c5386b382d4097476ce9647260fc89b34afdb
 .RE
 .RE
@@ -466,7 +490,7 @@ Two kinds of response are possible:
 .RS
 .IP \(bu 2
 A response to the kernel telling it to execute the
-target process's system call.
+target's system call.
 In this case, the
 .I flags
 field includes
@@ -480,11 +504,12 @@ fields must be zero.
 This kind of response can be useful in cases where the supervisor needs
 to do deeper analysis of the target's system call than is possible
 from a seccomp filter (e.g., examining the values of pointer arguments),
-and, having verified that the system call is acceptable,
-the supervisor wants to allow it to proceed.
+and, having decided that the system call does not require emulation
+by the supervisor, the supervisor wants the system call to
+be executed normally in the target.
 .IP \(bu
-A spoofed return value for the target process's system call.
-In this case, the kernel does not execute the target process's system call,
+A spoofed return value for the target's system call.
+In this case, the kernel does not execute the target's system call,
 instead causing the system call to return a spoofed value as specified by
 fields of the
 .I seccomp_notif_resp
@@ -499,11 +524,11 @@ does not contain
 .I error
 is set either to 0 for a spoofed "success" return or to a negative
 error number for a spoofed "failure" return.
-In the former case, the kernel causes the target process's system call
+In the former case, the kernel causes the target's system call
 to return the value specified in the
 .I val
 field.
-In the later case, the kernel causes the target process's system call
+In the later case, the kernel causes the target's system call
 to return \-1, and
 .I errno
 is assigned the negated
@@ -512,7 +537,7 @@ value.
 .IP +
 .I val
 is set to a value that will be used as the return value for a spoofed
-"success" return for the target process's system call.
+"success" return for the target's system call.
 The value in this field is ignored if the
 .I error
 field contains a nonzero value.
@@ -545,8 +570,13 @@ or
 field was not zero.
 .TP
 .B ENOENT
-The blocked system call in the target process
-has been interrupted by a signal handler.
+The blocked system call in the target
+has been interrupted by a signal handler
+or the target has terminated.
+.\" Jann Horn notes:
+.\"     you could also get this [ENOENT] if a response has already
+.\"     been sent, instead of EINPROGRESS - the only difference is
+.\"     whether the target thread has picked up the response yet
 .RE
 .SH NOTES
 The file descriptor returned when
@@ -560,6 +590,14 @@ and
 .BR select (2).
 When a notification is pending,
 these interfaces indicate that the file descriptor is readable.
+Following such an indication, a subsequent
+.B SECCOMP_IOCTL_NOTIF_RECV
+.BR ioctl (2)
+will not block, returning either information about a notification
+or else failing with the error
+.B EINTR
+if the target has been killed by a signal or its system call
+has been interrupted by a signal handler.
 .\" FIXME
 .\" Interestingly, after the event had been received, the file
 .\" descriptor indicates as writable (verified from the source
@@ -568,10 +606,12 @@ these interfaces indicate that the file descriptor is readable.
 If a
 .BR SECCOMP_IOCTL_NOTIF_RECV
 .BR ioctl (2)
-operation is performed after the target process terminates, then the
+operation
+.\" or a poll/epoll/select
+is performed after the target terminates, then the
 .BR ioctl (2)
 call simply blocks (rather than returning an error to indicate that the
-target process no longer exists).
+target no longer exists).
 .SH EXAMPLES
 The (somewhat contrived) program shown below demonstrates the use of
 the interfaces described in this page.
@@ -623,7 +663,7 @@ call appears to fail with the error
 Additionally, if the specified pathname is exactly "/bye",
 then the supervisor terminates.
 .PP
-This program can used to demonstrate various aspects of the
+This program can be used to demonstrate various aspects of the
 behavior of the seccomp user-space notification mechanism.
 To help aid such demonstrations,
 the program logs various messages to show the operation
@@ -820,7 +860,7 @@ sendfd(int sockfd, int fd)
 
     /* Allocate a char array of suitable size to hold the ancillary data.
        However, since this buffer is in reality a \(aqstruct cmsghdr\(aq, use a
-       union to ensure that it is suitable aligned. */
+       union to ensure that it is suitably aligned. */
     union {
         char   buf[CMSG_SPACE(sizeof(int))];
                         /* Space large enough to hold an \(aqint\(aq */
@@ -1112,18 +1152,15 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
 
     checkNotificationIdIsValid(notifyFd, req\->id);
 
-    /* Seek to the location containing the pathname argument (i.e., the
-       first argument) of the mkdir(2) call and read that pathname */
+    /* Read bytes at the location containing the pathname argument
+       (i.e., the first argument) of the mkdir(2) call */
 
-    if (lseek(procMemFd, req\->data.args[0], SEEK_SET) == \-1)
-        errExit("Supervisor: lseek");
-
-    ssize_t s = read(procMemFd, path, PATH_MAX);
+    ssize_t s = pread(procMemFd, path, PATH_MAX, req\->data.args[0]);
     if (s == \-1)
-        errExit("read");
+        errExit("pread");
 
     if (s == 0) {
-        fprintf(stderr, "\etS: read() of /proc/PID/mem "
+        fprintf(stderr, "\etS: pread() of /proc/PID/mem "
                 "returned 0 (EOF)\en");
         exit(EXIT_FAILURE);
     }
@@ -1140,8 +1177,6 @@ handleNotifications(int notifyFd)
 {
     struct seccomp_notif_sizes sizes;
     char path[PATH_MAX];
-        /* For simplicity, we assume that the pathname given to mkdir()
-           is no more than PATH_MAX bytes; but this might not be true. */
 
     /* Discover the sizes of the structures that are used to receive
        notifications and send notification responses, and allocate
@@ -1218,7 +1253,7 @@ handleNotifications(int notifyFd)
                 printf("\etS: failure! (errno = %d; %s)\en", errno,
                         strerror(errno));
             }
-	} else if (strncmp(path, "./", strlen("./")) == 0) {
+        } else if (strncmp(path, "./", strlen("./")) == 0) {
             resp\->error = resp\->val = 0;
             resp\->flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
             printf("\etS: target can execute system call\en");
@@ -1238,7 +1273,7 @@ handleNotifications(int notifyFd)
             if (errno == ENOENT)
                 printf("\etS: response failed with ENOENT; "
                         "perhaps target process\(aqs syscall was "
-                        "interrupted by signal?\en");
+                        "interrupted by a signal?\en");
             else
                 perror("ioctl\-SECCOMP_IOCTL_NOTIF_SEND");
         }

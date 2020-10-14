@@ -59,23 +59,30 @@ operations (described below).
 .\"
 .SS Overview
 In conventional usage of a seccomp filter,
-the decision about how to treat a particular system call
-is made by the filter itself.
-The user-space notification mechanism allows the handling of
-the system call to instead be handed off to a user-space process.
-The advantages of doing this are that, by contrast with the seccomp filter,
-which is running on a virtual machine inside the kernel,
-the user-space process has access to information that is unavailable
-to the seccomp filter and it can perform actions
-that can't be performed from the seccomp filter.
+the decision about how to treat a system call is made by the filter itself.
+By contrast, the user-space notification mechanism allows
+the seccomp filter to delegate
+the handling of the system call to another user-space process.
 .PP
 In the discussion that follows,
-the thread(s) on which the seccomp filter is installed are referred to as the
+the thread(s) on which the seccomp filter is installed is (are)
+referred to as the
 .IR target ,
 and the process that is notified by the user-space notification
 mechanism is referred to as the
 .IR supervisor .
-An overview of the steps performed by these target and the supervisor
+.PP
+A suitably privileged supervisor can use the user-space notification
+mechanism to perform actions on behalf of the target.
+The advantage of the user-space notification mechanism is that
+the supervisor will
+usually be able to retrieve information about the target and the
+performed system call that the seccomp filter itself cannot.
+(A seccomp filter is limited in the information it can obtain and
+the actions that it can perform because it
+is running on a virtual machine inside the kernel.)
+.PP
+An overview of the steps performed by the target and the supervisor
 is as follows:
 .\"-------------------------------------
 .IP 1. 3
@@ -149,10 +156,10 @@ Whenever one of these system calls causes the filter to return the
 .B SECCOMP_RET_USER_NOTIF
 action value, the kernel does
 .I not
-execute the system call;
+(yet) execute the system call;
 instead, execution of the target is temporarily blocked inside
-the kernel and a notification event is generated on
-the listening file descriptor.
+the kernel (in a sleep state that is interruptible by signals)
+and a notification event is generated on the listening file descriptor.
 .\"-------------------------------------
 .IP 5.
 The supervisor can now repeatedly monitor the

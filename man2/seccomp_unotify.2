@@ -63,6 +63,9 @@ the decision about how to treat a system call is made by the filter itself.
 By contrast, the user-space notification mechanism allows
 the seccomp filter to delegate
 the handling of the system call to another user-space process.
+Note that this mechanism is explicitly
+.B not
+intended as a method implementing security policy; see NOTES.
 .PP
 In the discussion that follows,
 the thread(s) on which the seccomp filter is installed is (are)
@@ -515,6 +518,10 @@ from a seccomp filter (e.g., examining the values of pointer arguments),
 and, having decided that the system call does not require emulation
 by the supervisor, the supervisor wants the system call to
 be executed normally in the target.
+.IP
+The
+.B SECCOMP_USER_NOTIF_FLAG_CONTINUE
+flag should be used with caution; see NOTES.
 .IP \(bu
 A spoofed return value for the target's system call.
 In this case, the kernel does not execute the target's system call,
@@ -630,6 +637,49 @@ the file descriptor indicates an end-of-file condition (readable in
 in
 .BR poll (2)/
 .BR epoll_wait (2)).
+.SS Design goals; use of SECCOMP_USER_NOTIF_FLAG_CONTINUE
+The intent of the user-space notification feature is
+to allow system calls to be performed on behalf of the target.
+The target's system call should either be handled by the supervisor or
+allowed to continue normally in the kernel (where standard security
+policies will be applied).
+.PP
+.BR "Note well" :
+this mechanism must not be used to make security policy decisions
+about the system call,
+which would be inherently race-prone for reasons described next.
+.PP
+The
+.B SECCOMP_USER_NOTIF_FLAG_CONTINUE
+flag must be used with caution.
+If set by the supervisor, the target's system call will continue.
+However, there is a time-of-check, time-of-use race here,
+since an attacker could exploit the interval of time where the target is
+blocked waiting on the "continue" response to do things such as
+rewriting the system call arguments.
+.PP
+Note furthermore that a user-space notifier can be bypassed if
+the existing filters allow the use of
+.BR seccomp (2)
+or
+.BR prctl (2)
+to install a filter that returns an action value with a higher precedence than
+.B SECCOMP_RET_USER_NOTIF
+(see
+.BR seccomp (2)).
+.PP
+It should thus be absolutely clear that the
+seccomp user-space notification mechanism
+.B can not
+be used to implement a security policy!
+It should only ever be used in scenarios where a more privileged process
+supervises the system calls of a lesser privileged target to
+get around kernel-enforced security restrictions when
+the supervisor deems this safe.
+In other words,
+in order to continue a system call, the supervisor should be sure that
+another security mechanism or the kernel itself will sufficiently block
+the system call if its arguments are rewritten to something unsafe.
 .SH BUGS
 If a
 .BR SECCOMP_IOCTL_NOTIF_RECV

@@ -1280,7 +1280,20 @@ handleNotifications(int notifyFd)
     if (req == NULL)
         errExit("\etS: malloc");
 
-    struct seccomp_notif_resp *resp = malloc(sizes.seccomp_notif_resp);
+    /* When allocating the response buffer, we must allow for the fact
+       that the user\-space binary may have been built with user\-space
+       headers where \(aqstruct seccomp_notif_resp\(aq is bigger than the
+       response buffer expected by the (older) kernel. Therefore, we
+       allocate a buffer that is the maximum of the two sizes. This
+       ensures that if the supervisor places bytes into the response
+       structure that are past the response size that the kernel expects,
+       then the supervisor is not touching an invalid memory location. */
+
+    size_t resp_size = sizes.seccomp_notif_resp;
+    if (sizeof(struct seccomp_notif_resp) > resp_size)
+        resp_size = sizeof(struct seccomp_notif_resp);
+
+    struct seccomp_notif_resp *resp = malloc(resp_size);
     if (resp == NULL)
         errExit("\etS: malloc");
 

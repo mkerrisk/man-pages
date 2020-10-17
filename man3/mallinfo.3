@@ -24,47 +24,61 @@
 .\"
 .TH MALLINFO 3  2020-11-01 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mallinfo \- obtain memory allocation information
+mallinfo, mallinfo2 \- obtain memory allocation information
 .SH SYNOPSIS
+.nf
 .B #include <malloc.h>
 .PP
 .B struct mallinfo mallinfo(void);
+.B struct mallinfo2 mallinfo2(void);
+.fi
 .SH DESCRIPTION
-The
-.BR mallinfo ()
-function returns a copy of a structure containing information about
+These functions return a copy of a structure containing information about
 memory allocations performed by
 .BR malloc (3)
 and related functions.
+The structure returned by each function contains the same fields.
+However, the older function,
+.BR mallinfo (),
+is deprecated since the type used for the fields is too small (see BUGS).
 .PP
-Note that not all allocations are visible to
-.BR mallinfo ();
+Note that not all allocations are visible to these functions;
 see BUGS and consider using
 .BR malloc_info (3)
 instead.
 .PP
-The returned structure is defined as follows:
+The
+.I mallinfo2
+structure returned by
+.BR mallinfo2 ()
+is defined as follows:
 .PP
 .in +4n
 .EX
-struct mallinfo {
-    int arena;     /* Non-mmapped space allocated (bytes) */
-    int ordblks;   /* Number of free chunks */
-    int smblks;    /* Number of free fastbin blocks */
-    int hblks;     /* Number of mmapped regions */
-    int hblkhd;    /* Space allocated in mmapped regions (bytes) */
-    int usmblks;   /* See below */
-    int fsmblks;   /* Space in freed fastbin blocks (bytes) */
-    int uordblks;  /* Total allocated space (bytes) */
-    int fordblks;  /* Total free space (bytes) */
-    int keepcost;  /* Top-most, releasable space (bytes) */
+struct mallinfo2 {
+    size_t arena;     /* Non-mmapped space allocated (bytes) */
+    size_t ordblks;   /* Number of free chunks */
+    size_t smblks;    /* Number of free fastbin blocks */
+    size_t hblks;     /* Number of mmapped regions */
+    size_t hblkhd;    /* Space allocated in mmapped regions
+                         (bytes) */
+    size_t usmblks;   /* See below */
+    size_t fsmblks;   /* Space in freed fastbin blocks (bytes) */
+    size_t uordblks;  /* Total allocated space (bytes) */
+    size_t fordblks;  /* Total free space (bytes) */
+    size_t keepcost;  /* Top-most, releasable space (bytes) */
 };
 .EE
 .in
 .PP
-The fields of the
+The
 .I mallinfo
-structure contain the following information:
+structure returned by the deprecated
+.BR mallinfo ()
+function is exactly the same, except that the fields are typed as
+.IR int .
+.PP
+The structure fields contain the following information:
 .TP 10
 .I arena
 The total amount of memory allocated by means other than
@@ -117,8 +131,13 @@ of the heap.
 This is the maximum number of bytes that could ideally
 (i.e., ignoring page alignment restrictions, and so on) be released by
 .BR malloc_trim (3).
-.\" .SH VERSIONS
-.\" Available already in glibc 2.0, possibly earlier
+.SH VERSIONS
+.\" mallinfo(): Available already in glibc 2.0, possibly earlier
+The
+.BR mallinfo2 ()
+function was added
+.\" commit e3960d1c57e57f33e0e846d615788f4ede73b945
+in glibc 2.33.
 .SH ATTRIBUTES
 For an explanation of the terms used in this section, see
 .BR attributes (7).
@@ -128,11 +147,13 @@ lb lb lbw28
 l l l.
 Interface	Attribute	Value
 T{
-.BR mallinfo ()
+.BR mallinfo (),
+.BR mallinfo2 ()
 T}	Thread safety	MT-Unsafe init const:mallopt
 .TE
 .sp 1
-.BR mallinfo ()
+.BR mallinfo ()/
+.BR mallinfo2 ()
 would access some global internal objects.
 If modify them with non-atomically,
 may get inconsistent results.
@@ -143,11 +164,14 @@ in
 mean that
 .BR mallopt ()
 would modify the global internal objects with atomics, that make sure
-.BR mallinfo ()
+.BR mallinfo ()/
+.BR mallinfo2 ()
 is safe enough, others modify with non-atomically maybe not.
 .SH CONFORMING TO
-This function is not specified by POSIX or the C standards.
-A similar function exists on many System V derivatives,
+These functions are not specified by POSIX or the C standards.
+A
+.BR mallinfo ()
+function exists on many System V derivatives,
 and was specified in the SVID.
 .SH BUGS
 .\" FIXME . http://sourceware.org/bugzilla/show_bug.cgi?id=208
@@ -164,7 +188,9 @@ for alternatives that include information about other arenas.
 .PP
 The fields of the
 .I mallinfo
-structure are typed as
+structure that is returned by the older
+.BR mallinfo ()
+function are typed as
 .IR int .
 However, because some internal bookkeeping values may be of type
 .IR long ,

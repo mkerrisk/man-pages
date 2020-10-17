@@ -1,4 +1,5 @@
 .\" Copyright 1993 David Metcalfe (david@prism.demon.co.uk)
+.\" and Copyright (C) 2020 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -29,12 +30,14 @@
 .\" Modified Sat Jul 24 17:59:03 1993 by Rik Faith (faith@cs.unc.edu)
 .TH STRSIGNAL 3  2017-09-15 "GNU" "Linux Programmer's Manual"
 .SH NAME
-strsignal, sys_siglist \- return string describing signal
+strsignal, sigdescr_np, sigdescr_np, sys_siglist \- return string describing signal
 .SH SYNOPSIS
 .nf
 .B #include <string.h>
 .PP
 .BI "char *strsignal(int " sig );
+.BI "char *sigdescr_np(int " sig );
+.BI "char *sigabbrev_np(int " sig );
 .PP
 .BI "extern const char * const " sys_siglist [];
 .fi
@@ -44,8 +47,15 @@ Feature Test Macro Requirements for glibc (see
 .BR feature_test_macros (7)):
 .RE
 .PP
-.BR strsignal ():
+.BR sigabbrev_np (),
+.BR sigdescr_np ():
 .PD 0
+.ad l
+.RS 4
+.TP 4
+_GNU_SOURCE
+.RE
+.BR strsignal ():
 .ad l
 .RS 4
 .TP 4
@@ -71,6 +81,28 @@ number passed in the argument
 .IR sig .
 The string can be used only until the next call to
 .BR strsignal ().
+The string returned by
+.BR strsignal ()
+is localized according to the
+.B LC_MESSAGES
+category in the current locale.
+.PP
+The
+.BR sigdescr_np ()
+function returns a string describing the signal
+number passed in the argument
+.IR sig .
+Unlike
+.BR strsignal ()
+this string is not influenced by the current locale.
+.PP
+The
+.BR sigabbrev_np ()
+function returns the abbreviated name of the signal,
+.IR sig .
+For example, given the value
+.BR SIGINT ,
+it returns the string "INT".
 .PP
 The (deprecated) array
 .I sys_siglist
@@ -78,6 +110,8 @@ holds the signal description strings
 indexed by signal number.
 The
 .BR strsignal ()
+or the
+.BR sigdescr_np ()
 function should be used instead of this array; see also VERSIONS.
 .SH RETURN VALUE
 The
@@ -86,7 +120,21 @@ function returns the appropriate description
 string, or an unknown signal message if the signal number is invalid.
 On some systems (but not on Linux), NULL may instead be
 returned for an invalid signal number.
+.PP
+The
+.BR sigdescr_np ()
+and
+.BR sigdabbrev_np ()
+functions return the appropriate description string.
+The returned string is statically allocated and valid for
+the lifetime of the program.
+These functions return NULL for an invalid signal number.
 .SH VERSIONS
+.BR sigdescr_np ()
+and
+.BR sigdabbrev_np ()
+first appeared in glibc 2.32.
+.PP
 Starting with version 2.32,
 .\" glibc commit b1ccfc061feee9ce616444ded8e1cd5acf9fa97f
 the
@@ -103,6 +151,10 @@ Interface	Attribute	Value
 T{
 .BR strsignal ()
 T}	Thread safety	MT-Unsafe race:strsignal locale
+T{
+.BR sigdescr_np (),
+.BR sigabbrev_np ()
+T}	Thread safety	MT-Safe
 .TE
 .sp 1
 .SH CONFORMING TO
@@ -110,8 +162,18 @@ T}	Thread safety	MT-Unsafe race:strsignal locale
 POSIX.1-2008.
 Present on Solaris and the BSDs.
 .PP
+.BR sigdescr_np ()
+and
+.BR sigdabbrev_np ()
+are GNU extensions.
+.PP
 .I sys_siglist
 is nonstandard, but present on many other systems.
+.SH NOTES
+.BR sigdescr_np ()
+and
+.BR sigdabbrev_np ()
+are thread-safe and async-signal-safe.
 .SH SEE ALSO
 .BR psignal (3),
 .BR strerror (3)

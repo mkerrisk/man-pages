@@ -1211,11 +1211,13 @@ checkNotificationIdIsValid(int notifyFd, uint64_t id)
 /* Access the memory of the target process in order to discover the
    pathname that was given to mkdir() */
 
-static void
+static bool
 getTargetPathname(struct seccomp_notif *req, int notifyFd,
                   char *path, size_t len)
 {
     char procMemPath[PATH_MAX];
+    bool res = true;
+
     snprintf(procMemPath, sizeof(procMemPath), "/proc/%d/mem", req\->pid);
 
     int procMemFd = open(procMemPath, O_RDONLY);
@@ -1246,18 +1248,17 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     }
 
     /* We have no guarantees about what was in the memory of the target
-       process. Therefore, we ensure that \(aqpath\(aq is null\-terminated.
-       Such precautions are particularly important in cases where (as is
-       common) the surpervisor is running at a higher privilege level
-       than the target. */
+       process. We therefore treat the buffer returned by pread() as
+       untrusted input. The buffer should be terminated by a null byte;
+       if not, then we will trigger an error for the target process. */
 
-    int zeroIdx = len \- 1;
-    if (nread < zeroIdx)
-	zeroIdx = nread;
-    path[zeroIdx] = \(aq\0\(aq;
+    if (path[nread \- 1] != \(aq\0\(aq)
+        res = false;
 
     if (close(procMemFd) == \-1)
         errExit("close\-/proc/PID/mem");
+
+    return res;
 }
 
 /* Handle notifications that arrive via the SECCOMP_RET_USER_NOTIF file
@@ -1324,7 +1325,8 @@ handleNotifications(int notifyFd)
             exit(EXIT_FAILURE);
         }
 
-        getTargetPathname(req, notifyFd, path, sizeof(path));
+        bool pathOK = getTargetPathname(req, notifyFd, path,
+                                        sizeof(path));
 
         /* Prepopulate some fields of the response */
 
@@ -1332,13 +1334,17 @@ handleNotifications(int notifyFd)
         resp\->flags = 0;
         resp\->val = 0;
 
-        /* If the directory is in /tmp, then create it on behalf of
-           the supervisor; if the pathname starts with \(aq.\(aq, tell the
-           kernel to let the target process execute the mkdir();
-           otherwise, give an error for a directory pathname in
-           any other location. */
+        /* If the target pathname was not valid, trigger an EINVAL error;
+           if the directory is in /tmp, then create it on behalf of the
+           supervisor; if the pathname starts with '.', tell the kernel
+           to let the target process execute the mkdir(); otherwise, give
+           an error for a directory pathname in any other location. */
 
-        if (strncmp(path, "/tmp/", strlen("/tmp/")) == 0) {
+        if (!pathOK) {
+            resp->error = -EINVAL;
+            printf("\etS: spoofing error for invalid pathname (%s)\en",
+                    strerror(-resp->error));
+        } else if (strncmp(path, "/tmp/", strlen("/tmp/")) == 0) {
             printf("\etS: executing: mkdir(\e"%s\e", %#llo)\en",
                     path, req\->data.args[1]);
 

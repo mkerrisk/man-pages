@@ -210,4 +210,60 @@ from the circular queue.
 .SH CONFORMING TO
 .SH BUGS
 .SH EXAMPLES
+.Ss Circular queue example
+.Bd -literal
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/queue.h>
+
+struct entry {
+    int data;
+    CIRCLEQ_ENTRY(entry) entries;           /* Queue. */
+};
+
+CIRCLEQ_HEAD(circlehead, entry);
+
+int
+main(void)
+{
+    struct entry    *n1, *n2, *n3, *np;
+    struct circlehead head;                 /* Queue head. */
+    int     i;
+
+    CIRCLEQ_INIT(&head);                    /* Initialize the queue. */
+
+    n1 = malloc(sizeof(struct entry));      /* Insert at the head. */
+    CIRCLEQ_INSERT_HEAD(&head, n1, entries);
+
+    n1 = malloc(sizeof(struct entry));      /* Insert at the tail. */
+    CIRCLEQ_INSERT_TAIL(&head, n1, entries);
+
+    n2 = malloc(sizeof(struct entry));      /* Insert after. */
+    CIRCLEQ_INSERT_AFTER(&head, n1, n2, entries);
+
+    n3 = malloc(sizeof(struct entry));      /* Insert before. */
+    CIRCLEQ_INSERT_BEFORE(&head, n2, n3, entries);
+
+    CIRCLEQ_REMOVE(&head, n2, entries);     /* Deletion. */
+    free(n2);
+                                            /* Forward traversal. */
+    i = 0;
+    CIRCLEQ_FOREACH(np, &head, entries)
+        np->data = i++;
+                                            /* Reverse traversal. */
+    CIRCLEQ_FOREACH_REVERSE(np, &head, entries)
+        printf("%i\en", np->data);
+                                            /* Queue deletion. */
+    n1 = CIRCLEQ_FIRST(&head);
+    while (n1 != (void *)&head) {
+        n2 = CIRCLEQ_NEXT(n1, entries);
+        free(n1);
+        n1 = n2;
+    }
+    CIRCLEQ_INIT(&head);
+
+    exit(EXIT_SUCCESS);
+}
+.Ed
 .SH SEE ALSO

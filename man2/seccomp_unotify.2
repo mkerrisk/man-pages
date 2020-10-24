@@ -682,6 +682,44 @@ In other words,
 in order to continue a system call, the supervisor should be sure that
 another security mechanism or the kernel itself will sufficiently block
 the system call if its arguments are rewritten to something unsafe.
+.\"
+.SS Interaction with SA_RESTART signal handlers
+Consider the following scenario:
+.IP \(bu 2
+The target process has used
+.BR sigaction (2)
+to install a signal handler with the
+.B SA_RESTART
+flag.
+.IP \(bu
+The target has made a system call that triggered a seccomp
+user-space notification and the target is currently blocked
+until the supervisor sends a notification response.
+.IP \(bu
+A signal is delivered to the target and the signal handler is executed.
+.IP \(bu
+When (if) the supervisor attempts to send a notification response, the
+.B SECCOMP_IOCTL_NOTIF_SEND
+.BR ioctl (2))
+operation will fail with the
+.BR ENOENT
+error.
+.PP
+In this scenario, the kernel will restart the target's system call.
+Consequently, the supervisor will receive another user-space notification.
+Thus, depending on how many times the blocked system call
+is interrupted by a signal handler,
+the supervisor may receive multiple notifications for
+the same system call in the target.
+.PP
+One oddity is that system call restarting as described in this scenario
+will occur even for the blocking system calls listed in
+.BR signal (7)
+that would
+.B never
+normally be restarted by the
+.BR SA_RESTART
+flag.
 .SH BUGS
 If a
 .BR SECCOMP_IOCTL_NOTIF_RECV

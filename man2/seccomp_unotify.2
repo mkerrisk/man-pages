@@ -1216,7 +1216,6 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
                   char *path, size_t len)
 {
     char procMemPath[PATH_MAX];
-    bool res = true;
 
     snprintf(procMemPath, sizeof(procMemPath), "/proc/%d/mem", req\->pid);
 
@@ -1247,18 +1246,19 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
         exit(EXIT_FAILURE);
     }
 
+    if (close(procMemFd) == \-1)
+        errExit("close\-/proc/PID/mem");
+
     /* We have no guarantees about what was in the memory of the target
        process. We therefore treat the buffer returned by pread() as
        untrusted input. The buffer should be terminated by a null byte;
        if not, then we will trigger an error for the target process. */
 
-    if (path[nread \- 1] != \(aq\0\(aq)
-        res = false;
+    for (int j = 0; j < nread; j++)
+        if (path[j] == \(aq\0\(aq)
+            return true;
 
-    if (close(procMemFd) == \-1)
-        errExit("close\-/proc/PID/mem");
-
-    return res;
+    return false;
 }
 
 /* Handle notifications that arrive via the SECCOMP_RET_USER_NOTIF file

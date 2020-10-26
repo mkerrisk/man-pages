@@ -51,5 +51,5 @@ for f in $*; do
         {
 	    print $0
         }
-    ' | tee "/tmp/$(basename $f).src" | man -l /dev/stdin
+    ' | tee "/tmp/$(basename $f).src" | man --nh --nj -l /dev/stdin
 done

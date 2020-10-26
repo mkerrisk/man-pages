@@ -98,13 +98,24 @@ The
 .I flags
 argument includes the flag
 .BR SECCOMP_FILTER_FLAG_NEW_LISTENER .
-Consequently, the return value  of the (successful)
+Consequently, the return value of the (successful)
 .BR seccomp (2)
 call is a new "listening"
 file descriptor that can be used to receive notifications.
 Only one "listening" seccomp filter can be installed for a thread.
 .\" FIXME
 .\" Is the last sentence above correct?
+.\"
+.\" Kees Cook (25 Oct 2020) notes:
+.\"
+.\" I like this limitation, but I expect that it'll need to change in the
+.\" future. Even with LSMs, we see the need for arbitrary stacking, and the
+.\" idea of there being only 1 supervisor will eventually break down. Right
+.\" now there is only 1 because only container managers are using this
+.\" feature. But if some daemon starts using it to isolate some thread,
+.\" suddenly it might break if a container manager is trying to listen to it
+.\" too, etc. I expect it won't be needed soon, but I do think it'll change.
+.\"
 .IP \(bu
 In cases where it is appropriate, the seccomp filter returns the action value
 .BR SECCOMP_RET_USER_NOTIF .
@@ -192,7 +203,12 @@ structure) that was passed to the seccomp filter.
 This information allows the supervisor to discover the system call number and
 the arguments for the target's system call.
 In addition, the notification event contains the ID of the thread
-that triggered the notification.
+that triggered the notification and a unique cookie value that
+is used in subsequent
+.B SECCOMP_IOCTL_NOTIF_ID_VALID
+and
+.B SECCOMP_IOCTL_NOTIF_SEND
+operations.
 .IP
 The information in the notification can be used to discover the
 values of pointer arguments for the target's system call.
@@ -251,6 +267,13 @@ structure returned by the
 operation.
 This cookie value allows the kernel to associate the response with the
 target.
+This structure must include the cookie value that the supervisor
+obtained in the
+.I seccomp_notif
+structure returned by the
+.B SECCOMP_IOCTL_NOTIF_RECV
+operation;
+the cookie allows the kernel to associate the response with the target.
 .\"-------------------------------------
 .IP 9.
 Once the notification has been sent,
@@ -385,12 +408,16 @@ or the target's (blocked) system call was interrupted by a signal handler.
 .\" an issue with the target process entering D state after a signal.)
 .\"
 .\" For now, this behavior is documented in BUGS.
+.\"
+.\" Kees Cook commented: Let's change [this] ASAP!
 .TP
 .BR SECCOMP_IOCTL_NOTIF_ID_VALID " (since Linux 5.0)"
 This operation can be used to check that a notification ID
 returned by an earlier
 .B SECCOMP_IOCTL_NOTIF_RECV
-operation is still valid (i.e., that the target still exists).
+operation is still valid
+(i.e., that the target still exists and its system call
+is still blocked waiting for a response).
 .IP
 The third
 .BR ioctl (2)
@@ -563,6 +590,12 @@ is set to a value that will be used as the return value for a spoofed
 The value in this field is ignored if the
 .I error
 field contains a nonzero value.
+.\" FIXME
+.\" Kees Cook suggested:
+.\"
+.\" Strictly speaking, this is architecture specific, but
+.\" all architectures do it this way. Should seccomp enforce
+.\" val == 0 when err != 0 ?
 .RE
 .RE
 .IP
@@ -715,7 +748,7 @@ Consequently, the supervisor will receive another user-space notification.
 Thus, depending on how many times the blocked system call
 is interrupted by a signal handler,
 the supervisor may receive multiple notifications for
-the same system call in the target.
+the same instance of a system call in the target.
 .PP
 One oddity is that system call restarting as described in this scenario
 will occur even for the blocking system calls listed in
@@ -725,6 +758,16 @@ that would
 normally be restarted by the
 .BR SA_RESTART
 flag.
+.\" FIXME
+.\" About the above, Kees Cook commented:
+.\"
+.\" Does this need fixing? I imagine the correct behavior for this case
+.\" would be a response to _SEND of EINPROGRESS and the target would see
+.\" EINTR normally?
+.\"
+.\" I mean, it's not like seccomp doesn't already expose weirdness with
+.\" syscall restarts. Not even arm64 compat agrees[3] with arm32 in this
+.\" regard. :(
 .SH BUGS
 If a
 .BR SECCOMP_IOCTL_NOTIF_RECV
@@ -735,6 +778,14 @@ is performed after the target terminates, then the
 .BR ioctl (2)
 call simply blocks (rather than returning an error to indicate that the
 target no longer exists).
+.\" FIXME
+.\" Comment from Kees Cook:
+.\"
+.\" I want this fixed. It caused me no end of pain when building the
+.\" selftests, and ended up spawning my implementing a global test timeout
+.\" in kselftest. :P Before the usage counter refactor, there was no sane
+.\" way to deal with this, but now I think we're close.
+.\"
 .SH EXAMPLES
 The (somewhat contrived) program shown below demonstrates the use of
 the interfaces described in this page.
@@ -1092,9 +1143,9 @@ recvfd(int sockfd)
 static void
 sigchldHandler(int sig)
 {
-    char *msg  = "\etS: target has terminated; bye\en";
+    char msg[] = "\etS: target has terminated; bye\en";
 
-    write(STDOUT_FILENO, msg, strlen(msg));
+    write(STDOUT_FILENO, msg, sizeof(msg) - 1);
     _exit(EXIT_SUCCESS);
 }
 
@@ -1243,12 +1294,9 @@ targetProcess(int sockPair[2], char *argv[])
 static void
 checkNotificationIdIsValid(int notifyFd, uint64_t id)
 {
-    if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1) {
-        fprintf(stderr, "\etS: notification ID check: "
+    if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1)
+        errExit("\etS: notification ID check: "
                 "target has terminated!!!\en");
-
-        exit(EXIT_FAILURE);
-    }
 }
 
 /* Access the memory of the target process in order to discover the
@@ -1264,7 +1312,7 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
 
     int procMemFd = open(procMemPath, O_RDONLY);
     if (procMemFd == \-1)
-        errExit("Supervisor: open");
+        errExit("\etS: open");
 
     /* Check that the process whose info we are accessing is still alive.
        If the SECCOMP_IOCTL_NOTIF_ID_VALID operation (performed
@@ -1297,9 +1345,8 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
        untrusted input. The buffer should be terminated by a null byte;
        if not, then we will trigger an error for the target process. */
 
-    for (int j = 0; j < nread; j++)
-        if (path[j] == \(aq\0\(aq)
-            return true;
+    if (strnlen(path, nread) < nread)
+        return true;
 
     return false;
 }
@@ -1350,7 +1397,7 @@ handleNotifications(int notifyFd)
         if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_RECV, req) == \-1) {
             if (errno == EINTR)
                 continue;
-            errExit("Supervisor: ioctl\-SECCOMP_IOCTL_NOTIF_RECV");
+            errExit("\etS: ioctl\-SECCOMP_IOCTL_NOTIF_RECV");
         }
 
         printf("\etS: got notification (ID %#llx) for PID %d\en",

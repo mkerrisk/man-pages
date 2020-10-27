@@ -73,9 +73,9 @@ for dir in "$@"; do
                 # /.\" FIXME . / ==> do not display this FIXME, unless
                 # -a command-line option was supplied
 	        
-		if ($0 ~ /^\.\\\" FIXME \./ )
+		if ($0 ~ /^\.\\" FIXME \./ )
 		    FIXME_type = "hidden"
-		else if ($0 ~ /^\.\\\" FIXME *\?/ )
+		else if ($0 ~ /^\.\\" FIXME *\?/ )
 		    FIXME_type = "question"
 		else
 		    FIXME_type = "normal";
@@ -96,12 +96,12 @@ for dir in "$@"; do
 	                if (getline == 0)
 		            finished = 1;
     
-	                if (!($0 ~ /^.\\\"/)) 
+	                if (!($0 ~ /^.\\"/)) 
 		            finished = 1;
         
                         # /.\" .$/ ==> Explicit end of FIXME
         
-	                if ($0 ~ /^.\\\" \.$/) 
+	                if ($0 ~ /^.\\" \.$/) 
 		            finished = 1;
 	            } while (!finished);
     

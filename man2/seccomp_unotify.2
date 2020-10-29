@@ -133,6 +133,8 @@ over a UNIX domain socket connection between the target and the supervisor
 .BR SCM_RIGHTS
 ancillary message type described in
 .BR unix (7)).
+Another way to do this is through the use of
+.BR pidfd_getfd (2).
 .\" Jann Horn:
 .\"     Instead of using unix domain sockets to send the fd to the
 .\"     parent, I think you could also use clone3() with
@@ -191,6 +193,23 @@ The operation returns a
 .I seccomp_notif
 structure containing information about the system call
 that is being attempted by the target.
+(As described in NOTES,
+the file descriptor can also be monitored with
+.BR select (2),
+.BR poll (2),
+or
+.BR epoll (7).)
+.\" FIXME
+.\" Christian Brauner:
+.\"
+.\" Do we support O_NONBLOCK with SECCOMP_IOCTL_NOTIF_RECV and if
+.\" not should we?
+.\"
+.\" Michael Kerrisk:
+.\"
+.\" A quick test suggests that O_NONBLOCK has no effect on the blocking
+.\" behavior of SECCOMP_IOCTL_NOTIF_RECV.
+.
 .\"-------------------------------------
 .IP 6.
 The
@@ -291,7 +310,8 @@ below.
 .SS ioctl(2) operations
 The following
 .BR ioctl (2)
-operations are provided to support seccomp user-space notification.
+operations are supported by the seccomp user-space
+notification file descriptor.
 For each of these operations, the first (file descriptor) argument of
 .BR ioctl (2)
 is the listening file descriptor returned by a call to
@@ -581,7 +601,7 @@ In the former case, the kernel causes the target's system call
 to return the value specified in the
 .I val
 field.
-In the later case, the kernel causes the target's system call
+In the latter case, the kernel causes the target's system call
 to return \-1, and
 .I errno
 is assigned the negated
@@ -600,6 +620,12 @@ field contains a nonzero value.
 .\" Strictly speaking, this is architecture specific, but
 .\" all architectures do it this way. Should seccomp enforce
 .\" val == 0 when err != 0 ?
+.\"
+.\" Christian Brauner
+.\"
+.\" Feels like it should, at least for the SEND ioctl where we already
+.\" verify that val and err are both 0 when CONTINUE is specified (as you
+.\" pointed out correctly above).
 .RE
 .RE
 .IP

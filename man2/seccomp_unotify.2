@@ -1315,11 +1315,14 @@ targetProcess(int sockPair[2], char *argv[])
 }
 
 /* Check that the notification ID provided by a SECCOMP_IOCTL_NOTIF_RECV
-   operation is still valid. It will no longer be valid if the process
-   has terminated. This operation can be used when accessing /proc/PID
-   files in the target process in order to avoid TOCTOU race conditions
-   where the PID that is returned by SECCOMP_IOCTL_NOTIF_RECV terminates
-   and is reused by another process. */
+   operation is still valid. It will no longer be valid if the target
+   process has terminated or is no longer blocked in the system call that
+   generated the notification (because it was interrupted by a signal).
+
+   This operation can be used when doing such things as accessing
+   /proc/PID files in the target process in order to avoid TOCTOU race
+   conditions where the PID that is returned by SECCOMP_IOCTL_NOTIF_RECV
+   terminates and is reused by another process. */
 
 static void
 checkNotificationIdIsValid(int notifyFd, uint64_t id)
@@ -1349,7 +1352,8 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     if (procMemFd == \-1)
         errExit("\etS: open");
 
-    /* Check that the process whose info we are accessing is still alive.
+    /* Check that the process whose info we are accessing is still alive
+       and blocked in the system call that caused the notification.
        If the SECCOMP_IOCTL_NOTIF_ID_VALID operation (performed
        in checkNotificationIdIsValid()) succeeds, we know that the
        /proc/PID/mem file descriptor that we opened corresponds to the

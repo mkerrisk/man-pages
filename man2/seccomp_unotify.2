@@ -1329,12 +1329,17 @@ checkNotificationIdIsValid(int notifyFd, uint64_t id)
                 "target has terminated!!!\en");
 }
 
-/* Access the memory of the target process in order to discover the
-   pathname that was given to mkdir() */
+/* Access the memory of the target process in order to fetch the
+   pathname referred to by the system call argument \(aqargNum\(aq in
+   \(aqreq\->data.args[]\(aq.  The pathname is returned in \(aqpath\(aq,
+   a buffer of \(aqlen\(aq bytes allocated by the caller.
+
+   Returns true if the fetched pathname is correctly formed
+   (i.e., has a terminating null byte), and false otherwise.  */
 
 static bool
 getTargetPathname(struct seccomp_notif *req, int notifyFd,
-                  char *path, size_t len)
+                  int argNum, char *path, size_t len)
 {
     char procMemPath[PATH_MAX];
 
@@ -1354,10 +1359,9 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
 
     checkNotificationIdIsValid(notifyFd, req\->id);
 
-    /* Read bytes at the location containing the pathname argument
-       (i.e., the first argument) of the mkdir(2) call */
+    /* Read bytes at the location containing the pathname argument */
 
-    ssize_t nread = pread(procMemFd, path, len, req\->data.args[0]);
+    ssize_t nread = pread(procMemFd, path, len, req\->data.args[argNum]);
     if (nread == \-1)
         errExit("pread");
 
@@ -1445,7 +1449,7 @@ handleNotifications(int notifyFd)
             exit(EXIT_FAILURE);
         }
 
-        bool pathOK = getTargetPathname(req, notifyFd, path,
+        bool pathOK = getTargetPathname(req, notifyFd, 0, path,
                                         sizeof(path));
 
         /* Prepopulate some fields of the response */

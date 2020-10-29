@@ -1324,12 +1324,15 @@ targetProcess(int sockPair[2], char *argv[])
    conditions where the PID that is returned by SECCOMP_IOCTL_NOTIF_RECV
    terminates and is reused by another process. */
 
-static void
-checkNotificationIdIsValid(int notifyFd, uint64_t id)
+static bool
+notificationIdIsValid(int notifyFd, uint64_t id)
 {
-    if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1)
-        errExit("\etS: notification ID check: "
-                "target has terminated!!!\en");
+    if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1) {
+        perror("\etS: notification ID check failed!!!\en");
+        return false;
+    }
+
+    return true;
 }
 
 /* Access the memory of the target process in order to fetch the
@@ -1338,7 +1341,8 @@ checkNotificationIdIsValid(int notifyFd, uint64_t id)
    a buffer of \(aqlen\(aq bytes allocated by the caller.
 
    Returns true if the fetched pathname is correctly formed
-   (i.e., has a terminating null byte), and false otherwise.  */
+   (i.e., has a terminating null byte) and the notification ID
+   is still valid, and false otherwise. */
 
 static bool
 getTargetPathname(struct seccomp_notif *req, int notifyFd,
@@ -1348,26 +1352,27 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
 
     snprintf(procMemPath, sizeof(procMemPath), "/proc/%d/mem", req\->pid);
 
-    int procMemFd = open(procMemPath, O_RDONLY);
+    int procMemFd = open(procMemPath, O_RDONLY | O_CLOEXEC);
     if (procMemFd == \-1)
-        errExit("\etS: open");
+        errExit("Supervisor: open");
 
     /* Check that the process whose info we are accessing is still alive
        and blocked in the system call that caused the notification.
-       If the SECCOMP_IOCTL_NOTIF_ID_VALID operation (performed
-       in checkNotificationIdIsValid()) succeeds, we know that the
-       /proc/PID/mem file descriptor that we opened corresponds to the
-       process for which we received a notification. If that process
-       subsequently terminates, then read() on that file descriptor
-       will return 0 (EOF). */
+       If the SECCOMP_IOCTL_NOTIF_ID_VALID operation (performed in
+       notificationIdIsValid()) succeeded, we know that the /proc/PID/mem
+       file descriptor that we opened corresponded to the process for
+       which we received a notification. If that process subsequently
+       terminates, then read() on that file descriptor will return
+       0 (EOF). */
 
-    checkNotificationIdIsValid(notifyFd, req\->id);
+    if (!notificationIdIsValid(notifyFd, req\->id))
+        return false;
 
     /* Read bytes at the location containing the pathname argument */
 
     ssize_t nread = pread(procMemFd, path, len, req\->data.args[argNum]);
     if (nread == \-1)
-        errExit("pread");
+        errExit("Supervisor: pread");
 
     if (nread == 0) {
         fprintf(stderr, "\etS: pread() of /proc/PID/mem "
@@ -1376,12 +1381,14 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     }
 
     if (close(procMemFd) == \-1)
-        errExit("close\-/proc/PID/mem");
+        errExit("Supervisor: close\-/proc/PID/mem");
 
     /* We have no guarantees about what was in the memory of the target
-       process. We therefore treat the buffer returned by pread() as
-       untrusted input. The buffer should be terminated by a null byte;
-       if not, then we will trigger an error for the target process. */
+       process. (The memory may have been modified by another thread, or
+       even by an external attacking process.) We therefore treat the
+       buffer returned by pread() as untrusted input. The buffer should
+       be terminated by a null byte; if not, then we will trigger an
+       error for the target process. */
 
     if (strnlen(path, nread) < nread)
         return true;
@@ -1462,11 +1469,14 @@ handleNotifications(int notifyFd)
         resp\->flags = 0;
         resp\->val = 0;
 
-        /* If the target pathname was not valid, trigger an EINVAL error;
-           if the directory is in /tmp, then create it on behalf of the
-           supervisor; if the pathname starts with '.', tell the kernel
-           to let the target process execute the mkdir(); otherwise, give
-           an error for a directory pathname in any other location. */
+        /* If getTargetPathname() failed, trigger an EINVAL error
+           response (sending this response may yield an error if the
+           failure occurred because the notification ID was no longer
+           valid); if the directory is in /tmp, then create it on behalf
+           of the supervisor; if the pathname starts with \(aq.\(aq, tell the
+           kernel to let the target process execute the mkdir();
+           otherwise, give an error for a directory pathname in any other
+           location. */
 
         if (!pathOK) {
             resp->error = -EINVAL;

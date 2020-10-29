@@ -476,6 +476,10 @@ from the file descriptor may return 0, indicating end of file.)
 .\"     with the "struct pid", which is not reused, instead of the
 .\"     numeric PID.
 .IP
+See NOTES for a discussion of other cases where
+.B SECCOMP_IOCTL_NOTIF_ID_VALID
+checks must be performed.
+.IP
 On success (i.e., the notification ID is still valid),
 this operation returns 0.
 On failure (i.e., the notification ID is no longer valid),
@@ -741,6 +745,80 @@ In other words,
 in order to continue a system call, the supervisor should be sure that
 another security mechanism or the kernel itself will sufficiently block
 the system call if its arguments are rewritten to something unsafe.
+.\"
+.SS Caveats regarding the use of /proc/[tid]/mem
+The discussion above noted the need to use the
+.BR SECCOMP_IOCTL_NOTIF_ID_VALID
+.BR ioctl (2)
+when opening the
+.IR /proc/[tid]/mem
+file of the target
+to avoid the possibility of accessing the memory of the wrong process
+in the event that the target terminates and its ID
+is recycled by another (unrelated) thread.
+However, the use of this
+.BR ioctl (2)
+operation is also necessary in other situations,
+as explained in the following paragraphs.
+.PP
+Consider the following scenario, where the supervisor
+tries to read the pathname argument of a target's blocked
+.BR mount (2)
+system call:
+.IP \(bu 2
+From one of its functions
+.RI ( func() ),
+the target calls
+.BR mount (2),
+which triggers a user-space notification and causes the target to block.
+.IP \(bu
+The supervisor receives the notification, opens
+.IR /proc/[tid]/mem ,
+and (successfully) performs the
+.BR SECCOMP_IOCTL_NOTIF_ID_VALID
+check.
+.IP \(bu
+The target receives a signal, which causes the
+.BR mount (2)
+to abort.
+.IP \(bu
+The signal handler executes in the target, and returns.
+.IP \(bu
+Upon return from the handler, the execution of
+.I func()
+resumes, and it returns (and perhaps other functions are called,
+overwriting the memory that had been used for the stack frame of
+.IR func() ).
+.IP \(bu
+Using the address provided in the notification information,
+the supervisor reads from the target's memory location that used to
+contain the pathname.
+.IP \(bu
+The supervisor now calls
+.BR mount (2)
+with some arbitrary bytes obtained in the previous step.
+.PP
+The conclusion from the above scenario is this:
+since the target's blocked system call may be interrupted by a signal handler,
+the supervisor must be written to expect that the
+target may abandon its system call at
+.B any
+time;
+in such an event, any information that the supervisor obtained from
+the target's memory must be considered invalid.
+.PP
+To prevent such scenarios,
+every read from the target's memory must be separated from use of
+the bytes so obtained by a
+.BR SECCOMP_IOCTL_NOTIF_ID_VALID
+check.
+In the above example, the check would be placed between the two final steps.
+An example of such a check is shown in EXAMPLES.
+.PP
+Following on from the above, it should be clear that
+a write by the supervisor into the target's memory can
+.B never
+be considered safe.
 .\"
 .SS Interaction with SA_RESTART signal handlers
 Consider the following scenario:
@@ -1383,7 +1461,20 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     if (close(procMemFd) == \-1)
         errExit("Supervisor: close\-/proc/PID/mem");
 
-    /* We have no guarantees about what was in the memory of the target
+    /* Once again check that the notification ID is still valid. The
+       case we are particularly concerned about here is that just
+       before we fetched the pathname, the target\(aqs blocked system
+       call was interrupted by a signal handler, and after the handler
+       returned, the target carried on execution (past the interrupted
+       system call). In that case, we have no guarantees about what we
+       are reading, since the target\(aqs memory may have been arbitrarily
+       changed by subsequent operations. */
+
+    if (!notificationIdIsValid(notifyFd, req\->id))
+        return false;
+
+    /* Even if the target\(aqs system call was not interrupted by a signal,
+       we have no guarantees about what was in the memory of the target
        process. (The memory may have been modified by another thread, or
        even by an external attacking process.) We therefore treat the
        buffer returned by pread() as untrusted input. The buffer should

@@ -1431,12 +1431,7 @@ targetProcess(int sockPair[2], char *argv[])
 static bool
 cookieIsValid(int notifyFd, uint64_t id)
 {
-    if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1) {
-        perror("\etS: notification ID check failed!!!");
-        return false;
-    }
-
-    return true;
+    return ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == 0;
 }
 
 /* Access the memory of the target process in order to fetch the
@@ -1468,8 +1463,10 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
        received a notification. If that process subsequently terminates,
        then read() on that file descriptor will return 0 (EOF). */
 
-    if (!cookieIsValid(notifyFd, req\->id))
+    if (!cookieIsValid(notifyFd, req\->id)) {
+        perror("\etS: notification ID check failed!!!");
         return false;
+    }
 
     /* Read bytes at the location containing the pathname argument */
 
@@ -1495,8 +1492,10 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
        are reading, since the target\(aqs memory may have been arbitrarily
        changed by subsequent operations. */
 
-    if (!cookieIsValid(notifyFd, req\->id))
+    if (!cookieIsValid(notifyFd, req\->id)) {
+        perror("\etS: notification ID check failed!!!");
         return false;
+    }
 
     /* Even if the target\(aqs system call was not interrupted by a signal,
        we have no guarantees about what was in the memory of the target
@@ -1512,25 +1511,25 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     return false;
 }
 
-/* Handle notifications that arrive via the SECCOMP_RET_USER_NOTIF file
-   descriptor, \(aqnotifyFd\(aq. */
+/* Allocate buffers for the seccomp user\-space notification request and
+   response structures. It is the caller\(aqs responsibility to free the
+   buffers returned via \(aqreq\(aq and \(aqresp\(aq. */
 
 static void
-handleNotifications(int notifyFd)
+allocSeccompNotifBuffers(struct seccomp_notif **req,
+        struct seccomp_notif_resp **resp,
+        struct seccomp_notif_sizes *sizes)
 {
-    struct seccomp_notif_sizes sizes;
-    char path[PATH_MAX];
-
     /* Discover the sizes of the structures that are used to receive
        notifications and send notification responses, and allocate
        buffers of those sizes. */
 
-    if (seccomp(SECCOMP_GET_NOTIF_SIZES, 0, &sizes) == \-1)
-        errExit("\etS: seccomp\-SECCOMP_GET_NOTIF_SIZES");
+    if (seccomp(SECCOMP_GET_NOTIF_SIZES, 0, sizes) == \-1)
+        errExit("seccomp\-SECCOMP_GET_NOTIF_SIZES");
 
-    struct seccomp_notif *req = malloc(sizes.seccomp_notif);
-    if (req == NULL)
-        errExit("\etS: malloc");
+    *req = malloc(sizes\->seccomp_notif);
+    if (*req == NULL)
+        errExit("malloc\-seccomp_notif");
 
     /* When allocating the response buffer, we must allow for the fact
        that the user\-space binary may have been built with user\-space
@@ -1541,17 +1540,33 @@ handleNotifications(int notifyFd)
        structure that are past the response size that the kernel expects,
        then the supervisor is not touching an invalid memory location. */
 
-    size_t resp_size = sizes.seccomp_notif_resp;
+    size_t resp_size = sizes\->seccomp_notif_resp;
     if (sizeof(struct seccomp_notif_resp) > resp_size)
         resp_size = sizeof(struct seccomp_notif_resp);
 
-    struct seccomp_notif_resp *resp = malloc(resp_size);
+    *resp = malloc(resp_size);
     if (resp == NULL)
-        errExit("\etS: malloc");
+        errExit("malloc\-seccomp_notif_resp");
+
+}
+
+/* Handle notifications that arrive via the SECCOMP_RET_USER_NOTIF file
+   descriptor, \(aqnotifyFd\(aq. */
+
+static void
+handleNotifications(int notifyFd)
+{
+    struct seccomp_notif_sizes sizes;
+    struct seccomp_notif *req;
+    struct seccomp_notif_resp *resp;
+    char path[PATH_MAX];
+
+    allocSeccompNotifBuffers(&req, &resp, &sizes);
 
     /* Loop handling notifications */
 
     for (;;) {
+
         /* Wait for next notification, returning info in \(aq*req\(aq */
 
         memset(req, 0, sizes.seccomp_notif);
@@ -1642,15 +1657,18 @@ handleNotifications(int notifyFd)
                 perror("ioctl\-SECCOMP_IOCTL_NOTIF_SEND");
         }
 
-        /* If the pathname is just "/bye", then the supervisor
-           terminates. This allows us to see what happens if the
-           target process makes further calls to mkdir(2). */
+        /* If the pathname is just "/bye", then the supervisor breaks out
+           of the loop and terminates. This allows us to see what happens
+           if the target process makes further calls to mkdir(2). */
 
-        if (strcmp(path, "/bye") == 0) {
-            printf("\etS: terminating **********\en");
-            exit(EXIT_FAILURE);
-        }
+        if (strcmp(path, "/bye") == 0)
+            break;
     }
+
+    free(req);
+    free(resp);
+    printf("\etS: terminating **********\en");
+    exit(EXIT_FAILURE);
 }
 
 /* Implementation of the supervisor process:

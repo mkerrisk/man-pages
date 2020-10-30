@@ -26,12 +26,13 @@ futex \- fast user-space locking
 .nf
 .PP
 .B #include <linux/futex.h>
+.B #include <stdint.h>
 .B #include <sys/time.h>
 .PP
-.BI "int futex(int *" uaddr ", int " futex_op ", int " val ,
+.BI "long futex(uint32_t *" uaddr ", int " futex_op ", uint32_t " val ,
 .BI "          const struct timespec *" timeout , \
 " \fR  /* or: \fBuint32_t \fIval2\fP */"
-.BI "          int *" uaddr2 ", int " val3 );
+.BI "          uint32_t *" uaddr2 ", uint32_t " val3 );
 .fi
 .PP
 .IR Note :
@@ -581,8 +582,8 @@ any of the two supplied futex words:
 .IP
 .in +4n
 .EX
-int oldval = *(int *) uaddr2;
-*(int *) uaddr2 = oldval \fIop\fP \fIoparg\fP;
+uint32_t oldval = *(uint32_t *) uaddr2;
+*(uint32_t *) uaddr2 = oldval \fIop\fP \fIoparg\fP;
 futex(uaddr, FUTEX_WAKE, val, 0, 0, 0);
 if (oldval \fIcmp\fP \fIcmparg\fP)
     futex(uaddr2, FUTEX_WAKE, val2, 0, 0, 0);
@@ -1765,11 +1766,11 @@ Child  (18535) 4
 #define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \e
                         } while (0)
 
-static int *futex1, *futex2, *iaddr;
+static uint32_t *futex1, *futex2, *iaddr;
 
 static int
-futex(int *uaddr, int futex_op, int val,
-      const struct timespec *timeout, int *uaddr2, int val3)
+futex(uint32_t *uaddr, int futex_op, uint32_t val,
+      const struct timespec *timeout, uint32_t *uaddr2, uint32_t val3)
 {
     return syscall(SYS_futex, uaddr, futex_op, val,
                    timeout, uaddr2, val3);
@@ -1779,9 +1780,9 @@ futex(int *uaddr, int futex_op, int val,
    become 1, and then set the value to 0. */
 
 static void
-fwait(int *futexp)
+fwait(uint32_t *futexp)
 {
-    int s;
+    long s;
 
     /* atomic_compare_exchange_strong(ptr, oldval, newval)
        atomically performs the equivalent of:
@@ -1794,7 +1795,7 @@ fwait(int *futexp)
     while (1) {
 
         /* Is the futex available? */
-        const int one = 1;
+        const uint32_t one = 1;
         if (atomic_compare_exchange_strong(futexp, &one, 0))
             break;      /* Yes */
 
@@ -1811,13 +1812,13 @@ fwait(int *futexp)
    so that if the peer is blocked in fpost(), it can proceed. */
 
 static void
-fpost(int *futexp)
+fpost(uint32_t *futexp)
 {
-    int s;
+    long s;
 
     /* atomic_compare_exchange_strong() was described in comments above */
 
-    const int zero = 0;
+    const uint32_t zero = 0;
     if (atomic_compare_exchange_strong(futexp, &zero, 1)) {
         s = futex(futexp, FUTEX_WAKE, 1, NULL, NULL, 0);
         if (s  == \-1)

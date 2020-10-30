@@ -1439,9 +1439,8 @@ cookieIsValid(int notifyFd, uint64_t id)
    \(aqreq\->data.args[]\(aq.  The pathname is returned in \(aqpath\(aq,
    a buffer of \(aqlen\(aq bytes allocated by the caller.
 
-   Returns true if the fetched pathname is correctly formed
-   (i.e., has a terminating null byte) and the notification ID
-   is still valid, and false otherwise. */
+   Returns true if the pathname is successfully fetched, and false
+   otherwise. For possible causes of failure, see the comments below. */
 
 static bool
 getTargetPathname(struct seccomp_notif *req, int notifyFd,
@@ -1453,7 +1452,7 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
 
     int procMemFd = open(procMemPath, O_RDONLY | O_CLOEXEC);
     if (procMemFd == \-1)
-        errExit("Supervisor: open");
+        return false;
 
     /* Check that the process whose info we are accessing is still alive
        and blocked in the system call that caused the notification.
@@ -1471,16 +1470,11 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     /* Read bytes at the location containing the pathname argument */
 
     ssize_t nread = pread(procMemFd, path, len, req\->data.args[argNum]);
-    if (nread == \-1)
-        errExit("Supervisor: pread");
-
-    if (nread == 0) {
-        fprintf(stderr, "\etS: pread() of /proc/PID/mem "
-                "returned 0 (EOF)\en");
-        exit(EXIT_FAILURE);
-    }
 
     close(procMemFd);
+
+    if (nread <= 0)
+        return false;
 
     /* Once again check that the notification ID is still valid. The
        case we are particularly concerned about here is that just
@@ -1501,7 +1495,7 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
        process. (The memory may have been modified by another thread, or
        even by an external attacking process.) We therefore treat the
        buffer returned by pread() as untrusted input. The buffer should
-       be terminated by a null byte; if not, then we will trigger an
+       contain a terminating null byte; if not, then we will trigger an
        error for the target process. */
 
     if (strnlen(path, nread) < nread)

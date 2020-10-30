@@ -1429,7 +1429,7 @@ targetProcess(int sockPair[2], char *argv[])
    terminates and is reused by another process. */
 
 static bool
-notificationIdIsValid(int notifyFd, uint64_t id)
+cookieIsValid(int notifyFd, uint64_t id)
 {
     if (ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ID_VALID, &id) == \-1) {
         perror("\etS: notification ID check failed!!!\en");
@@ -1463,13 +1463,12 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
     /* Check that the process whose info we are accessing is still alive
        and blocked in the system call that caused the notification.
        If the SECCOMP_IOCTL_NOTIF_ID_VALID operation (performed in
-       notificationIdIsValid()) succeeded, we know that the /proc/PID/mem
-       file descriptor that we opened corresponded to the process for
-       which we received a notification. If that process subsequently
-       terminates, then read() on that file descriptor will return
-       0 (EOF). */
+       cookieIsValid()) succeeded, we know that the /proc/PID/mem file
+       descriptor that we opened corresponded to the process for which we
+       received a notification. If that process subsequently terminates,
+       then read() on that file descriptor will return 0 (EOF). */
 
-    if (!notificationIdIsValid(notifyFd, req\->id))
+    if (!cookieIsValid(notifyFd, req\->id))
         return false;
 
     /* Read bytes at the location containing the pathname argument */
@@ -1496,7 +1495,7 @@ getTargetPathname(struct seccomp_notif *req, int notifyFd,
        are reading, since the target\(aqs memory may have been arbitrarily
        changed by subsequent operations. */
 
-    if (!notificationIdIsValid(notifyFd, req\->id))
+    if (!cookieIsValid(notifyFd, req\->id))
         return false;
 
     /* Even if the target\(aqs system call was not interrupted by a signal,

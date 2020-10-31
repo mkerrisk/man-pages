@@ -41,6 +41,8 @@ seccomp_unotify \- Seccomp user-space notification mechanism
 .BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_SEND,"
 .BI "          struct seccomp_notif_resp *" resp );
 .BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_ID_VALID, __u64 *" id );
+.BI "int ioctl(int " fd ", SECCOMP_IOCTL_NOTIF_ADDFD,"
+.BI "          struct seccomp_notif_addfd *" addfd );
 .fi
 .SH DESCRIPTION
 This page describes the user-space notification mechanism provided by the
@@ -663,6 +665,215 @@ or the target has terminated.
 .\"     been sent, instead of EINPROGRESS - the only difference is
 .\"     whether the target thread has picked up the response yet
 .RE
+.TP
+.BR SECCOMP_IOCTL_NOTIF_ADDFD " (since Linux 5.9)"
+This operation allows the supervisor to install a file descriptor
+into the target's file descriptor table.
+Much like the use of
+.BR SCM_RIGHTS
+messages described in
+.BR unix (7),
+this operation is semantically equivalent to duplicating
+a file descriptor from the supervisor's file descriptor table
+into the target's file descriptor table.
+.IP
+The
+.BR SECCOMP_IOCTL_NOTIF_ADDFD
+operation permits the supervisor to emulate a target system call (such as
+.BR socket (2)
+or
+.BR openat (2))
+that generates a file descriptor.
+The supervisor can perform the system call that generates
+the file descriptor (and associated open file description)
+and then use this operation to allocate
+a file descriptor that refers to the same open file description in the target.
+(For an explanation of open file descriptions, see
+.BR open (2).)
+.IP
+Once this operation has been performed,
+the supervisor can close its copy of the file descriptor.
+.IP
+In the target,
+the received file descriptor is subject to the same
+Linux Security Module (LSM) checks as are applied to a file descriptor
+that is received in an
+.BR SCM_RIGHTS
+ancillary message.
+If the file descriptor refers to a socket,
+it inherits the cgroup version 1 network controller settings
+.RI ( classid
+and
+.IR netprioidx )
+of the target.
+.IP
+The third
+.BR ioctl (2)
+argument is a pointer to a structure of the following form:
+.IP
+.in +4n
+.EX
+struct seccomp_notif_addfd {
+    __u64 id;           /* Cookie value */
+    __u32 flags;        /* Flags */
+    __u32 srcfd;        /* Local file descriptor number */
+    __u32 newfd;        /* 0 or desired file descriptor
+                           number in target */
+    __u32 newfd_flags;  /* Flags to set on target file
+                           descriptor */
+};
+.EE
+.in
+.IP
+The fields in this structure are as follows:
+.RS
+.TP
+.I id
+This field should be set to the notification ID
+(cookie value) that was obtained via
+.BR SECCOMP_IOCTL_NOTIF_RECV .
+.TP
+.I flags
+This field is a bit mask of flags that modify the behavior of the operation.
+Currently, only one flag is supported:
+.RS
+.TP
+.BR SECCOMP_ADDFD_FLAG_SETFD
+When allocating the file descriptor in the target,
+use the file descriptor number specified in the
+.I newfd
+field.
+.RE
+.TP
+.I srcfd
+This field should be set to the number of the file descriptor
+in the supervisor that is to be duplicated.
+.TP
+.I newfd
+This field determines which file descriptor number is allocated in the target.
+If the
+.BR SECCOMP_ADDFD_FLAG_SETFD
+flag is set,
+then this field specifies which file descriptor number should be allocated.
+If this file descriptor number is already open in the target,
+it is atomically closed and reused.
+If the descriptor duplication fails due to an LSM check, or if
+.I srcfd
+is not a valid file descriptor,
+the file descriptor
+.I newfd
+will not be closed in the target process.
+.IP
+If the
+.BR SECCOMP_ADDFD_FLAG_SETFD
+flag it not set, then this field must be 0,
+and the kernel allocates the lowest unused file descriptor number
+in the target.
+.TP
+.I newfd_flags
+This field is a bit mask specifying flags that should be set on
+the file descriptor that is received in the target process.
+Currently, only the following flag is implemented:
+.RS
+.TP
+.B O_CLOEXEC
+Set the close-on-exec flag on the received file descriptor.
+.RE
+.RE
+.IP
+On success, this
+.BR ioctl (2)
+call returns the number of the file descriptor that was allocated
+in the target.
+Assuming that the emulated system call is one that returns
+a file descriptor as its function result (e.g.,
+.BR socket (2)),
+this value can be used as the return value
+.RI ( resp.val )
+that is supplied in the response that is subsequently sent with the
+.BR SECCOMP_IOCTL_NOTIF_SEND
+operation.
+.IP
+On error, \-1 is returned and
+.I errno
+is set to indicate the cause of the error.
+.IP
+This operation can fail with the following errors:
+.RS
+.TP
+.B EBADF
+Allocating the file descriptor in the target would cause the target's
+.BR RLIMIT_NOFILE
+limit to be exceeded (see
+.BR getrlimit (2)).
+.TP
+.B EINPROGRESS
+The user-space notification specified in the
+.I id
+field exists but has not yet been fetched (by a
+.BR SECCOMP_IOCTL_NOTIF_RECV )
+or has already been responded to (by a
+.BR SECCOMP_IOCTL_NOTIF_SEND ).
+.TP
+.B EINVAL
+An invalid flag was specified in the
+.I flags
+or
+.I newfd_flags
+field, or the
+.I newfd
+field is nonzero and the
+.B SECCOMP_ADDFD_FLAG_SETFD
+flag was not specified in the
+.I flags
+field.
+.TP
+.B EMFILE
+The file descriptor number specified in
+.I newfd
+exceeds the limit specified in
+.IR /proc/sys/fs/nr_open .
+.TP
+.B ENOENT
+The blocked system call in the target
+has been interrupted by a signal handler
+or the target has terminated.
+.RE
+.IP
+Here is some sample code (with error handling omitted) that uses the
+.B SECCOMP_ADDFD_FLAG_SETFD
+operation (here, to emulate a call to
+.BR openat (2)):
+.IP
+.EX
+.in +4n
+int fd, removeFd;
+
+fd = openat(req->data.args[0], path, req->data.args[2],
+                req->data.args[3]);
+
+struct seccomp_notif_addfd addfd;
+addfd.id = req->id; /* Cookie from
+                       SECCOMP_IOCTL_NOTIF_RECV */
+addfd.srcfd = fd;
+addfd.newfd = 0;
+addfd.flags = 0;
+addfd.newfd_flags = O_CLOEXEC;
+
+targetFd = ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ADDFD,
+                 &addfd);
+
+close(fd);          /* No longer needed in supervisor */
+
+struct seccomp_notif_resp *resp;
+    /* Code to allocate 'resp' omitted */
+resp->id = req->id;
+resp->error = 0;        /* "Success" */
+resp->val = targetFd;
+resp->flags = 0;
+ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_SEND, resp);
+.in
+.EE
 .SH NOTES
 One example use case for the user-space notification
 mechanism is to allow a container manager

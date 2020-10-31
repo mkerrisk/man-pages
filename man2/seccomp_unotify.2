@@ -309,7 +309,7 @@ should execute the target thread's system call; see the discussion of
 .BR SECCOMP_USER_NOTIF_FLAG_CONTINUE ,
 below.
 .\"
-.SS ioctl(2) operations
+.SH IOCTL OPERATIONS
 The following
 .BR ioctl (2)
 operations are supported by the seccomp user-space
@@ -321,9 +321,11 @@ is the listening file descriptor returned by a call to
 with the
 .BR SECCOMP_FILTER_FLAG_NEW_LISTENER
 flag.
-.TP
-.BR SECCOMP_IOCTL_NOTIF_RECV " (since Linux 5.0)"
-This operation is used to obtain a user-space
+.\"
+.SS SECCOMP_IOCTL_NOTIF_RECV
+The
+.B SECCOMP_IOCTL_NOTIF_RECV
+operation (available since Linux 5.0) is used to obtain a user-space
 notification event.
 If no such event is currently pending,
 the operation blocks until an event occurs.
@@ -332,7 +334,7 @@ The third
 argument is a pointer to a structure of the following form
 which contains information about the event.
 This structure must be zeroed out before the call.
-.IP
+.PP
 .in +4n
 .EX
 struct seccomp_notif {
@@ -343,9 +345,8 @@ struct seccomp_notif {
 };
 .EE
 .in
-.IP
+.PP
 The fields in this structure are as follows:
-.RS
 .TP
 .I id
 This is a cookie for the notification.
@@ -383,13 +384,11 @@ This is the same structure that is passed to the seccomp filter.
 See
 .BR seccomp (2)
 for details of this structure.
-.RE
-.IP
+.PP
 On success, this operation returns 0; on failure, \-1 is returned, and
 .I errno
 is set to indicate the cause of the error.
 This operation can fail with the following errors:
-.RS
 .TP
 .BR EINVAL " (since Linux 5.5)"
 .\" commit 2882d53c9c6f3b8311d225062522f03772cf0179
@@ -401,7 +400,6 @@ structure that was passed to the call contained nonzero fields.
 The target thread was killed by a signal as the notification information
 was being generated,
 or the target's (blocked) system call was interrupted by a signal handler.
-.RE
 .\" FIXME
 .\" From my experiments,
 .\" it appears that if a SECCOMP_IOCTL_NOTIF_RECV is done after
@@ -432,15 +430,17 @@ or the target's (blocked) system call was interrupted by a signal handler.
 .\" For now, this behavior is documented in BUGS.
 .\"
 .\" Kees Cook commented: Let's change [this] ASAP!
-.TP
-.BR SECCOMP_IOCTL_NOTIF_ID_VALID " (since Linux 5.0)"
-This operation can be used to check that a notification ID
+.\"
+.SS SECCOMP_IOCTL_NOTIF_ID_VALID
+The
+.B SECCOMP_IOCTL_NOTIF_ID_VALID
+operation (available since Linux 5.0) is used to check that a notification ID
 returned by an earlier
 .B SECCOMP_IOCTL_NOTIF_RECV
 operation is still valid
 (i.e., that the target still exists and its system call
 is still blocked waiting for a response).
-.IP
+.PP
 The third
 .BR ioctl (2)
 argument is a pointer to the cookie
@@ -448,14 +448,13 @@ argument is a pointer to the cookie
 returned by the
 .B SECCOMP_IOCTL_NOTIF_RECV
 operation.
-.IP
+.PP
 This operation is necessary to avoid race conditions that can occur when the
 .I pid
 returned by the
 .B SECCOMP_IOCTL_NOTIF_RECV
 operation terminates, and that process ID is reused by another process.
 An example of this kind of race is the following
-.RS
 .IP 1. 3
 A notification is generated on the listening file descriptor.
 The returned
@@ -476,8 +475,7 @@ the
 file for the TID obtained in step 1, with the intention of (say)
 inspecting the memory location(s) that containing the argument(s) of
 the system call that triggered the notification in step 1.
-.RE
-.IP
+.PP
 In the above scenario, the risk is that the supervisor may try
 to access the memory of a process other than the target.
 This race can be avoided by following the call to
@@ -497,11 +495,11 @@ from the file descriptor may return 0, indicating end of file.)
 .\"     PID, or something like that.  (Actually, it is associated
 .\"     with the "struct pid", which is not reused, instead of the
 .\"     numeric PID.
-.IP
+.PP
 See NOTES for a discussion of other cases where
 .B SECCOMP_IOCTL_NOTIF_ID_VALID
 checks must be performed.
-.IP
+.PP
 On success (i.e., the notification ID is still valid),
 this operation returns 0.
 On failure (i.e., the notification ID is no longer valid),
@@ -509,27 +507,28 @@ On failure (i.e., the notification ID is no longer valid),
 .I errno
 is set to
 .BR ENOENT .
-.TP
-.BR SECCOMP_IOCTL_NOTIF_SEND " (since Linux 5.0)"
-This operation is used to send a notification response back to the kernel.
+.\"
+.SS SECCOMP_IOCTL_NOTIF_SEND
+The
+.B SECCOMP_IOCTL_NOTIF_SEND
+operation (available since Linux 5.0)
+is used to send a notification response back to the kernel.
 The third
 .BR ioctl (2)
 argument of this structure is a pointer to a structure of the following form:
-.IP
+.PP
 .in +4n
 .EX
 struct seccomp_notif_resp {
-    __u64 id;               /* Cookie value */
-    __s64 val;              /* Success return value */
-    __s32 error;            /* 0 (success) or negative
-                               error number */
-    __u32 flags;            /* See below */
+    __u64 id;           /* Cookie value */
+    __s64 val;          /* Success return value */
+    __s32 error;        /* 0 (success) or negative error number */
+    __u32 flags;        /* See below */
 };
 .EE
 .in
-.IP
+.PP
 The fields of this structure are as follows:
-.RS
 .TP
 .I id
 This is the cookie value that was obtained using the
@@ -555,10 +554,8 @@ This is a bit mask that includes zero or more of the following flags:
 Tell the kernel to execute the target's system call.
 .\" commit fb3c5386b382d4097476ce9647260fc89b34afdb
 .RE
-.RE
-.IP
+.PP
 Two kinds of response are possible:
-.RS
 .IP \(bu 2
 A response to the kernel telling it to execute the
 target's system call.
@@ -629,13 +626,11 @@ field contains a nonzero value.
 .\" verify that val and err are both 0 when CONTINUE is specified (as you
 .\" pointed out correctly above).
 .RE
-.RE
-.IP
+.PP
 On success, this operation returns 0; on failure, \-1 is returned, and
 .I errno
 is set to indicate the cause of the error.
 This operation can fail with the following errors:
-.RS
 .TP
 .B EINPROGRESS
 A response to this notification has already been sent.
@@ -664,10 +659,12 @@ or the target has terminated.
 .\"     you could also get this [ENOENT] if a response has already
 .\"     been sent, instead of EINPROGRESS - the only difference is
 .\"     whether the target thread has picked up the response yet
-.RE
-.TP
-.BR SECCOMP_IOCTL_NOTIF_ADDFD " (since Linux 5.9)"
-This operation allows the supervisor to install a file descriptor
+.\"
+.SS SECCOMP_IOCTL_NOTIF_ADDFD
+The
+.B SECCOMP_IOCTL_NOTIF_ADDFD
+operation (available since Linux 5.9)
+allows the supervisor to install a file descriptor
 into the target's file descriptor table.
 Much like the use of
 .BR SCM_RIGHTS
@@ -676,7 +673,7 @@ messages described in
 this operation is semantically equivalent to duplicating
 a file descriptor from the supervisor's file descriptor table
 into the target's file descriptor table.
-.IP
+.PP
 The
 .BR SECCOMP_IOCTL_NOTIF_ADDFD
 operation permits the supervisor to emulate a target system call (such as
@@ -690,10 +687,10 @@ and then use this operation to allocate
 a file descriptor that refers to the same open file description in the target.
 (For an explanation of open file descriptions, see
 .BR open (2).)
-.IP
+.PP
 Once this operation has been performed,
 the supervisor can close its copy of the file descriptor.
-.IP
+.PP
 In the target,
 the received file descriptor is subject to the same
 Linux Security Module (LSM) checks as are applied to a file descriptor
@@ -706,11 +703,11 @@ it inherits the cgroup version 1 network controller settings
 and
 .IR netprioidx )
 of the target.
-.IP
+.PP
 The third
 .BR ioctl (2)
 argument is a pointer to a structure of the following form:
-.IP
+.PP
 .in +4n
 .EX
 struct seccomp_notif_addfd {
@@ -724,9 +721,8 @@ struct seccomp_notif_addfd {
 };
 .EE
 .in
-.IP
+.PP
 The fields in this structure are as follows:
-.RS
 .TP
 .I id
 This field should be set to the notification ID
@@ -779,8 +775,7 @@ Currently, only the following flag is implemented:
 .B O_CLOEXEC
 Set the close-on-exec flag on the received file descriptor.
 .RE
-.RE
-.IP
+.PP
 On success, this
 .BR ioctl (2)
 call returns the number of the file descriptor that was allocated
@@ -793,13 +788,12 @@ this value can be used as the return value
 that is supplied in the response that is subsequently sent with the
 .BR SECCOMP_IOCTL_NOTIF_SEND
 operation.
-.IP
+.PP
 On error, \-1 is returned and
 .I errno
 is set to indicate the cause of the error.
-.IP
+.PP
 This operation can fail with the following errors:
-.RS
 .TP
 .B EBADF
 Allocating the file descriptor in the target would cause the target's
@@ -838,13 +832,12 @@ exceeds the limit specified in
 The blocked system call in the target
 has been interrupted by a signal handler
 or the target has terminated.
-.RE
-.IP
+.PP
 Here is some sample code (with error handling omitted) that uses the
 .B SECCOMP_ADDFD_FLAG_SETFD
 operation (here, to emulate a call to
 .BR openat (2)):
-.IP
+.PP
 .EX
 .in +4n
 int fd, removeFd;
@@ -853,15 +846,13 @@ fd = openat(req->data.args[0], path, req->data.args[2],
                 req->data.args[3]);
 
 struct seccomp_notif_addfd addfd;
-addfd.id = req->id; /* Cookie from
-                       SECCOMP_IOCTL_NOTIF_RECV */
+addfd.id = req->id; /* Cookie from SECCOMP_IOCTL_NOTIF_RECV */
 addfd.srcfd = fd;
 addfd.newfd = 0;
 addfd.flags = 0;
 addfd.newfd_flags = O_CLOEXEC;
 
-targetFd = ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ADDFD,
-                 &addfd);
+targetFd = ioctl(notifyFd, SECCOMP_IOCTL_NOTIF_ADDFD, &addfd);
 
 close(fd);          /* No longer needed in supervisor */
 

@@ -1048,6 +1048,52 @@ a write by the supervisor into the target's memory can
 .B never
 be considered safe.
 .\"
+.SS Caveats regarding blocking system calls
+Suppose that the target performs a blocking system call (e.g.,
+.BR accept (2))
+that the supervisor should handle.
+The supervisor might then in turn execute the same blocking system call.
+.PP
+In this scenario,
+it is important to note that if the target's system call is now
+interrupted by a signal, the supervisor is
+.I not
+informed of this.
+If the supervisor does not take suitable steps to
+actively discover that the target's system call has been canceled,
+various difficulties can occur.
+Taking the example of
+.BR accept (2),
+the supervisor might remain blocked in its
+.BR accept (2)
+holding a port number that the target
+(which, after the interruption by the signal handler,
+perhaps closed  its listening socket) might expect to be able to reuse in a
+.BR bind (2)
+call.
+.PP
+Therefore, when the supervisor wishes to emulate a blocking system call,
+it must do so in such a way that it gets informed if the target's
+system call is interrupted by a signal handler.
+For example, if the supervisor itself executes the same
+blocking system call, then it could employ a separate thread
+that uses the
+.B SECCOMP_IOCTL_NOTIF_ID_VALID
+operation to check if the target is still blocked in its system call.
+Alternatively, in the
+.BR accept (2)
+example, the supervisor might use
+.BR poll (2)
+to monitor both the notification file descriptor
+(so as as to discover when the target's
+.BR accept (2)
+call has been interrupted) and the listening file descriptor
+(so as to know when a connection is available).
+.PP
+If the target's system call is interrupted,
+the supervisor must take care to release resources (e.g., file descriptors)
+that it acquired on behalf of the target.
+.\"
 .SS Interaction with SA_RESTART signal handlers
 Consider the following scenario:
 .IP \(bu 2

@@ -30,7 +30,7 @@ membarrier \- issue memory barriers on a set of threads
 .PP
 .B #include <linux/membarrier.h>
 .PP
-.BI "int membarrier(int " cmd ", int " flags ");"
+.BI "int membarrier(int " cmd ", unsigned int " flags ", int " cpu_id );
 .fi
 .PP
 .IR Note :
@@ -165,6 +165,29 @@ core command prior to using it.
 Register the process's intent to use
 .BR MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE .
 .TP
+.BR MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ " (since Linux 5.10)"
+Ensure the caller thread, upon return from system call, that all its
+running thread siblings have any currently running rseq critical sections
+restarted if
+.I flags
+parameter is 0; if
+.I flags
+parameter is
+.BR MEMBARRIER_CMD_FLAG_CPU ,
+then this operation is performed only on CPU indicated by
+.IR cpu_id .
+This guarantee is provided only for threads in
+the same process as the calling thread.
+.IP
+RSEQ membarrier is only available in the "private expedited" form.
+.IP
+A process must register its intent to use the private expedited rseq
+command prior to using it.
+.TP
+.BR MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ " (since Linux 5.10)"
+Register the process's intent to use
+.BR MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ .
+.TP
 .BR MEMBARRIER_CMD_SHARED " (since Linux 4.3)"
 This is an alias for
 .BR MEMBARRIER_CMD_GLOBAL
@@ -172,7 +195,21 @@ that exists for header backward compatibility.
 .PP
 The
 .I flags
-argument is currently unused and must be specified as 0.
+argument must be specified as 0 unless the command is
+.BR MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ ,
+in which case
+.I flags
+can be either 0 or
+.BR MEMBARRIER_CMD_FLAG_CPU .
+.PP
+The
+.I cpu_id
+argument is ignored unless
+.I flags
+is
+.BR MEMBARRIER_CMD_FLAG_CPU ,
+in which case it must specify the CPU targeted by this membarrier
+command.
 .PP
 All memory accesses performed in program order from each targeted thread
 are guaranteed to be ordered with respect to
@@ -251,7 +288,16 @@ commands.
 The
 .BR membarrier ()
 system call was added in Linux 4.3.
-.\"
+.PP
+Before Linux 5.10, the prototype for
+.BR membarrier ()
+was:
+.PP
+.in +4n
+.EX
+.BI "int membarrier(int " cmd ", int " flags );
+.EE
+.in
 .SH CONFORMING TO
 .BR membarrier ()
 is Linux-specific.
@@ -350,9 +396,9 @@ becomes:
 static volatile int a, b;
 
 static int
-membarrier(int cmd, int flags)
+membarrier(int cmd, unsigned int flags, int cpu_id)
 {
-    return syscall(__NR_membarrier, cmd, flags);
+    return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
 static int
@@ -362,7 +408,7 @@ init_membarrier(void)
 
     /* Check that membarrier() is supported. */
 
-    ret = membarrier(MEMBARRIER_CMD_QUERY, 0);
+    ret = membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
     if (ret < 0) {
         perror("membarrier");
         return \-1;
@@ -389,7 +435,7 @@ static void
 slow_path(int *read_a)
 {
     b = 1;
-    membarrier(MEMBARRIER_CMD_GLOBAL, 0);
+    membarrier(MEMBARRIER_CMD_GLOBAL, 0, 0);
     *read_a = a;
 }
 

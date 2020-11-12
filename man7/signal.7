@@ -1,5 +1,5 @@
 .\" Copyright (c) 1993 by Thomas Koenig (ig25@rz.uni-karlsruhe.de)
-.\" and Copyright (c) 2002, 2006 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" and Copyright (c) 2002, 2006, 2020 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\" and Copyright (c) 2008 Linux Foundation, written by Michael Kerrisk
 .\"     <mtk.manpages@gmail.com>
 .\"
@@ -139,6 +139,81 @@ Suspends execution until any signal is caught.
 .BR sigsuspend (2)
 Temporarily changes the signal mask (see below) and suspends
 execution until one of the unmasked signals is caught.
+.\"
+.SS Execution of signal handlers
+Whenever there is a transition from kernel-mode to user-mode execution
+(e.g., on return from a system call or scheduling of a thread onto the CPU),
+the kernel checks whether there is a pending signal for which the process
+has established a signal handler.
+If there is such a pending signal, the following steps occur:
+.IP 1. 3
+The kernel performs the necessary preparatory steps for execution of
+the signal handler:
+.RS
+.IP a) 3
+The signal is removed from the set of pending signals.
+.IP b)
+If the thread has defined an alternate signal stack (using
+.BR sigaltstack (2)),
+then that stack is installed.
+.IP c)
+Various pieces of signal-related context are saved
+into a "hidden" frame that is created on the stack.
+The saved information includes:
+.RS
+.IP + 2
+the program counter register
+(i.e., the address of the next instruction in the main program that
+should be executed when the signal handler returns);
+.IP +
+the thread's current signal mask;
+.IP +
+the thread's alternate signal stack settings.
+.RE
+.IP d)
+The thread's signal mask is adjusted by adding the signal
+(unless the handler was established using the
+.BR SA_NODEFER
+flag)
+as well as any additional signals specified in
+.IR act->sa_mask
+when
+.BR sigaction (2)
+was called.
+.RE
+.IP 2.
+The kernel constructs a frame for the signal handler on the stack.
+Within that frame, the return address points to a piece of user-space code
+called the signal trampoline (described in
+.BR sigreturn (2)).
+.IP 3.
+The kernel passes control back to user-space, where execution
+commences at the start of the signal handler function.
+.IP 4.
+When the signal handler returns, control passes to the signal trampoline code.
+.IP 5.
+The signal trampoline calls
+.BR sigreturn (2),
+a system call that uses the information in the "hidden" stack frame
+to restore the thread's signal mask and alternate stack settings
+to their state before the signal handler was called.
+Upon completion of the call to
+.BR sigreturn (2),
+the kernel transfers control back to user space,
+and the thread recommences execution at the point where it was
+interrupted by the signal handler.
+.PP
+Note that if the signal handler does not return
+(e.g., control is transferred out of the handler using
+.BR sigsetjmp (3)
+or
+.BR swapcontext (3),
+or the handler executes a new program with
+.BR execve (2)),
+then the final step is not performed.
+In particular, in such scenarios it is the programmer's responsibility
+to restore the state of the signal mask, if that is desired.
+.\"
 .SS Synchronously accepting a signal
 Rather than asynchronously catching a signal via a signal handler,
 it is possible to synchronously accept the signal, that is,

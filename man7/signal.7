@@ -263,7 +263,11 @@ the signal handler:
 .IP a) 3
 The signal is removed from the set of pending signals.
 .IP b)
-If the thread has defined an alternate signal stack (using
+If the signal handler was installed by a call to
+.BR sigaction (2)
+that specified the
+.BR SA_ONSTACK
+flag and the thread has defined an alternate signal stack (using
 .BR sigaltstack (2)),
 then that stack is installed.
 .IP c)
@@ -295,7 +299,7 @@ These signals are thus blocked while the handler executes.
 .IP 2.
 The kernel constructs a frame for the signal handler on the stack.
 Within that frame, the return address points to a piece of user-space code
-called the signal trampoline (described in
+known as the signal trampoline (described in
 .BR sigreturn (2)).
 .IP 3.
 The kernel passes control back to user-space, where execution
@@ -316,16 +320,23 @@ interrupted by the signal handler.
 .PP
 Note that if the signal handler does not return
 (e.g., control is transferred out of the handler using
-.BR sigsetjmp (3)
+.BR siglongjmp (3)
 or
 .BR swapcontext (3),
 or the handler executes a new program with
 .BR execve (2)),
 then the final step is not performed.
 In particular, in such scenarios it is the programmer's responsibility
-to restore the state of the signal mask,
-if it is desired unblock the signals that were blocked on entry
+to restore the state of the signal mask (using
+.BR sigprocmask (2)),
+if it is desired to unblock the signals that were blocked on entry
 to the signal handler.
+(Note that
+.BR siglongjmp (3)
+may or may not restore the signal mask, depending on the
+.I savesigs
+value that was specified in the corresponding call to
+.BR sigsetjmp (3).)
 .\"
 .SS Standard signals
 Linux supports the standard signals listed below.

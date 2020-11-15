@@ -42,7 +42,7 @@
 .\"
 .TH ACCESS 2 2016-03-15 "Linux" "Linux Programmer's Manual"
 .SH NAME
-access, faccessat \- check user's permissions for a file
+access, faccessat, faccessat2 \- check user's permissions for a file
 .SH SYNOPSIS
 .nf
 .B #include <unistd.h>
@@ -53,6 +53,10 @@ access, faccessat \- check user's permissions for a file
 .B #include <unistd.h>
 .PP
 .BI "int faccessat(int " dirfd ", const char *" pathname ", int " \
+mode ", int " flags );
+                /* But see C library/kernel differences, below */
+
+.BI "int faccessat2(int " dirfd ", const char *" pathname ", int " \
 mode ", int " flags );
 .fi
 .PP
@@ -126,9 +130,8 @@ then an
 check is successful for a regular file if execute permission
 is enabled for any of the file owner, group, or other.
 .SS faccessat()
-The
 .BR faccessat ()
-system call operates in exactly the same way as
+operates in exactly the same way as
 .BR access (),
 except for the differences described here.
 .PP
@@ -180,6 +183,25 @@ See
 .BR openat (2)
 for an explanation of the need for
 .BR faccessat ().
+.\"
+.SS faccessat2()
+The description of
+.BR faccessat ()
+given above corresponds to POSIX.1 and
+to the implementation provided by glibc.
+However, the glibc implementation was an imperfect emulation (see BUGS)
+that papered over the fact that the raw Linux
+.BR faccessat ()
+system call does not have a
+.I flags
+argument.
+To allow for a proper implementation, Linux 5.8 added the
+.BR faccessat2 ()
+system call, which supports the
+.I flags
+argument and allows a correct implementation of the
+.BR faccessat ()
+wrapper function.
 .SH RETURN VALUE
 On success (all requested permissions granted, or
 .I mode
@@ -273,12 +295,18 @@ is a file descriptor referring to a file other than a directory.
 .BR faccessat ()
 was added to Linux in kernel 2.6.16;
 library support was added to glibc in version 2.4.
+.PP
+.BR faccessat2 ()
+was added to Linux in version 5.8.
 .SH CONFORMING TO
 .BR access ():
 SVr4, 4.3BSD, POSIX.1-2001, POSIX.1-2008.
 .PP
 .BR faccessat ():
 POSIX.1-2008.
+.PP
+.BR faccessat2 ():
+Linux-specific.
 .SH NOTES
 .BR Warning :
 Using these calls to check if a user is authorized to, for example,
@@ -375,12 +403,17 @@ system call does not support a
 .I flags
 argument, the glibc
 .BR faccessat ()
-wrapper function emulates the required functionality using
+wrapper function provided in glibc 2.32 and earlier
+emulates the required functionality using
 a combination of the
 .BR faccessat ()
 system call and
 .BR fstatat (2).
 However, this emulation does not take ACLs into account.
+Starting with glibc 2.33, the wrapper function avoids this bug
+by making use of the
+.BR faccessat2 ()
+system call where it is provided by the underlying kernel.
 .PP
 In kernel 2.4 (and earlier) there is some strangeness in the handling of
 .B X_OK

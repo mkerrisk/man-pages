@@ -253,8 +253,8 @@ the pending signal set is preserved across an
 .SS Execution of signal handlers
 Whenever there is a transition from kernel-mode to user-mode execution
 (e.g., on return from a system call or scheduling of a thread onto the CPU),
-the kernel checks whether there is a pending signal for which the process
-has established a signal handler.
+the kernel checks whether there is a pending unblocked signal
+for which the process has established a signal handler.
 If there is such a pending signal, the following steps occur:
 .IP 1. 3
 The kernel performs the necessary preparatory steps for execution of
@@ -322,8 +322,10 @@ When the signal handler returns, control passes to the signal trampoline code.
 The signal trampoline calls
 .BR sigreturn (2),
 a system call that uses the information in the stack frame created in step 1
-to restore the thread's signal mask and alternate stack settings
-to their state before the signal handler was called.
+to restore the thread to its state before the signal handler was
+called.
+The thread's signal mask and alternate signal stack settings
+are restored as part of this procedure.
 Upon completion of the call to
 .BR sigreturn (2),
 the kernel transfers control back to user space,
@@ -347,6 +349,16 @@ may or may not restore the signal mask, depending on the
 .I savesigs
 value that was specified in the corresponding call to
 .BR sigsetjmp (3).)
+.PP
+From the kernel's point of view,
+execution of the signal handler code is exactly the same as the execution
+of any other user-space code.
+That is to say, the kernel does not record any special state information
+indicating that the thread is currently excuting inside a signal handler.
+All necessary state information is maintained in user-space registers
+and the user-space stack.
+The depth to which nested signal handlers may be invoked is thus
+limited only by the user-space stack (and sensible software design!).
 .\"
 .SS Standard signals
 Linux supports the standard signals listed below.

@@ -272,7 +272,7 @@ flag and the thread has defined an alternate signal stack (using
 then that stack is installed.
 .IP c)
 Various pieces of signal-related context are saved
-into a "hidden" frame that is created on the stack.
+into a special frame that is created on the stack.
 The saved information includes:
 .RS
 .IP + 2
@@ -280,26 +280,31 @@ the program counter register
 (i.e., the address of the next instruction in the main program that
 should be executed when the signal handler returns);
 .IP +
+architecture-specific register state required for resuming the
+interrupted program;
+.IP +
 the thread's current signal mask;
 .IP +
 the thread's alternate signal stack settings.
 .RE
 .IP d)
-The thread's signal mask is adjusted by adding the signal
-(unless the handler was established using the
-.BR SA_NODEFER
-flag)
-as well as any additional signals specified in
-.IR act->sa_mask
-when
-.BR sigaction (2)
-was called.
+Any signals specified in
+.I act\->sa_mask
+when registering the handler with
+.BR sigprocmask (2)
+are added to the thread's signal mask.
+The signal being delivered is also
+added to the signal mask, unless
+.B SA_NODEFER
+was specified when registering the handler.
 These signals are thus blocked while the handler executes.
 .RE
 .IP 2.
 The kernel constructs a frame for the signal handler on the stack.
-Within that frame, the return address points to a piece of user-space code
-known as the signal trampoline (described in
+The kernel sets the program counter for the thread to point to the first
+instruction of the signal handler function,
+and configures the return address for that function to point to a piece
+of user-space code known as the signal trampoline (described in
 .BR sigreturn (2)).
 .IP 3.
 The kernel passes control back to user-space, where execution
@@ -309,7 +314,7 @@ When the signal handler returns, control passes to the signal trampoline code.
 .IP 5.
 The signal trampoline calls
 .BR sigreturn (2),
-a system call that uses the information in the "hidden" stack frame
+a system call that uses the information in the stack frame created in step 1
 to restore the thread's signal mask and alternate stack settings
 to their state before the signal handler was called.
 Upon completion of the call to

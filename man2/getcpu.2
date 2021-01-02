@@ -14,10 +14,10 @@
 getcpu \- determine CPU and NUMA node on which the calling thread is running
 .SH SYNOPSIS
 .nf
-.B #include <linux/getcpu.h>
+.BR "#define _GNU_SOURCE" "             /* See feature_test_macros(7) */"
+.B #include <sched.h>
 .PP
-.BI "int getcpu(unsigned int *" cpu ", unsigned int *" node \
-", struct getcpu_cache *" tcache );
+.BI "int getcpu(unsigned int *" cpu ", unsigned int *" node );
 .fi
 .SH DESCRIPTION
 The
@@ -36,10 +36,6 @@ When either
 or
 .I node
 is NULL nothing is written to the respective pointer.
-.PP
-The third argument to this system call is nowadays unused,
-and should be specified as NULL
-unless portability to Linux 2.6.23 or earlier is required (see NOTES).
 .PP
 The information placed in
 .I cpu
@@ -82,16 +78,31 @@ The intention of
 .BR getcpu ()
 is to allow programs to make optimizations with per-CPU data
 or for NUMA optimization.
+.\"
+.SS C library/kernel differences
+The kernel system call has a third argument:
+.PP
+.in +4n
+.nf
+.BI "int getcpu(unsigned int *" cpu ", unsigned int *" node ,
+.BI "           struct getcpu_cache *" tcache );
+.fi
+.in
 .PP
 The
 .I tcache
-argument is unused since Linux 2.6.24.
+argument is unused since Linux 2.6.24,
+and (when invoking the system call directly)
+should be specified as NULL,
+unless portability to Linux 2.6.23 or earlier is required.
+.PP
 .\" commit 4307d1e5ada595c87f9a4d16db16ba5edb70dcb1
 .\" Author: Ingo Molnar <mingo@elte.hu>
 .\" Date:   Wed Nov 7 18:37:48 2007 +0100
 .\" x86: ignore the sys_getcpu() tcache parameter
-In earlier kernels,
-if this argument was non-NULL,
+In Linux 2.6.23 and earlier, if the
+.I tcache
+argument was non-NULL,
 then it specified a pointer to a caller-allocated buffer in thread-local
 storage that was used to provide a caching mechanism for
 .BR getcpu ().

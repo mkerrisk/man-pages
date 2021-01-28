@@ -56,9 +56,27 @@ struct ifreq {
 .EE
 .in
 .PP
+.B AF_INET6
+is an exception.
+It passes an
+.I in6_ifreq
+structure:
+.PP
+.in +4n
+.EX
+struct in6_ifreq {
+    struct in6_addr     ifr6_addr;
+    u32                 ifr6_prefixlen;
+    int                 ifr6_ifindex; /* Interface index */
+};
+.EE
+.in
+.PP
 Normally, the user specifies which device to affect by setting
 .I ifr_name
-to the name of the interface.
+to the name of the interface or
+.I ifr6_ifindex
+to the index of the interface.
 All other members of the structure may
 share memory.
 .SS Ioctls
@@ -143,13 +161,33 @@ IFF_ISATAP:Interface is RFC4214 ISATAP interface.
 .PP
 Setting the extended (private) interface flags is a privileged operation.
 .TP
-.BR SIOCGIFADDR ", " SIOCSIFADDR
-Get or set the address of the device using
-.IR ifr_addr .
-Setting the interface address is a privileged operation.
-For compatibility, only
+.BR SIOCGIFADDR ", " SIOCSIFADDR ", " SIOCDIFADDR
+Get, set, or delete the address of the device using
+.IR ifr_addr ,
+or
+.I ifr6_addr
+with
+.IR ifr6_prefixlen .
+Setting or deleting the interface address is a privileged operation.
+For compatibility,
+.B SIOCGIFADDR
+returns only
 .B AF_INET
-addresses are accepted or returned.
+addresses,
+.B SIOCSIFADDR
+accepts
+.B AF_INET
+and
+.B AF_INET6
+addresses, and
+.B SIOCDIFADDR
+deletes only
+.B AF_INET6
+addresses.
+A
+.B AF_INET
+address can be deleted by setting it to zero via
+.BR SIOCSIFADDR .
 .TP
 .BR SIOCGIFDSTADDR ", " SIOCSIFDSTADDR
 Get or set the destination address of a point-to-point device using
@@ -351,9 +389,17 @@ The names of interfaces with no addresses or that don't have the
 flag set can be found via
 .IR /proc/net/dev .
 .PP
-Local IPv6 IP addresses can be found via
-.I /proc/net
+.B AF_INET6
+IPv6 addresses can be read from
+.I /proc/net/if_inet6
+file or via
+.BR rtnetlink (7).
+Adding a new or deleting an existing IPv6 address can be done via
+.BR SIOCSIFADDR " / " SIOCDIFADDR
 or via
+.BR rtnetlink (7).
+Retrieving or changing destination IPv6 addresses of a point-to-point
+interface is possible only via
 .BR rtnetlink (7).
 .SH BUGS
 glibc 2.1 is missing the

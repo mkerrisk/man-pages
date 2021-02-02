@@ -1,0 +1,223 @@
+.\" Copyright (C) 2021 Suren Baghdasaryan <surenb@google.com>
+.\" and Copyright (C) 2021 Minchan Kim <minchan@kernel.org>
+.\"
+.\" %%%LICENSE_START(VERBATIM)
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\" %%%LICENSE_END
+.\"
+.\" Commit ecb8ac8b1f146915aa6b96449b66dd48984caacc
+.\"
+.TH PROCESS_MADVISE 2 2021-01-12 "Linux" "Linux Programmer's Manual"
+.SH NAME
+process_madvise \- give advice about use of memory to a process
+.SH SYNOPSIS
+.nf
+.B #include <sys/uio.h>
+.PP
+.BI "ssize_t process_madvise(int " pidfd ,
+.BI "                       const struct iovec *" iovec ,
+.BI "                       unsigned long " vlen ,
+.BI "                       int " advice ,
+.BI "                       unsigned int " flags ");"
+.fi
+.SH DESCRIPTION
+The
+.BR process_madvise()
+system call is used to give advice or directions to the kernel about the
+address ranges of another process or the calling process.
+It provides the advice to the address ranges described by
+.I iovec
+and
+.IR vlen .
+The goal of such advice is to improve system or application performance.
+.PP
+The
+.I pidfd
+argument is a PID file descriptor (see
+.BR pidfd_open (2))
+that specifies the process to which the advice is to be applied.
+.PP
+The pointer
+.I iovec
+points to an array of
+.I iovec
+structures, defined in
+.IR <sys/uio.h>
+as:
+.PP
+.in +4n
+.EX
+struct iovec {
+    void  *iov_base;    /* Starting address */
+    size_t iov_len;     /* Number of bytes to transfer */
+};
+.EE
+.in
+.PP
+The
+.I iovec
+structure describes address ranges beginning at
+.I iov_base
+address and with the size of
+.I iov_len
+bytes.
+.PP
+The
+.I vlen
+represents the number of elements in the
+.I iovec
+structure.
+.PP
+The
+.I advice
+argument is one of the values listed below.
+.\"
+.\" ======================================================================
+.\"
+.SS Linux-specific advice values
+The following Linux-specific
+.I advice
+values have no counterparts in the POSIX-specified
+.BR posix_madvise (3),
+and may or may not have counterparts in the
+.BR madvise (2)
+interface available on other implementations.
+.TP
+.BR MADV_COLD " (since Linux 5.4.1)"
+.\" commit 9c276cc65a58faf98be8e56962745ec99ab87636
+Deactive a given range of pages which will make them a more probable
+reclaim target should there be a memory pressure.
+This is a nondestructive operation.
+The advice might be ignored for some pages in the range when it is not
+applicable.
+.TP
+.BR MADV_PAGEOUT " (since Linux 5.4.1)"
+.\" commit 1a4e58cce84ee88129d5d49c064bd2852b481357
+Reclaim a given range of pages.
+This is done to free up memory occupied by these pages.
+If a page is anonymous it will be swapped out.
+If a page is file-backed and dirty it will be written back to the backing
+storage.
+The advice might be ignored for some pages in the range when it is not
+applicable.
+.PP
+The
+.I flags
+argument is reserved for future use; currently, this argument must be
+specified as 0.
+.PP
+The value specified in the
+.I vlen
+argument must be less than or equal to
+.BR IOV_MAX
+(defined in
+.I <limits.h>
+or accessible via the call
+.IR sysconf(_SC_IOV_MAX) ).
+.PP
+The
+.I vlen
+and
+.I iovec
+arguments are checked before applying any hints.
+If the
+.I vlen
+is too big, or
+.I iovec
+is invalid,
+an error will be returned immediately and no advice will be applied.
+.PP
+The hint might be applied to a part of
+.I iovec
+if one of its elements points to an invalid memory region in the
+remote process.
+No further elements will be processed beyond that point.
+.PP
+Permission to provide a hint to another process is governed by a
+ptrace access mode
+.B PTRACE_MODE_READ_REALCREDS
+check (see
+.BR ptrace (2));
+in addition, the caller must have the
+.B CAP_SYS_ADMIN
+capability due to performance implications of applying the hint.
+.SH RETURN VALUE
+On success, process_madvise() returns the number of bytes advised.
+This return value may be less than the total number of requested bytes,
+if an error occurred after some iovec elements were already processed.
+The caller should check the return value to determine whether a partial
+advice occurred.
+.PP
+On error, \-1 is returned and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+.TP
+.B EBADF
+.I pidfd
+is not a valid PID file descriptor.
+.TP
+.B EFAULT
+The memory described by
+.I iovec
+is outside the accessible address space of the process referred to by
+.IR pidfd .
+.TP
+.B EINVAL
+.I flags
+is not 0.
+.TP
+.B EINVAL
+The sum of the
+.I iov_len
+values of
+.I iovec
+overflows a
+.I ssize_t
+value.
+.TP
+.B EINVAL
+.I vlen
+is too large.
+.TP
+.B ENOMEM
+Could not allocate memory for internal copies of the
+.I iovec
+structures.
+.TP
+.B EPERM
+The caller does not have permission to access the address space of the process
+.IR pidfd .
+.TP
+.B ESRCH
+The target process does not exist (i.e., it has terminated and been waited on).
+.SH VERSIONS
+This system call first appeared in Linux 5.10.
+.\" commit ecb8ac8b1f146915aa6b96449b66dd48984caacc
+Support for this system call is optional,
+depending on the setting of the
+.B CONFIG_ADVISE_SYSCALLS
+configuration option.
+.SH SEE ALSO
+.BR madvise (2),
+.BR pidfd_open(2),
+.BR process_vm_readv (2),
+.BR process_vm_write (2)

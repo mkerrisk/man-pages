@@ -32,18 +32,16 @@ process_madvise \- give advice about use of memory to a process
 .nf
 .B #include <sys/uio.h>
 .PP
-.BI "ssize_t process_madvise(int " pidfd ,
-.BI "                       const struct iovec *" iovec ,
-.BI "                       unsigned long " vlen ,
-.BI "                       int " advice ,
-.BI "                       unsigned int " flags ");"
+.BI "ssize_t process_madvise(int " pidfd ", const struct iovec *" iovec ,
+.BI "                        unsigned long " vlen ", int " advice ,
+.BI "                        unsigned int " flags ");"
 .fi
 .SH DESCRIPTION
 The
 .BR process_madvise()
 system call is used to give advice or directions to the kernel about the
-address ranges of another process or the calling process.
-It provides the advice to the address ranges described by
+address ranges of another process or of the calling process.
+It provides the advice for the address ranges described by
 .I iovec
 and
 .IR vlen .
@@ -67,7 +65,7 @@ as:
 .EX
 struct iovec {
     void  *iov_base;    /* Starting address */
-    size_t iov_len;     /* Number of bytes to transfer */
+    size_t iov_len;     /* Length of region */
 };
 .EE
 .in
@@ -82,7 +80,7 @@ bytes.
 .PP
 The
 .I vlen
-represents the number of elements in the
+specifies the number of elements in the
 .I iovec
 structure.
 .PP
@@ -101,20 +99,21 @@ and may or may not have counterparts in the
 .BR madvise (2)
 interface available on other implementations.
 .TP
-.BR MADV_COLD " (since Linux 5.4.1)"
+.BR MADV_COLD
 .\" commit 9c276cc65a58faf98be8e56962745ec99ab87636
-Deactive a given range of pages which will make them a more probable
+Deactivate a given range of pages.
+This will make the pages a more probable
 reclaim target should there be a memory pressure.
 This is a nondestructive operation.
 The advice might be ignored for some pages in the range when it is not
 applicable.
 .TP
-.BR MADV_PAGEOUT " (since Linux 5.4.1)"
+.BR MADV_PAGEOUT
 .\" commit 1a4e58cce84ee88129d5d49c064bd2852b481357
 Reclaim a given range of pages.
 This is done to free up memory occupied by these pages.
-If a page is anonymous it will be swapped out.
-If a page is file-backed and dirty it will be written back to the backing
+If a page is anonymous, it will be swapped out.
+If a page is file-backed and dirty, it will be written back to the backing
 storage.
 The advice might be ignored for some pages in the range when it is not
 applicable.
@@ -143,7 +142,7 @@ If the
 is too big, or
 .I iovec
 is invalid,
-an error will be returned immediately and no advice will be applied.
+then an error will be returned immediately and no advice will be applied.
 .PP
 The hint might be applied to a part of
 .I iovec
@@ -156,13 +155,19 @@ ptrace access mode
 .B PTRACE_MODE_READ_REALCREDS
 check (see
 .BR ptrace (2));
-in addition, the caller must have the
+in addition,
+because of the performance implications of applying the hint,
+the caller must have the
 .B CAP_SYS_ADMIN
-capability due to performance implications of applying the hint.
+capability.
 .SH RETURN VALUE
-On success, process_madvise() returns the number of bytes advised.
+On success,
+.BR process_madvise ()
+returns the number of bytes advised.
 This return value may be less than the total number of requested bytes,
-if an error occurred after some iovec elements were already processed.
+if an error occurred after some
+.I iovec
+elements were already processed.
 The caller should check the return value to determine whether a partial
 advice occurred.
 .PP
@@ -218,6 +223,6 @@ depending on the setting of the
 configuration option.
 .SH SEE ALSO
 .BR madvise (2),
-.BR pidfd_open(2),
+.BR pidfd_open (2),
 .BR process_vm_readv (2),
 .BR process_vm_write (2)

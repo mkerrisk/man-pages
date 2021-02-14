@@ -1,4 +1,5 @@
 .\" Copyright (c) 2020 Stephen Kitt <steve@sk2.org>
+.\" and Copyright (c) 2021 Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -174,63 +175,108 @@ and the profile can control access to
 .BR close_range ()
 without affecting the calling process.
 .SH EXAMPLES
-The following program executes the command given on its command-line,
-after opening the files listed after the command and then using
+The program shown below opens the files named in its command-line arguments,
+displays the list of files that it has opened
+(by iterating through the entries in
+.IR /proc/PID/fd ),
+uses
 .BR close_range ()
-to close them:
+to close all file descriptors greater than or equal to 3,
+and then once more displays the process's list of open files.
+The following example demonstrates the use of the program:
 .PP
 .in +4n
 .EX
-/* close_range.c */
-
+$ \fBtouch /tmp/a /tmp/b /tmp/c\fP
+$ \fB./a.out /tmp/a /tmp/b /tmp/c\fP
+/tmp/a opened as FD 3
+/tmp/b opened as FD 4
+/tmp/c opened as FD 5
+/proc/self/fd/0 ==> /dev/pts/1
+/proc/self/fd/1 ==> /dev/pts/1
+/proc/self/fd/2 ==> /dev/pts/1
+/proc/self/fd/3 ==> /tmp/a
+/proc/self/fd/4 ==> /tmp/b
+/proc/self/fd/5 ==> /tmp/b
+/proc/self/fd/6 ==> /proc/9005/fd
+========= About to call close_range() =======
+/proc/self/fd/0 ==> /dev/pts/1
+/proc/self/fd/1 ==> /dev/pts/1
+/proc/self/fd/2 ==> /dev/pts/1
+/proc/self/fd/3 ==> /proc/9005/fd
+.EE
+.in
+.PP
+Note that the lines showing the pathname
+.I /proc/9005/fd
+result from the calls to
+.BR opendir (3).
+.SS Program source
+\&
+.EX
+#define _GNU_SOURCE
 #include <fcntl.h>
 #include <linux/close_range.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <sys/syscall.h>
-#include <sys/types.h>
+#include <string.h>
 #include <unistd.h>
+#include <dirent.h>
+
+/* Show the contents of the symbolic links in /proc/self/fd */
+
+static void
+show_fds(void)
+{
+    DIR *dirp = opendir("/proc/self/fd");
+    if (dirp  == NULL) {
+        perror("opendir");
+        exit(EXIT_FAILURE);
+    }
+
+    for (;;) {
+        struct dirent *dp = readdir(dirp);
+        if (dp == NULL)
+            break;
+
+        if (dp\->d_type == DT_LNK) {
+            char path[PATH_MAX], target[PATH_MAX];
+            snprintf(path, sizeof(path), "/proc/self/fd/%s",
+                     dp\->d_name);
+
+            ssize_t len = readlink(path, target, sizeof(target));
+            printf("%s ==> %.*s\en", path, (int) len, target);
+        }
+    }
+
+    closedir(dirp);
+}
 
 int
 main(int argc, char *argv[])
 {
-    char *newargv[] = { NULL };
-    char *newenviron[] = { NULL };
-
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s <command> <file>...\en", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 2; i < argc; i++) {
-        if (open(argv[i], O_RDONLY) == \-1) {
-            perror(argv[i]);
+    for (int j = 1; j < argc; j++) {
+        int fd = open(argv[j], O_RDONLY);
+        if (fd == \-1) {
+            perror(argv[j]);
             exit(EXIT_FAILURE);
         }
+        printf("%s opened as FD %d\en", argv[j], fd);
     }
 
-    if (syscall(__NR_close_range, 3, ~0U, 0) == \-1) {
+    show_fds();
+
+    printf("========= About to call close_range() =======\en");
+
+    if (syscall(__NR_close_range, 3, \(ti0U, 0) == \-1) {
         perror("close_range");
         exit(EXIT_FAILURE);
     }
 
-    execve(argv[1], newargv, newenviron);
-    perror("execve");
+    show_fds();
     exit(EXIT_FAILURE);
 }
 .EE
-.in
-.PP
-Running any program with the above, with files to open:
-.PP
-.in +4n
-.EX
-.RB "$" " ./close_range " <program> " /dev/null /dev/zero"
-.EE
-.in
-.PP
-and inspecting the open files in the resulting process will show that
-the files have indeed been closed.
 .SH SEE ALSO
 .BR close (2)

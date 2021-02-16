@@ -17,7 +17,7 @@ html:
 	for i in man?; do \
 		[ -d $(HTDIR)/"$$i" ] || mkdir -p $(HTDIR)/"$$i"; \
 		find "$$i/" -type f | while read f; do \
-			(cd "$$i"; man2html $(HTOPTS) `basename $$f`) | \
+			man2html $(HTOPTS) $$f | \
 			sed -e '1,2d' > $(HTDIR)/"$$i"/`basename $$f`.html; \
 		done; \
 	done; fi

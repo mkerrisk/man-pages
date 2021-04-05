@@ -77,6 +77,13 @@ When the last file descriptor referring to a userfaultfd object is closed,
 all memory ranges that were registered with the object are unregistered
 and unread events are flushed.
 .\"
+.PP
+Since Linux 4.14, userfaultfd page fault message can selectively embed
+faulting thread ID information into the fault message.
+One needs to enable this feature explicitly using the
+.B UFFD_FEATURE_THREAD_ID
+feature bit when initializing the userfaultfd context.
+By default, thread ID reporting is disabled.
 .SS Usage
 The userfaultfd mechanism is designed to allow a thread in a multithreaded
 program to perform user-space paging for the other threads in the process.
@@ -229,6 +236,9 @@ struct uffd_msg {
         struct {
             __u64 flags;    /* Flags describing fault */
             __u64 address;  /* Faulting address */
+            union {
+                __u32 ptid; /* Thread ID of the fault */
+            } feat;
         } pagefault;
 
         struct {            /* Since Linux 4.11 */
@@ -357,6 +367,9 @@ otherwise it is a read fault.
 .\"
 .\" UFFD_PAGEFAULT_FLAG_WP is not yet supported.
 .RE
+.TP
+.I pagefault.feat.pid
+The thread ID that triggered the page fault.
 .TP
 .I fork.ufd
 The file descriptor associated with the userfault object

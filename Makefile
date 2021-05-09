@@ -1,6 +1,7 @@
 DESTDIR=
 prefix?=/usr
 MANDIR=$(prefix)/share/man
+HTDIR?=.html
 
 all: remove install
 
@@ -13,14 +14,13 @@ uninstall remove:
 #  make HTDIR=/some/dir HTOPTS=whatever html
 # The sed removes the lines "Content-type: text/html\n\n"
 html:
-	@if [ x$(HTDIR) = x ]; then echo "You must set HTDIR."; else \
 	for i in man?; do \
-		[ -d $(HTDIR)/"$$i" ] || mkdir -p $(HTDIR)/"$$i"; \
+		mkdir -p $(HTDIR)/"$$i"; \
 		find "$$i/" -type f | while read f; do \
 			man2html $(HTOPTS) $$f | \
 			sed -e '1,2d' > $(HTDIR)/"$$i"/`basename $$f`.html; \
 		done; \
-	done; fi
+	done
 
 install:
 	for i in man?; do \

@@ -85,26 +85,35 @@ function grep_syscall_def()
 ########################################################################
 #	Linux man-pages
 
-#  man_section()  prints a specific manual page section (DESCRIPTION, SYNOPSIS,
+#  man_section()  prints specific manual page sections (DESCRIPTION, SYNOPSIS,
 # ...) of all manual pages in a directory (or in a single manual page file).
-# Usage example:  .../man-pages$ man_section man2 SYNOPSIS;
+# Usage example:  .../man-pages$ man_section man2 SYNOPSIS 'CONFORMING TO';
 
 function man_section()
 {
 	if ! [ -v 2 ]; then
-		>&2 echo "Usage: ${FUNCNAME[0]} <dir> <section>";
+		>&2 echo "Usage: ${FUNCNAME[0]} <dir> <section>...";
 		return ${EX_USAGE};
 	fi
 
-	find "${1}" -type f \
-	|xargs grep -l "\.SH ${2}" \
+	local page="$1";
+	shift;
+	local sect="$@";
+
+	find "${page}" -type f \
+	|xargs wc -l \
+	|grep -v -e '\b1 ' -e '\btotal\b' \
+	|awk '{ print $2 }' \
 	|sort -V \
 	|while read -r manpage; do
-		<${manpage} \
-		sed -n \
-			-e '/^\.TH/,/^\.SH/{/^\.SH/!p}' \
-			-e "/^\.SH ${2}/p" \
-			-e "/^\.SH ${2}/,/^\.SH/{/^\.SH/!p}" \
+		cat \
+		<(<${manpage} sed -n '/^\.TH/,/^\.SH/{/^\.SH/!p}') \
+		<(for s in ${sect}; do
+			<${manpage} \
+			sed -n \
+				-e "/^\.SH ${s}/p" \
+				-e "/^\.SH ${s}/,/^\.SH/{/^\.SH/!p}"; \
+		  done;) \
 		|man -P cat -l - 2>/dev/null;
 	done;
 }

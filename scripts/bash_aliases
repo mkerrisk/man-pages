@@ -131,6 +131,33 @@ function man_lsfunc()
 	|uniq;
 }
 
+#  man_lsvar()  prints the name of all C variables declared in the SYNOPSIS
+# of all manual pages in a directory (or in a single manual page file).
+# Each name is printed in a separate line
+# Usage example:  .../man-pages$ man_lsvar man3;
+
+function man_lsvar()
+{
+	if ! [ -v 1 ]; then
+		>&2 echo "Usage: ${FUNCNAME[0]} <dir>";
+		return ${EX_USAGE};
+	fi
+
+	for arg in "$@"; do
+		man_section "${arg}" 'SYNOPSIS';
+	done \
+	|sed_rm_ccomments \
+	|pcregrep -Mv '(?s)^ [\w ]+ \**\w+\([\w\s(,)[\]*]+?(...)?\s*\); *$' \
+	|pcregrep -Mn \
+	  -e '(?s)^ +extern [\w ]+ \**\(\*+[\w ]+\)\([\w\s(,)[\]*]+?\s*\); *$' \
+	  -e '^ +extern [\w ]+ \**[\w ]+; *$' \
+	|grep '^[0-9]' \
+	|grep -v 'typedef' \
+	|sed -E 's/^[0-9]+: +extern [^(]+ \**\(\*+(\w* )?(\w+)\)\(.*/\2/' \
+	|sed    's/^[0-9]\+: \+extern .* \**\(\w\+\); */\1/' \
+	|uniq;
+}
+
 #  pdfman()  renders a manual page in PDF
 # Usage example:  .../man-pages$ pdfman man2/membarrier.2;
 

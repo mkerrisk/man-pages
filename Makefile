@@ -1,35 +1,101 @@
-DESTDIR=
-prefix?=/usr
-MANDIR=$(prefix)/share/man
-HTDIR?=.html
+#!/usr/bin/make -f
 
+# Do not print "Entering directory ..."
+MAKEFLAGS += --no-print-directory
+
+htmlbuilddir = $(CURDIR)/.html
+HTOPTS =
+
+DESTDIR =
+prefix = /usr/local
+datarootdir = $(prefix)/share
+docdir = $(datarootdir)/doc
+mandir = $(datarootdir)/man
+htmldir = $(docdir)
+htmldir_ = $(htmldir)/man
+htmlext = .html
+
+INSTALL = install
+INSTALL_DATA = $(INSTALL) -m 644
+INSTALL_DIR = $(INSTALL) -m 755 -d
+
+.PHONY: all
 all: remove install
 
-uninstall remove:
-	for i in man?/*; do \
-		rm -f $(MANDIR)/"$$i" $(MANDIR)/"$$i".*; \
-	done
-
 # Use with
-#  make HTDIR=/some/dir HTOPTS=whatever html
+#  make HTOPTS=whatever html
 # The sed removes the lines "Content-type: text/html\n\n"
-html:
-	for i in man?; do \
-		mkdir -p $(HTDIR)/"$$i"; \
-		find "$$i/" -type f | while read f; do \
-			man2html $(HTOPTS) $$f | \
-			sed -e '1,2d' > $(HTDIR)/"$$i"/`basename $$f`.html; \
-		done; \
-	done
+.PHONY: html
+html: | builddirs-html
+	find man?/ -type f \
+	|while read f; do \
+		man2html $(HTOPTS) "$$f" \
+		|sed -e '1,2d' \
+		>"$(htmlbuilddir)/$${f}$(htmlext)" \
+			|| exit $$?; \
+	done;
 
-install:
-	for i in man?; do \
-		install -d -m 755 $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
-		install -m 644 "$$i"/* $(DESTDIR)$(MANDIR)/"$$i" || exit $$?; \
-	done
+.PHONY: builddirs-html
+builddirs-html:
+	find man?/ -type d \
+	|while read d; do \
+		$(INSTALL_DIR) "$(htmlbuilddir)/$$d" || exit $$?; \
+	done;
+
+.PHONY: install-html
+install-html: | installdirs-html
+	cd $(htmlbuilddir) && \
+	find man?/ -type f \
+	|while read f; do \
+		$(INSTALL_DATA) -T "$$f" "$(DESTDIR)$(htmldir_)/$$f" || exit $$?; \
+	done;
+
+.PHONY: installdirs-html
+installdirs-html:
+	find man?/ -type d \
+	|while read d; do \
+		$(INSTALL_DIR) "$(DESTDIR)$(htmldir_)/$$d" || exit $$?; \
+	done;
+
+.PHONY: install
+install: | installdirs
+	find man?/ -type f \
+	|while read f; do \
+		$(INSTALL_DATA) -T "$$f" "$(DESTDIR)$(mandir)/$$f" || exit $$?; \
+	done;
+
+.PHONY: installdirs
+installdirs:
+	find man?/ -type d \
+	|while read d; do \
+		$(INSTALL_DIR) "$(DESTDIR)$(mandir)/$$d" || exit $$?; \
+	done;
+
+.PHONY: uninstall remove
+uninstall remove:
+	find man?/ -type f \
+	|while read f; do \
+		rm -f "$(DESTDIR)$(mandir)/$$f" || exit $$?; \
+		rm -f "$(DESTDIR)$(mandir)/$$f".* || exit $$?; \
+	done;
+
+.PHONY: uninstall-html
+uninstall-html:
+	find man?/ -type f \
+	|while read f; do \
+		rm -f "$(DESTDIR)$(htmldir_)/$$f".* || exit $$?; \
+	done;
+
+.PHONY: clean
+clean:
+	find man?/ -type f \
+	|while read f; do \
+		rm -f "$(htmlbuilddir)/$$f".* || exit $$?; \
+	done;
 
 # Check if groff reports warnings (may be words of sentences not displayed)
 # from https://lintian.debian.org/tags/groff-message.html
+.PHONY: check-groff-warnings
 check-groff-warnings:
 	GROFF_LOG="$$(mktemp --tmpdir manpages-checksXXXX)" || exit $$?; \
 	for i in man?/*.[1-9]; \

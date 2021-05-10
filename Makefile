@@ -1,5 +1,3 @@
-#!/usr/bin/make -f
-
 # Do not print "Entering directory ..."
 MAKEFLAGS += --no-print-directory
 

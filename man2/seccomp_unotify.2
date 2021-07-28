@@ -739,6 +739,17 @@ When allocating the file descriptor in the target,
 use the file descriptor number specified in the
 .I newfd
 field.
+.TP
+.BR SECCOMP_ADDFD_FLAG_SEND
+Available since Linux 5.14, combines the
+.B SECCOMP_IOCTL_NOTIF_ADDFD
+ioctl with
+.B SECCOMP_IOCTL_NOTIF_SEND
+into an atomic operation. On successful invocation, the target process's
+errno will be 0 and the return value will be the file descriptor number that was
+installed in the target. If allocating the file descriptor in the tatget fails,
+the target's syscall continues to be blocked until a successful response is
+sent.
 .RE
 .TP
 .I srcfd
@@ -800,6 +811,13 @@ Allocating the file descriptor in the target would cause the target's
 .BR RLIMIT_NOFILE
 limit to be exceeded (see
 .BR getrlimit (2)).
+.TP
+.B EBUSY
+If the flag
+.B SECCOMP_IOCTL_NOTIF_SEND
+is used, this means the operation can't proceed until other
+.B SECCOMP_IOCTL_NOTIF_ADDFD
+requests are processed.
 .TP
 .B EINPROGRESS
 The user-space notification specified in the
@@ -1131,6 +1149,14 @@ that would
 normally be restarted by the
 .BR SA_RESTART
 flag.
+.PP
+Furthermore, if the supervisor response is a file descriptor
+added with
+.B SECCOMP_IOCTL_NOTIF_ADDFD,
+then the flag
+.B SECCOMP_ADDFD_FLAG_SEND
+can be used to atomically add the file descriptor and return that value,
+making sure no file descriptors are inadvertently leaked into the target.
 .\" FIXME
 .\" About the above, Kees Cook commented:
 .\"

@@ -577,11 +577,47 @@ or be in the parent user namespace of the process
 The mapped user IDs (group IDs) must in turn have a mapping
 in the parent user namespace.
 .IP 4.
+If updating
+.IR /proc/[pid]/uid_map
+to create a mapping that maps UID 0 in the parent namespace,
+then one of the following must be true:
+.RS
+.IP * 3
+if writing process is in the parent user namespace,
+then it must have the
+.BR CAP_SETFCAP
+capability in that user namespace; or
+.IP *
+if the writing process is in the child user namespace,
+then the process that created the user namespace must have had the
+.BR CAP_SETFCAP
+capability when the namespace was created.
+.RE
+.IP
+This rule has been in place since
 .\" commit db2e718a47984b9d71ed890eb2ea36ecf150de18
-If a writing process is root (i.e., UID 0) trying to map host user ID 0,
-it must have the
+Linux 5.12.
+It eliminates an earlier security bug whereby
+a UID 0 process that lacks the
 .B CAP_SETFCAP
-capability (since Linux 5.12).
+capability,
+which is needed to create a binary with namespaced file capabilities
+(as described in
+.BR capabilities (7)),
+could nevertheless create such a binary,
+by the following steps:
+.RS
+.IP * 3
+Create a new user namespace with the identity mapping
+(i.e., UID 0 in the new user namespace maps to UID 0 in the parent namespace),
+so that UID 0 in both namespaces is equivalent to the same root user ID.
+.IP *
+Since the child process has the
+.B CAP_SETFCAP
+capability, it could create a binary with namespaced file capabilities
+that would then be effective in the parent user namespace
+(because the root user IDs are the same in the two namespaces).
+.RE
 .IP 5.
 One of the following two cases applies:
 .RS

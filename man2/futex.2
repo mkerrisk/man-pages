@@ -241,10 +241,13 @@ and so on.
 This option bit can be employed only with the
 .BR FUTEX_WAIT_BITSET ,
 .BR FUTEX_WAIT_REQUEUE_PI ,
-and
 (since Linux 4.5)
 .\" commit 337f13046ff03717a9e99675284a817527440a49
-.BR FUTEX_WAIT
+.BR FUTEX_WAIT ,
+and
+(since Linux v5.14.0)
+.\" commit bf22a6976897977b0a3f1aeba6823c959fc4fdae
+.BR FUTEX_LOCK_PI2
 operations.
 .IP
 If this option is set, the kernel measures the
@@ -904,7 +907,9 @@ value to 0 if the previous value was the expected TID.
 If a futex is already acquired (i.e., has a nonzero value),
 waiters must employ the
 .B FUTEX_LOCK_PI
-operation to acquire the lock.
+or
+.B FUTEX_LOCK_PI2
+operations to acquire the lock.
 If other threads are waiting for the lock, then the
 .B FUTEX_WAITERS
 bit is set in the futex value;
@@ -964,6 +969,8 @@ Note that the PI futex operations must be used as paired operations
 and are subject to some additional requirements:
 .IP * 3
 .B FUTEX_LOCK_PI
+,
+.B FUTEX_LOCK_PI2
 and
 .B FUTEX_TRYLOCK_PI
 pair with
@@ -1122,6 +1129,27 @@ arguments are ignored.
 .\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 .\"
 .TP
+.BR FUTEX_LOCK_PI2 " (since Linux 5.14.0)"
+.\" commit bf22a6976897977b0a3f1aeba6823c959fc4fdae
+This operation works similar like
+.BR FUTEX_LOCK_PI .
+The only difference is the
+timeout argument.
+.BR FUTEX_LOCK_PI2
+has support for selectable clocks.
+.IP
+If
+.I timeout
+is not NULL, the structure it points to specifies
+an absolute timeout.
+If
+.I timeout
+is NULL, the operation can block indefinitely.
+.IP
+.\"
+.\""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+.\"
+.TP
 .BR FUTEX_TRYLOCK_PI " (since Linux 2.6.18)"
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
 This operation tries to acquire the lock at
@@ -1168,6 +1196,8 @@ arguments are ignored.
 .\" commit c87e2837be82df479a6bae9f155c43516d2feebc
 This operation wakes the top priority waiter that is waiting in
 .B FUTEX_LOCK_PI
+or
+.B FUTEX_LOCK_PI2
 on the futex address provided by the
 .I uaddr
 argument.
@@ -1379,6 +1409,9 @@ Returns the number of waiters that were woken up.
 .B FUTEX_LOCK_PI
 Returns 0 if the futex was successfully locked.
 .TP
+.B FUTEX_LOCK_PI2
+Returns 0 if the futex was successfully locked.
+.TP
 .B FUTEX_TRYLOCK_PI
 Returns 0 if the futex was successfully locked.
 .TP
@@ -1435,6 +1468,7 @@ is not equal to the expected value
 .TP
 .BR EAGAIN
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
 The futex owner thread ID of
@@ -1448,6 +1482,7 @@ Try again.
 .TP
 .BR EDEADLK
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
 The futex word at
@@ -1536,11 +1571,14 @@ The kernel detected an inconsistency between the user-space state at
 .I uaddr
 and the kernel state\(emthat is, it detected a waiter which waits in
 .BR FUTEX_LOCK_PI
+or
+.BR FUTEX_LOCK_PI2
 on
 .IR uaddr .
 .TP
 .B EINVAL
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_UNLOCK_PI )
 The kernel detected an inconsistency between the user-space state at
@@ -1590,6 +1628,8 @@ that is, the kernel detected a waiter which waits on
 .I uaddr
 via
 .BR FUTEX_LOCK_PI
+or
+.BR FUTEX_LOCK_PI2
 (instead of
 .BR FUTEX_WAIT_REQUEUE_PI ).
 .TP
@@ -1618,6 +1658,7 @@ The system-wide limit on the total number of open files has been reached.
 .TP
 .BR ENOMEM
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
 The kernel could not allocate memory to hold state information.
@@ -1634,11 +1675,13 @@ option was specified in
 but the accompanying operation was neither
 .BR FUTEX_WAIT ,
 .BR FUTEX_WAIT_BITSET ,
+.BR FUTEX_WAIT_REQUEUE_PI ,
 nor
-.BR FUTEX_WAIT_REQUEUE_PI .
+.BR FUTEX_LOCK_PI2 .
 .TP
 .BR ENOSYS
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_UNLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI ,
@@ -1649,6 +1692,7 @@ are not supported on some CPU variants.
 .TP
 .BR EPERM
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
 The caller is not allowed to attach itself to the futex at
@@ -1665,6 +1709,7 @@ The caller does not own the lock represented by the futex word.
 .TP
 .BR ESRCH
 .RB ( FUTEX_LOCK_PI ,
+.BR FUTEX_LOCK_PI2 ,
 .BR FUTEX_TRYLOCK_PI ,
 .BR FUTEX_CMP_REQUEUE_PI )
 The thread ID in the futex word at

@@ -629,7 +629,7 @@ More than one of
 .BR MS_PRIVATE ,
 or
 .B MS_UNBINDABLE
-was set in
+was set in the
 .I propagation
 field of
 .IR mount_attr .
@@ -880,8 +880,7 @@ mount_setattr(int dfd, const char *path, unsigned int flags,
 }
 
 static inline int
-open_tree(int dfd, const char *filename,
-                            unsigned int flags)
+open_tree(int dfd, const char *filename, unsigned int flags)
 {
     return syscall(SYS_open_tree, dfd, filename, flags);
 }
@@ -895,13 +894,13 @@ move_mount(int from_dfd, const char *from_pathname,
 }
 
 static const struct option longopts[] = {
-    {"map-mount",       required_argument,  NULL,  'a'},
+    {"map\-mount",       required_argument,  NULL,  'a'},
     {"recursive",       no_argument,        NULL,  'b'},
-    {"read-only",       no_argument,        NULL,  'c'},
-    {"block-setid",     no_argument,        NULL,  'd'},
-    {"block-devices",   no_argument,        NULL,  'e'},
-    {"block-exec",      no_argument,        NULL,  'f'},
-    {"no-access-time",  no_argument,        NULL,  'g'},
+    {"read\-only",       no_argument,        NULL,  'c'},
+    {"block\-setid",     no_argument,        NULL,  'd'},
+    {"block\-devices",   no_argument,        NULL,  'e'},
+    {"block\-exec",      no_argument,        NULL,  'f'},
+    {"no\-access\-time",  no_argument,        NULL,  'g'},
     { NULL,             0,                  NULL,   0 },
 };
 
@@ -914,13 +913,11 @@ static const struct option longopts[] = {
 int
 main(int argc, char *argv[])
 {
-    int fd_userns = \-EBADF;
-    int index = 0;
-    bool recursive = false;
     struct mount_attr *attr = &(struct mount_attr){};
-    const char *source, *target;
-    int fd_tree, new_argc, ret;
-    const char *const *new_argv;
+    int fd_userns = \-EBADF;
+    bool recursive = false;
+    int index = 0;
+    int ret;
 
     while ((ret = getopt_long_only(argc, argv, "",
                                    longopts, &index)) != \-1) {
@@ -934,57 +931,58 @@ main(int argc, char *argv[])
             recursive = true;
             break;
         case 'c':
-            attr->attr_set |= MOUNT_ATTR_RDONLY;
+            attr\->attr_set |= MOUNT_ATTR_RDONLY;
             break;
         case 'd':
-            attr->attr_set |= MOUNT_ATTR_NOSUID;
+            attr\->attr_set |= MOUNT_ATTR_NOSUID;
             break;
         case 'e':
-            attr->attr_set |= MOUNT_ATTR_NODEV;
+            attr\->attr_set |= MOUNT_ATTR_NODEV;
             break;
         case 'f':
-            attr->attr_set |= MOUNT_ATTR_NOEXEC;
+            attr\->attr_set |= MOUNT_ATTR_NOEXEC;
             break;
         case 'g':
-            attr->attr_set |= MOUNT_ATTR_NOATIME;
-            attr->attr_clr |= MOUNT_ATTR__ATIME;
+            attr\->attr_set |= MOUNT_ATTR_NOATIME;
+            attr\->attr_clr |= MOUNT_ATTR__ATIME;
             break;
         default:
             exit_log("Invalid argument specified");
         }
     }
 
-    new_argv = &argv[optind];
-    new_argc = argc \- optind;
+    char **new_argv = &argv[optind];
+    int new_argc = argc \- optind;
     if (new_argc < 2)
         exit_log("Missing source or target mount point\en");
-    source = new_argv[0];
-    target = new_argv[1];
 
-    fd_tree = open_tree(\-EBADF, source,
-                        OPEN_TREE_CLONE |
-                        OPEN_TREE_CLOEXEC |
-                        AT_EMPTY_PATH |
-                        (recursive ? AT_RECURSIVE : 0));
+    const char *source = new_argv[0];
+    const char *target = new_argv[1];
+
+    int fd_tree = open_tree(\-EBADF, source,
+                       OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC |
+                       AT_EMPTY_PATH | (recursive ? AT_RECURSIVE : 0));
     if (fd_tree == \-1)
         exit_log("%m \- Failed to open %s\en", source);
 
     if (fd_userns >= 0) {
-        attr->attr_set  |= MOUNT_ATTR_IDMAP;
-        attr->userns_fd = fd_userns;
+        attr\->attr_set  |= MOUNT_ATTR_IDMAP;
+        attr\->userns_fd = fd_userns;
     }
+
     ret = mount_setattr(fd_tree, "",
-                        AT_EMPTY_PATH |
-                        (recursive ? AT_RECURSIVE : 0),
+                        AT_EMPTY_PATH | (recursive ? AT_RECURSIVE : 0),
                         attr, sizeof(struct mount_attr));
     if (ret == \-1)
-        exit_log("%m - Failed to change mount attributes\en");
+        exit_log("%m \- Failed to change mount attributes\en");
+
     close(fd_userns);
 
     ret = move_mount(fd_tree, "", \-EBADF, target,
                      MOVE_MOUNT_F_EMPTY_PATH);
     if (ret == \-1)
         exit_log("%m \- Failed to attach mount to %s\en", target);
+
     close(fd_tree);
 
     exit(EXIT_SUCCESS);

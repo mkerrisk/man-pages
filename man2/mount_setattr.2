@@ -24,7 +24,7 @@
 .\"
 .TH MOUNT_SETATTR 2 2021-03-22 "Linux" "Linux Programmer's Manual"
 .SH NAME
-mount_setattr \- change mount properties of a mount or mount tree
+mount_setattr \- change properties of a mount or mount tree
 .SH SYNOPSIS
 .nf
 
@@ -94,12 +94,11 @@ The
 .I size
 argument should usually be specified as
 .IR "sizeof(struct mount_attr)" .
-However,
-if the caller does not intend to make use of features that
-got introduced after the initial version of
+However, if the caller is using a kernel that supports an extended
 .IR "struct mount_attr" ,
-it is possible to pass
-the size of the initial struct together with the larger struct.
+but the caller does not intend to make use of these features,
+they can pass the size of an earlier
+version of the structure together with the extended structure.
 This allows the kernel to not copy later parts of the struct
 that aren't used anyway.
 With each extension that changes the size of
@@ -171,7 +170,8 @@ in the
 field,
 and then set the flags specified in the
 .I attr_set
-field:
+field.
+For example, these settings:
 .PP
 .in +4n
 .EX
@@ -179,6 +179,13 @@ struct mount_attr attr = {
     .attr_clr = MOUNT_ATTR_NOEXEC | MOUNT_ATTR_NODEV,
     .attr_set = MOUNT_ATTR_RDONLY | MOUNT_ATTR_NOSUID,
 };
+.EE
+.in
+.PP
+are equivalent to the following steps:
+.PP
+.in +4n
+.EX
 unsigned int current_mnt_flags = mnt->mnt_flags;
 
 /*
@@ -197,7 +204,7 @@ mnt->mnt_flags = current_mnt_flags;
 .EE
 .in
 .PP
-As a rsult of this change, the mount or mount tree (a) is read-only;
+As a result of this change, the mount or mount tree (a) is read-only;
 (b) blocks the execution of set-user-ID and set-group-ID programs;
 (c) allows execution of programs; and (d) allows access to devices.
 .PP
@@ -479,14 +486,13 @@ which exceeds
 .B EINVAL
 A valid file descriptor value was specified in
 .IR userns_fd ,
-but the file descriptor wasn't a namespace file descriptor
-or did not refer to a user namespace.
+but the file descriptor did not refer to a user namespace.
 .TP
 .B EINVAL
 The underlying filesystem does not support ID-mapped mounts.
 .TP
 .B EINVAL
-The mount that is to be ID mapped is not a detached/anonymous mount;
+The mount that is to be ID mapped is not a detached mount;
 that is, the mount is already visible in the filesystem.
 .TP
 .B EINVAL
@@ -557,7 +563,7 @@ A valid file descriptor value was specified in
 but the file descriptor refers to the initial user namespace.
 .TP
 .B EPERM
-An already ID-mapped mount was supposed to be ID mapped.
+An attempt was made to add an ID mapping to a mount that is already ID mapped.
 .TP
 .B EPERM
 The caller does not have
@@ -578,8 +584,8 @@ Creating an ID-mapped mount makes it possible to
 change the ownership of all files located under a mount.
 Thus, ID-mapped mounts make it possible to
 change ownership in a temporary and localized way.
-It is a localized change because
-ownership changes are restricted to a specific mount.
+It is a localized change because the ownership changes are
+visible only via a specific mount.
 All other users and locations where the filesystem is exposed are unaffected.
 And it is a temporary change because
 ownership changes are tied to the lifetime of the mount.
@@ -616,7 +622,8 @@ The caller must have the
 .B CAP_SYS_ADMIN
 capability in the initial user namespace.
 .IP \(bu
-The filesystem must be mounted in the initial user namespace.
+The filesystem must be mounted in a mount namespace
+that is owned by the initial user namespace.
 .IP \(bu
 The underlying filesystem must support ID-mapped mounts.
 Currently, the
@@ -630,7 +637,7 @@ with more filesystems being actively worked on.
 The mount must not already be ID-mapped.
 This also implies that the ID mapping of a mount cannot be altered.
 .IP \(bu
-The mount must be a detached/anonymous mount;
+The mount must be a detached mount;
 that is,
 it must have been created by calling
 .BR open_tree (2)
@@ -641,12 +648,13 @@ flag and it must not already have been visible in the filesystem.
 ID mappings can be created for user IDs, group IDs, and project IDs.
 An ID mapping is essentially a mapping of a range of user or group IDs into
 another or the same range of user or group IDs.
-ID mappings are usually written as three numbers
-either separated by white space or a full stop.
+ID mappings are written to map files as three numbers
+separated by white space.
 The first two numbers specify the starting user or group ID
 in each of the two user namespaces.
 The third number specifies the range of the ID mapping.
-For example, a mapping for user IDs such as 1000:1001:1 would indicate that
+For example,
+a mapping for user IDs such as "1000\ 1001\ 1" would indicate that
 user ID 1000 in the caller's user namespace is mapped to
 user ID 1001 in its ancestor user namespace.
 Since the map range is 1,
@@ -677,7 +685,8 @@ for the sake of ID mapping a mount.
 ID-mapped mounts can be useful in the following
 and a variety of other scenarios:
 .IP \(bu 3
-Sharing files between multiple users or multiple machines,
+Sharing files or filesystems
+between multiple users or multiple machines,
 especially in complex scenarios.
 For example,
 ID-mapped mounts are used to implement portable home directories in
@@ -689,7 +698,8 @@ where they are assigned different user IDs and group IDs.
 This effectively makes it possible to
 assign random user IDs and group IDs at login time.
 .IP \(bu
-Sharing files from the host with unprivileged containers.
+Sharing files or filesystems
+from the host with unprivileged containers.
 This allows a user to avoid having to change ownership permanently through
 .BR chown (2).
 .IP \(bu
@@ -700,7 +710,8 @@ Especially for large root filesystems, using
 .BR chown (2)
 can be prohibitively expensive.
 .IP \(bu
-Sharing files between containers with non-overlapping ID mappings.
+Sharing files or filesystems
+between containers with non-overlapping ID mappings.
 .IP \(bu
 Implementing discretionary access (DAC) permission checking
 for filesystems lacking a concept of ownership.
@@ -729,7 +740,7 @@ It simply changes the ownership to the specified user ID and group ID.
 .IP \(bu
 Locally and temporarily restricted ownership changes.
 ID-mapped mounts make it possible to change ownership locally,
-restricting it to specific mounts,
+restricting the ownership changes to specific mounts,
 and temporarily as the ownership changes only apply as long as the mount exists.
 By contrast,
 changing ownership via the
@@ -899,7 +910,7 @@ int
 main(int argc, char *argv[])
 {
     struct mount_attr *attr = &(struct mount_attr){};
-    int fd_userns = \-EBADF;
+    int fd_userns = \-1;
     bool recursive = false;
     int index = 0;
     int ret;

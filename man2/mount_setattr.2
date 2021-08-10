@@ -363,173 +363,7 @@ it is invalid to specify
 in
 .IR attr_clr .
 .IP
-Creating an ID-mapped mount makes it possible to
-change the ownership of all files located under a mount.
-Thus, ID-mapped mounts make it possible to
-change ownership in a temporary and localized way.
-It is a localized change because
-ownership changes are restricted to a specific mount.
-All other users and locations where the filesystem is exposed are unaffected.
-And it is a temporary change because
-ownership changes are tied to the lifetime of the mount.
-.IP
-Whenever callers interact with the filesystem through an ID-mapped mount,
-the ID mapping of the mount will be applied to
-user and group IDs associated with filesystem objects.
-This encompasses the user and group IDs associated with inodes
-and also the following
-.BR xattr (7)
-keys:
-.RS
-.IP \(bu 3
-.IR security.capability ,
-whenever filesystem capabilities
-are stored or returned in the
-.B VFS_CAP_REVISION_3
-format,
-which stores a root user ID alongside the capabilities
-(see
-.BR capabilities (7)).
-.IP \(bu
-.I system.posix_acl_access
-and
-.IR system.posix_acl_default ,
-whenever user IDs or group IDs are stored in
-.B ACL_USER
-or
-.B ACL_GROUP
-entries.
-.RE
-.IP
-The following conditions must be met in order to create an ID-mapped mount:
-.RS
-.IP \(bu 3
-The caller must have the
-.B CAP_SYS_ADMIN
-capability in the initial user namespace.
-.IP \(bu
-The filesystem must be mounted in the initial user namespace.
-.IP \(bu
-The underlying filesystem must support ID-mapped mounts.
-Currently,
-.BR xfs (5),
-.BR ext4 (5),
-and
-.B FAT
-filesystems support ID-mapped mounts
-with more filesystems being actively worked on.
-.IP \(bu
-The mount must not already be ID-mapped.
-This also implies that the ID mapping of a mount cannot be altered.
-.IP \(bu
-The mount must be a detached/anonymous mount;
-that is,
-it must have been created by calling
-.BR open_tree (2)
-with the
-.B OPEN_TREE_CLONE
-flag and it must not already have been visible in the filesystem.
-.RE
-.IP
-ID mappings can be created for user IDs, group IDs, and project IDs.
-An ID mapping is essentially a mapping of a range of user or group IDs into
-another or the same range of user or group IDs.
-ID mappings are usually written as three numbers
-either separated by white space or a full stop.
-The first two numbers specify the starting user or group ID
-in each of the two user namespaces.
-The third number specifies the range of the ID mapping.
-For example, a mapping for user IDs such as 1000:1001:1 would indicate that
-user ID 1000 in the caller's user namespace is mapped to
-user ID 1001 in its ancestor user namespace.
-Since the map range is 1,
-only user ID 1000 is mapped.
-.IP
-It is possible to specify up to 340 ID mappings for each ID mapping type.
-If any user IDs or group IDs are not mapped,
-all files owned by that unmapped user or group ID will appear as
-being owned by the overflow user ID or overflow group ID respectively.
-.IP
-Further details and instructions for setting up ID mappings can be found in the
-.BR user_namespaces (7)
-man page.
-.IP
-In the common case, the user namespace passed in
-.I userns_fd
-together with
-.B MOUNT_ATTR_IDMAP
-in
-.I attr_set
-to create an ID-mapped mount will be the user namespace of a container.
-In other scenarios it will be a dedicated user namespace associated with
-a user's login session as is the case for portable home directories in
-.BR systemd-homed.service (8)).
-It is also perfectly fine to create a dedicated user namespace
-for the sake of ID mapping a mount.
-.IP
-ID-mapped mounts can be useful in the following
-and a variety of other scenarios:
-.RS
-.IP \(bu 3
-Sharing files between multiple users or multiple machines,
-especially in complex scenarios.
-For example,
-ID-mapped mounts are used to implement portable home directories in
-.BR systemd-homed.service (8),
-where they allow users to move their home directory
-to an external storage device
-and use it on multiple computers
-where they are assigned different user IDs and group IDs.
-This effectively makes it possible to
-assign random user IDs and group IDs at login time.
-.IP \(bu
-Sharing files from the host with unprivileged containers.
-This allows a user to avoid having to change ownership permanently through
-.BR chown (2).
-.IP \(bu
-ID mapping a container's root filesystem.
-Users don't need to change ownership permanently through
-.BR chown (2).
-Especially for large root filesystems, using
-.BR chown (2)
-can be prohibitively expensive.
-.IP \(bu
-Sharing files between containers with non-overlapping ID mappings.
-.IP \(bu
-Implementing discretionary access (DAC) permission checking
-for filesystems lacking a concept of ownership.
-.IP \(bu
-Efficiently changing ownership on a per-mount basis.
-In contrast to
-.BR chown (2),
-changing ownership of large sets of files is instantaneous with
-ID-mapped mounts.
-This is especially useful when ownership of
-an entire root filesystem of a virtual machine or container
-is to be changed as mentioned above.
-With ID-mapped mounts,
-a single
-.BR mount_setattr ()
-system call will be sufficient to change the ownership of all files.
-.IP \(bu
-Taking the current ownership into account.
-ID mappings specify precisely
-what a user or group ID is supposed to be mapped to.
-This contrasts with the
-.BR chown (2)
-system call which cannot by itself
-take the current ownership of the files it changes into account.
-It simply changes the ownership to the specified user ID and group ID.
-.IP \(bu
-Locally and temporarily restricted ownership changes.
-ID-mapped mounts make it possible to change ownership locally,
-restricting it to specific mounts,
-and temporarily as the ownership changes only apply as long as the mount exists.
-By contrast,
-changing ownership via the
-.BR chown (2)
-system call changes the ownership globally and permanently.
-.RE
+For further details, see the subsection "ID-mapped mounts" under NOTES.
 .PP
 The
 .I propagation
@@ -754,6 +588,169 @@ first appeared in Linux 5.12.
 .BR mount_setattr ()
 is Linux-specific.
 .SH NOTES
+.SS ID-mapped mounts
+Creating an ID-mapped mount makes it possible to
+change the ownership of all files located under a mount.
+Thus, ID-mapped mounts make it possible to
+change ownership in a temporary and localized way.
+It is a localized change because
+ownership changes are restricted to a specific mount.
+All other users and locations where the filesystem is exposed are unaffected.
+And it is a temporary change because
+ownership changes are tied to the lifetime of the mount.
+.PP
+Whenever callers interact with the filesystem through an ID-mapped mount,
+the ID mapping of the mount will be applied to
+user and group IDs associated with filesystem objects.
+This encompasses the user and group IDs associated with inodes
+and also the following
+.BR xattr (7)
+keys:
+.IP \(bu 3
+.IR security.capability ,
+whenever filesystem capabilities
+are stored or returned in the
+.B VFS_CAP_REVISION_3
+format,
+which stores a root user ID alongside the capabilities
+(see
+.BR capabilities (7)).
+.IP \(bu
+.I system.posix_acl_access
+and
+.IR system.posix_acl_default ,
+whenever user IDs or group IDs are stored in
+.B ACL_USER
+or
+.B ACL_GROUP
+entries.
+.PP
+The following conditions must be met in order to create an ID-mapped mount:
+.IP \(bu 3
+The caller must have the
+.B CAP_SYS_ADMIN
+capability in the initial user namespace.
+.IP \(bu
+The filesystem must be mounted in the initial user namespace.
+.IP \(bu
+The underlying filesystem must support ID-mapped mounts.
+Currently,
+.BR xfs (5),
+.BR ext4 (5),
+and
+.B FAT
+filesystems support ID-mapped mounts
+with more filesystems being actively worked on.
+.IP \(bu
+The mount must not already be ID-mapped.
+This also implies that the ID mapping of a mount cannot be altered.
+.IP \(bu
+The mount must be a detached/anonymous mount;
+that is,
+it must have been created by calling
+.BR open_tree (2)
+with the
+.B OPEN_TREE_CLONE
+flag and it must not already have been visible in the filesystem.
+.PP
+ID mappings can be created for user IDs, group IDs, and project IDs.
+An ID mapping is essentially a mapping of a range of user or group IDs into
+another or the same range of user or group IDs.
+ID mappings are usually written as three numbers
+either separated by white space or a full stop.
+The first two numbers specify the starting user or group ID
+in each of the two user namespaces.
+The third number specifies the range of the ID mapping.
+For example, a mapping for user IDs such as 1000:1001:1 would indicate that
+user ID 1000 in the caller's user namespace is mapped to
+user ID 1001 in its ancestor user namespace.
+Since the map range is 1,
+only user ID 1000 is mapped.
+.PP
+It is possible to specify up to 340 ID mappings for each ID mapping type.
+If any user IDs or group IDs are not mapped,
+all files owned by that unmapped user or group ID will appear as
+being owned by the overflow user ID or overflow group ID respectively.
+.PP
+Further details and instructions for setting up ID mappings can be found in the
+.BR user_namespaces (7)
+man page.
+.PP
+In the common case, the user namespace passed in
+.I userns_fd
+together with
+.B MOUNT_ATTR_IDMAP
+in
+.I attr_set
+to create an ID-mapped mount will be the user namespace of a container.
+In other scenarios it will be a dedicated user namespace associated with
+a user's login session as is the case for portable home directories in
+.BR systemd-homed.service (8)).
+It is also perfectly fine to create a dedicated user namespace
+for the sake of ID mapping a mount.
+.PP
+ID-mapped mounts can be useful in the following
+and a variety of other scenarios:
+.IP \(bu 3
+Sharing files between multiple users or multiple machines,
+especially in complex scenarios.
+For example,
+ID-mapped mounts are used to implement portable home directories in
+.BR systemd-homed.service (8),
+where they allow users to move their home directory
+to an external storage device
+and use it on multiple computers
+where they are assigned different user IDs and group IDs.
+This effectively makes it possible to
+assign random user IDs and group IDs at login time.
+.IP \(bu
+Sharing files from the host with unprivileged containers.
+This allows a user to avoid having to change ownership permanently through
+.BR chown (2).
+.IP \(bu
+ID mapping a container's root filesystem.
+Users don't need to change ownership permanently through
+.BR chown (2).
+Especially for large root filesystems, using
+.BR chown (2)
+can be prohibitively expensive.
+.IP \(bu
+Sharing files between containers with non-overlapping ID mappings.
+.IP \(bu
+Implementing discretionary access (DAC) permission checking
+for filesystems lacking a concept of ownership.
+.IP \(bu
+Efficiently changing ownership on a per-mount basis.
+In contrast to
+.BR chown (2),
+changing ownership of large sets of files is instantaneous with
+ID-mapped mounts.
+This is especially useful when ownership of
+an entire root filesystem of a virtual machine or container
+is to be changed as mentioned above.
+With ID-mapped mounts,
+a single
+.BR mount_setattr ()
+system call will be sufficient to change the ownership of all files.
+.IP \(bu
+Taking the current ownership into account.
+ID mappings specify precisely
+what a user or group ID is supposed to be mapped to.
+This contrasts with the
+.BR chown (2)
+system call which cannot by itself
+take the current ownership of the files it changes into account.
+It simply changes the ownership to the specified user ID and group ID.
+.IP \(bu
+Locally and temporarily restricted ownership changes.
+ID-mapped mounts make it possible to change ownership locally,
+restricting it to specific mounts,
+and temporarily as the ownership changes only apply as long as the mount exists.
+By contrast,
+changing ownership via the
+.BR chown (2)
+system call changes the ownership globally and permanently.
+.\"
 .SS Extensibility
 In order to allow for future extensibility,
 .BR mount_setattr ()

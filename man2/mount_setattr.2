@@ -515,7 +515,8 @@ being set.
 The mount is located outside the caller's mount namespace.
 .TP
 .B EINVAL
-The underlying filesystem is mounted in a user namespace.
+The underlying filesystem has been mounted in a mount namespace that is
+owned by a noninitial user namespace
 .TP
 .B ENOENT
 A pathname was empty or had a nonexistent component.
@@ -525,16 +526,21 @@ When changing mount propagation to
 .BR MS_SHARED ,
 a new peer group ID needs to be allocated for all mounts without a peer group
 ID set.
-Allocation of this peer group ID has failed.
+This allocation failed because there was not
+enough memory to allocate the relevant internal structures.
 .TP
 .B ENOSPC
 When changing mount propagation to
 .BR MS_SHARED ,
 a new peer group ID needs to be allocated for all mounts without a peer group
 ID set.
-Allocation of this peer group ID can fail.
-Note that technically further error codes are possible that are specific to the
-ID allocation implementation used.
+This allocation failed because
+the kernel has run out of IDs.
+.\" Christian Bruner: i.e. someone has somehow managed to
+.\" allocate so many peer groups and managed to keep the kernel running
+.\" (???) that the ida has ran out of ids
+.\" Note that technically further error codes are possible that are
+.\" specific to the ID allocation implementation used.
 .TP
 .B EPERM
 One of the mounts had at least one of
@@ -550,8 +556,9 @@ Mount attributes become locked on a mount if:
 .RS
 .IP \(bu 3
 A new mount or mount tree is created causing mount propagation across user
-namespaces.
-The kernel will lock the aforementioned flags to protect these sensitive
+namespaces
+(i.e., propagation to a mount namespace owned by a different user namespace).
+The kernel will lock the aforementioned flags to prevent these sensitive
 properties from being altered.
 .IP \(bu
 A new mount and user namespace pair is created.
@@ -562,8 +569,14 @@ in
 .BR clone (2),
 or
 .BR clone3 (2).
-The aforementioned flags become locked to protect user namespaces from altering
-sensitive mount properties.
+The aforementioned flags become locked in the new mount namespace
+to prevent sensitive mount properties from being altered.
+Since the newly created mount namespace will be owned by the
+newly created user namespace,
+a calling process that is privileged in the new
+user namespace would\(emin the absence of such locking\(embe
+able to alter sensitive mount properties (e.g., to remount a mount
+that was marked read-only as read-write in the new mount namespace).
 .RE
 .TP
 .B EPERM

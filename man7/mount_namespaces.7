@@ -1,4 +1,4 @@
-.\" Copyright (c) 2016, 2019 by Michael Kerrisk <mtk.manpages@gmail.com>
+.\" Copyright (c) 2016, 2019, 2021 by Michael Kerrisk <mtk.manpages@gmail.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -107,6 +107,62 @@ operation brings across all of the mounts from the original
 mount namespace as a single unit,
 and recursive mounts that propagate between
 mount namespaces propagate as a single unit.)
+.IP
+In this context, "may not be separated" means that the mounts
+are locked so that they may not be individually unmounted.
+Consider the following example:
+.IP
+.RS
+.in +4n
+.EX
+$ \fBsudo mkdir /mnt/dir\fP
+$ \fBsudo sh \-c \(aqecho "aaaaaa" > /mnt/dir/a\(aq\fP
+$ \fBsudo mount \-\-bind \-o ro /some/path /mnt/dir\fP
+$ \fBls /mnt/dir\fP   # Former contents of directory are invisible
+.EE
+.in
+.RE
+.IP
+The above steps, performed in a more privileged user namespace,
+have created a (read-only) bind mount that
+obscures the contents of the directory
+.IR /mnt/dir .
+For security reasons, it should not be possible to unmount
+that mount in a less privileged user namespace,
+since that would reveal the contents of the directory
+.IR /mnt/dir .
+.IP
+Suppose we now create a new mount namespace
+owned by a (new) subordinate user namespace.
+The new mount namespace will inherit copies of all of the mounts
+from the previous mount namespace.
+However, those mounts will be locked because the new mount namespace
+is owned by a less privileged user namespace.
+Consequently, an attempt to unmount the mount fails:
+.IP
+.RS
+.in +4n
+.EX
+$ \fBsudo unshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
+               \fBstrace \-o /tmp/log \e\fP
+               \fBumount /mnt/dir\fP
+umount: /mnt/dir: not mounted.
+$ \fBgrep \(aq^umount\(aq /tmp/log\fP
+umount2("/mnt/dir", 0)     = \-1 EINVAL (Invalid argument)
+.EE
+.in
+.RE
+.IP
+The error message from
+.BR mount (8)
+is a little confusing, but the
+.BR strace (1)
+output reveals that the underlying
+.BR umount2 (2)
+system call failed with the error
+.BR EINVAL ,
+which is the error that the kernel returns to indicate that
+the mount is locked.
 .IP *
 The
 .BR mount (2)
@@ -128,6 +184,23 @@ settings become locked
 when propagated from a more privileged to
 a less privileged mount namespace,
 and may not be changed in the less privileged mount namespace.
+.IP
+This point can be illustrated by a continuation of the previous example.
+In that example, the bind mount was marked as read-only.
+For security reasons,
+it should not be possible to make the mount writable in
+a less privileged namespace, and indeed the kernel prevents this,
+as illustrated by the following:
+.IP
+.RS
+.in +4n
+.EX
+$ \fBsudo unshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
+               \fBmount \-o remount,rw /mnt/dir\fP
+mount: /mnt/dir: permission denied.
+.EE
+.in
+.RE
 .IP *
 .\" (As of 3.18-rc1 (in Al Viro's 2014-08-30 vfs.git#for-next tree))
 A file or directory that is a mount point in one namespace that is not

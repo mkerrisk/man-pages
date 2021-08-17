@@ -164,6 +164,119 @@ system call failed with the error
 which is the error that the kernel returns to indicate that
 the mount is locked.
 .IP *
+Following on from the previous point,
+note that it is possible to unmount an entire
+tree of mounts that propagated as a unit into a mount namespace
+that is owned by a less privileged user namespace,
+as illustrated in the following example.
+.IP
+First, we create new user and mount namespaces using
+.BR unshare (1).
+In the new mount namespace,
+the propagation type of all mounts is set to private.
+We then create a shared bind mount at
+.IR /mnt ,
+and a small hierarchy of mount points underneath that mount point.
+.IP
+.in +4n
+.EX
+$ \fBPS1=\(aqns1# \(aq sudo unshare \-\-user \-\-map\-root\-user \e\fP
+                       \fB\-\-mount \-\-propagation private bash\fP
+ns1# \fBecho $$\fP        # We need the PID of this shell later
+778501
+ns1# \fBmount \-\-make\-shared \-\-bind /mnt /mnt\fP
+ns1# \fBmkdir /mnt/x\fP
+ns1# \fBmount \-\-make\-private \-t tmpfs none /mnt/x\fP
+ns1# \fBmkdir /mnt/x/y\fP
+ns1# \fBmount \-\-make\-private \-t tmpfs none /mnt/x/y\fP
+ns1# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
+986 83 8:5 /mnt /mnt rw,relatime shared:344
+989 986 0:56 / /mnt/x rw,relatime
+990 989 0:57 / /mnt/x/y rw,relatime
+.EE
+.in
+.IP
+Continuing in the same shell session,
+we then create a second shell in a new mount namespace and a new subordinate
+(and thus less privileged) user namespace and
+check the state of the propagated mount points rooted at
+.IR /mnt .
+.IP
+.in +4n
+.EX
+ns1# \fBPS1=\(aqns2# unshare \-\-user \-\-map\-root\-user \e\fP
+                       \fB\-\-mount \-\-propagation unchanged bash\fP
+ns2# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
+1239 1204 8:5 /mnt /mnt rw,relatime master:344
+1240 1239 0:56 / /mnt/x rw,relatime
+1241 1240 0:57 / /mnt/x/y rw,relatime
+.EE
+.in
+.IP
+Of note in the above output is that the propagation type of the mount point
+.I /mnt
+has been reduced to slave, as explained near the start of this subsection.
+This means that submount events will propagate from the master
+.I /mnt
+in "ns1", but propagation will not occur in the opposite direction.
+.IP
+From a separate terminal window, we then use
+.BR nsenter (1)
+to enter the mount and user namespaces corresponding to "ns1".
+In that terminal window, we then recursively bind mount
+.IR /mnt/x
+at the location
+.IR /mnt/ppp .
+.IP
+.in +4n
+.EX
+$ \fBPS1=\(aqns3# \(aq sudo nsenter \-t 778501 \-\-user \-\-mount\fP
+ns3# \fBmount \-\-rbind \-\-make\-private /mnt/x /mnt/ppp\fP
+ns3# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
+986 83 8:5 /mnt /mnt rw,relatime shared:344
+989 986 0:56 / /mnt/x rw,relatime
+990 989 0:57 / /mnt/x/y rw,relatime
+1242 986 0:56 / /mnt/ppp rw,relatime
+1243 1242 0:57 / /mnt/ppp/y rw,relatime shared:518
+.EE
+.in
+.IP
+Because the propagation type of the parent mount,
+.IR /mnt ,
+was shared, the recursive bind mount propagated a small tree of
+mounts under the slave mount
+.I /mnt
+into "ns2",
+as can be verified by executing the following command in that shell session:
+.IP
+.in +4n
+.EX
+ns2# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
+1239 1204 8:5 /mnt /mnt rw,relatime master:344
+1240 1239 0:56 / /mnt/x rw,relatime
+1241 1240 0:57 / /mnt/x/y rw,relatime
+1244 1239 0:56 / /mnt/ppp rw,relatime
+1245 1244 0:57 / /mnt/ppp/y rw,relatime master:518
+.EE
+.in
+.IP
+While it is not possible to unmount a part of that propagated subtree
+.RI ( /mnt/ppp/y ),
+it is possible to unmount the entire tree,
+as shown by the following commands:
+.IP
+.in +4n
+.EX
+ns2# \fBumount /mnt/ppp/y\fP
+umount: /mnt/ppp/y: not mounted.
+ns2# \fBumount \-l /mnt/ppp | sed \(aqs/ \- .*//\(aq\fP      # Succeeds...
+ns2# \fBgrep /mnt /proc/self/mountinfo\fP
+1239 1204 8:5 /mnt /mnt rw,relatime master:344
+1240 1239 0:56 / /mnt/x rw,relatime
+1241 1240 0:57 / /mnt/x/y rw,relatime
+.EE
+.in
+.IP *
 The
 .BR mount (2)
 flags

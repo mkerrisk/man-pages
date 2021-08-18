@@ -1081,14 +1081,14 @@ Consider the following example:
 .EX
 $ \fBsudo mkdir /mnt/dir\fP
 $ \fBsudo sh \-c \(aqecho "aaaaaa" > /mnt/dir/a\(aq\fP
-$ \fBsudo mount \-\-bind \-o ro /some/path /mnt/dir\fP
+$ \fBsudo mount \-\-bind /some/path /mnt/dir\fP
 $ \fBls /mnt/dir\fP   # Former contents of directory are invisible
 .EE
 .in
 .RE
 .IP
 The above steps, performed in a more privileged mount namespace,
-have created a (read-only) bind mount that
+have created a bind mount that
 obscures the contents of the directory
 .IR /mnt/dir .
 For security reasons, it should not be possible to unmount
@@ -1097,12 +1097,13 @@ since that would reveal the contents of the directory
 .IR /mnt/dir .
 .IP
 Suppose we now create a new mount namespace
-owned by a (new) subordinate user namespace.
+owned by a new user namespace.
 The new mount namespace will inherit copies of all of the mounts
 from the previous mount namespace.
 However, those mounts will be locked because the new mount namespace
-is owned by a less privileged mount namespace.
-Consequently, an attempt to unmount the mount fails:
+is less privileged.
+Consequently, an attempt to unmount the mount fails as show
+in the following step:
 .IP
 .RS
 .in +4n
@@ -1167,7 +1168,7 @@ check the state of the propagated mounts rooted at
 .IP
 .in +4n
 .EX
-ns1# \fBPS1=\(aqns2# unshare \-\-user \-\-map\-root\-user \e\fP
+ns1# \fBPS1=\(aqns2# \(aq unshare \-\-user \-\-map\-root\-user \e\fP
                        \fB\-\-mount \-\-propagation unchanged bash\fP
 ns2# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
 1239 1204 8:5 /mnt /mnt rw,relatime master:344
@@ -1223,7 +1224,7 @@ ns2# \fBgrep /mnt /proc/self/mountinfo | sed \(aqs/ \- .*//\(aq\fP
 .EE
 .in
 .IP
-While it is not possible to unmount a part of that propagated subtree
+While it is not possible to unmount a part of the propagated subtree
 .RI ( /mnt/ppp/y )
 in "ns2",
 it is possible to unmount the entire tree,
@@ -1262,18 +1263,17 @@ when propagated from a more privileged to
 a less privileged mount namespace,
 and may not be changed in the less privileged mount namespace.
 .IP
-This point can be illustrated by a variation on an earlier example.
-In that example, the bind mount was marked as read-only.
+This point is illustrated in the following example where,
+in a more privileged mount namespace,
+we create a bind mount that is marked as read-only.
 For security reasons,
 it should not be possible to make the mount writable in
-a less privileged namespace, and indeed the kernel prevents this,
-as illustrated by the following:
+a less privileged mount namespace, and indeed the kernel prevents this:
 .IP
 .RS
 .in +4n
 .EX
 $ \fBsudo mkdir /mnt/dir\fP
-$ \fBsudo sh \-c \(aqecho "aaaaaa" > /mnt/dir/a\(aq\fP
 $ \fBsudo mount \-\-bind \-o ro /some/path /mnt/dir\fP
 $ \fBsudo unshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
                \fBmount \-o remount,rw /mnt/dir\fP

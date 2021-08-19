@@ -1079,22 +1079,21 @@ Consider the following example:
 .RS
 .in +4n
 .EX
-$ \fBsudo mkdir /mnt/dir\fP
-$ \fBsudo sh \-c \(aqecho "aaaaaa" > /mnt/dir/a\(aq\fP
-$ \fBsudo mount \-\-bind /some/path /mnt/dir\fP
-$ \fBls /mnt/dir\fP   # Former contents of directory are invisible
+$ \fBsudo sh\fP
+# \fBmount \-\-bind /dev/null /etc/shadow\fP
+# \fBcat /etc/shadow\fP       # Produces no output
 .EE
 .in
 .RE
 .IP
 The above steps, performed in a more privileged mount namespace,
 have created a bind mount that
-obscures the contents of the directory
-.IR /mnt/dir .
+obscures the contents of the shadow password file,
+.IR /etc/shadow .
 For security reasons, it should not be possible to unmount
 that mount in a less privileged mount namespace,
-since that would reveal the contents of the directory
-.IR /mnt/dir .
+since that would reveal the contents of
+.IR /etc/shadow .
 .IP
 Suppose we now create a new mount namespace
 owned by a new user namespace.
@@ -1108,12 +1107,12 @@ in the following step:
 .RS
 .in +4n
 .EX
-$ \fBsudo unshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
+# \fBunshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
                \fBstrace \-o /tmp/log \e\fP
                \fBumount /mnt/dir\fP
-umount: /mnt/dir: not mounted.
-$ \fBgrep \(aq^umount\(aq /tmp/log\fP
-umount2("/mnt/dir", 0)     = \-1 EINVAL (Invalid argument)
+umount: /etc/shadow: not mounted.
+# \fBgrep \(aq^umount\(aq /tmp/log\fP
+umount2("/etc/shadow", 0)     = \-1 EINVAL (Invalid argument)
 .EE
 .in
 .RE
@@ -1135,13 +1134,20 @@ less privileged mount namespace:
 .IP
 .in +4n
 .EX
-$ \fBls /home\fP    # Show directory to be bind mounted at /mnt/dir
-lost+found/  cecilia/
-$ \fBsudo unshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
-        \fBsh \-c \(aqmount \-\-bind /home /mnt/dir; ls /mnt/dir\(aq\fP
-lost+found  cecilia
+# \fBecho \(aqaaaaa\(aq > /tmp/a\fP    # File to mount onto /etc/shadow
+# \fBunshare \-\-user \-\-map\-root\-user \-\-mount \e\fP
+    \fBsh \-c \(aqmount \-\-bind /tmp/a /etc/shadow; cat /etc/shadow\(aq\fP
+aaaaa
+# \fBumount /etc/shadow\fP
 .EE
 .in
+.IP
+The final
+.BR umount (8)
+command above, which is performed in the initial mount namespace,
+makes the original
+.I /etc/shadow
+file once more visible in that namespace.
 .IP *
 Following on from the previous point,
 note that it is possible to unmount an entire subtree of mounts that
